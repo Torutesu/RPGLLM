@@ -64,6 +64,9 @@ export const ja: Strings = {
   continueWithApple: "Appleで続ける",
   continueWithGoogle: "Googleで続ける",
   adsToday: "本日の広告",
+  freePlan: "無料プラン",
+  on: "オン",
+  off: "オフ",
   // S1 settings / legal / account
   settings: "設定",
   account: "アカウント",

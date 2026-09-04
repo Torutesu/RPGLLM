@@ -53,10 +53,7 @@ export type AppState = {
   streaming: boolean;
   /** S1-2 blocked characters (SCR-033 → Safety). Their posts never render. */
   blocked: BlockedCharacter[];
-  /**
-   * S1-6 analytics consent. `MeResZ` carries no `analyticsConsent`, so this mirrors the server
-   * default (false) until the user toggles it — see build-notes "Agent G".
-   */
+  /** S1-6 analytics consent, seeded from `/v1/me` on every refresh and updated by the toggle. */
   analyticsConsent: boolean;
 };
 
@@ -220,7 +217,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const refreshMe = useCallback(async (): Promise<Me | null> => {
     try {
       const me = await api.me();
-      patch({ me, locale: me.user.locale, needsAgeGate: me.user.birthYear === null });
+      patch({ me, locale: me.user.locale, needsAgeGate: me.user.birthYear === null, analyticsConsent: me.user.analyticsConsent });
       return me;
     } catch (e) {
       if (e instanceof ApiError && e.status === 401) patch({ me: null, token: null });

@@ -63,6 +63,9 @@ export const en = {
   continueWithApple: "Continue with Apple",
   continueWithGoogle: "Continue with Google",
   adsToday: "ads today",
+  freePlan: "Free",
+  on: "On",
+  off: "Off",
   // S1 settings / legal / account
   settings: "Settings",
   account: "Account",

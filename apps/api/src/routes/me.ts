@@ -18,7 +18,11 @@ export function meRoutes(): Hono<AppEnv> {
       include: { world: true },
     });
     return ok({
-      user: { id: user.id, locale: user.locale, isMinor: user.isMinor, birthYear: user.birthYear > 0 ? user.birthYear : null },
+      user: {
+        id: user.id, locale: user.locale, isMinor: user.isMinor,
+        birthYear: user.birthYear > 0 ? user.birthYear : null,
+        email: user.email, analyticsConsent: user.analyticsConsent,
+      },
       wallet: toApiWallet(wallet, { dailyMax, adsEnabled: !adFreeFor(subscription), adPersonalized: !user.isMinor }),
       subscription: toApiSubscription(subscription),
       persona: persona ? toApiPersona(persona, persona.world.slug) : null,

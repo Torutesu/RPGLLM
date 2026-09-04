@@ -38,7 +38,13 @@ export const PersonaZ = z.object({
   level: z.number().int(), xp: z.number().int(), actionCount: z.number().int(),
 });
 export const MeResZ = z.object({
-  user: z.object({ id: z.string(), locale: LocaleZ, isMinor: z.boolean(), birthYear: z.number().int().nullable() }),
+  user: z.object({
+    id: z.string(), locale: LocaleZ, isMinor: z.boolean(), birthYear: z.number().int().nullable(),
+    /** SCR-033 shows the signed-in address; null for providers that do not give one. */
+    email: z.string().nullable().default(null),
+    /** S1-6 current consent, so the settings switch starts from the server value rather than a default. */
+    analyticsConsent: z.boolean().default(false),
+  }),
   wallet: WalletZ, subscription: SubscriptionZ.nullable(), persona: PersonaZ.nullable(),
 });
 

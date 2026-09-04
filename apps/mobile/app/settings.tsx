@@ -157,7 +157,7 @@ export default function SettingsScreen() {
       <HeaderBar title={t("settings")} onBack={back} />
       <ScrollView testID={T.settings} contentContainerStyle={{ padding: spacing.lg, paddingBottom: spacing.xxl }}>
         <Section title={t("account")}>
-          <Row label={t("email")} value={me?.user.id ?? "—"} />
+          <Row label={t("email")} value={me?.user.email ?? me?.user.id ?? "—"} />
           <Button testID={T.settingsExport} label={t("exportData")} variant="secondary" onPress={() => void onExport()} loading={busy === "export"} />
           <Button testID={T.settingsSignOut} label={t("signOut")} variant="ghost" onPress={() => void onSignOut()} />
           <Button testID={T.settingsDelete} label={t("deleteAccount")} variant="ghost" onPress={() => router.push("/delete-account")} />
@@ -188,7 +188,7 @@ export default function SettingsScreen() {
           >
             <Text style={{ color: colors.text, fontSize: font.md, flexShrink: 1 }}>{t("personalizedAds")}</Text>
             <Text style={{ color: analyticsConsent ? colors.positive : colors.textMuted, fontSize: font.md, fontWeight: "700" }}>
-              {analyticsConsent ? "ON" : "OFF"}
+              {analyticsConsent ? t("on") : t("off")}
             </Text>
           </Pressable>
           {consentLocked ? (
