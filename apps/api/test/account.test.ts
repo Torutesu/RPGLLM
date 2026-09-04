@@ -31,6 +31,21 @@ describe("S1-1 account deletion (App Store 5.1.1(v))", () => {
     expect(moderation.status).toBe(410);
   });
 
+  it("locks a soft-deleted user out of the rest of the API but leaves /account/restore reachable", async () => {
+    const fx = await signupWithPersona(h);
+    await deleteAccount(fx.token);
+
+    for (const path of ["/v1/me", `/v1/feed?personaId=${fx.personaId}`, "/v1/wallet"]) {
+      const res = await call(h, "GET", path, { token: fx.token });
+      expect(res.status, `${path} must be 410 for a deleted account`).toBe(410);
+      expect(res.error?.code).toBe("ACCOUNT_DELETED");
+    }
+    const restored = await call<{ restored: boolean }>(h, "POST", "/v1/account/restore", { token: fx.token });
+    expect(restored.status, "restore is the one door that stays open").toBe(200);
+    expect(restored.data.restored).toBe(true);
+    expect((await call(h, "GET", "/v1/me", { token: fx.token })).status).toBe(200);
+  });
+
   it("rejects a body that does not spell DELETE", async () => {
     const { token } = await signup(h);
     const res = await call(h, "POST", "/v1/account/delete", { token, body: { confirm: "delete" } });

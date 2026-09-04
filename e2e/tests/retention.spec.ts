@@ -2,7 +2,7 @@ import { expect, test, type APIRequestContext, type Page } from "@playwright/tes
 import { T } from "@rpgllm/shared";
 import {
   apiSignup, apiUrl, bearer, enterWorld, FIRST_FOLLOWER, gotoApp, loginInBrowser, me, resetDb,
-  ROUTES, unwrap, WORLD_SLUG, worldPresets,
+  ROUTES, unwrap,
 } from "../fixtures";
 
 /**
@@ -37,10 +37,20 @@ async function personaIdOf(request: APIRequestContext, jwt: string): Promise<str
   return persona!.id;
 }
 
+/**
+ * The handle the persona actually follows — read from `GET /v1/dms`, which is exactly what the
+ * "New message" picker lists (the world's first-follower candidates are not all followers).
+ */
+async function followerHandle(page: Page, jwt: string, personaId: string): Promise<string> {
+  const res = await page.request.get(apiUrl(`/v1/dms?personaId=${personaId}`), {
+    headers: bearer(jwt), failOnStatusCode: false,
+  });
+  const { followers } = await unwrap<{ followers: { handle: string }[] }>(res, "GET /v1/dms");
+  return followers[0]?.handle.replace(/^@/, "") ?? FIRST_FOLLOWER;
+}
+
 /** SCR-020 → SCR-021 with the first follower, as in E2E-006. */
-async function openDmWithFollower(page: Page): Promise<string> {
-  const presets = await worldPresets(page, WORLD_SLUG);
-  const follower = presets.followerHandle ?? FIRST_FOLLOWER;
+async function openDmWithFollower(page: Page, follower: string): Promise<string> {
   await page.getByTestId(T.tabDms).click();
   await page.getByTestId(T.dmNew).click();
   const target = page.getByTestId(T.dmChar(follower));
@@ -98,8 +108,8 @@ test("S2-6: the profile tab shows level, XP and the persona's posts", async ({ p
   await expect(page.getByTestId(T.profilePosts)).toBeVisible();
 
   // The cast is listed with a link into the memory ledger.
-  const presets = await worldPresets(page, WORLD_SLUG);
-  const follower = presets.followerHandle ?? FIRST_FOLLOWER;
+  const personaId = await personaIdOf(request, account.jwt);
+  const follower = await followerHandle(page, account.jwt, personaId);
   await expect(page.getByTestId(T.profileRelationship(follower))).toBeVisible();
 });
 
@@ -108,7 +118,8 @@ test("S2-3: the affinity hearts open the memory ledger, with receipts", async ({
   await loginInBrowser(page, account.jwt);
   await enterWorld(page);
 
-  await openDmWithFollower(page);
+  const personaId = await personaIdOf(request, account.jwt);
+  await openDmWithFollower(page, await followerHandle(page, account.jwt, personaId));
 
   // One exchange leaves a memory note whose source is the message that caused it.
   const said = "the album is done and i cannot sleep";

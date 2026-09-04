@@ -55,6 +55,11 @@ export const requireAuth: MiddlewareHandler<AppEnv> = async (c, next) => {
   const user = await deps.prisma.user.findUnique({ where: { id: userId } });
   if (!user) return unauthorized();
   if (isBlockedAge(user.birthYear, deps.clock.now())) return fail("UNAUTHORIZED", "Account is not eligible", 401);
+  // S1-1 (Agent G): a soft-deleted account keeps its row through the 30-day grace window but loses
+  // every door except `POST /v1/account/restore`, which is how the user cancels the deletion.
+  if (user.deletedAt && !c.req.path.endsWith("/account/restore")) {
+    return fail("ACCOUNT_DELETED", "This account is scheduled for deletion", 410);
+  }
   c.set("userId", user.id);
   c.set("user", user);
   await next();
