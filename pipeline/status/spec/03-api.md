@@ -88,3 +88,22 @@
 - **Batch ティアは未対応**。`cost-architecture.md` §5.4 が想定する 50% 割引はまだ効いていない(唯一の未達項目)。
 - ダイジェストは**エネルギーを消費しない**。
 - **スケジューラが無い**。`runOfflineDirector` / `runMemoryConsolidation` / `runAmbientRefill` を cron から呼ぶこと。
+
+## エンゲージメント追加分(2026-09-04)
+
+| Method | Path | Auth | Request | Response | Screen |
+|---|---|---|---|---|---|
+| GET | /notifications | authenticated | ?personaId&cursor | NotificationsRes(30件/頁、unread 付き) | SCR-042 |
+| POST | /notifications/read | authenticated | {ids:null=全件} | {unread} | SCR-042 |
+| GET | /streak | authenticated | - | StreakRes(呼び出し時に当日のチェックインを冪等実行) | SCR-042, SCR-010 |
+| GET | /achievements | authenticated | ?personaId | AchievementsRes(進捗と未読の解除を含む) | SCR-044 |
+| POST | /achievements/seen | authenticated | {keys} | - | SCR-044, SCR-045 |
+| GET | /trending | authenticated | ?personaId | TrendingRes | SCR-046, SCR-010 |
+| GET | /characters/:handle | authenticated | ?personaId(id/handle どちらでも) | CharacterProfileRes | SCR-047 |
+
+### 実装上の注意
+- **通知は原因となった処理と同じトランザクションで書く**。表示文はサーバ側でロケール込みに完成させるので、一覧の描画は 1 クエリ + アクターの join で済む。1 投稿あたり `like` は最大 3 件に制限。
+- **連続ログインは `LedgerEntry` から導出**している(`User` にカラムが無いため。詳細は build-notes)。日次で冪等。
+- **実績判定は SQL の集計のみ**で LLM を呼ばない。`(personaId, key)` の一意制約で解除は厳密に 1 回。
+- **トレンドの話題はワールド自身の投稿本文から決定的に抽出**する。数詞・時間語・高頻度動詞・汎用名詞は除外し、単語 1 語は 3 投稿以上で初めて採用する。
+- **投稿のメディアは投稿 ID から SVG を生成**する。外部画像は 1 枚も使わない。
