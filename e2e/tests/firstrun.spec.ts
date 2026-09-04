@@ -60,7 +60,7 @@ test("M-002: the intro is remembered, and a returning visitor still lands on the
     .toBeVisible({ timeout: 15_000 });
   // Compact deck: only the first slide, and it does not advance any more.
   await expect(page.getByText(strings.en.remembers, { exact: true })).toHaveCount(0);
-  await expect(await introSeen(page)).toBe("1");
+  expect(await introSeen(page)).toBe("1");
 });
 
 test("M-003: the sign-in speaks the chosen language", async ({ page }) => {

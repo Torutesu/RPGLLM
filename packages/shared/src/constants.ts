@@ -195,6 +195,7 @@ export const JOBS = [
   { name: "ambient-refill", schedule: "0 3 * * *", description: "top up the ambient post pool (batched)" },
   { name: "purge-deleted", schedule: "30 3 * * *", description: "hard-delete accounts past the grace window" },
   { name: "purge-login-codes", schedule: "*/15 * * * *", description: "drop expired one-time login codes" },
+  { name: "push-receipts", schedule: "*/20 * * * *", description: "read Expo receipts and prune dead device tokens" },
   { name: "bandit-update", schedule: "15 * * * *", description: "refresh arm posteriors and check guardrails" },
 ] as const;
 export type JobName = (typeof JOBS)[number]["name"];

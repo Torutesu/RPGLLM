@@ -1,5 +1,6 @@
 import type { NotificationKind, PrismaClient, PushToken } from "@prisma/client";
 import { envNum, envStr } from "../env";
+import { recordPushTickets } from "../jobs/push-receipts";
 
 /**
  * S2-2 — Expo push delivery.
@@ -163,6 +164,14 @@ export async function sendPush(
   }
 
   if (ticketToToken.size > 0) {
+    // Expo fills receipts in asynchronously, so this immediate read usually returns nothing. Record
+    // the tickets so the scheduled `push-receipts` sweep can come back for them; without this the
+    // sweep has a table to read and nothing writing to it, and a device that goes away is never
+    // pruned.
+    if (opts.prisma) {
+      const rows = [...ticketToToken].map(([ticketId, token]) => ({ ticketId, token }));
+      await recordPushTickets(opts.prisma, rows, new Date());
+    }
     const gone = await deadTokensFromReceipts(ticketToToken, doFetch);
     dead.push(...gone);
   }

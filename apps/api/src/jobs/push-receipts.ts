@@ -8,20 +8,9 @@
  * settle, delete every token reported `DeviceNotRegistered`, and forget tickets older than Expo's
  * own 24-hour receipt retention.
  *
- * **What is still missing, and it is one line in someone else's file.** The ticket ids only exist
- * inside `sendPush`'s local map (`apps/api/src/services/push.ts` is Agent P's, and
- * `prisma/schema.prisma` is the orchestrator's), so this pass has a table to read but nothing
- * writing to it yet. The patch, at the end of `sendPush` where `ticketToToken` is still in scope:
- *
- * ```ts
- * import { recordPushTickets } from "../jobs/push-receipts";
- * if (opts.prisma && ticketToToken.size > 0) {
- *   await recordPushTickets(opts.prisma, [...ticketToToken].map(([ticketId, token]) => ({ ticketId, token })), new Date());
- * }
- * ```
- *
- * Until that lands the sweep is a well-tested no-op over an empty table; afterwards it prunes dead
- * devices with no further change here. See build-notes "Agent O".
+ * `sendPush` records its ticket ids here as it sends, so this pass has something to read: it waits
+ * out `PUSH_RECEIPT_DELAY_MS`, asks Expo about the settled tickets, prunes any token that comes
+ * back `DeviceNotRegistered`, and drops tickets older than Expo keeps receipts for.
  */
 import { randomUUID } from "node:crypto";
 import type { PrismaClient } from "@prisma/client";
@@ -30,7 +19,8 @@ import { logLine } from "../middleware/request-log";
 import { BATCH, DEVICE_GONE, PUSH_RECEIPTS_ENDPOINT, pruneTokens, pushEnabled } from "../services/push";
 import { shortError } from "./runs";
 
-/** Same reasoning as `JobRun` (see `runs.ts`): the schema is frozen, so the table is created here. */
+/** Prisma owns this table now (migration `job_runs_and_push_tickets`); the DDL stays only so a
+ * worker started against an older database still comes up. */
 const DDL = [
   `CREATE TABLE IF NOT EXISTS "PushTicket" (
      "id" TEXT PRIMARY KEY,

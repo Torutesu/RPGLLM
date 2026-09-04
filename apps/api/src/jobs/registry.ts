@@ -101,21 +101,25 @@ const RUNNERS: Record<ScheduledJobName, (deps: JobDeps, opts: JobOptions) => Pro
     };
   },
   /**
-   * The housekeeping broom, every 15 minutes. Three passes with the same cadence and no reason to
-   * hold three locks: expired login codes, the run log's own retention, and the **second pass over
-   * Expo delivery receipts** (Agent P: receipts arrive minutes after the send, so the read inside
-   * `sendPush` almost always comes back empty and dead devices are never pruned). A dedicated
-   * `push-receipts` row in `JOBS` would read better — `packages/shared` is read-only for me, so it
-   * is folded in here and noted in build-notes for the orchestrator.
+   * The housekeeping broom, every 15 minutes: expired login codes and the run log's own retention.
+   * Same cadence, no reason to hold two locks.
    */
   "purge-login-codes": async (deps) => {
     const now = deps.clock.now();
     const codes = await purgeLoginCodes(deps.prisma, now);
     const runs = await pruneRuns(deps.prisma, new Date(now.getTime() - runRetentionDays() * DAY_MS));
-    const receipts = await sweepPushReceipts(deps.prisma, now);
+    return { processed: codes, detail: { codes, runs } };
+  },
+  /**
+   * The second pass over Expo delivery receipts. Receipts arrive minutes after a send, so the read
+   * inside `sendPush` almost always comes back empty; without this sweep a device that goes away is
+   * never pruned and we keep pushing into the void.
+   */
+  "push-receipts": async (deps) => {
+    const receipts = await sweepPushReceipts(deps.prisma, deps.clock.now());
     return {
-      processed: codes,
-      detail: { codes, runs, receiptsChecked: receipts.checked, tokensPruned: receipts.pruned, ticketsDropped: receipts.dropped },
+      processed: receipts.pruned,
+      detail: { checked: receipts.checked, pruned: receipts.pruned, dropped: receipts.dropped },
     };
   },
   "bandit-update": async (deps) => await runBanditUpdate(deps),

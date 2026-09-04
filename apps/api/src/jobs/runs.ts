@@ -44,7 +44,7 @@ const DDL = [
 
 const ready = new WeakSet<PrismaClient>();
 
-/** Creates the table on first use per client. Cheap and idempotent; safe from every process. */
+/** Kept for a deployment that predates the migration; a no-op once Prisma owns the table. */
 export async function ensureJobRunTable(prisma: PrismaClient): Promise<void> {
   if (ready.has(prisma)) return;
   for (const stmt of DDL) await prisma.$executeRawUnsafe(stmt);

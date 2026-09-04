@@ -289,10 +289,17 @@ describe("the Expo receipt second pass", () => {
     expect(await prisma.pushToken.count({ where: { userId: p.userId } })).toBe(1);
   });
 
-  it("runs as part of the 15-minute housekeeping job", async () => {
+  it("runs as its own scheduled job", async () => {
+    const record = await runJobOnce(deps, "push-receipts", { trigger: "test" });
+    expect(record.ok).toBe(true);
+    expect(record.detail).toHaveProperty("checked");
+    expect(record.detail).toHaveProperty("pruned");
+  });
+
+  it("is no longer folded into the housekeeping job", async () => {
     const record = await runJobOnce(deps, "purge-login-codes", { trigger: "test" });
     expect(record.ok).toBe(true);
-    expect(record.detail).toHaveProperty("receiptsChecked");
-    expect(record.detail).toHaveProperty("tokensPruned");
+    expect(record.detail).toHaveProperty("codes");
+    expect(record.detail).not.toHaveProperty("pruned");
   });
 });

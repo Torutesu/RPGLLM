@@ -700,3 +700,36 @@ model EvalResult {
   @@unique([runId, caseId])
   @@index([runId])
 }
+
+// ─────────────────────────────────────────────────────────────
+// ワーカー実行記録 / プッシュ配信の受領確認
+// ─────────────────────────────────────────────────────────────
+
+/// スケジューラの実行ログ。`GET /v1/jobs` が読む。二重起動の調査に host を残す。
+model JobRun {
+  id         String    @id @default(cuid())
+  job        String
+  startedAt  DateTime
+  finishedAt DateTime?
+  ok         Boolean   @default(false)
+  processed  Int       @default(0)
+  error      String?
+  /// schedule | manual | test
+  trigger    String    @default("schedule")
+  /// どのプロセスが走らせたか(「なぜ2回動いたのか」に答えるため)
+  host       String?
+
+  @@index([job, startedAt])
+}
+
+/// Expo のチケット。受領確認は非同期に埋まるので、送信直後ではなく後追いで読む。
+/// DeviceNotRegistered が返ったトークンはここを起点に削除する。
+model PushTicket {
+  id        String    @id @default(cuid())
+  ticketId  String    @unique
+  token     String
+  sentAt    DateTime
+  checkedAt DateTime?
+
+  @@index([checkedAt, sentAt])
+}
