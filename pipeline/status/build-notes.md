@@ -1531,3 +1531,109 @@ by deriving the streak from the `LedgerEntry` row each check-in writes
 Known limitation: the streak is only as durable as the ledger. If a retention policy ever prunes
 `LedgerEntry`, streaks silently reset. Before that happens, add the three columns and switch
 `services/streak.ts` to read them — it is the only file that needs to change.
+
+---
+
+## Agent M — the first 90 seconds (SCR-002 → SCR-003 → SCR-004/005 → SCR-006, plus `/`)
+
+### What the first run is now
+
+1. **`/` — a branded boot, not a spinner.** `app/index.tsx` renders a splash (gradient wordmark +
+   `wakingUp`) that **fades in after 180 ms**, so a warm boot never flashes it, and paints the app
+   background so there is no white frame either. Routing logic is unchanged.
+2. **`/auth` — a cold open above a sign-in that is never blocked.** The top of the screen is
+   `IntroSlides`: three auto-advancing, swipeable, skippable slides with a progress rail —
+   *"Who do you want to play as?"* (a generated portrait morphing through identity gradients,
+   orbited by the palette), *"What they remember"* (a DM exchange landing bubble by bubble, ending
+   in `seen`), *"You're trending"* (a feed card whose follower count **falls** while a gradient
+   headline lands on it). Under it, always on screen and never covered, the sign-in sheet: promise
+   line, gradient CTA, focus/error states, and the legal links. The age gate takes over the sheet
+   as its own step; the under-13 screen is a lit orb, a `13+` badge, the message and the
+   guidelines — a closed door, not a rejection slip.
+3. **`/onboarding/scenario` — three worlds, three covers.** `WorldCard` draws a **generated** cover:
+   a seeded (mulberry32 over `hashString(slug)`) composition of gradient sky, light beams, scattered
+   stars, a horizon arc and a fade to the app ground. Plus the one-line scenario, difficulty in
+   sparkles, and three overlapping cast avatars (`+N`).
+4. **`/onboarding/persona` — choosing a character.** A grid of large generated `Avatar`s; the chosen
+   one scales up with its identity halo and a white ring, its handle in the brand type and its bio
+   in a fixed-height preview strip.
+5. **`/onboarding/persona-edit` — your identity as you type.** The portrait and its halo re-hash on
+   every keystroke, with live handle availability (`✓ Available` / `Taken`) in a fixed-height row.
+6. **`/onboarding/first-follower` — the moment the story starts.** Each candidate is a card with
+   portrait, name, role chip in their identity colour and their one-line intro; choosing one tints
+   the card with their gradient and shows what changes (`Follows you`, `What they remember`,
+   `Characters text you first`). `Planting the first ripple…` is a real beat — three rings leaving
+   the follower in the world's colours — that clears the instant `POST /personas` answers.
+
+### Things other agents need to know
+
+- **New file `apps/mobile/src/components/Brand.tsx`** (beyond the three components I was given). It
+  holds only what `src/ui` does not: `SoftOrb` (a *radial* gradient orb — `expo-linear-gradient` is
+  linear only, so this stays SVG), `Aurora` (the drifting identity-palette background), `StepDots`,
+  `Round`, and `FILL`. **`FILL` exists because RN 0.86 dropped `StyleSheet.absoluteFillObject` from
+  the public types** — reuse it rather than re-discovering that.
+- Everything else on these screens is Agent J's system: `Screen`, `Button`, `Field`, `Chip`,
+  `Wordmark` from `src/components/ui`, and `Avatar`, `Gradient`, `Icon`, `typo`, `FadeSlideIn`,
+  `PressScale`, `AnimatedNumber`, `timing`/`ease`/`duration`/`useAnimatedValue`/`useReduceMotion`
+  from `src/ui`.
+- **Two bugs found in `src/ui` / `ui.tsx` (Agent J's files — I did not edit them):**
+  1. **`Wordmark` uses a hard-coded SVG gradient id `"wordmark"`.** Expo Router keeps the previous
+     screen mounted, so as soon as two `Wordmark`s exist the second resolves `url(#wordmark)`
+     against the *first* (hidden) `<defs>` and renders **invisible**. `Avatar` already does this
+     correctly with a per-instance `uid` — `Wordmark` should do the same. Worked around here by
+     showing the wordmark only on `/` and `/auth`; every other screen that renders one after a
+     navigation will hit this.
+  2. **`Screen`'s top wash ends in a hard horizontal seam** — the gradient's last stop is not
+     transparent, so its 460 px box has a visible bottom edge on wide viewports. The onboarding
+     screens pass `wash={false}` (their `Aurora` supplies the atmosphere) rather than paper over it.
+- **`Aurora` is clipped (`overflow: "hidden"`).** Before that, the absolutely-positioned orbs were
+  wider than the viewport and gave the *page* a horizontal scrollbar on web (a white band down the
+  right-hand side in any full-page screenshot). Any full-bleed decoration needs the same clip.
+- **Layout stability is a test contract, not a nicety.** Playwright will not click a moving target.
+  So: the intro deck has a fixed height and cross-fades in place; persona tiles scale by transform
+  only; the persona preview strip and the handle-status row have fixed heights; and SCR-006's
+  "Enter the world" lives in a **fixed footer outside the scroller**, so expanding a card never
+  moves it. Please keep it that way.
+- **`/onboarding/scenario` prefetches the three worlds' details** (`api.world`) after the cards are
+  on screen, purely to fill the cast strip. It never blocks the tap: the card is clickable the
+  moment `GET /v1/worlds` answers.
+- **Intro-seen flag:** `localStorage["rpgllm.introSeen"] = "1"` on web, `AsyncStorage` on native,
+  written when the deck reaches the last slide or is skipped. On the next visit the deck collapses
+  to one still frame (148 px, no timer). It is also collapsed automatically when the viewport is
+  under 560 px tall. Nothing else reads the key; clearing it just replays the intro.
+- **No `packages/shared` edits.** No new i18n keys, no new testids, no token changes.
+- Reduced motion is honoured everywhere via `useReduceMotion()`: the morph, the orbit, the aurora
+  drift, the bubble stagger, the falling counter, the ripples and the splash pulse all render their
+  final frame instead of moving.
+
+### i18n gaps (nothing invented; the closest existing key is used)
+
+The cold open and the first-follower preview are built entirely from existing strings, which works
+but is not what a writer would choose. Requests for `packages/shared/src/i18n`:
+
+| where | key used now | what it should say |
+|---|---|---|
+| intro slide 3 subtitle | `ach_survivor_desc` ("Come back from being cancelled three times") | a line about surviving the drama |
+| intro skip button | `close` ("Close") | `skip` ("Skip") |
+| SCR-006 "what changes" chips | `follows`, `remembers`, `plusFeatures[1]` | `firstFollowerPreview`, e.g. "{name} will be watching everything you post" |
+| SCR-002 sheet subtitle | `pickStory` ("Pick your story") | a second promise line under the tagline |
+| SCR-002 age gate subtitle | `guidelines` | a short reassurance about why the year is asked for |
+
+The mock DM bubbles and the mock feed post in the deck deliberately contain **no text at all** —
+they are shapes — precisely so that nothing on screen is copy that does not exist in `i18n`.
+
+### Verification
+
+- `pnpm --filter mobile typecheck` — clean.
+- `pnpm --filter mobile export:web` — succeeds (2 MB bundle).
+- `pnpm e2e` on isolated ports (API 4200 / web 8291 serving `apps/mobile/dist-m`):
+  **43 passed, 4 skipped, 0 failed** — every previously-green case plus the five new
+  `e2e/tests/firstrun.spec.ts` cases (M-001…M-005). E2E-001/002/011/012/016 all green.
+- Screenshotted at 420×900, 1280×800, in JA, and with `prefers-reduced-motion: reduce`.
+
+**Note on running the suite concurrently:** if the API is started by Playwright's `webServer` it
+connects *before* `globalSetup` drops and recreates `rpgllm_test`, and the first ~8 tests then fail
+with `POST /v1/__test/reset → 500` until Prisma reconnects. Reset/migrate/seed by hand, start the
+API, then run with `E2E_SKIP_DB=1` for a deterministic run. Also: `expo export` **must** be given
+`--clear`, or `EXPO_PUBLIC_API_URL` is served from the stale Metro cache and the bundle silently
+talks to the previous port.
