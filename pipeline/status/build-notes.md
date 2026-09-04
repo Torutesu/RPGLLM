@@ -495,3 +495,17 @@ cache_read_input_tokens / output_tokens`. `ttftMs` is `null` in live mode (non-s
    blocks, so the structural test applies uniformly.
 6. Extra exports beyond the declared interface (`priceOf`, `worldSeed`, `bareHandle`,
    `blockedPhrase`, `buildRequest`, `replayG*`, …) are additive; nothing declared was renamed.
+
+## Orchestrator — integration (Stage 3)
+
+Deviations and decisions made while driving E2E P0 to green (all in code; spec text unchanged unless noted):
+
+- **Handles**: DB keeps character handles with a leading "@" (Agent A convention); the API contract now emits **bare** handles everywhere (`atHandle` = normalize), generator inputs get bare handles, world seeds are bare. Clients render the "@".
+- **Press account**: worlds are original, so the press handle is per world (`thescoop` / `thequill` / `stagewire`), not `@gmz` as written in `spec/04-e2e-cases.md` E2E-005. Tests assert `post-kind-news` instead of the handle.
+- **Event choice always produces a press post**: when the director's choice has no `newsText`, the outcome text becomes the headline (spec E2E-005 requires a news post after the choice).
+- **Replay DM affinity is never 0** so E2E-006's "hearts update" holds on every seed.
+- **Navigation**: `resetToFeed()` uses `dismissTo("/feed")`; `dismissAll()` returned to the web history root (SCR-003 after onboarding).
+- **E2E fixtures**: preset persona/follower handles are read from `/v1/worlds/:id` (no hardcoded names); `syncWallet(page)` reloads after API-side energy changes because the client has no wallet polling; login handles single-step and two-step code entry.
+- **Playwright**: `launchOptions.executablePath=/opt/pw-browsers/chromium` (the bundled revision differs from Playwright 1.62's); `reuseExistingServer` only with `E2E_REUSE=1` (a stray mock API on :4000 had been reused silently).
+- **Web export** runs with `--clear`: Metro's transform cache had frozen `EXPO_PUBLIC_*` values from an earlier export, leaving the ads flag `undefined`.
+- **Sandbox limits**: no Anthropic API key here, so `LLM_MODE=live` is implemented and structurally tested only; E2E runs in replay.
