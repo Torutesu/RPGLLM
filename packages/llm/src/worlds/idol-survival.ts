@@ -239,7 +239,7 @@ const source: WorldSource = {
             en: "It is the right thing and it is also, unavoidably, a move. @hina_sudo posts 'i'm not your underdog story' and then votes for you anyway, which she will deny forever.",
             ja: "正しい行いであり、同時にどうしても「手」でもある。@hina_sudo が「私、あんたの下剋上ストーリーの部品じゃないから」と投稿し、そのうえで投票した。永久に否認するだろう。",
           },
-          statDeltas: { followers: -2, aura: 11, humor: 2 },
+          statDeltas: { followers: -2, aura: 10, humor: 2 },
         },
         {
           label: { en: "Say nothing and let it run", ja: "何も言わずに走らせる" },

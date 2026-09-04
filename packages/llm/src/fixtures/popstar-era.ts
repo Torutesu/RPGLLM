@@ -361,7 +361,7 @@ export const popstarEraFixture: WorldFixture = {
             en: "Two hundred people instead of twelve thousand. @dexlowkey replies 'that's the record'. @paulamanages does not reply at all.",
             ja: "1万2千人ではなく200人。@dexlowkey が「それがレコードだよ」と返した。@paulamanages は何も返さなかった。",
           },
-          statDeltas: { followers: -4, aura: 12, humor: 1 },
+          statDeltas: { followers: -4, aura: 10, humor: 1 },
         },
       ],
     },
