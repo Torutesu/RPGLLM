@@ -1,5 +1,22 @@
+import React from "react";
 import { Stack } from "expo-router";
+import { StatusBar } from "expo-status-bar";
+import { SafeAreaProvider } from "react-native-safe-area-context";
 import { colors } from "@rpgllm/shared";
+import { AppProvider } from "../src/state/store";
+
 export default function RootLayout() {
-  return <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.bg } }} />;
+  return (
+    <SafeAreaProvider>
+      <AppProvider>
+        <StatusBar style="light" />
+        <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.bg } }}>
+          <Stack.Screen name="compose" options={{ presentation: "modal" }} />
+          <Stack.Screen name="energy" options={{ presentation: "modal" }} />
+          <Stack.Screen name="paywall" options={{ presentation: "modal" }} />
+          <Stack.Screen name="event/[id]" options={{ presentation: "modal" }} />
+        </Stack>
+      </AppProvider>
+    </SafeAreaProvider>
+  );
 }
