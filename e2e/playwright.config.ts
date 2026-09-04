@@ -32,7 +32,9 @@ if (process.env.E2E_PROD_WEB_URL) {
   projects.push({
     name: "web-prod",
     grep: /E2E-012/,
-    use: { ...desktop, baseURL: process.env.E2E_PROD_WEB_URL },
+    use: {
+    // Chromium preinstalled in this environment (Playwright build revision may differ; never run `playwright install`)
+    launchOptions: { executablePath: process.env.PW_CHROMIUM_PATH ?? "/opt/pw-browsers/chromium" }, ...desktop, baseURL: process.env.E2E_PROD_WEB_URL },
   });
 }
 
