@@ -1,0 +1,25 @@
+# PRD: Status クローン(仮称: RPGLLM)
+- version: 1
+- source_teardown: ../teardown.md(コスト設計: ../cost-architecture.md)
+- target_users: 13〜24 歳のファンダム/ロールプレイ層。EN グローバル+JA を初日から。オリジナル世界のみ(実在 IP・実在人物なし)
+- platforms: iOS / Android / Web を Expo(React Native + react-native-web)単一コードで [USER-REQ]
+- mvp_scope: [SCR-002, SCR-003, SCR-004, SCR-005, SCR-006, SCR-010, SCR-011, SCR-012, SCR-013, SCR-014, SCR-020, SCR-021, SCR-030, SCR-032]
+- ai_scope: [AIF-009, AIF-010, AIF-011, AIF-012, AIF-013, AIF-014, AIF-015, AIF-006(固定割当)]
+- out_of_scope:
+  - マルチプレイヤー・ワールド(SCR 未割当、World.mode=multi)
+  - ユーザーによるワールド/キャラ作成 UI(SCR-023/024/025)、Gems ショップ(SCR-031)、リファラル、ギフト(SCR-034)、プロフィール画面(SCR-026)
+  - Offline Director(AIF-001)、Proactive DM、画像/動画投稿(AIF-008)、音声、Shareable Moment(AIF-005)、口調インポート(AIF-004)
+  - Thompson sampling の自動昇格(Phase 1)、小型モデル蒸留(Phase 3)
+  - 実在ファンダム名・実在人物風アバター(方針として恒久除外)
+- assumptions:
+  - [ASSUMED] 平均 12 アクション/DAU、無料上限 15/日、Plus 50/日
+  - [ASSUMED] 広告は Google Mobile Ads リワード、Web は広告なし
+  - [ASSUMED] 課金は RevenueCat(App Store/Play/Stripe)。価格: 週 $6.99 / 月 $14.99 / 年 $79.99 / Ad-free 月 $3.99(A/B)
+  - [ASSUMED] 評価予算 $300/月
+- success_criteria(MVP 完了=以下すべて):
+  - E2E P0(E2E-001〜016)が Web で全通過、iOS/Android 実機でスモーク(E2E-002/003/007)通過
+  - 1 アクションあたり LLM 原価 ≤ $0.012(L1 目標。GenerationLog 集計、champion 構成)
+  - キャッシュヒット率 ≥ 80%(cache_read / (cache_read + input) を G1 で計測)
+  - G1 初出 TTFT P50 ≤ 1.5s、P95 ≤ 3s(replay ではなく live で計測)
+  - 安全: E2E-009 の禁止テスト文 20 種すべて block
+  - 全 LLM 呼び出しが GenerationLog に記録され、`/experiments/assignments` と一致
