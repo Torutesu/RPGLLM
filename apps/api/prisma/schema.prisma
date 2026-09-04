@@ -89,6 +89,10 @@ model User {
   analyticsConsent Boolean                @default(false)
   /// S2-5 リファラル: 自分の招待コード
   referralCode     String?                @unique
+  /// 連続ログイン。台帳からの導出をやめ、正本をここに置く(build-notes: streak storage)
+  streakDays       Int                    @default(0)
+  streakBestDays   Int                    @default(0)
+  streakLastAt     DateTime?
   personas         Persona[]
   wallet           Wallet?
   subscription     Subscription?
@@ -579,4 +583,120 @@ model AchievementUnlock {
 
   @@unique([personaId, key])
   @@index([personaId, unlockedAt])
+}
+
+// ─────────────────────────────────────────────────────────────
+// 認証コードの永続化 / コスト最適化(バンディットとオフライン評価)
+// ─────────────────────────────────────────────────────────────
+
+/// S0-1 のワンタイムコード。MVP ではプロセス内 Map だったため単一インスタンスでしか動かなかった。
+/// 平文は保存しない(ソルト + sha256)。期限切れは purge ジョブが掃除する。
+model LoginCode {
+  id         String    @id @default(cuid())
+  email      String
+  codeHash   String
+  salt       String
+  attempts   Int       @default(0)
+  expiresAt  DateTime
+  consumedAt DateTime?
+  createdAt  DateTime  @default(now())
+
+  @@index([email, createdAt])
+  @@index([expiresAt])
+}
+
+/// cost-architecture §6.3 の腕。Thompson sampling の事後分布をここに永続化する。
+/// 報酬は quality - λ×cost を 0..1 に正規化したもので、alpha/beta はその Beta 事後。
+model BanditArm {
+  id             String    @id @default(cuid())
+  generator      String
+  variantId      String
+  alpha          Float     @default(1)
+  beta           Float     @default(1)
+  calls          Int       @default(0)
+  rewardSum      Float     @default(0)
+  costSum        Float     @default(0)
+  /// 明示的に champion に固定された腕。昇格で移動する
+  isChampion     Boolean   @default(false)
+  /// 探索の下限割当(0..1)。0 で実質停止
+  floor          Float     @default(0.05)
+  /// guardrail 違反で自動的に止められた腕
+  disabledAt     DateTime?
+  disabledReason String?
+  updatedAt      DateTime  @updatedAt
+  createdAt      DateTime  @default(now())
+
+  @@unique([generator, variantId])
+  @@index([generator, isChampion])
+}
+
+/// 昇格・ロールバックの監査ログ。いつ何を根拠に champion を動かしたか。
+model PromotionEvent {
+  id          String   @id @default(cuid())
+  generator   String
+  fromVariant String?
+  toVariant   String
+  reason      String
+  metrics     Json     @default("{}")
+  createdAt   DateTime @default(now())
+
+  @@index([generator, createdAt])
+}
+
+enum EvalStatus {
+  running
+  finished
+  failed
+}
+
+/// cost-architecture §6.2 の凍結評価セット。1 ケース = 1 生成器への 1 入力。
+model EvalCase {
+  id        String       @id @default(cuid())
+  generator String
+  locale    String
+  worldSlug String
+  /// 生成器の入力そのもの(zod で検証済みの JSON)
+  input     Json
+  /// 手で足した難問は frozen=true で必ず含める
+  frozen    Boolean      @default(true)
+  label     String       @default("")
+  createdAt DateTime     @default(now())
+  results   EvalResult[]
+
+  @@index([generator, locale])
+}
+
+model EvalRun {
+  id         String       @id @default(cuid())
+  generator  String
+  variantId  String
+  status     EvalStatus   @default(running)
+  cases      Int          @default(0)
+  passed     Int          @default(0)
+  meanScore  Float        @default(0)
+  costUsd    Decimal      @default(0) @db.Decimal(10, 6)
+  notes      String       @default("")
+  startedAt  DateTime     @default(now())
+  finishedAt DateTime?
+  results    EvalResult[]
+
+  @@index([generator, startedAt])
+}
+
+model EvalResult {
+  id        String   @id @default(cuid())
+  runId     String
+  run       EvalRun  @relation(fields: [runId], references: [id], onDelete: Cascade)
+  caseId    String
+  evalCase  EvalCase @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  /// 機械判定(JSON 妥当性・K 充足・禁止語)と審査員スコアの内訳
+  scores    Json     @default("{}")
+  score     Float    @default(0)
+  passed    Boolean  @default(false)
+  costUsd   Decimal  @default(0) @db.Decimal(10, 6)
+  latencyMs Int      @default(0)
+  createdAt DateTime @default(now())
+
+  @@unique([runId, caseId])
+  @@index([runId])
 }

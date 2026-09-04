@@ -162,3 +162,39 @@ export const MEDIA_KINDS = ["art", "chart", "leak"] as const;
 export type MediaKind = (typeof MEDIA_KINDS)[number];
 /** Roughly one in N character posts carries media, so the feed has rhythm without noise. */
 export const MEDIA_EVERY = 4;
+
+/* ============================================================
+ * Cost engine constants (cost-architecture §5 / §6)
+ * ========================================================== */
+
+/** Generators whose work nobody is waiting on. These are the ones the Batch tier is worth 50% on. */
+export const BATCHABLE_GENERATORS = ["G2", "G7", "G10", "GJ"] as const;
+/** Batch pricing multiplier — every token in a batched request, cache reads and writes included. */
+export const BATCH_DISCOUNT = 0.5;
+
+/** Reward = quality − LAMBDA × (cost / champion cost). §6.1 `cost_lambda`. */
+export const BANDIT_LAMBDA = 0.4;
+/** An arm never drops below this share of traffic, so exploration never stops. */
+export const BANDIT_FLOOR = 0.05;
+/** Samples drawn per allocation decision when estimating p(best). */
+export const BANDIT_SAMPLES = 400;
+/** Promotion needs this many calls on the challenger and this confidence that it is best. */
+export const BANDIT_PROMOTION = { MIN_CALLS: 500, P_BEST: 0.95 } as const;
+/** Guardrails: breaching one disables the arm and reverts to the champion. */
+export const BANDIT_GUARDRAILS = { MAX_REGENERATE_RATE: 0.08, MAX_SAFETY_FLAG_RATE: 0.002, MAX_FALLBACK_RATE: 0.05 } as const;
+
+/** §6.2 offline gate: keep quality within 2 points and save 20%, or beat quality by 3 points. */
+export const EVAL_GATE = { MAX_SCORE_DROP: 2, MIN_COST_SAVING: 0.2, MIN_SCORE_GAIN: 3 } as const;
+/** Frozen evaluation set size per generator. */
+export const EVAL_SET_SIZE = 50;
+
+/** The background jobs and their cron expressions. The worker reads this list. */
+export const JOBS = [
+  { name: "offline-director", schedule: "0 * * * *", description: "generate While-you-were-away digests" },
+  { name: "memory-consolidate", schedule: "*/30 * * * *", description: "collapse memory notes into summaries (G7)" },
+  { name: "ambient-refill", schedule: "0 3 * * *", description: "top up the ambient post pool (batched)" },
+  { name: "purge-deleted", schedule: "30 3 * * *", description: "hard-delete accounts past the grace window" },
+  { name: "purge-login-codes", schedule: "*/15 * * * *", description: "drop expired one-time login codes" },
+  { name: "bandit-update", schedule: "15 * * * *", description: "refresh arm posteriors and check guardrails" },
+] as const;
+export type JobName = (typeof JOBS)[number]["name"];

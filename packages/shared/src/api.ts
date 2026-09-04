@@ -386,3 +386,98 @@ export const CharacterProfileResZ = z.object({
   posts: z.array(PostZ),
   blocked: z.boolean(),
 });
+
+/* ============================================================
+ * Cost engine — bandit allocation and offline evaluation
+ * (cost-architecture §6.2 / §6.3)
+ * ========================================================== */
+
+export const BanditArmZ = z.object({
+  generator: z.string(),
+  variantId: z.string(),
+  model: z.string(),
+  tier: z.string(),
+  isChampion: z.boolean(),
+  disabled: z.boolean(),
+  disabledReason: z.string().nullable(),
+  calls: z.number().int(),
+  /** posterior mean of the reward, i.e. alpha / (alpha + beta) */
+  meanReward: z.number(),
+  /** 95% credible interval, so a thin arm reads as uncertain rather than good */
+  ci: z.tuple([z.number(), z.number()]),
+  usdPerCall: z.number(),
+  /** share of traffic this arm is currently taking */
+  allocation: z.number(),
+});
+export const BanditStateResZ = z.object({
+  generators: z.array(z.object({
+    generator: z.string(),
+    champion: z.string(),
+    arms: z.array(BanditArmZ),
+    /** probability the leader is genuinely best, from the sampler */
+    pBest: z.number(),
+    promotable: z.boolean(),
+  })),
+  lambda: z.number(),
+  updatedAt: z.string(),
+});
+export const PromoteReqZ = z.object({ generator: z.string(), variantId: z.string(), reason: z.string().max(200).default("manual") });
+export const PromoteResZ = z.object({ generator: z.string(), champion: z.string(), previous: z.string().nullable() });
+
+export const EvalStatusZ = z.enum(["running", "finished", "failed"]);
+export const EvalRunZ = z.object({
+  id: z.string(),
+  generator: z.string(),
+  variantId: z.string(),
+  status: EvalStatusZ,
+  cases: z.number().int(),
+  passed: z.number().int(),
+  meanScore: z.number(),
+  costUsd: z.number(),
+  startedAt: z.string(),
+  finishedAt: z.string().nullable(),
+});
+export const EvalRunsResZ = z.object({ runs: z.array(EvalRunZ) });
+export const StartEvalReqZ = z.object({
+  generator: z.string(),
+  variantId: z.string(),
+  /** cap so an accidental run cannot spend the month's budget */
+  limit: z.number().int().min(1).max(500).default(50),
+});
+export const EvalCompareResZ = z.object({
+  generator: z.string(),
+  /** one row per variant with the numbers a promotion decision is made on */
+  rows: z.array(z.object({
+    variantId: z.string(),
+    runs: z.number().int(),
+    cases: z.number().int(),
+    passRate: z.number(),
+    meanScore: z.number(),
+    usdPerCase: z.number(),
+    /** versus the champion, negative is cheaper */
+    costDelta: z.number(),
+    scoreDelta: z.number(),
+    /** the §6.2 gate: within 2 points of quality and at least 20% cheaper, or 3 points better */
+    passesGate: z.boolean(),
+  })),
+});
+
+/** Scheduler visibility — which jobs exist, when they last ran, and what they did. */
+export const JobRunZ = z.object({
+  job: z.string(),
+  startedAt: z.string(),
+  finishedAt: z.string().nullable(),
+  ok: z.boolean(),
+  processed: z.number().int(),
+  error: z.string().nullable(),
+});
+export const JobsResZ = z.object({
+  jobs: z.array(z.object({
+    name: z.string(),
+    schedule: z.string(),
+    enabled: z.boolean(),
+    lastRun: JobRunZ.nullable(),
+    nextRunAt: z.string().nullable(),
+  })),
+});
+export const RunJobReqZ = z.object({ job: z.string(), personaId: z.string().nullable().default(null) });
