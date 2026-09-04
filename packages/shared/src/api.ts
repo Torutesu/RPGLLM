@@ -6,6 +6,12 @@ import { PLANS } from "./constants";
 export const ErrorCodeZ = z.enum([
   "UNAUTHORIZED", "UNDER_13", "VALIDATION", "NOT_FOUND", "ENERGY_REQUIRED", "SAFETY_BLOCKED",
   "AD_LIMIT", "HANDLE_TAKEN", "ALREADY_DONE", "INTERNAL",
+  /** S0-4 rate limiting (429) */
+  "RATE_LIMITED",
+  /** S1-1 the account is scheduled for deletion (410) */
+  "ACCOUNT_DELETED",
+  /** S1-2 the target is blocked by this persona (409) */
+  "BLOCKED",
 ]);
 export type ErrorCode = z.infer<typeof ErrorCodeZ>;
 export const ApiErrorZ = z.object({ code: ErrorCodeZ, message: z.string() });
@@ -142,3 +148,152 @@ export const TestLlmModeReqZ = z.object({ mode: z.enum(["replay", "live", "fail"
 export const TestSetEnergyReqZ = z.object({ energy: z.number().int().min(0).max(999) });
 
 export { StatDeltasZ };
+
+
+/* ============================================================
+ * S1 — account, legal, moderation (store-review requirements)
+ * ========================================================== */
+
+/** SCR-036 Settings → delete account. Two-step: request, then confirm with the emailed word. */
+export const DeleteAccountReqZ = z.object({ confirm: z.literal("DELETE") });
+export const DeleteAccountResZ = z.object({ deletedAt: z.string(), purgeAt: z.string() });
+export const CancelDeletionResZ = z.object({ restored: z.boolean() });
+
+/** GDPR/APPI data export (SCR-036). Returned inline; large accounts get a truncated flag. */
+export const ExportDataResZ = z.object({
+  exportedAt: z.string(),
+  user: z.object({ id: z.string(), email: z.string().nullable(), locale: LocaleZ, birthYear: z.number().int().nullable(), createdAt: z.string() }),
+  personas: z.array(z.record(z.string(), z.unknown())),
+  posts: z.array(z.record(z.string(), z.unknown())),
+  dms: z.array(z.record(z.string(), z.unknown())),
+  purchases: z.array(z.record(z.string(), z.unknown())),
+  truncated: z.boolean(),
+});
+
+/** S1-6 analytics/personalised-ads consent. Minors can never turn it on. */
+export const ConsentReqZ = z.object({ analytics: z.boolean() });
+export const ConsentResZ = z.object({ analytics: z.boolean(), locked: z.boolean() });
+
+export const ReportTargetZ = z.enum(["post", "dm_message", "character", "world"]);
+export const ReportReasonZ = z.enum(["harassment", "sexual", "self_harm", "hate", "off_character", "other"]);
+export const ReportReqZ = z.object({
+  target: ReportTargetZ,
+  targetId: z.string(),
+  reason: ReportReasonZ,
+  note: z.string().max(500).default(""),
+});
+export const ReportResZ = z.object({ id: z.string(), status: z.string() });
+
+export const BlockReqZ = z.object({ personaId: z.string(), characterId: z.string() });
+export const BlockedListResZ = z.object({
+  blocked: z.array(z.object({ characterId: z.string(), handle: z.string(), displayName: z.string(), createdAt: z.string() })),
+});
+
+/* ============================================================
+ * S2 — retention & growth
+ * ========================================================== */
+
+/** S2-2 Expo push token registration. */
+export const PushPlatformZ = z.enum(["ios", "android", "web"]);
+export const RegisterPushReqZ = z.object({ token: z.string().min(8), platform: PushPlatformZ });
+export const RegisterPushResZ = z.object({ registered: z.boolean() });
+
+/** S2-1 Offline World Director — "While you were away". */
+export const DigestResZ = z.object({
+  digest: z.object({
+    id: z.string(),
+    headline: z.string(),
+    body: z.string(),
+    postIds: z.array(z.string()),
+    createdAt: z.string(),
+    seenAt: z.string().nullable(),
+  }).nullable(),
+});
+export const MarkDigestSeenResZ = z.object({ seenAt: z.string() });
+
+/** S2-3 Relationship Memory Ledger — what a character remembers, with receipts. */
+export const MemoryLedgerResZ = z.object({
+  character: z.object({ handle: z.string(), displayName: z.string(), avatarUrl: z.string().nullable() }),
+  affinity: z.number().int(),
+  summary: z.string(),
+  memories: z.array(z.object({
+    id: z.string(),
+    note: z.string(),
+    sourceRef: z.string(),
+    /** the quoted text of the post/message that created the memory, when it still exists */
+    quote: z.string().nullable(),
+    consolidated: z.boolean(),
+    createdAt: z.string(),
+  })),
+});
+
+/** S2-4 Shareable Moment — a vertical card the user can screenshot/share. */
+export const MomentResZ = z.object({
+  moment: z.object({
+    id: z.string(),
+    shareSlug: z.string(),
+    headline: z.string(),
+    body: z.string(),
+    payload: z.record(z.string(), z.unknown()),
+    createdAt: z.string(),
+  }),
+});
+export const MomentListResZ = z.object({ moments: z.array(MomentResZ.shape.moment) });
+
+/** S2-5 Referral. */
+export const ReferralResZ = z.object({
+  code: z.string(),
+  link: z.string(),
+  invited: z.number().int(),
+  coffeeEarned: z.number().int(),
+  canRedeem: z.boolean(),
+});
+export const RedeemReferralReqZ = z.object({ code: z.string().min(4).max(16) });
+export const RedeemReferralResZ = z.object({ coffee: z.number().int(), energy: z.number().int() });
+
+/** S2-6 Profile (SCR-026). */
+export const ProfileResZ = z.object({
+  persona: PersonaZ,
+  levelProgress: z.object({ level: z.number().int(), xp: z.number().int(), xpForNext: z.number().int() }),
+  posts: z.array(PostZ),
+  relationships: z.array(z.object({
+    characterId: z.string(),
+    handle: z.string(),
+    displayName: z.string(),
+    avatarUrl: z.string().nullable(),
+    affinity: z.number().int(),
+    isFollower: z.boolean(),
+    memoryCount: z.number().int(),
+  })),
+  recentSnapshots: z.array(StatSnapshotZ),
+});
+
+/* ============================================================
+ * S3 — cost observability (cost-architecture §6.4)
+ * ========================================================== */
+
+export const CostRowZ = z.object({
+  key: z.string(),
+  calls: z.number().int(),
+  inputTokens: z.number().int(),
+  cacheWriteTokens: z.number().int(),
+  cacheReadTokens: z.number().int(),
+  outputTokens: z.number().int(),
+  costUsd: z.number(),
+  fallbacks: z.number().int(),
+  p50LatencyMs: z.number(),
+  p95LatencyMs: z.number(),
+});
+export const CostSummaryResZ = z.object({
+  since: z.string(),
+  until: z.string(),
+  totals: CostRowZ,
+  byDay: z.array(CostRowZ),
+  byGenerator: z.array(CostRowZ),
+  byVariant: z.array(CostRowZ),
+  byModel: z.array(CostRowZ),
+  /** the numbers cost-architecture §4 is judged on */
+  perAction: z.object({ actions: z.number().int(), usdPerAction: z.number(), usdPerActiveUser: z.number() }),
+  cacheHitRate: z.number(),
+  ratings: z.object({ up: z.number().int(), down: z.number().int(), regenerations: z.number().int() }),
+});
