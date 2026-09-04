@@ -166,7 +166,7 @@ export function replayG4(input: G4Input): G4Output {
 
   const negative = isNegative(input.message);
   const roll = pick(4, input.seed, input.message, "aff");
-  const affinity_delta = roll === 0 ? 0 : negative ? -1 : 1;
+  const affinity_delta = negative ? -1 : roll === 0 ? 2 : 1; // never 0: every exchange moves the relationship (E2E-006)
 
   const notes = cf?.memory[input.locale] ?? [];
   const memory_note =

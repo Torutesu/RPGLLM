@@ -1,3 +1,4 @@
+import { normHandle } from "./handles";
 import type { DMMessage, DMThread, RelationshipState, WorldCharacter } from "@prisma/client";
 import type { DMStreamEvent, G4Input } from "@rpgllm/shared";
 import { dmStreamDelayMs } from "../env";
@@ -45,14 +46,14 @@ export async function runDMStream(
     ...baseCtx(ctx),
     persona: personaState(ctx),
     character: {
-      handle: thread.character.handle,
+      handle: normHandle(thread.character.handle),
       displayName: thread.character.displayName,
       role: thread.character.role,
       card: localized(thread.character.card, ctx.locale),
       isPressAccount: thread.character.isPressAccount,
     },
     relationship: {
-      handle: thread.character.handle,
+      handle: normHandle(thread.character.handle),
       affinity: relationship.affinity,
       summary: relationship.summary,
       isFollower: relationship.isFollower,

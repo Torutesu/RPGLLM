@@ -80,7 +80,10 @@ export function eventRoutes(): Hono<AppEnv> {
     });
 
     let newsPost = null;
-    if (choice.newsText) {
+    // The press account always reports the outcome (spec E2E-005): authored newsText when the
+    // director wrote one, otherwise the outcome itself becomes the headline.
+    const newsText = choice.newsText ?? choice.outcomeText;
+    if (newsText) {
       const press = pressAccount(ctx.characters);
       if (press) {
         const row = await deps.prisma.post.create({
@@ -89,7 +92,7 @@ export function eventRoutes(): Hono<AppEnv> {
             personaId: ctx.persona.id,
             authorCharacterId: press.id,
             kind: "news",
-            text: choice.newsText,
+            text: newsText,
             generationId: event.generationId,
             metrics: {},
           },

@@ -36,7 +36,7 @@ export const pressAccount = (characters: WorldCharacter[]): WorldCharacter | und
 
 export function castCards(ctx: StoryContext): CharacterCard[] {
   return ctx.characters.map((c) => ({
-    handle: c.handle,
+    handle: normHandle(c.handle),   // generators and fixtures use bare handles
     displayName: c.displayName,
     role: c.role,
     card: localized(c.card, ctx.locale),
@@ -75,7 +75,7 @@ export function involvedFor(ctx: StoryContext, parentAuthorHandle: string | null
     return b.rel.affinity - a.rel.affinity;
   });
   return scored.slice(0, 3).map(({ rel, ch }) => ({
-    handle: ch.handle,
+    handle: normHandle(ch.handle),
     affinity: rel.affinity,
     summary: rel.summary,
     isFollower: rel.isFollower,

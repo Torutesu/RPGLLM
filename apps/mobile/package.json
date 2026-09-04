@@ -6,7 +6,7 @@
   "scripts": {
     "start": "expo start",
     "web": "expo start --web",
-    "export:web": "expo export -p web --output-dir dist",
+    "export:web": "expo export -p web --output-dir dist --clear",
     "serve:web": "node scripts/serve-web.mjs",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "android": "expo run:android",
