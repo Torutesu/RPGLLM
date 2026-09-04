@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 import { timingSafeEqual } from "node:crypto";
 import { COST_DASHBOARD } from "@rpgllm/shared";
-import { testHooksEnabled } from "../env";
+import { testHooksEnabled, adminToken } from "../env";
 import { fail, ok } from "../http";
 import { costLive, costReport, costWindow } from "../services/cost";
 import type { AppEnv } from "../types";
@@ -17,11 +17,10 @@ import type { AppEnv } from "../types";
  *   - open while `TEST_HOOKS=1` (vitest + Playwright), or
  *   - `x-admin-token` equal to the `ADMIN_TOKEN` env var (which must be set and non-empty).
  * Anything else answers **404**, the same body `app.notFound` produces, so an unauthenticated
- * scanner cannot tell the route exists. `ADMIN_TOKEN` is read lazily from `process.env` here
+ * scanner cannot tell the route exists. `ADMIN_TOKEN` is read lazily through `env.ts` here
  * rather than added to `src/env.ts`, which Agent F owns.
  */
 
-const adminToken = (): string => process.env["ADMIN_TOKEN"] ?? "";
 
 /** Constant-time compare that does not leak the length through an early return. */
 function tokenMatches(presented: string, expected: string): boolean {

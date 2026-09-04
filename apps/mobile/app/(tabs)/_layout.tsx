@@ -29,8 +29,9 @@ function TabBar({ activeName }: { activeName: string }) {
           <Pressable
             key={it.name}
             testID={it.testID}
-            accessibilityRole="button"
+            accessibilityRole="tab"
             accessibilityLabel={it.label}
+            accessibilityState={{ selected: active }}
             onPress={() => (it.push ? router.push(it.href) : router.replace(it.href))}
             style={{ flex: 1, alignItems: "center", paddingVertical: spacing.md }}
           >

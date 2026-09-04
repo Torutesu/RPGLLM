@@ -153,8 +153,9 @@ test("S1-3/6: settings exposes the legal links and the analytics consent toggle"
   await expect(page.getByTestId(T.settingsExport)).toBeVisible();
 
   // S1-6 consent: off by default for a fresh adult account, on after the toggle
+  // The label comes from i18n (`off`/`on`), not a hardcoded literal, so assert against the strings.
   const toggle = page.getByTestId(T.settingsConsent);
-  await expect(toggle).toContainText("OFF");
+  await expect(toggle).toContainText(strings.en.off);
   const consent = page.waitForResponse(
     (r) => r.url().includes("/v1/account/consent") && r.request().method() === "POST",
     { timeout: 20_000 },
@@ -163,7 +164,7 @@ test("S1-3/6: settings exposes the legal links and the analytics consent toggle"
   const res = await consent;
   expect(res.status(), "POST /v1/account/consent").toBe(200);
   expect(await unwrap<{ analytics: boolean; locked: boolean }>(res, "consent")).toEqual({ analytics: true, locked: false });
-  await expect(toggle).toContainText("ON");
+  await expect(toggle).toContainText(strings.en.on);
 });
 
 test("S1-1: the account can be deleted in-app and the session stops working", async ({ page, request }) => {

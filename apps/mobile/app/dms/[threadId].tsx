@@ -186,6 +186,7 @@ export default function DMThreadScreen() {
           testID={T.dmInput}
           value={text}
           onChangeText={setText}
+          accessibilityLabel={t("send")}
           placeholder={t("send")}
           placeholderTextColor={colors.textMuted}
           maxLength={500}
@@ -205,6 +206,8 @@ export default function DMThreadScreen() {
         <Pressable
           testID={T.dmSend}
           accessibilityRole="button"
+          accessibilityLabel={t("send")}
+          accessibilityState={{ disabled: busy || !text.trim(), busy }}
           onPress={() => void onSend()}
           disabled={busy || !text.trim()}
           style={{

@@ -965,3 +965,187 @@ wallet; `digest.test.ts` asserts zero `LedgerEntry(source: spend)` rows across a
   "isolated" run back to `rpgllm_test`. Worth knowing when two agents test at once.
 - Housekeeping: `apps/mobile/dist-h/` (my throw-away web export for the isolated-port run) was
   picked up by a commit; it is deleted in the working tree — please commit the removal.
+
+## Agent I — cost observability (S3-5) & accessibility (S3-6) — 2026-09-04
+
+### S3-5 — what was built
+
+| file | role |
+|---|---|
+| `apps/api/src/services/cost.ts` | all the aggregation (new) |
+| `apps/api/src/routes/cost.ts` | `GET /v1/cost/summary`, `GET /v1/cost/live` (new) |
+| `apps/api/src/app.ts` | one line: `v1.route("/cost", costRoutes())` |
+| `apps/api/test/cost.test.ts` | 17 cases (new) |
+| `scripts/cost-report.mjs` | CLI: terminal table / `--json` / `--html` (new) |
+| `e2e/tests/cost.spec.ts` | 2 cases (new) |
+
+### "Action" for `$/action`
+
+An action is **one `LedgerEntry(source: "spend")` row in the window**. That is the single place an
+energy spend is written (`services/wallet.ts#spendEnergy`), inside the same transaction as the post
+/ reply / DM send / event choice — so it is exactly cost-architecture §2's unit, with no risk of
+double counting a post that also produced a news item, and no need to union four tables.
+
+A **fallback refund does not cancel the spend**: `refundEnergy` writes `source: "admin"` with a
+`refund:` ref, so the spend row stays. That is deliberate — the LLM call was made and billed, so the
+action still belongs in the denominator. `totals.fallbacks` (calls whose `stopReason` is one of
+`error | refusal | invalid_json`, the only trace `meta.fallback` leaves in the schema) is reported
+separately so a rise in refunds is visible next to it.
+
+`usdPerActiveUser` divides by `count(distinct GenerationLog.userId)` in the window — the $/DAU of §4.
+
+### Where the percentiles are computed
+
+In Postgres, `percentile_disc(p) WITHIN GROUP (ORDER BY "latencyMs")` (and the same over `ttftMs`).
+`percentile_disc` is the **nearest-rank** percentile: it returns a value that was actually observed —
+the `ceil(p·n)`-th of n sorted samples — never an interpolation and never an average. That makes it
+hand-checkable, which is what `cost.test.ts` does: seven seeded latencies `100…1000` must give
+P50 = 400 (4th) and P95 = 1000 (7th), and the test also asserts the P50 is *not* the mean.
+
+Nothing is aggregated in JS. Every breakdown (`byDay`, `byGenerator`, `byVariant`, `byModel`,
+`totals`, the per-arm table and the daily series) is a `GROUP BY` over the `@@index([createdAt])`
+window; the service never loads a `GenerationLog` row. `byDay` buckets on
+`date_trunc('day', "createdAt")`, i.e. UTC days — the test seeds two rows one millisecond apart
+across a midnight and asserts they land in different buckets.
+
+### The admin gate
+
+`/v1/cost/*` exposes product-wide spend and user counts, so `requireAuth` would not be a gate at all
+(any signed-up user would pass). The router's own middleware allows a request when **`TEST_HOOKS=1`**
+(vitest + Playwright) **or** when `x-admin-token` equals a **non-empty** `ADMIN_TOKEN` env var,
+compared with `crypto.timingSafeEqual`. Everything else gets the exact 404 body `app.notFound`
+produces, so a scanner cannot tell the route exists. There is no empty-token bypass: with
+`ADMIN_TOKEN` unset the route is 404 for everyone once `TEST_HOOKS` is off.
+
+`ADMIN_TOKEN` is read straight from `process.env` inside `routes/cost.ts` rather than added to
+`src/env.ts` — that file is Agent F's. **Suggested follow-up for whoever owns `env.ts`**: move it to
+an `adminToken()` accessor and have `assertProductionConfig()` refuse to boot in production with
+`TEST_HOOKS=1` *and* no `ADMIN_TOKEN` (today production simply has the routes closed, which is safe
+but silent).
+
+### Alarm thresholds (§6.4)
+
+`COST_ALARMS` in `services/cost.ts`, echoed in `/v1/cost/live`, `/v1/cost/summary` and both CLI
+outputs as `thresholds`, with the booleans in `alarms`:
+
+| alarm | threshold | fires when |
+|---|---|---|
+| `cacheHitRateLow` | `CACHE_HIT_MIN = 0.80` | `cacheRead / (cacheRead + input) < 0.80` with ≥1 call |
+| `costPerActionOverChampion` | `COST_OVER_CHAMPION = 0.30` | any live arm's $/call is > +30% over its generator's champion (`championVariants()` from `@rpgllm/llm`) |
+| `ttftP95High` | `TTFT_P95_MAX_MS = 3000` | TTFT P95 > 3s with ≥1 sample |
+
+An empty window raises nothing (no samples ≠ a breach). `/v1/cost/live` is the same computation over
+the last hour, trimmed to `{usdPerAction, cacheHitRate, fallbackRate, p95LatencyMs, ttftP95Ms, alarms}`
+so a probe can alert straight off it.
+
+### `scripts/cost-report.mjs`
+
+`node scripts/cost-report.mjs --days 7 [--json] [--html out.html]`. With `API_URL` + `ADMIN_TOKEN`
+set it reads `GET /v1/cost/summary`; otherwise it goes to Postgres directly — but through
+**`apps/api/src/services/cost.ts` itself**, loaded with `tsx/esm/api`'s `register()`. There is no
+second implementation of the maths, so the CLI and the API cannot drift. Zero new dependencies.
+
+`--html` writes a standalone file: inline CSS with light/dark tokens, hand-drawn static SVG, no
+script, no CDN, no fonts. Panels are exactly §6.4 — $/action and $/DAU over time, cache hit rate with
+the 80% line drawn, TTFT P50/P95 with the 3s line, per-generator token composition as stacked bars,
+the variant allocation table with each arm's $/call, "vs champion" and a quality proxy, plus the four
+breakdown tables. Verified: the only `http://` string in the output is the provenance line.
+
+### Additive extras on the response
+
+`CostSummaryResZ` is returned verbatim; `ttft`, `perDay`, `variants`, `alarms`, `thresholds` and
+`days` are extra keys the dashboard needs (a `CostSummaryResZ.parse()` strips them — the vitest case
+asserts exactly that). `perDay` exists because §6.4 asks for `$/action` **over time**, which the
+`CostRowZ` shape has no room for; it is one `FULL OUTER JOIN` between the daily generation rollup and
+the daily spend count, so a day with actions but no calls (or the reverse) still yields a point.
+
+Quality proxy per arm is `1 − (👎 + regenerations) / calls`, clamped — a cheap online stand-in until
+§6.2's LLM judge exists. It is labelled as a proxy in both outputs.
+
+### Observation from the real run
+
+An escalated (👎 → regenerate) call keeps the user's assigned `variantId` but runs one tier up, so
+`g1-haiku-v1` legitimately reports two models (`claude-haiku-4-5,claude-sonnet-5`) and its $/call
+mixes tiers. The arm table surfaces this via `string_agg(DISTINCT model)` instead of hiding it. If
+the bandit of §6.3 is ever driven off `usdPerCall`, escalations must be excluded first
+(`escalatedFrom IS NULL`) or the challenger looks more expensive than it is.
+
+### S3-6 — accessibility
+
+The app had **zero** `accessibilityLabel`s. Covered in the files I own — `app/auth.tsx`,
+`compose.tsx`, `index.tsx`, `energy.tsx`, `paywall.tsx`, `event/[id].tsx`, `post/[id].tsx`,
+`onboarding/{scenario,persona,persona-edit,first-follower}.tsx` and
+`src/components/{Avatar,Bubble,EnergyBadge,Skeleton,StatCard,Toast,ui}.tsx`:
+
+- Every `Pressable`/`Button` has a role and a name from `useT()`; no English literal was introduced.
+  Glyph-only controls (`‹`, `×`, `⚡`, `☕`, `★`) get the name on the control and
+  `importantForAccessibility="no"` on the glyph, so nothing is read twice.
+- `accessibilityState` for `disabled` / `busy` (`Button`, event choices) and `selected`/`checked` on
+  the one-of-many pickers, which became **radio** roles inside a **radiogroup**: preset personas
+  (SCR-004), first follower (SCR-006), paywall plans (SCR-030).
+- The energy badge reads **"Energy 7"**, not a bare `7`, and carries `accessibilityValue`; SCR-032's
+  big number reads "Energy 7 / 10" and the refill timer reads "next free refill in 04:12:55".
+- `StatCard` rows read **"Aura +5, 25"** instead of `+5 → 25` (the testid'd node keeps its exact
+  visible text, so E2E is unaffected); the aura/humor bars are `progressbar`s with
+  `accessibilityValue {min:0,max:100,now}`; relationship chips read `@handle +2` instead of an arrow.
+- Skeletons are removed from the tree entirely (`accessibilityElementsHidden` +
+  `importantForAccessibility="no-hide-descendants"`), so a loading feed is silent rather than a wall
+  of blank rows. Same for the DM typing bubble.
+- `Toast`, `InlineError`, the `Field` error, and every inline error/success banner are
+  `accessibilityLiveRegion="polite"` with `role="alert"` — the fallback and safety messages are the
+  app's only channel for "that action did not land", so they must be announced.
+- `Avatar` is decorative by default (it always sits next to its handle) and takes an optional
+  `label` when rendered alone — SCR-005's preview passes one.
+- `TextInput`s get a name and a disabled state but **no `accessibilityRole`**: RN's role list has no
+  `textbox`, and forcing one of the allowed values would *replace* the implicit textbox role a real
+  `<input>` already exposes on web. That is a deliberate omission, commented in `ui.tsx`.
+
+All existing `testID`s are untouched; the a11y props are purely additive. `e2e/tests/cost.spec.ts`
+pins the outcome for the feed: the energy badge's `aria-label` must match `/energy/i` and contain a
+digit, and the composer's input/submit/cancel must all have a non-empty `aria-label`.
+
+#### Two copy bugs fixed on the way (both in `onboarding/persona-edit.tsx`, both mine)
+
+- the voice-notes field was labelled `t("save")` ("Save & continue"); i18n already has `voiceNotes`
+  ("How do you talk? (optional)"). With the label now doubling as the accessible name this was no
+  longer cosmetic.
+- a taken handle showed `t("safetyBlocked")` ("This doesn't fit the world's guidelines."); i18n has
+  `handleTaken` ("Taken").
+
+#### i18n gaps found (nothing hardcoded; please add to `packages/shared/src/i18n`)
+
+- **"up" / "down"** for stat deltas. §S3-6 asks for "Aura up 5"; with no localized words the label is
+  `Aura +5, 25` (a screen reader reads `+` as "plus"). Add `statUp`/`statDown` and the label becomes
+  the sentence the brief asks for.
+- **"typing…"** for the DM typing bubble — hidden from the tree for now rather than inventing copy.
+- **"back"** for `HeaderBar`'s `‹` — it currently borrows `close`.
+- **"coffee"** — the badge's coffee count borrows `useCoffee` ("Use a coffee").
+
+#### Not done (files I do not own)
+
+`app/(tabs)/feed.tsx` and `dms.tsx`, `app/dms/[threadId].tsx`, `app/settings*.tsx`, `report.tsx`,
+`delete-account.tsx`, `profile.tsx`, `moment/**`, `invite.tsx`, `memory/**` and
+`src/components/PostCell.tsx` have **no a11y props**. `PostCell` matters most: it is the feed's
+repeated unit, and its 👍/👎/overflow controls are icon-only, so a screen reader currently reads
+three unnamed buttons per post. The tab bar and the DM thread are the next two. The patterns above
+(name from `useT()`, glyph `importantForAccessibility="no"`, `radio` for pickers, live regions for
+errors) transfer directly.
+
+### Verification
+
+- `pnpm --filter api typecheck`, `pnpm --filter mobile typecheck`, `pnpm --filter e2e typecheck` — clean.
+- `pnpm --filter api test` — **15 files, 103 passed** (17 of them new in `cost.test.ts`).
+- `pnpm e2e` — **26 passed, 4 skipped, 1 failed**; the failure is
+  `compliance.spec.ts S1-3/6` (settings consent toggle text), which is Agent G's file and unrelated.
+  All 16 original P0 cases and both new `cost.spec.ts` cases are green.
+- `node scripts/cost-report.mjs --days 7` against `rpgllm_test` after driving 16 real actions through
+  the API: $/action **$0.008210**, $/DAU $0.032840, cache hit rate 88.4%, 37 generator calls across
+  G1/G5/G8 and three models, 0 fallbacks, regeneration rate 5.41%, all three alarms clear.
+  `--html` output is 17 KB and opens with no network access.
+
+**A note for whoever runs the suites next:** `rpgllm_test` is shared. Two agents running
+`pnpm --filter api test` (or Playwright) at the same time truncate each other's rows mid-test and
+produce dozens of bogus `PrismaClientKnownRequestError` / arithmetic failures. `cost.test.ts`'s
+aggregation assertions are pinned to a window in the *past* (the fixture sits on two whole UTC days
+before today) precisely so a concurrent suite writing rows at "now" cannot perturb them; the HTTP
+cases use `>=` for the same reason.

@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { Pressable, Text, View } from "react-native";
 import { T, colors, font, radius, spacing, type Post } from "@rpgllm/shared";
+import { useT } from "../i18n/useT";
 import { Avatar } from "./Avatar";
 import { Overflow } from "./Overflow";   // Agent G (S1-2)
 
@@ -36,15 +37,29 @@ export type RateHandlers = {
 function Metrics({ post }: { post: Post }) {
   const [liked, setLiked] = useState(false);
   const [reposted, setReposted] = useState(false);
+  const { t } = useT();
   const likes = post.metrics.likes + (liked ? 1 : 0);
   const reposts = post.metrics.reposts + (reposted ? 1 : 0);
   return (
     <View style={{ flexDirection: "row", gap: spacing.xl, marginTop: spacing.sm }}>
-      <Text style={{ color: colors.textMuted, fontSize: font.xs }}>{`💬 ${compact(post.metrics.replies)}`}</Text>
-      <Pressable onPress={() => setReposted((v) => !v)} accessibilityRole="button">
+      <Text
+        style={{ color: colors.textMuted, fontSize: font.xs }}
+        accessibilityLabel={`${post.metrics.replies} ${t("reply")}`}
+      >{`💬 ${compact(post.metrics.replies)}`}</Text>
+      <Pressable
+        onPress={() => setReposted((v) => !v)}
+        accessibilityRole="button"
+        accessibilityLabel={`${t("share")} · ${reposts}`}
+        accessibilityState={{ selected: reposted }}
+      >
         <Text style={{ color: reposted ? colors.positive : colors.textMuted, fontSize: font.xs }}>{`🔁 ${compact(reposts)}`}</Text>
       </Pressable>
-      <Pressable onPress={() => setLiked((v) => !v)} accessibilityRole="button">
+      <Pressable
+        onPress={() => setLiked((v) => !v)}
+        accessibilityRole="button"
+        accessibilityLabel={`${t("likeThis")} · ${likes}`}
+        accessibilityState={{ selected: liked }}
+      >
         <Text style={{ color: liked ? colors.danger : colors.textMuted, fontSize: font.xs }}>{`❤ ${compact(likes)}`}</Text>
       </Pressable>
     </View>
@@ -53,12 +68,27 @@ function Metrics({ post }: { post: Post }) {
 
 function RateRow({ post, rate }: { post: Post; rate: RateHandlers }) {
   const busy = rate.busyId === post.id;
+  const { t } = useT();
   return (
     <View style={{ flexDirection: "row", gap: spacing.lg, marginTop: spacing.sm }}>
-      <Pressable testID={T.rateUp(post.id)} onPress={() => rate.onUp(post)} disabled={busy} accessibilityRole="button">
+      <Pressable
+        testID={T.rateUp(post.id)}
+        onPress={() => rate.onUp(post)}
+        disabled={busy}
+        accessibilityRole="button"
+        accessibilityLabel={`${t("likeThis")} — @${post.author.handle}`}
+        accessibilityState={{ disabled: busy, busy }}
+      >
         <Text style={{ color: busy ? colors.textMuted : colors.positive, fontSize: font.sm }}>👍</Text>
       </Pressable>
-      <Pressable testID={T.rateDown(post.id)} onPress={() => rate.onDown(post)} disabled={busy} accessibilityRole="button">
+      <Pressable
+        testID={T.rateDown(post.id)}
+        onPress={() => rate.onDown(post)}
+        disabled={busy}
+        accessibilityRole="button"
+        accessibilityLabel={`${t("dislikeThis")} — @${post.author.handle}`}
+        accessibilityState={{ disabled: busy, busy }}
+      >
         <Text style={{ color: busy ? colors.textMuted : colors.negative, fontSize: font.sm }}>👎</Text>
       </Pressable>
     </View>

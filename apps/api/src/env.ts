@@ -75,3 +75,5 @@ export const healthDbTimeoutMs = (): number => envNum("HEALTH_DB_TIMEOUT_MS", 15
 /** How long SIGTERM waits for in-flight SSE streams before forcing the exit. */
 export const shutdownGraceMs = (): number => envNum("SHUTDOWN_GRACE_MS", 10_000);
 export const requestLogEnabled = (): boolean => envStr("REQUEST_LOG", "1") !== "0";
+/** S3-5 cost dashboard gate. Empty means "no admin access"; the route then 404s for everyone but TEST_HOOKS. */
+export const adminToken = (): string => envStr("ADMIN_TOKEN", "");
