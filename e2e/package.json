@@ -3,7 +3,13 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "scripts": { "test": "playwright test", "typecheck": "tsc --noEmit -p tsconfig.json" },
+  "scripts": {
+    "test": "playwright test",
+    "test:headed": "playwright test --headed",
+    "test:smoke": "E2E_SMOKE=1 E2E_SKIP_DB=1 E2E_SKIP_EXPORT=1 playwright test tests/smoke.spec.ts",
+    "report": "playwright show-report playwright-report",
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
   "dependencies": { "@rpgllm/shared": "workspace:*" },
   "devDependencies": { "@playwright/test": "1.62.1", "@types/node": "^22.19.0", "typescript": "^5.9.3" }
 }
