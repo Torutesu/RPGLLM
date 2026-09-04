@@ -3,7 +3,7 @@ import { JOBS } from "@rpgllm/shared";
 import { cronMatches, nextCronRun, nextRunAtFor, parseCron } from "../src/jobs/cron";
 import { findJob, resolveJobName, runDefinitionOnce, runJobOnce, type JobDeps } from "../src/jobs/registry";
 import { ensureJobRunTable, lockKeyFor, recentRuns, withJobLock } from "../src/jobs/runs";
-import { call, makeHarness, prisma, resetDatabase, type Harness } from "./helpers";
+import { call, makeHarness, prisma, resetDatabase, signupWithPersona, type Harness } from "./helpers";
 
 let h: Harness;
 let deps: JobDeps;
@@ -185,6 +185,31 @@ describe("GET /v1/jobs and POST /v1/jobs/run", () => {
     expect(alias.data.runs[0]?.job).toBe("ambient-refill");
     const bad = await call(h, "POST", "/v1/jobs/run", { body: { job: "definitely-not-a-job" } });
     expect(bad.status).toBe(400);
+  });
+
+  it("runs the generative jobs on the Batch tier (cost-architecture §5.4)", async () => {
+    const p = await signupWithPersona(h);
+    // Away long enough for the offline director to have something to say.
+    h.clock.offsetDays(1);
+
+    const ambient = await call<{ runs: { job: string; ok: boolean; detail: Record<string, number> }[] }>(
+      h, "POST", "/v1/jobs/run", { body: { job: "ambient-refill" } },
+    );
+    expect(ambient.data.runs[0]?.ok).toBe(true);
+
+    const digest = await call<{ runs: { job: string; ok: boolean; processed: number }[] }>(
+      h, "POST", "/v1/jobs/run", { body: { job: "offline-director", personaId: p.personaId } },
+    );
+    expect(digest.data.runs[0]?.ok).toBe(true);
+    expect(digest.data.runs[0]?.processed, "one digest for the away player").toBe(1);
+    expect(await prisma.digest.count({ where: { personaId: p.personaId } })).toBe(1);
+
+    // Every call the scheduler makes is batched: G2 for the pool, G10 for the digest, and the
+    // batch marker is on the stop reason (`packages/llm` has no `batched` column to set).
+    const logs = await prisma.generationLog.findMany({ where: { generator: { in: ["G2", "G10"] } } });
+    expect(logs.length).toBeGreaterThan(0);
+    for (const log of logs) expect(log.stopReason?.startsWith("batch:"), `${log.generator} is batched`).toBe(true);
+    h.clock.reset();
   });
 
   it("keeps the E2E test hook working", async () => {

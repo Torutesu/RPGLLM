@@ -5,6 +5,11 @@
  *
  * Every run is: take the advisory lock → write a `JobRun` row → run → record processed/error.
  * A job that throws is recorded and swallowed; nothing a job does can take the worker down.
+ *
+ * The three generative jobs run their **batched** variants here (G2 / G7 / G10 on the Batch tier,
+ * cost-architecture §5.4 — half price). The interactive compositions stay in place for the callers
+ * that cannot wait on a queue: `GET /v1/digest`, `GET /v1/memory/:characterId` and the E2E hook
+ * `POST /v1/__test/run-job`.
  */
 import { hostname } from "node:os";
 import type { PrismaClient } from "@prisma/client";
@@ -15,10 +20,10 @@ import { envNum, envStr } from "../env";
 import { logLine } from "../middleware/request-log";
 import { purgeDeletedAccounts } from "../services/account";
 import { purgeLoginCodes } from "../services/login-codes";
-import { runAmbientRefill } from "./ambient-refill";
+import { runAmbientRefill, runAmbientRefillBatchedJob } from "./ambient-refill";
 import { runBanditUpdate } from "./bandit-update";
-import { runMemoryConsolidation } from "./memory-consolidate";
-import { runOfflineDirector } from "./offline-director";
+import { runMemoryConsolidation, runMemoryConsolidationBatchedJob } from "./memory-consolidate";
+import { runOfflineDirector, runOfflineDirectorBatchedJob } from "./offline-director";
 import { finishRun, pruneRuns, shortError, startRun, withJobLock, type JobRunRow } from "./runs";
 
 export type ScheduledJobName = (typeof JOBS)[number]["name"];
@@ -58,24 +63,33 @@ export const disabledJobs = (): string[] =>
 export const jobEnabled = (name: string): boolean => !disabledJobs().includes(name);
 /** `JobRun` rows older than this are dropped by the purge job. */
 const runRetentionDays = (): number => envNum("JOB_RUN_RETENTION_DAYS", 14);
+/**
+ * The three generative jobs run on the **Batch tier** (cost-architecture §5.4): half price, and
+ * nobody is waiting on any of them. `JOBS_BATCH=0` falls back to the interactive composition — the
+ * escape hatch if a batch ever stalls, since a batch may take up to 24 hours in live mode.
+ */
+export const batchTierEnabled = (): boolean => envStr("JOBS_BATCH", "1") !== "0";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 const RUNNERS: Record<ScheduledJobName, (deps: JobDeps, opts: JobOptions) => Promise<JobOutcome>> = {
   "offline-director": async (deps, opts) => {
-    const r = await runOfflineDirector(deps.prisma, deps.gateway, deps.clock, {
+    const run = batchTierEnabled() ? runOfflineDirectorBatchedJob : runOfflineDirector;
+    const r = await run(deps.prisma, deps.gateway, deps.clock, {
       ...(opts.personaId ? { personaId: opts.personaId } : {}),
     });
     return { processed: r.generated.length, detail: { considered: r.considered, generated: r.generated.length, skipped: r.skipped } };
   },
   "memory-consolidate": async (deps, opts) => {
-    const r = await runMemoryConsolidation(deps.prisma, deps.gateway, deps.clock, {
+    const run = batchTierEnabled() ? runMemoryConsolidationBatchedJob : runMemoryConsolidation;
+    const r = await run(deps.prisma, deps.gateway, deps.clock, {
       ...(opts.personaId ? { personaId: opts.personaId } : {}),
     });
     return { processed: r.relationships, detail: { personas: r.personas, relationships: r.relationships, notes: r.notes } };
   },
   "ambient-refill": async (deps) => {
-    const r = await runAmbientRefill(deps.prisma, deps.gateway, deps.clock, {});
+    const run = batchTierEnabled() ? runAmbientRefillBatchedJob : runAmbientRefill;
+    const r = await run(deps.prisma, deps.gateway, deps.clock, {});
     return { processed: r.created, detail: { pools: r.pools, created: r.created } };
   },
   "purge-deleted": async (deps) => {

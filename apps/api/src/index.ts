@@ -10,6 +10,7 @@ import {
   port, rateLimitEnabled, shutdownGraceMs, testHooksEnabled,
 } from "./env";
 import { logLine } from "./middleware/request-log";
+import { banditAllocate, refreshAllocatorSnapshot } from "./services/bandit";
 
 async function main(): Promise<void> {
   const applied = loadEnvFile();
@@ -18,7 +19,19 @@ async function main(): Promise<void> {
 
   const prisma = new PrismaClient();
   const clock = createClock();
-  const { gateway, source } = await loadGateway();
+
+  /**
+   * Thompson sampling on (cost-architecture §6.3, Agent N). `banditAllocate` reads a cached
+   * snapshot of `BanditArm` and returns the variant for this (generator, user), or `null` when the
+   * bandit has nothing to say — the gateway then falls back to the deterministic 50/50 split in
+   * `experiments.ts`, which is also exactly what happens on a cold database. The snapshot is warmed
+   * here and refreshed by the hourly `bandit-update` job in the worker.
+   */
+  const { gateway, source } = await loadGateway({ allocate: banditAllocate });
+  const arms = await refreshAllocatorSnapshot(prisma, clock.now()).catch((err: unknown) => {
+    logLine({ level: "warn", msg: "api.bandit.snapshot.failed", error: String(err) });
+    return 0;
+  });
   if (source === "fake") {
     console.warn("[api] running with the built-in FakeGateway — @rpgllm/llm is not implemented yet");
   }
@@ -29,7 +42,7 @@ async function main(): Promise<void> {
     level: "info", msg: "api.start", nodeEnv: nodeEnv(), production: isProduction(),
     envFiles: applied, llm: `${gateway.mode()} (${source})`, envLlmMode: llmMode(),
     billing: billingMode(), ads: adsMode(), testHooks: testHooksEnabled(),
-    devLoginCode: authDevCodeEnabled(), rateLimit: rateLimitEnabled(),
+    devLoginCode: authDevCodeEnabled(), rateLimit: rateLimitEnabled(), banditArms: arms,
     cors: corsAllowAll() ? "*" : corsOrigins().join(","), port: p,
   });
 

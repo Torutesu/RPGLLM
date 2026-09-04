@@ -1,8 +1,9 @@
 import type { Persona, Prisma, PrismaClient, WorldCharacter } from "@prisma/client";
-import type { Gateway } from "@rpgllm/llm";
+import type { BatchItem, G10Input, G10Output, Gateway } from "@rpgllm/llm";
+import { runOfflineDirectorBatched } from "@rpgllm/llm";
 import { DIGEST, t, type G1Input, type G5Input } from "@rpgllm/shared";
 import type { Clock } from "../clock";
-import { isAway, newestUnseenDigest } from "../services/digest";
+import { awayHours, isAway, lastActivityAt, newestUnseenDigest } from "../services/digest";
 import { logGeneration } from "../services/generation";
 import { normHandle } from "../services/handles";
 import { localized } from "../services/locale";
@@ -22,11 +23,16 @@ import type { Deps } from "../types";
  * posts and a press line (G1), and one DM from the follower who likes them most (G4). The result
  * is persisted as a `Digest` row that SCR-038 pins above the feed.
  *
- * cost-architecture §3 specifies **G10** on the Batch tier for this; `packages/llm` ships no `g10`
- * (nor `g2`), so the beat is composed from **G5 + G1** — the same context, one extra call, and
- * every call still goes through the gateway and lands in `GenerationLog` (build-notes "Agent H").
+ * Two paths (cost-architecture §3 / §5.4):
  *
- * Costs **no energy**: the user did not act.
+ *   - `runOfflineDirectorBatchedJob` — what the **scheduler** runs: one **G10** batch covering every
+ *     away player, at half price. G10 answers with the posts, the DM and the digest line together,
+ *     so one batched call replaces the three interactive ones.
+ *   - `runOfflineDirector` / `generateDigestFor` — the interactive composition (**G5 + G1 + G4**),
+ *     kept because a batch has a 24-hour SLA in live mode and two callers need an answer now:
+ *     `GET /v1/digest`, which generates on demand, and `POST /v1/__test/run-job {"job":"digest"}`.
+ *
+ * Either way it costs **no energy**: the user did not act.
  */
 export interface OfflineDirectorOptions {
   /** run for one persona instead of scanning */
@@ -302,4 +308,183 @@ export async function runOfflineDirector(
     else skipped += 1;
   }
   return { considered: personas.length, generated, skipped };
+}
+
+
+/* ------------------------------------------------------- the batch tier ---- */
+
+/** `Digest` has a headline and a body; G10 answers with one paragraph. Split on its first sentence. */
+export function splitDigest(text: string): { headline: string; body: string } {
+  const clean = text.trim();
+  if (clean === "") return { headline: "", body: "" };
+  const match = /^(.{1,140}?[.!?。！？])\s+(.*)$/s.exec(clean);
+  if (match?.[1] && match[2] && match[2].trim() !== "") return { headline: match[1].trim(), body: match[2].trim() };
+  // One sentence: the card still needs both halves, so the headline is a clamp of the same line.
+  return { headline: clean.slice(0, 140), body: clean };
+}
+
+interface PreparedDigest {
+  persona: Persona;
+  ctx: StoryContext;
+  input: G10Input;
+}
+
+/** Gathers the G10 context for one persona, or null when it does not need a digest right now. */
+async function prepareDigest(deps: Deps, persona: Persona, force: boolean): Promise<PreparedDigest | null> {
+  if (await newestUnseenDigest(deps.prisma, persona.id)) return null;
+  const lastActive = await lastActivityAt(deps.prisma, persona);
+  const away = awayHours(lastActive, deps.clock.now());
+  if (!force && away < DIGEST.MIN_AWAY_HOURS) return null;
+
+  const user = await deps.prisma.user.findUnique({ where: { id: persona.userId } });
+  if (!user || user.deletedAt) return null;
+  const ctx = await loadStoryContext(deps.prisma, user, persona.id);
+  if (!ctx) return null;
+
+  const byId = new Map(ctx.characters.map((c) => [c.id, c]));
+  return {
+    persona,
+    ctx,
+    input: {
+      ...baseCtx(ctx),
+      persona: personaState(ctx),
+      cast: castCards(ctx),
+      relationships: ctx.relationships
+        .flatMap((r) => {
+          const ch = byId.get(r.characterId);
+          return ch ? [{ handle: normHandle(ch.handle), affinity: r.affinity, summary: r.summary, isFollower: r.isFollower }] : [];
+        })
+        .sort((a, b) => (b.isFollower ? 1 : 0) - (a.isFollower ? 1 : 0) || b.affinity - a.affinity)
+        .slice(0, 8),
+      // G10 caps hoursAway at 30 days; a brand-new persona still reads as "at least an hour away".
+      hoursAway: Math.max(1, Math.min(720, Math.round(away))),
+      seed: seedFrom(`digest10:${persona.id}:${deps.clock.now().toISOString().slice(0, 13)}`),
+    },
+  };
+}
+
+/** Writes one G10 answer: the posts, the DM, the `Digest` row, its notification and the push. */
+async function applyDigest(
+  deps: Deps,
+  prepared: PreparedDigest,
+  output: G10Output,
+  generationId: string | null,
+): Promise<DigestSummary | null> {
+  const { ctx, persona } = prepared;
+  const now = deps.clock.now();
+  const { headline, body } = splitDigest(output.digest);
+  if (headline === "") return null;
+
+  const postIds: string[] = [];
+  for (const [i, post] of output.posts.entries()) {
+    const character = characterByHandle(ctx.characters, post.characterHandle)
+      ?? ctx.characters[i % Math.max(1, ctx.characters.length)];
+    if (!character || post.text.trim() === "") continue;
+    // Stamped a minute apart so the digest reads chronologically at the top of the feed.
+    const createdAt = new Date(now.getTime() - (output.posts.length - i) * 60_000);
+    postIds.push(await createPost(deps.prisma, {
+      worldId: ctx.world.id,
+      personaId: persona.id,
+      authorCharacterId: character.id,
+      kind: "character",
+      text: post.text,
+      generationId,
+      createdAt,
+      metrics: {},
+    }, persona.followers));
+  }
+
+  let dmMessageId: string | null = null;
+  const dm = output.dm;
+  const dmCharacter = dm ? characterByHandle(ctx.characters, dm.characterHandle) : undefined;
+  const dmText0 = dm?.bubbles[0];
+  if (dm && dmCharacter && dmText0) {
+    const thread = await deps.prisma.dMThread.upsert({
+      where: { personaId_characterId: { personaId: persona.id, characterId: dmCharacter.id } },
+      create: { personaId: persona.id, characterId: dmCharacter.id, lastMessageAt: now },
+      update: { lastMessageAt: now, unreadCount: { increment: 1 } },
+    });
+    const message = await deps.prisma.$transaction(async (tx) => {
+      const row = await tx.dMMessage.create({
+        data: { threadId: thread.id, fromCharacter: true, text: dmText0, generationId, createdAt: now },
+      });
+      await notify(tx, {
+        personaId: persona.id,
+        kind: "dm",
+        actorId: dmCharacter.id,
+        target: `dm:${thread.id}`,
+        text: dmText(ctx.locale, dmCharacter.displayName),
+        payload: { threadId: thread.id, proactive: true },
+        createdAt: now,
+      });
+      return row;
+    });
+    await deps.prisma.dMThread.update({ where: { id: thread.id }, data: { unreadCount: Math.max(1, thread.unreadCount) } });
+    dmMessageId = message.id;
+  }
+
+  const digest = await deps.prisma.$transaction(async (tx) => {
+    const row = await tx.digest.create({
+      data: {
+        personaId: persona.id,
+        headline,
+        body,
+        postIds: postIds as unknown as Prisma.InputJsonValue,
+        createdAt: now,
+      },
+    });
+    await notify(tx, {
+      personaId: persona.id,
+      kind: "digest",
+      target: `digest:${row.id}`,
+      text: digestText(ctx.locale, headline),
+      payload: { digestId: row.id },
+      createdAt: now,
+    });
+    return row;
+  });
+
+  const push = await notifyUser(deps.prisma, ctx.user.id, {
+    title: t(ctx.locale, "whileYouWereAway"),
+    body: headline,
+    data: { digestId: digest.id, personaId: persona.id },
+  });
+
+  return { personaId: persona.id, digestId: digest.id, headline, postIds, dmMessageId, pushed: push.sent };
+}
+
+/** The scheduled director: one G10 batch for every away player. */
+export async function runOfflineDirectorBatchedJob(
+  prisma: PrismaClient,
+  gateway: Gateway,
+  clock: Clock,
+  opts: OfflineDirectorOptions = {},
+): Promise<OfflineDirectorResult> {
+  const deps: Deps = { prisma, gateway, clock };
+  const personas = opts.personaId
+    ? await prisma.persona.findMany({ where: { id: opts.personaId } })
+    : await prisma.persona.findMany({ orderBy: { createdAt: "desc" }, take: opts.limit ?? DEFAULT_LIMIT });
+
+  const prepared = new Map<string, PreparedDigest>();
+  const items: BatchItem<G10Input>[] = [];
+  for (const persona of personas) {
+    const one = await prepareDigest(deps, persona, opts.force ?? false);
+    if (!one) continue;
+    prepared.set(persona.id, one);
+    items.push({ customId: persona.id, input: one.input });
+  }
+  if (items.length === 0) return { considered: personas.length, generated: [], skipped: personas.length };
+
+  const results = await runOfflineDirectorBatched(gateway, items);
+  const generated: DigestSummary[] = [];
+  for (const [personaId, outcome] of results) {
+    const one = prepared.get(personaId);
+    if (!one) continue;
+    const generationId = await logGeneration(prisma, outcome.meta, one.ctx.user.id);
+    // A fallback digest would be a generic paragraph pinned above the feed: skip it and retry next run.
+    if (outcome.meta.fallback) continue;
+    const summary = await applyDigest(deps, one, outcome.output, generationId);
+    if (summary) generated.push(summary);
+  }
+  return { considered: personas.length, generated, skipped: personas.length - generated.length };
 }

@@ -1798,18 +1798,24 @@ against a real store or a real device** in this environment (no credentials, no 
 ### Verification
 
 - `pnpm --filter api typecheck`, `pnpm --filter mobile typecheck`, `pnpm --filter e2e typecheck` — clean.
-- `pnpm --filter api test` — **229 passed / 24 files** on a private database, including my
+- `pnpm --filter api test` — **257 passed / 26 files** on a private database, including my
   **45 new cases** (`billing.test.ts` 30, `push.test.ts` 15). Nothing pre-existing was changed.
-- `expo export -p web` — succeeds; the bundle contains neither native SDK.
-- `pnpm e2e` — the full suite plus my 4 new `billing.spec.ts` cases (BILL-001 paywall renders the
-  offering and closes quietly, BILL-002 purchase → Plus → ads gone → settings names the plan,
-  BILL-003 restore reports free *and* subscribed, BILL-004 the webhook grants, replays as a no-op,
-  and a refund revokes immediately).
+- `expo export -p web` — succeeds (run as `--output-dir dist-p` so a concurrent agent's `dist` was
+  not clobbered); the bundle contains neither native SDK.
+- Playwright, whole suite on my private stack — **47 passed, 4 skipped, 0 failed**: every
+  pre-existing case plus my 4 new `billing.spec.ts` cases (BILL-001 the paywall renders the offering
+  and closes quietly, BILL-002 purchase → Plus → ads gone → settings names the plan, BILL-003
+  restore reports free *and* subscribed, BILL-004 the webhook grants, replays as a no-op, and a
+  refund revokes immediately).
 - Ran on a private stack (`rpgllm_p` for vitest via `TEST_DATABASE_URL`, `rpgllm_p_e2e` + API :4300
   + `dist-p` on :8302 for Playwright) because :4000/:8082/`rpgllm_test` were contended.
-  **One trap worth recording:** starting that private API with `pnpm --filter api dev` runs
-  `tsx watch` — another agent saving a file restarted it mid-suite and 30 cases failed with
-  `ECONNREFUSED`. Use `pnpm --filter api start` (no watch) for an E2E stack.
+  **Two traps worth recording.** (1) Starting that private API with `pnpm --filter api dev` runs
+  `tsx watch`: another agent saving a file restarted it mid-suite and 30 cases failed with
+  `ECONNREFUSED`. Use `pnpm --filter api start` (no watch), and `setsid` it so a stray `pkill` in
+  someone else's shell does not take it down. (2) A run whose **web export and API process were
+  taken from different minutes** fails in other agents' areas for no reason of its own (I saw 9
+  such failures — auth 500s and 401s from `feed`/`compliance`/`discovery`/`engagement`); re-export
+  and restart the API together, and they all pass.
 
 ### What a human must configure before the app can take money
 
