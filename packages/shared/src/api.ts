@@ -303,3 +303,86 @@ export const CostSummaryResZ = z.object({
   cacheHitRate: z.number(),
   ratings: z.object({ up: z.number().int(), down: z.number().int(), regenerations: z.number().int() }),
 });
+
+/* ============================================================
+ * Engagement — notifications, streaks, achievements, trending
+ * ========================================================== */
+
+export const NotificationKindZ = z.enum(["like", "reply", "follow", "mention", "dm", "milestone", "event", "digest", "unlock"]);
+export const NotificationZ = z.object({
+  id: z.string(),
+  kind: NotificationKindZ,
+  text: z.string(),
+  target: z.string().nullable(),
+  actor: z.object({ handle: z.string(), displayName: z.string(), avatarUrl: z.string().nullable() }).nullable(),
+  payload: z.record(z.string(), z.unknown()),
+  readAt: z.string().nullable(),
+  createdAt: z.string(),
+});
+export const NotificationsResZ = z.object({
+  notifications: z.array(NotificationZ),
+  unread: z.number().int(),
+  nextCursor: z.string().nullable(),
+});
+export const MarkNotificationsReadReqZ = z.object({ ids: z.array(z.string()).nullable().default(null) });
+export const MarkNotificationsReadResZ = z.object({ unread: z.number().int() });
+
+/** Login streak + the daily reward it pays. Checked in on every `/v1/me`. */
+export const StreakResZ = z.object({
+  days: z.number().int(),
+  best: z.number().int(),
+  claimedToday: z.boolean(),
+  /** what today's check-in paid, null when it was already claimed */
+  reward: z.object({ energy: z.number().int(), coffee: z.number().int(), gems: z.number().int() }).nullable(),
+  /** the next seven days of the ladder, for the strip in the UI */
+  ladder: z.array(z.object({ day: z.number().int(), energy: z.number().int(), coffee: z.number().int(), gems: z.number().int(), reached: z.boolean() })),
+});
+
+export const AchievementZ = z.object({
+  key: z.string(),
+  title: z.string(),
+  description: z.string(),
+  icon: z.string(),
+  tier: z.enum(["bronze", "silver", "gold", "legendary"]),
+  unlockedAt: z.string().nullable(),
+  seenAt: z.string().nullable(),
+  value: z.number().int(),
+  /** 0..1 toward the threshold, so locked rows can show a bar instead of nothing */
+  progress: z.number(),
+});
+export const AchievementsResZ = z.object({
+  achievements: z.array(AchievementZ),
+  unlocked: z.number().int(),
+  total: z.number().int(),
+  /** unlocked but never shown — the client pops a celebration for these, then marks them seen */
+  pending: z.array(AchievementZ),
+});
+export const MarkAchievementsSeenReqZ = z.object({ keys: z.array(z.string()) });
+
+/** What the world is talking about right now. Derived from recent posts, no table. */
+export const TrendingResZ = z.object({
+  topics: z.array(z.object({
+    label: z.string(),
+    posts: z.number().int(),
+    heat: z.number().int(),
+    /** the single hottest post carrying this topic, so the row can be tapped */
+    postId: z.string().nullable(),
+  })),
+  risingCharacters: z.array(z.object({
+    handle: z.string(),
+    displayName: z.string(),
+    avatarUrl: z.string().nullable(),
+    affinity: z.number().int(),
+    delta: z.number().int(),
+  })),
+  yourRank: z.object({ percentile: z.number(), followers: z.number().int(), trending: z.boolean() }),
+});
+
+/** A character's own page — their posts, their read on you, whether they follow you. */
+export const CharacterProfileResZ = z.object({
+  character: CharacterZ,
+  bio: z.string(),
+  relationship: z.object({ affinity: z.number().int(), summary: z.string(), isFollower: z.boolean(), memoryCount: z.number().int() }),
+  posts: z.array(PostZ),
+  blocked: z.boolean(),
+});

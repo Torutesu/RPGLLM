@@ -95,3 +95,70 @@ export const xpForNextLevel = (level: number): number => level * XP_PER_LEVEL;
 
 /** S3-5 cost dashboard defaults */
 export const COST_DASHBOARD = { DEFAULT_DAYS: 7, MAX_DAYS: 90 } as const;
+
+/* ============================================================
+ * Engagement constants
+ * ========================================================== */
+
+/** Daily check-in ladder. Day 7+ repeats the day-7 payout. */
+export const STREAK_LADDER = [
+  { day: 1, energy: 2, coffee: 0, gems: 0 },
+  { day: 2, energy: 3, coffee: 0, gems: 0 },
+  { day: 3, energy: 4, coffee: 1, gems: 0 },
+  { day: 4, energy: 5, coffee: 0, gems: 5 },
+  { day: 5, energy: 6, coffee: 1, gems: 0 },
+  { day: 6, energy: 8, coffee: 0, gems: 10 },
+  { day: 7, energy: 10, coffee: 2, gems: 20 },
+] as const;
+export const rewardForStreakDay = (day: number): { energy: number; coffee: number; gems: number } => {
+  const idx = Math.min(Math.max(day, 1), STREAK_LADDER.length) - 1;
+  const row = STREAK_LADDER[idx] ?? STREAK_LADDER[0];
+  return { energy: row.energy, coffee: row.coffee, gems: row.gems };
+};
+
+export type AchievementTier = "bronze" | "silver" | "gold" | "legendary";
+export interface AchievementDef {
+  key: string;
+  icon: string;
+  tier: AchievementTier;
+  /** which counter it watches, and the value that unlocks it */
+  metric: "posts" | "followers" | "aura" | "humor" | "level" | "affinityMax" | "eventsResolved" | "dmsSent" | "memories" | "cancels";
+  threshold: number;
+}
+
+/**
+ * The collection drive. Titles and descriptions come from i18n (`ach_<key>_title` / `_desc`) so both
+ * locales read naturally; only the mechanics live here.
+ */
+export const ACHIEVEMENTS: readonly AchievementDef[] = [
+  { key: "first_post", icon: "✍️", tier: "bronze", metric: "posts", threshold: 1 },
+  { key: "posts_25", icon: "📝", tier: "silver", metric: "posts", threshold: 25 },
+  { key: "posts_100", icon: "📚", tier: "gold", metric: "posts", threshold: 100 },
+  { key: "followers_500", icon: "👥", tier: "bronze", metric: "followers", threshold: 500 },
+  { key: "followers_5k", icon: "🌟", tier: "silver", metric: "followers", threshold: 5000 },
+  { key: "followers_50k", icon: "💫", tier: "gold", metric: "followers", threshold: 50000 },
+  { key: "followers_1m", icon: "👑", tier: "legendary", metric: "followers", threshold: 1000000 },
+  { key: "aura_50", icon: "💖", tier: "silver", metric: "aura", threshold: 50 },
+  { key: "aura_90", icon: "🔥", tier: "gold", metric: "aura", threshold: 90 },
+  { key: "humor_50", icon: "🤣", tier: "silver", metric: "humor", threshold: 50 },
+  { key: "level_5", icon: "⭐", tier: "bronze", metric: "level", threshold: 5 },
+  { key: "level_10", icon: "🏆", tier: "gold", metric: "level", threshold: 10 },
+  { key: "best_friend", icon: "❤️", tier: "gold", metric: "affinityMax", threshold: 80 },
+  { key: "drama_3", icon: "🎭", tier: "bronze", metric: "eventsResolved", threshold: 3 },
+  { key: "drama_20", icon: "🎬", tier: "gold", metric: "eventsResolved", threshold: 20 },
+  { key: "dms_25", icon: "💬", tier: "silver", metric: "dmsSent", threshold: 25 },
+  { key: "memories_50", icon: "🧠", tier: "silver", metric: "memories", threshold: 50 },
+  { key: "survivor", icon: "🛡️", tier: "legendary", metric: "cancels", threshold: 3 },
+] as const;
+
+/** Follower counts that get their own celebration + shareable moment. */
+export const FOLLOWER_MILESTONES = [500, 1000, 5000, 10000, 50000, 100000, 500000, 1000000] as const;
+
+/** A post is "hot" (trending, moment-worthy) at or above this heat. */
+export const HEAT = { HOT: 60, VIRAL: 85, MAX: 100 } as const;
+
+/** Procedural post media. No external images — everything is drawn from a seed. */
+export const MEDIA_KINDS = ["art", "chart", "leak"] as const;
+export type MediaKind = (typeof MEDIA_KINDS)[number];
+/** Roughly one in N character posts carries media, so the feed has rhythm without noise. */
+export const MEDIA_EVERY = 4;

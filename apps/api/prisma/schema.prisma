@@ -16,6 +16,7 @@ enum WorldMode {
   single
   multi
 }
+
 // multi は P1。MVP は single のみ生成
 enum PostKind {
   user
@@ -105,32 +106,34 @@ model User {
 
 /// teardown: Persona(ユーザーが演じるアカウント)
 model Persona {
-  id            String              @id @default(cuid())
-  userId        String
-  user          User                @relation(fields: [userId], references: [id])
-  worldId       String
-  world         World               @relation(fields: [worldId], references: [id])
-  handle        String // @taytay19
-  displayName   String
-  bio           String              @default("")
-  avatarUrl     String?
-  voiceNotes    String              @default("") // 口調メモ(AIF-004 で自動抽出、MVP は手入力)
-  followers     Int                 @default(120)
-  aura          Int                 @default(20) // 0..100
-  humor         Int                 @default(20) // 0..100
-  level         Int                 @default(1)
-  xp            Int                 @default(0)
-  actionCount   Int                 @default(0) // イベント発火判定に使用
-  worldSummary  String              @default("") // G7 が更新する世界要約 ≤400 tok
-  createdAt     DateTime            @default(now())
-  posts         Post[]
-  threads       DMThread[]
-  relationships RelationshipState[]
-  stats         StatSnapshot[]
-  events        Event[]
-  blocks        BlockedCharacter[]
-  digests       Digest[]
-  moments       Moment[]
+  id                 String              @id @default(cuid())
+  userId             String
+  user               User                @relation(fields: [userId], references: [id])
+  worldId            String
+  world              World               @relation(fields: [worldId], references: [id])
+  handle             String // @taytay19
+  displayName        String
+  bio                String              @default("")
+  avatarUrl          String?
+  voiceNotes         String              @default("") // 口調メモ(AIF-004 で自動抽出、MVP は手入力)
+  followers          Int                 @default(120)
+  aura               Int                 @default(20) // 0..100
+  humor              Int                 @default(20) // 0..100
+  level              Int                 @default(1)
+  xp                 Int                 @default(0)
+  actionCount        Int                 @default(0) // イベント発火判定に使用
+  worldSummary       String              @default("") // G7 が更新する世界要約 ≤400 tok
+  createdAt          DateTime            @default(now())
+  posts              Post[]
+  threads            DMThread[]
+  relationships      RelationshipState[]
+  stats              StatSnapshot[]
+  events             Event[]
+  blocks             BlockedCharacter[]
+  digests            Digest[]
+  moments            Moment[]
+  notifications      Notification[]
+  achievementUnlocks AchievementUnlock[]
 
   @@unique([worldId, handle])
 }
@@ -170,6 +173,7 @@ model WorldCharacter {
   threads            DMThread[]
   relationships      RelationshipState[]
   blockedBy          BlockedCharacter[]
+  notifications      Notification[]
 
   @@unique([worldId, handle])
 }
@@ -189,6 +193,11 @@ model Post {
   parent            Post?           @relation("replies", fields: [parentId], references: [id])
   replies           Post[]          @relation("replies")
   metrics           Json            @default("{}") // {likes, reposts, replies} 演出値(サーバ計算)
+  /// 手続き的に描くメディア。null=テキストのみ。"art"|"chart"|"leak" とシード(決定的に同じ絵になる)
+  mediaKind         String?
+  mediaSeed         String?
+  /// バズ判定。トレンド表示とモーメント生成の入力
+  heat              Int             @default(0)
   generationId      String?
   generation        GenerationLog?  @relation(fields: [generationId], references: [id])
   createdAt         DateTime        @default(now())
@@ -196,6 +205,7 @@ model Post {
   @@index([personaId, createdAt])
   @@index([parentId])
   @@index([worldId, kind])
+  @@index([personaId, heat])
   @@index([authorCharacterId])
 }
 
@@ -517,4 +527,56 @@ model Referral {
   createdAt  DateTime  @default(now())
 
   @@index([inviterId, createdAt])
+}
+
+// ─────────────────────────────────────────────────────────────
+// Engagement — the surfaces that make people come back
+// ─────────────────────────────────────────────────────────────
+
+enum NotificationKind {
+  like
+  reply
+  follow
+  mention
+  dm
+  milestone
+  event
+  digest
+  unlock
+}
+
+/// 通知タブ。SNS 系プロダクト最大のドーパミン装置で、MVP には存在しなかった。
+model Notification {
+  id        String           @id @default(cuid())
+  personaId String
+  persona   Persona          @relation(fields: [personaId], references: [id], onDelete: Cascade)
+  kind      NotificationKind
+  /// 誰がやったか(キャラ)。milestone / unlock は null
+  actorId   String?
+  actor     WorldCharacter?  @relation(fields: [actorId], references: [id], onDelete: Cascade)
+  /// 遷移先。post:<id> | dm:<threadId> | event:<id> | profile | achievement:<key>
+  target    String?
+  /// 表示行。ロケール済みの完成した文字列を保存する(一覧の描画にクエリを増やさないため)
+  text      String
+  payload   Json             @default("{}")
+  readAt    DateTime?
+  createdAt DateTime         @default(now())
+
+  @@index([personaId, readAt])
+  @@index([personaId, createdAt])
+}
+
+/// 実績の解除記録。カタログ自体は packages/shared の ACHIEVEMENTS(コード側)が持つ。
+model AchievementUnlock {
+  id         String    @id @default(cuid())
+  personaId  String
+  persona    Persona   @relation(fields: [personaId], references: [id], onDelete: Cascade)
+  key        String
+  /// 解除時点の値(「フォロワー 1,000 人」の 1,000 など)。カードに出す
+  value      Int       @default(0)
+  seenAt     DateTime?
+  unlockedAt DateTime  @default(now())
+
+  @@unique([personaId, key])
+  @@index([personaId, unlockedAt])
 }

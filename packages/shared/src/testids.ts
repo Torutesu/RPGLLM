@@ -132,4 +132,42 @@ export const T = {
   referralCopy: "referral-copy",
   referralRedeemInput: "referral-redeem-input",
   referralRedeem: "referral-redeem",
+  // Notifications (SCR-042)
+  tabNotifications: "tab-notifications",
+  notifBadge: "notif-badge",
+  notifList: "notif-list",
+  notifRow: (id: string) => `notif-${id}`,
+  notifMarkAll: "notif-mark-all",
+  notifEmpty: "notif-empty",
+  // Streak / daily check-in (SCR-043)
+  streakChip: "streak-chip",
+  streakCard: "streak-card",
+  streakDays: "streak-days",
+  streakClaim: "streak-claim",
+  streakLadderDay: (d: number) => `streak-day-${d}`,
+  // Achievements (SCR-044)
+  achievementsOpen: "achievements-open",
+  achievementsList: "achievements-list",
+  achievement: (key: string) => `achievement-${key}`,
+  achievementUnlock: "achievement-unlock",
+  achievementUnlockClose: "achievement-unlock-close",
+  // Level up / milestone celebration (SCR-045)
+  celebration: "celebration",
+  celebrationTitle: "celebration-title",
+  celebrationClose: "celebration-close",
+  // Trending / explore (SCR-046)
+  tabExplore: "tab-explore",
+  trendingList: "trending-list",
+  trendingTopic: (label: string) => `trending-${label}`,
+  trendingRank: "trending-rank",
+  risingCharacter: (handle: string) => `rising-${handle}`,
+  // Character profile (SCR-047)
+  characterProfile: "character-profile",
+  characterFollowState: "character-follow-state",
+  characterPosts: "character-posts",
+  // Feed richness
+  postMedia: (id: string) => `post-media-${id}`,
+  postTime: "post-time",
+  feedHeader: "feed-header",
+  worldChip: "world-chip",
 } as const;
