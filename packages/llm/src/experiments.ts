@@ -57,10 +57,15 @@ export const GENERATOR_EXPERIMENTS: readonly GeneratorExperiment[] = [
   },
 ] as const;
 
-/** Product experiments: value strings are what the client reads. */
+/**
+ * Product experiments. Index 0 is the control and the value a null user (system job) gets.
+ * Variant ids are the exact strings apps/api parses in `GET /v1/billing/offerings`
+ * (build-notes, Agent A #13): a `paywall_trial` value containing "7" means trialDays 7, and a
+ * `paywall_adfree` value matching /on|show|true/i shows the ad-free SKU.
+ */
 export const PRODUCT_EXPERIMENTS: Readonly<Record<string, readonly string[]>> = {
-  paywall_trial: ["0", "7"],
-  paywall_adfree: ["0", "1"],
+  paywall_trial: ["trial_0", "trial_7"],
+  paywall_adfree: ["adfree_off", "adfree_on"],
 };
 
 const BY_GENERATOR = new Map<GeneratorId, GeneratorExperiment>(
