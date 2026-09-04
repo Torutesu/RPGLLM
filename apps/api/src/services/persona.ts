@@ -6,6 +6,7 @@ import type { Deps } from "../types";
 import { logGeneration } from "./generation";
 import { normHandle, sameHandle } from "./handles";
 import { localized, type LocaleKey } from "./locale";
+import { mediaForBatch } from "./media";
 import { computeMetrics, hashString, seededRandom, seedFrom } from "./rng";
 import { getWorldSeed } from "./world-seeds";
 
@@ -80,6 +81,7 @@ async function seedInitialFeed(
   const pool = await deps.prisma.ambientPost.findMany({ where: { worldId: world.id, locale: user.locale } });
   const rnd = seededRandom(hashString(persona.id));
   const shuffled = [...pool].sort(() => rnd() - 0.5).slice(0, PACING.AMBIENT_SEED_COUNT);
+  const seeded: string[] = [];
   for (const [i, ambient] of shuffled.entries()) {
     const created = await deps.prisma.post.create({
       data: {
@@ -92,10 +94,17 @@ async function seedInitialFeed(
         metrics: {},
       },
     });
+    seeded.push(created.id);
     await deps.prisma.post.update({
       where: { id: created.id },
       data: { metrics: computeMetrics(created.id, persona.followers) as unknown as Prisma.InputJsonValue },
     });
+  }
+  // The very first screen has to carry at least one picture — a text-only starting feed is exactly
+  // what the media feature exists to prevent, and a per-row coin flip cannot promise that.
+  const media = mediaForBatch(seeded, "ambient");
+  for (const [id, m] of media) {
+    if (m.mediaKind !== null) await deps.prisma.post.update({ where: { id }, data: m });
   }
 
   const seed = await getWorldSeed(world.slug);

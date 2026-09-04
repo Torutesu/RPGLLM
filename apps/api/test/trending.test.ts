@@ -1,7 +1,7 @@
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { HEAT, MEDIA_EVERY, MEDIA_KINDS, TrendingResZ, hashString } from "@rpgllm/shared";
 import { heatFor } from "../src/services/heat";
-import { mediaFor } from "../src/services/media";
+import { mediaFor, mediaForBatch } from "../src/services/media";
 import { castFollowers, crowdAbove, extractTopics } from "../src/services/trending";
 import { call, makeHarness, prisma, readSSE, resetDatabase, signupWithPersona, type Harness } from "./helpers";
 
@@ -257,5 +257,31 @@ describe("GET /v1/trending", () => {
       where: { personaId: fx.personaId }, orderBy: { heat: "desc" },
     });
     expect(hottest?.heat).toBeGreaterThan(0);
+  });
+});
+
+describe("media cadence in a seeded batch", () => {
+  it("always gives a starting feed at least one picture", () => {
+    // The bug this covers: with a per-row hash there was a real chance a new player's whole first
+    // screen was text, which is exactly what the media feature exists to prevent.
+    for (let trial = 0; trial < 200; trial += 1) {
+      const ids = Array.from({ length: 5 }, (_, i) => `seed-${String(trial)}-${String(i)}`);
+      const media = mediaForBatch(ids, "ambient");
+      const withPicture = [...media.values()].filter((m) => m.mediaKind !== null);
+      expect(withPicture.length).toBeGreaterThan(0);
+    }
+  });
+
+  it("keeps the one-in-four cadence and is stable across calls", () => {
+    const ids = Array.from({ length: 12 }, (_, i) => `batch-${String(i)}`);
+    const first = mediaForBatch(ids, "ambient");
+    expect([...first.values()].filter((m) => m.mediaKind !== null)).toHaveLength(3);
+    const again = mediaForBatch([...ids].reverse(), "ambient");
+    for (const id of ids) expect(again.get(id)?.mediaSeed).toBe(first.get(id)?.mediaSeed);
+  });
+
+  it("never puts a picture on the player's own posts", () => {
+    const media = mediaForBatch(["a", "b", "c", "d"], "user");
+    expect([...media.values()].every((m) => m.mediaKind === null)).toBe(true);
   });
 });
