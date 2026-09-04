@@ -27,14 +27,16 @@ const TIER_LABEL: Record<Tier, string> = {
 };
 
 export default function AchievementsScreen() {
-  const { achievements, achievementsStatus, streak } = useAppState();
+  const { me, achievements, achievementsStatus, streak } = useAppState();
+  // Same as notifications: the loaders need `me.persona`, which arrives after mount on a direct visit.
+  const personaId = me?.persona?.id ?? null;
   const { loadAchievements, loadStreak } = useActions();
   const { t } = useT();
 
   const load = useCallback(() => {
     void loadAchievements();
     if (!streak) void loadStreak();
-  }, [loadAchievements, loadStreak, streak]);
+  }, [loadAchievements, loadStreak, streak, personaId]);
 
   useEffect(load, [load]);
   useFocusEffect(load);

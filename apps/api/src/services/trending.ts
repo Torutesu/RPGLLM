@@ -37,20 +37,47 @@ interface HotRow { id: string; text: string; kind: string; heat: number }
  * trending on "the" — anything cleverer would stop being deterministic.
  */
 const STOP = new Set([
-  "about", "after", "again", "against", "album", "also", "always", "and", "another", "any", "are",
-  "aren", "back", "because", "been", "before", "being", "both", "but", "can", "cant", "come",
-  "could", "did", "didn", "does", "doesn", "doing", "done", "dont", "down", "even", "ever",
-  "every", "for", "from", "get", "gets", "getting", "going", "gonna", "good", "got", "has",
-  "have", "having", "her", "here", "hers", "him", "his", "how", "into", "isn", "issue", "its",
-  "just", "keep", "know", "last", "let", "like", "little", "look", "made", "make", "many", "may",
-  "might", "more", "most", "much", "must", "need", "never", "new", "next", "not", "now", "off",
-  "once", "one", "only", "onto", "other", "our", "out", "over", "own", "part", "put", "really",
-  "right", "said", "same", "say", "says", "see", "she", "should", "since", "some", "someone",
-  "something", "still", "such", "sure", "take", "than", "that", "thats", "the", "their", "them",
-  "then", "there", "these", "they", "thing", "things", "think", "this", "those", "though",
-  "through", "time", "too", "two", "under", "until", "upon", "used", "very", "want", "was",
-  "wasn", "way", "well", "went", "were", "what", "when", "where", "which", "while", "who", "why",
-  "will", "with", "won", "would", "yeah", "you", "your", "youre",
+  // articles, pronouns, prepositions, conjunctions, auxiliaries
+  "about", "after", "again", "against", "also", "always", "and", "another", "any", "are",
+  "aren", "back", "because", "been", "before", "being", "both", "but", "can", "cant",
+  "could", "did", "didn", "does", "doesn", "doing", "done", "dont", "down", "during", "each",
+  "either", "else", "even", "ever", "every", "for", "from", "half", "has", "have", "having",
+  "her", "here", "hers", "him", "his", "how", "into", "isn", "its", "itself", "just", "least",
+  "less", "let", "lets", "many", "may", "maybe", "might", "more", "most", "much", "must",
+  "neither", "never", "not", "now", "off", "once", "one", "only", "onto", "other", "others",
+  "our", "ours", "out", "over", "own", "per", "quite", "rather", "really", "same", "she",
+  "should", "since", "some", "someone", "something", "still", "such", "than", "that", "thats",
+  "the", "their", "theirs", "them", "then", "there", "these", "they", "this", "those",
+  "though", "through", "too", "under", "until", "upon", "very", "was", "wasn", "well", "were",
+  "what", "when", "where", "which", "while", "who", "whom", "why", "will", "with", "without",
+  "won", "would", "yeah", "you", "your", "yours", "youre",
+  // number and quantity words — "four hours" is not a topic
+  "zero", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten", "eleven",
+  "twelve", "twenty", "thirty", "forty", "fifty", "hundred", "thousand", "million",
+  "first", "third", "last", "next", "few", "several", "lots", "plenty", "enough",
+  // time words — every post has them and none of them is a subject
+  "today", "tonight", "tomorrow", "yesterday", "morning", "afternoon", "evening", "night",
+  // "second" is deliberately absent: "second chorus" is a real topic, "30 seconds" is not,
+  // and the pair rule already needs both words to be meaningful.
+  "hour", "hours", "minute", "minutes", "seconds", "day", "days", "week", "weeks",
+  "month", "months", "year", "years", "time", "times", "soon", "later", "ago",
+  "monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday", "weekend",
+  // high-frequency verbs and speech acts — grammar, not subject matter
+  "ask", "asked", "asking", "call", "called", "came", "come", "comes", "coming", "explain",
+  "explained", "feel", "feels", "felt", "get", "gets", "getting", "give", "given", "gives",
+  "going", "gonna", "gotta", "keep", "keeps", "knew", "know", "known", "knows", "left",
+  "like", "liked", "likes", "look", "looked", "looking", "looks", "made", "make", "makes",
+  "making", "mean", "means", "meant", "need", "needed", "needs", "post", "posted", "posting",
+  "posts", "put", "read", "said", "say", "saying", "says", "see", "seeing", "seen", "sent",
+  "send", "spent", "spend", "take", "taken", "takes", "talk", "talked", "talking", "tell",
+  "telling", "think", "thinking", "thought", "told", "took", "tried", "try", "trying", "use",
+  "used", "using", "wait", "waited", "waiting", "want", "wanted", "wants", "watch", "watched",
+  "watching", "went", "work", "worked", "working", "works",
+  // generic nouns and fillers that carry no world-specific meaning
+  "actually", "anyone", "anything", "everyone", "everything", "guys", "honestly", "idea",
+  "issue", "kind", "little", "nobody", "nothing", "okay", "people", "person", "point",
+  "problem", "reason", "right", "sort", "stuff", "sure", "thing", "things", "way", "ways",
+  "whole", "album", "song", "songs",
 ]);
 
 const words = (text: string): string[] =>
@@ -126,7 +153,9 @@ export function extractTopics(rows: HotRow[], limit = MAX_TOPICS): ApiTopic[] {
     ...pick(tags, 1),
     ...pick(phrases, 2),
     ...pick(pairs, 2),
-    ...pick(singles, 2),
+    // A single word is the weakest signal, so it needs to appear across more posts before the
+    // strip will show it. Without this the feed trends on whatever verb the generator liked today.
+    ...pick(singles, 3),
   ];
 
   const seen = new Set<string>();

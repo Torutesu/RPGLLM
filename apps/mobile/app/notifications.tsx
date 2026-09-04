@@ -135,14 +135,17 @@ function Empty() {
 }
 
 export default function NotificationsScreen() {
-  const { notifications, notifUnread, notifStatus, notifCursor, streak, streakShownFor } = useAppState();
+  const { me, notifications, notifUnread, notifStatus, notifCursor, streak, streakShownFor } = useAppState();
+  // The session boots asynchronously, so a direct visit (reload or deep link) mounts this screen
+  // before `me.persona` exists and the loaders bail out. Re-run when the persona lands.
+  const personaId = me?.persona?.id ?? null;
   const { loadNotifications, loadMoreNotifications, markNotificationsRead, loadStreak } = useActions();
   const { t, locale } = useT();
 
   const load = useCallback(() => {
     void loadNotifications();
     void loadStreak();
-  }, [loadNotifications, loadStreak]);
+  }, [loadNotifications, loadStreak, personaId]);
 
   useEffect(load, [load]);
   useFocusEffect(load);
