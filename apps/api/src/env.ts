@@ -19,8 +19,10 @@ export const databaseUrl = (): string => envStr("DATABASE_URL", "postgresql://po
 export const port = (): number => envNum("PORT", 4000);
 export const llmMode = (): string => envStr("LLM_MODE", "replay");
 export const testHooksEnabled = (): boolean => envStr("TEST_HOOKS", "0") === "1";
-export const billingMode = (): string => envStr("BILLING_MODE", "test");
-export const adsMode = (): string => envStr("ADS_MODE", "test");
+/** Defaults are the *test* adapters in dev and the real ones in production (defence in depth:
+ *  `assertProductionConfig()` also refuses to boot when either is unset or set to "test"). */
+export const billingMode = (): string => envStr("BILLING_MODE", isProduction() ? "revenuecat" : "test");
+export const adsMode = (): string => envStr("ADS_MODE", isProduction() ? "admob" : "test");
 /** SSE pacing — overridable so vitest does not wait on the 演出 delays */
 export const postStreamDelayMs = (): number => envNum("STREAM_DELAY_MS", 150);
 export const dmStreamDelayMs = (): number => envNum("DM_STREAM_DELAY_MS", 200);

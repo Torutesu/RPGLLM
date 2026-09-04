@@ -2,6 +2,7 @@ import type { Persona, Post, PrismaClient, RelationshipState, User, World, World
 import type { CharacterCard, G1Input, G1Output, PersonaState, WorldSeed } from "@rpgllm/shared";
 import { PACING, STATS } from "@rpgllm/shared";
 import { normHandle, sameHandle } from "./handles";
+import { blockedCharacterIds, withoutBlocked } from "./moderation";   // Agent G (S1-2)
 import { localized, type LocaleKey } from "./locale";
 import type { Tx } from "../types";
 import { getWorldSeed } from "./world-seeds";
@@ -12,6 +13,8 @@ export interface StoryContext {
   world: World;
   characters: WorldCharacter[];
   relationships: RelationshipState[];
+  /** Agent G (S1-2): characters this persona blocked; already removed from `characters`. */
+  blockedCharacterIds: string[];
   locale: LocaleKey;
   seed: WorldSeed | undefined;
 }
@@ -19,13 +22,17 @@ export interface StoryContext {
 export async function loadStoryContext(prisma: PrismaClient, user: User, personaId: string): Promise<StoryContext | null> {
   const persona = await prisma.persona.findUnique({ where: { id: personaId }, include: { world: true } });
   if (!persona || persona.userId !== user.id) return null;
-  const [characters, relationships] = await Promise.all([
+  const [characters, relationships, blocked] = await Promise.all([
     prisma.worldCharacter.findMany({ where: { worldId: persona.worldId }, orderBy: { handle: "asc" } }),
     prisma.relationshipState.findMany({ where: { personaId: persona.id } }),
+    blockedCharacterIds(prisma, persona.id),   // Agent G (S1-2)
   ]);
   const locale = user.locale as LocaleKey;
   const { world, ...personaRow } = persona;
-  return { user, persona: personaRow as Persona, world, characters, relationships, locale, seed: await getWorldSeed(world.slug) };
+  // Agent G (S1-2): a blocked character leaves the cast, so it stops replying and stops being
+  // offered in the DM picker.
+  const cast = withoutBlocked(characters, blocked, (ch) => ch.id);
+  return { user, persona: personaRow as Persona, world, characters: cast, relationships, blockedCharacterIds: blocked, locale, seed: await getWorldSeed(world.slug) };
 }
 
 export const characterByHandle = (characters: WorldCharacter[], handle: string): WorldCharacter | undefined =>

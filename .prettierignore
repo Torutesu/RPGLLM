@@ -1,0 +1,8 @@
+node_modules
+dist
+build
+.expo
+playwright-report
+test-results
+pnpm-lock.yaml
+apps/mobile/dist

@@ -56,7 +56,7 @@ export default function PersonaEditor() {
     <Screen>
       <ScrollView contentContainerStyle={{ padding: spacing.lg, gap: spacing.lg }}>
         <View style={{ alignItems: "center" }}>
-          <Avatar handle={handle || "you"} size={72} />
+          <Avatar handle={handle || "you"} size={72} label={`${t("handle")} @${handle}`} />
         </View>
         <Field
           testID={T.personaHandleInput}
@@ -69,9 +69,17 @@ export default function PersonaEditor() {
           autoCapitalize="none"
           autoCorrect={false}
           maxLength={15}
-          error={available === false ? t("safetyBlocked") : undefined}
+          error={available === false ? t("handleTaken") : undefined}
         />
-        {available === true ? <Text style={{ color: colors.positive, fontSize: font.xs }}>✓</Text> : null}
+        {available === true ? (
+          <Text
+            accessibilityLiveRegion="polite"
+            accessibilityLabel={t("handleAvailable")}
+            style={{ color: colors.positive, fontSize: font.xs }}
+          >
+            ✓
+          </Text>
+        ) : null}
         <Field
           testID={T.personaNameInput}
           label={t("displayName")}
@@ -95,7 +103,7 @@ export default function PersonaEditor() {
           hint={`${bio.length}/160`}
         />
         <Field
-          label={t("save")}
+          label={t("voiceNotes")}
           value={voiceNotes}
           onChangeText={(v) => {
             setVoiceNotes(v);

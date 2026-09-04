@@ -6,9 +6,12 @@ import { useT } from "../../src/state/store";
 
 function TabBar({ activeName }: { activeName: string }) {
   const { t } = useT();
+  // Agent H (S2-6): the profile is a stack route (`app/profile.tsx`), so its tab pushes instead of
+  // replacing — the header's back button returns to the tab you came from.
   const items = [
-    { name: "feed", label: t("feed"), testID: T.tabFeed, href: "/feed" as const },
-    { name: "dms", label: t("dms"), testID: T.tabDms, href: "/dms" as const },
+    { name: "feed", label: t("feed"), testID: T.tabFeed, href: "/feed" as const, push: false },
+    { name: "dms", label: t("dms"), testID: T.tabDms, href: "/dms" as const, push: false },
+    { name: "profile", label: t("profile"), testID: T.tabProfile, href: "/profile" as const, push: true },
   ];
   return (
     <View
@@ -27,7 +30,8 @@ function TabBar({ activeName }: { activeName: string }) {
             key={it.name}
             testID={it.testID}
             accessibilityRole="button"
-            onPress={() => router.replace(it.href)}
+            accessibilityLabel={it.label}
+            onPress={() => (it.push ? router.push(it.href) : router.replace(it.href))}
             style={{ flex: 1, alignItems: "center", paddingVertical: spacing.md }}
           >
             <Text style={{ color: active ? colors.accent : colors.textMuted, fontSize: font.sm, fontWeight: "700" }}>

@@ -54,9 +54,15 @@ export default function PersonaPicker() {
   return (
     <Screen>
       <ScrollView contentContainerStyle={{ padding: spacing.lg, gap: spacing.lg }}>
-        <Text style={{ color: colors.text, fontSize: font.xl, fontWeight: "800" }}>{t("whoToPlay")}</Text>
+        <Text accessibilityRole="header" style={{ color: colors.text, fontSize: font.xl, fontWeight: "800" }}>
+          {t("whoToPlay")}
+        </Text>
         {worldStatus === "loading" && !world ? <SkeletonList count={3} /> : null}
-        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.lg, justifyContent: "center" }}>
+        <View
+          accessibilityRole="radiogroup"
+          accessibilityLabel={t("whoToPlay")}
+          style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.lg, justifyContent: "center" }}
+        >
           {presets.map((p) => {
             const active = selected === p.handle;
             return (
@@ -64,7 +70,9 @@ export default function PersonaPicker() {
                 key={p.handle}
                 testID={T.personaPreset(p.handle)}
                 onPress={() => setSelected(p.handle)}
-                accessibilityRole="button"
+                accessibilityRole="radio"
+                accessibilityState={{ selected: active, checked: active }}
+                accessibilityLabel={`${p.displayName} @${p.handle}`}
                 style={{
                   alignItems: "center",
                   gap: spacing.xs,
@@ -76,10 +84,14 @@ export default function PersonaPicker() {
                 }}
               >
                 <Avatar handle={p.handle} size={56} />
-                <Text numberOfLines={1} style={{ color: active ? colors.accent : colors.text, fontSize: font.xs, fontWeight: "700" }}>
+                <Text
+                  numberOfLines={1}
+                  importantForAccessibility="no"
+                  style={{ color: active ? colors.accent : colors.text, fontSize: font.xs, fontWeight: "700" }}
+                >
                   {`@${p.handle}`}
                 </Text>
-                <Text numberOfLines={1} style={{ color: colors.textMuted, fontSize: font.xs }}>
+                <Text numberOfLines={1} importantForAccessibility="no" style={{ color: colors.textMuted, fontSize: font.xs }}>
                   {p.displayName}
                 </Text>
               </Pressable>

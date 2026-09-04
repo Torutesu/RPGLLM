@@ -35,7 +35,9 @@ export default function FirstFollower() {
   return (
     <Screen>
       <ScrollView contentContainerStyle={{ padding: spacing.lg, gap: spacing.lg }}>
-        <Text style={{ color: colors.text, fontSize: font.xl, fontWeight: "800" }}>{t("chooseFollower")}</Text>
+        <Text accessibilityRole="header" style={{ color: colors.text, fontSize: font.xl, fontWeight: "800" }}>
+          {t("chooseFollower")}
+        </Text>
         {worldStatus === "loading" && !world ? <SkeletonList count={3} /> : null}
         {candidates.map((c) => {
           const active = selected === c.id;
@@ -44,7 +46,9 @@ export default function FirstFollower() {
               key={c.id}
               testID={T.follower(c.handle)}
               onPress={() => setSelected(c.id)}
-              accessibilityRole="button"
+              accessibilityRole="radio"
+              accessibilityState={{ selected: active, checked: active }}
+              accessibilityLabel={`${c.displayName} @${c.handle}. ${c.role}. ${c.intro}`}
               style={{
                 flexDirection: "row",
                 gap: spacing.md,
@@ -57,7 +61,7 @@ export default function FirstFollower() {
               }}
             >
               <Avatar handle={c.handle} size={44} />
-              <View style={{ flex: 1 }}>
+              <View style={{ flex: 1 }} importantForAccessibility="no-hide-descendants">
                 <Text style={{ color: colors.text, fontSize: font.md, fontWeight: "700" }}>
                   {`${c.displayName} @${c.handle}`}
                 </Text>
@@ -69,13 +73,24 @@ export default function FirstFollower() {
             </Pressable>
           );
         })}
-        {error ? <Text style={{ color: colors.danger, fontSize: font.sm }}>{error}</Text> : null}
+        {error ? (
+          <Text
+            accessibilityRole="alert"
+            accessibilityLiveRegion="polite"
+            style={{ color: colors.danger, fontSize: font.sm }}
+          >
+            {error}
+          </Text>
+        ) : null}
         <Button testID={T.enterWorld} label={t("enterWorld")} onPress={onEnter} disabled={!selected || creating} />
       </ScrollView>
 
       {creating ? (
         <View
           testID={T.worldLoading}
+          accessibilityRole="progressbar"
+          accessibilityLabel={t("planting")}
+          accessibilityLiveRegion="polite"
           style={{
             position: "absolute",
             top: 0,

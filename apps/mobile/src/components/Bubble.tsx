@@ -8,6 +8,8 @@ export function Bubble({ text, fromCharacter, footer }: { text: string; fromChar
     <View style={{ alignItems: fromCharacter ? "flex-start" : "flex-end", marginBottom: spacing.sm }}>
       <View
         testID={T.dmBubble}
+        accessibilityRole="text"
+        accessibilityLabel={text}
         style={{
           maxWidth: "80%",
           backgroundColor: fromCharacter ? colors.bgElevated : colors.accent,
@@ -26,8 +28,11 @@ export function Bubble({ text, fromCharacter, footer }: { text: string; fromChar
 export function TypingBubble() {
   return (
     <View style={{ alignItems: "flex-start", marginBottom: spacing.sm }}>
+      {/* "• • •" is pure decoration; announcing it would interrupt the message being read. */}
       <View
         testID={T.dmTyping}
+        accessibilityElementsHidden
+        importantForAccessibility="no-hide-descendants"
         style={{
           backgroundColor: colors.bgElevated,
           borderRadius: radius.lg,

@@ -81,6 +81,7 @@ export default function EnergyModal() {
       <ScrollView contentContainerStyle={{ padding: spacing.lg }}>
         <View
           testID={T.energyModal}
+          accessibilityLabel={t("energy")}
           style={{
             backgroundColor: colors.card,
             borderRadius: radius.lg,
@@ -92,20 +93,36 @@ export default function EnergyModal() {
         >
           <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
             <View style={{ flexDirection: "row", alignItems: "center", gap: spacing.sm }}>
-              <Text style={{ color: colors.energy, fontSize: font.xl }}>⚡</Text>
-              <Text testID={T.energyValue} style={{ color: colors.text, fontSize: font.xl, fontWeight: "800" }}>
+              <Text importantForAccessibility="no" style={{ color: colors.energy, fontSize: font.xl }}>
+                ⚡
+              </Text>
+              <Text
+                testID={T.energyValue}
+                accessibilityLabel={`${t("energy")} ${wallet?.energy ?? 0} / ${wallet?.dailyMax ?? ENERGY.FREE_DAILY}`}
+                style={{ color: colors.text, fontSize: font.xl, fontWeight: "800" }}
+              >
                 {String(wallet?.energy ?? 0)}
               </Text>
-              <Text style={{ color: colors.textMuted, fontSize: font.md }}>{`/ ${wallet?.dailyMax ?? ENERGY.FREE_DAILY}`}</Text>
+              <Text importantForAccessibility="no" style={{ color: colors.textMuted, fontSize: font.md }}>
+                {`/ ${wallet?.dailyMax ?? ENERGY.FREE_DAILY}`}
+              </Text>
             </View>
-            <Pressable accessibilityRole="button" onPress={() => void close()}>
-              <Text style={{ color: colors.textMuted, fontSize: font.lg }}>×</Text>
+            <Pressable accessibilityRole="button" accessibilityLabel={t("close")} onPress={() => void close()}>
+              <Text importantForAccessibility="no" style={{ color: colors.textMuted, fontSize: font.lg }}>
+                ×
+              </Text>
             </Pressable>
           </View>
 
           <View style={{ flexDirection: "row", gap: spacing.sm, alignItems: "baseline" }}>
-            <Text style={{ color: colors.textMuted, fontSize: font.xs }}>{t("nextRefill")}</Text>
-            <Text testID={T.refillTimer} style={{ color: colors.text, fontSize: font.sm, fontWeight: "700" }}>
+            <Text importantForAccessibility="no" style={{ color: colors.textMuted, fontSize: font.xs }}>
+              {t("nextRefill")}
+            </Text>
+            <Text
+              testID={T.refillTimer}
+              accessibilityLabel={`${t("nextRefill")} ${timer}`}
+              style={{ color: colors.text, fontSize: font.sm, fontWeight: "700" }}
+            >
               {timer}
             </Text>
           </View>
@@ -120,7 +137,10 @@ export default function EnergyModal() {
                 disabled={adsLeft <= 0}
                 variant="secondary"
               />
-              <Text style={{ color: colors.textMuted, fontSize: font.xs }}>
+              <Text
+                accessibilityLabel={`${wallet?.adRewardsToday ?? 0}/${ENERGY.AD_DAILY_MAX} ${t("adsToday")}`}
+                style={{ color: colors.textMuted, fontSize: font.xs }}
+              >
                 {`${wallet?.adRewardsToday ?? 0}/${ENERGY.AD_DAILY_MAX}`}
               </Text>
             </View>
@@ -137,7 +157,15 @@ export default function EnergyModal() {
 
           <Button testID={T.getPlus} label={`⭐ ${t("getPlus")}`} onPress={() => router.push("/paywall")} />
 
-          {error ? <Text style={{ color: colors.danger, fontSize: font.sm }}>{error}</Text> : null}
+          {error ? (
+            <Text
+              accessibilityRole="alert"
+              accessibilityLiveRegion="polite"
+              style={{ color: colors.danger, fontSize: font.sm }}
+            >
+              {error}
+            </Text>
+          ) : null}
           {pendingPost ? <Text style={{ color: colors.textMuted, fontSize: font.xs }} numberOfLines={1}>{pendingPost.text}</Text> : null}
         </View>
       </ScrollView>

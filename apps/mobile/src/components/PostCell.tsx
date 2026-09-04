@@ -2,6 +2,20 @@ import React, { useState } from "react";
 import { Pressable, Text, View } from "react-native";
 import { T, colors, font, radius, spacing, type Post } from "@rpgllm/shared";
 import { Avatar } from "./Avatar";
+import { Overflow } from "./Overflow";   // Agent G (S1-2)
+
+/**
+ * Agent G (S1-2): the report/block affordance. Rendered as a sibling of the cell's Pressable
+ * (never nested inside it) so a tap on "…" cannot also open the post.
+ */
+function CellOverflow({ post }: { post: Post }) {
+  if (post.author.isYou) return null;
+  return (
+    <View style={{ position: "absolute", top: spacing.sm, right: spacing.md, zIndex: 5 }}>
+      <Overflow id={post.id} target="post" targetId={post.id} handle={post.author.handle} />
+    </View>
+  );
+}
 
 function compact(n: number): string {
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
@@ -64,6 +78,7 @@ export function ReplyCell({
 }) {
   return (
     <View testID={T.threadReply(post.id)}>
+      <CellOverflow post={post} />
       <Pressable
         onPress={() => onPress?.(post)}
         style={{
@@ -114,6 +129,7 @@ export function PostCell({
   const inline = replies.slice(0, maxReplies);
   return (
     <View testID={T.post(post.id)} style={{ borderBottomWidth: 1, borderBottomColor: colors.border, backgroundColor: colors.bg }}>
+      <CellOverflow post={post} />
       <Pressable onPress={() => onPress?.(post)} style={{ flexDirection: "row", gap: spacing.md, padding: spacing.lg }}>
         <Avatar handle={post.author.handle} size={40} />
         <View style={{ flex: 1 }}>

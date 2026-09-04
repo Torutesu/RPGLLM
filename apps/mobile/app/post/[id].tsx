@@ -106,7 +106,12 @@ export default function PostDetailScreen() {
         <ScrollView contentContainerStyle={{ paddingBottom: spacing.xxl }}>
           {detail ? <PostCell post={detail.post} maxReplies={0} /> : null}
           {merged.length === 0 ? (
-            <Text style={{ color: colors.textMuted, fontSize: font.sm, padding: spacing.lg }}>{t("wakingUp")}</Text>
+            <Text
+              accessibilityLiveRegion="polite"
+              style={{ color: colors.textMuted, fontSize: font.sm, padding: spacing.lg }}
+            >
+              {t("wakingUp")}
+            </Text>
           ) : null}
           <View style={{ paddingHorizontal: spacing.lg }}>
             {merged.map((r) => (

@@ -1,0 +1,129 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NODE_VERSION: "22"
+  PNPM_VERSION: "10.33.0"
+
+jobs:
+  lint:
+    name: lint + format
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter api exec prisma generate
+      - run: pnpm lint
+      # Formatting is not enforced yet: the existing tree predates the Prettier config
+      # (140 files differ). Non-blocking until it is applied package by package —
+      # see pipeline/status/build-notes.md "Agent F: lint debt".
+      - run: pnpm format:check
+        continue-on-error: true
+
+  test:
+    name: typecheck + unit tests
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_HOST_AUTH_METHOD: trust
+          POSTGRES_DB: rpgllm_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd="pg_isready -U postgres"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=20
+    env:
+      DATABASE_URL: postgresql://postgres@127.0.0.1:5432/rpgllm_test
+      TEST_DATABASE_URL: postgresql://postgres@127.0.0.1:5432/rpgllm_test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter api exec prisma generate
+      - run: pnpm -r typecheck
+      - name: shared tests (if present)
+        run: pnpm --filter @rpgllm/shared --if-present test
+      - run: pnpm --filter @rpgllm/llm test
+      - name: migrate the test database
+        run: pnpm --filter api exec prisma migrate deploy
+      - run: pnpm --filter api test
+
+  e2e:
+    name: playwright e2e
+    runs-on: ubuntu-latest
+    needs: [test]
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_HOST_AUTH_METHOD: trust
+          POSTGRES_DB: rpgllm_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd="pg_isready -U postgres"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=20
+    env:
+      E2E_DATABASE_URL: postgresql://postgres@127.0.0.1:5432/rpgllm_test
+      DATABASE_URL: postgresql://postgres@127.0.0.1:5432/rpgllm_test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter api exec prisma generate
+
+      # The dev sandbox ships a preinstalled Chromium at /opt/pw-browsers and FORBIDS
+      # `playwright install`; CI has no such browser, so it is downloaded here and ONLY here
+      # (guarded by `env.CI == 'true'`, which is never set in the sandbox).
+      # playwright.config.ts defaults `launchOptions.executablePath` to /opt/pw-browsers/chromium,
+      # so CI must also export PW_CHROMIUM_PATH — the next step does that.
+      - name: install chromium (CI only)
+        if: ${{ env.CI == 'true' }}
+        run: pnpm --filter e2e exec playwright install --with-deps chromium
+
+      - name: resolve the CI chromium path
+        if: ${{ env.CI == 'true' }}
+        run: echo "PW_CHROMIUM_PATH=$(pnpm --filter e2e exec node -e "console.log(require('@playwright/test').chromium.executablePath())")" >> "$GITHUB_ENV"
+
+      - run: pnpm e2e
+
+      - name: upload the playwright report
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: e2e/playwright-report
+          retention-days: 7

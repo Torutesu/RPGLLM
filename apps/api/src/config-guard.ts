@@ -34,7 +34,9 @@ export function productionConfigProblems(env: ConfigEnv): string[] {
   if (env.AUTH_DEV_CODE === "1") problems.push("AUTH_DEV_CODE=1 accepts the constant dev login code for every account");
   if (env.TEST_HOOKS === "1") problems.push("TEST_HOOKS=1 exposes /__test/* (database reset, time travel, energy grants)");
   if (env.BILLING_MODE === "test") problems.push("BILLING_MODE=test lets anyone grant themselves a subscription");
+  else if (env.BILLING_MODE === undefined || env.BILLING_MODE === "") problems.push("BILLING_MODE is not set — set it explicitly (revenuecat)");
   if (env.ADS_MODE === "test") problems.push("ADS_MODE=test accepts the constant TEST_AD_TOKEN as an ad reward proof");
+  else if (env.ADS_MODE === undefined || env.ADS_MODE === "") problems.push("ADS_MODE is not set — set it explicitly (admob)");
 
   return problems;
 }

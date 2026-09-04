@@ -1,6 +1,7 @@
 import React from "react";
 import { ActivityIndicator, Pressable, Text, TextInput, View, type TextInputProps } from "react-native";
 import { colors, font, radius, spacing } from "@rpgllm/shared";
+import { useT } from "../state/store";
 
 export function Screen({ children, style }: { children: React.ReactNode; style?: object }) {
   return <View style={[{ flex: 1, backgroundColor: colors.bg }, style]}>{children}</View>;
@@ -31,6 +32,8 @@ export function Button({
       onPress={onPress}
       disabled={disabled || loading}
       accessibilityRole="button"
+      accessibilityLabel={label}
+      accessibilityState={{ disabled: disabled || loading, busy: loading }}
       style={[
         {
           backgroundColor: bg,
@@ -64,9 +67,16 @@ export function Field({
   return (
     <View style={{ gap: spacing.xs }}>
       {label ? <Text style={{ color: colors.textMuted, fontSize: font.xs }}>{label}</Text> : null}
+      {/*
+        No `accessibilityRole` on the input: RN's role list has no "textbox", and forcing one of the
+        allowed values would override the implicit textbox role a native <input> already exposes on
+        web. The visible label (or the placeholder) is the accessible name instead.
+      */}
       <TextInput
         testID={testID}
         placeholderTextColor={colors.textMuted}
+        accessibilityLabel={label ?? props.placeholder}
+        accessibilityState={{ disabled: props.editable === false }}
         {...props}
         style={[
           {
@@ -82,13 +92,22 @@ export function Field({
           props.style as object,
         ]}
       />
-      {error ? <Text style={{ color: colors.danger, fontSize: font.xs }}>{error}</Text> : null}
+      {error ? (
+        <Text
+          accessibilityRole="alert"
+          accessibilityLiveRegion="polite"
+          style={{ color: colors.danger, fontSize: font.xs }}
+        >
+          {error}
+        </Text>
+      ) : null}
       {!error && hint ? <Text style={{ color: colors.textMuted, fontSize: font.xs }}>{hint}</Text> : null}
     </View>
   );
 }
 
 export function HeaderBar({ title, right, onBack }: { title: string; right?: React.ReactNode; onBack?: () => void }) {
+  const { t } = useT();
   return (
     <View
       style={{
@@ -104,11 +123,18 @@ export function HeaderBar({ title, right, onBack }: { title: string; right?: Rea
     >
       <View style={{ flexDirection: "row", alignItems: "center", gap: spacing.md, flexShrink: 1 }}>
         {onBack ? (
-          <Pressable onPress={onBack} accessibilityRole="button">
-            <Text style={{ color: colors.accent, fontSize: font.lg }}>‹</Text>
+          <Pressable onPress={onBack} accessibilityRole="button" accessibilityLabel={t("close")}>
+            <Text importantForAccessibility="no" style={{ color: colors.accent, fontSize: font.lg }}>
+              ‹
+            </Text>
           </Pressable>
         ) : null}
-        <Text numberOfLines={1} style={{ color: colors.text, fontSize: font.lg, fontWeight: "700" }}>
+        <Text
+          numberOfLines={1}
+          accessibilityRole="header"
+          accessibilityLabel={title}
+          style={{ color: colors.text, fontSize: font.lg, fontWeight: "700" }}
+        >
           {title}
         </Text>
       </View>
@@ -118,7 +144,11 @@ export function HeaderBar({ title, right, onBack }: { title: string; right?: Rea
 }
 
 export function Wordmark() {
-  return <Text style={{ color: colors.text, fontSize: font.xl, fontWeight: "800", letterSpacing: -1 }}>status</Text>;
+  return (
+    <Text accessibilityRole="header" style={{ color: colors.text, fontSize: font.xl, fontWeight: "800", letterSpacing: -1 }}>
+      status
+    </Text>
+  );
 }
 
 export function Centered({ children }: { children: React.ReactNode }) {

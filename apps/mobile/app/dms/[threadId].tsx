@@ -13,20 +13,32 @@ import type { DMMessage, DMThreadRes } from "../../src/api/types";
 
 const HEARTS = 5;
 
-function Affinity({ affinity, summary }: { affinity: number; summary: string }) {
-  const [open, setOpen] = useState(false);
+/**
+ * Agent H (S2-3): the hearts are the way into the memory ledger (SCR-039) — "what they remember",
+ * with the receipts. Both the hearts and the explicit link open it.
+ */
+function Affinity({ affinity, handle }: { affinity: number; handle: string }) {
+  const { t } = useT();
   const filled = Math.max(0, Math.min(HEARTS, Math.round(affinity / 20)));
+  const open = () => {
+    if (handle) router.push({ pathname: "/memory/[handle]", params: { handle } });
+  };
   return (
-    <Pressable testID={T.dmAffinity} accessibilityRole="button" onPress={() => setOpen((v) => !v)}>
-      <Text style={{ color: colors.danger, fontSize: font.sm }}>
-        {`${"❤".repeat(filled)}${"♡".repeat(HEARTS - filled)} ${affinity}`}
-      </Text>
-      {open ? (
-        <Text numberOfLines={3} style={{ color: colors.textMuted, fontSize: font.xs, maxWidth: 220 }}>
-          {summary}
+    <View style={{ alignItems: "flex-end" }}>
+      <Pressable
+        testID={T.dmAffinity}
+        accessibilityRole="button"
+        accessibilityLabel={`${t("remembers")} — ${affinity}`}
+        onPress={open}
+      >
+        <Text style={{ color: colors.danger, fontSize: font.sm }}>
+          {`${"❤".repeat(filled)}${"♡".repeat(HEARTS - filled)} ${affinity}`}
         </Text>
-      ) : null}
-    </Pressable>
+      </Pressable>
+      <Pressable testID={T.memoryOpen} accessibilityRole="button" accessibilityLabel={t("receipts")} onPress={open}>
+        <Text style={{ color: colors.textMuted, fontSize: font.xs }}>{t("receipts")}</Text>
+      </Pressable>
+    </View>
   );
 }
 
@@ -133,7 +145,7 @@ export default function DMThreadScreen() {
           {character ? `@${character.handle}` : ""}
           {character?.isPressAccount ? " ✓" : ""}
         </Text>
-        <Affinity affinity={affinity} summary={data?.relationship.summary ?? ""} />
+        <Affinity affinity={affinity} handle={character?.handle ?? ""} />
       </View>
 
       {status === "loading" && !data ? (

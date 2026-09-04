@@ -1,8 +1,8 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { Platform } from "react-native";
 import { router } from "expo-router";
-import { LOCALES, type Locale, type PlanId, type Post, t, type StringKey } from "@rpgllm/shared";
-import { api, ApiError, setApiHandlers } from "../api/client";
+import { LOCALES, type Locale, type PlanId, type Post, type ReportReason, t, type StringKey } from "@rpgllm/shared";
+import { api, ApiError, setApiHandlers, type ReportTarget } from "../api/client";
 import { subscribe, type StreamEvent, type Subscription as StreamSub } from "../api/sse";
 import { getAds } from "../adapters/ads";
 import { getBilling } from "../adapters/billing";
@@ -18,6 +18,9 @@ export type PersonaDraft = {
   avatarUrl: string | null;
   voiceNotes: string;
 };
+
+/** S1-2 (Agent G): a character this persona blocked. */
+export type BlockedCharacter = { characterId: string; handle: string; displayName: string };
 
 export type ToastKind = "stat" | "fallback" | "error";
 /** One slot per kind so a stat toast never replaces a fallback notice (E2E-010). */
@@ -48,6 +51,13 @@ export type AppState = {
   pendingPost: { text: string; parentId: string | null } | null;
   toasts: ToastState;
   streaming: boolean;
+  /** S1-2 blocked characters (SCR-033 → Safety). Their posts never render. */
+  blocked: BlockedCharacter[];
+  /**
+   * S1-6 analytics consent. `MeResZ` carries no `analyticsConsent`, so this mirrors the server
+   * default (false) until the user toggles it — see build-notes "Agent G".
+   */
+  analyticsConsent: boolean;
 };
 
 const initialLocale = (): Locale => {
@@ -85,6 +95,8 @@ const initialState: AppState = {
   pendingPost: null,
   toasts: {},
   streaming: false,
+  blocked: [],
+  analyticsConsent: false,
 };
 
 export type PostResult =
@@ -121,6 +133,17 @@ export type Actions = {
   purchase: (plan: PlanId) => Promise<{ ok: boolean; message?: string }>;
   showToast: (kind: ToastKind, text: string) => void;
   clearToast: (kind?: ToastKind) => void;
+  /* S1 store compliance (Agent G) */
+  loadBlocked: () => Promise<void>;
+  blockByHandle: (handle: string) => Promise<{ ok: boolean; message?: string }>;
+  unblockCharacter: (characterId: string) => Promise<{ ok: boolean; message?: string }>;
+  reportContent: (
+    target: ReportTarget, targetId: string, reason: ReportReason, note: string,
+  ) => Promise<{ ok: boolean; duplicate: boolean; message?: string }>;
+  setConsent: (analytics: boolean) => Promise<{ ok: boolean; analytics: boolean; locked: boolean }>;
+  exportMyData: () => Promise<{ ok: boolean; json?: string; message?: string }>;
+  deleteAccount: () => Promise<{ ok: boolean; message?: string }>;
+  restorePurchases: () => Promise<{ ok: boolean; plan: string | null; message?: string }>;
 };
 
 const StateCtx = createContext<AppState>(initialState);
@@ -530,6 +553,120 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       }
     };
 
+    /* ---------------- S1 store compliance (Agent G) ---------------- */
+
+    const bare = (h: string) => h.replace(/^@+/, "").toLowerCase();
+
+    const loadBlocked: Actions["loadBlocked"] = async () => {
+      const personaId = ref.current.me?.persona?.id;
+      if (!personaId) return;
+      try {
+        const res = await api.blocked(personaId);
+        patch({ blocked: res.blocked.map((b) => ({ characterId: b.characterId, handle: b.handle, displayName: b.displayName })) });
+      } catch {
+        /* keep the last known list */
+      }
+    };
+
+    /** Feed cells only know the author's handle, so the character id is resolved from the world. */
+    const characterIdForHandle = async (handle: string): Promise<string | null> => {
+      const persona = ref.current.me?.persona;
+      if (!persona) return null;
+      const known = ref.current.blocked.find((b) => bare(b.handle) === bare(handle));
+      if (known) return known.characterId;
+      const world = ref.current.world?.world.id === persona.worldId ? ref.current.world : await api.world(persona.worldId);
+      if (!ref.current.world) patch({ world, worldStatus: "ready" });
+      return world.characters.find((ch) => bare(ch.handle) === bare(handle))?.id ?? null;
+    };
+
+    const blockByHandle: Actions["blockByHandle"] = async (handle) => {
+      const personaId = ref.current.me?.persona?.id;
+      if (!personaId) return { ok: false, message: "no persona" };
+      try {
+        const characterId = await characterIdForHandle(handle);
+        if (!characterId) return { ok: false, message: "unknown character" };
+        await api.block(personaId, characterId);
+        // Drop what is already on screen; the server filters every later read.
+        patch((s2) => ({
+          feed: s2.feed.filter((p) => bare(p.author.handle) !== bare(handle)),
+          liveReplies: Object.fromEntries(
+            Object.entries(s2.liveReplies).map(([k, v]) => [k, v.filter((r) => bare(r.author.handle) !== bare(handle))]),
+          ),
+        }));
+        await loadBlocked();
+        return { ok: true };
+      } catch (e) {
+        if (e instanceof ApiError && e.code === "BLOCKED") {
+          await loadBlocked();
+          return { ok: true };
+        }
+        return { ok: false, message: e instanceof Error ? e.message : "failed" };
+      }
+    };
+
+    const unblockCharacter: Actions["unblockCharacter"] = async (characterId) => {
+      const personaId = ref.current.me?.persona?.id;
+      if (!personaId) return { ok: false, message: "no persona" };
+      try {
+        await api.unblock(personaId, characterId);
+        patch((s2) => ({ blocked: s2.blocked.filter((b) => b.characterId !== characterId) }));
+        await loadFeed();
+        return { ok: true };
+      } catch (e) {
+        return { ok: false, message: e instanceof Error ? e.message : "failed" };
+      }
+    };
+
+    const reportContent: Actions["reportContent"] = async (target, targetId, reason, note) => {
+      try {
+        await api.report({ target, targetId, reason, note });
+        return { ok: true, duplicate: false };
+      } catch (e) {
+        // A second report of the same thing is already recorded — the user has nothing to fix.
+        if (e instanceof ApiError && e.code === "ALREADY_DONE") return { ok: true, duplicate: true };
+        return { ok: false, duplicate: false, message: e instanceof Error ? e.message : "failed" };
+      }
+    };
+
+    const setConsent: Actions["setConsent"] = async (analytics) => {
+      try {
+        const res = await api.setConsent(analytics);
+        patch({ analyticsConsent: res.analytics });
+        return { ok: true, analytics: res.analytics, locked: res.locked };
+      } catch {
+        return { ok: false, analytics: ref.current.analyticsConsent, locked: false };
+      }
+    };
+
+    const exportMyData: Actions["exportMyData"] = async () => {
+      try {
+        const data = await api.exportData();
+        return { ok: true, json: JSON.stringify(data, null, 2) };
+      } catch (e) {
+        return { ok: false, message: e instanceof Error ? e.message : "failed" };
+      }
+    };
+
+    const deleteAccount: Actions["deleteAccount"] = async () => {
+      try {
+        await api.deleteAccount();
+        return { ok: true };
+      } catch (e) {
+        return { ok: false, message: e instanceof Error ? e.message : "failed" };
+      }
+    };
+
+    const restorePurchases: Actions["restorePurchases"] = async () => {
+      try {
+        const res = await api.restorePurchases(ref.current.me?.user.id ?? "anonymous");
+        await refreshMe();
+        const plan = res.subscription && res.subscription.active ? res.subscription.plan : null;
+        return { ok: true, plan };
+      } catch (e) {
+        return { ok: false, plan: null, message: e instanceof Error ? e.message : "failed" };
+      }
+    };
+
     return {
       setLocale,
       signIn,
@@ -558,6 +695,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       purchase,
       showToast,
       clearToast,
+      loadBlocked,
+      blockByHandle,
+      unblockCharacter,
+      reportContent,
+      setConsent,
+      exportMyData,
+      deleteAccount,
+      restorePurchases,
     };
   }, [clearToast, insertPost, openStatCard, closeStatCard, patch, refreshMe, replacePost, showToast, startStream, stopStream]);
 

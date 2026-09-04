@@ -4,15 +4,25 @@ import { corsAllowAll, corsOrigins, testHooksEnabled } from "./env";
 import { fail } from "./http";
 import { rateLimit, type RateLimitStore } from "./middleware/rate-limit";
 import { logError, requestLog } from "./middleware/request-log";
+import { accountRoutes } from "./routes/account";
 import { authRoutes } from "./routes/auth";
 import { billingRoutes } from "./routes/billing";
+import { costRoutes } from "./routes/cost";
+import { jobRoutes } from "./jobs";
+import { digestRoutes } from "./routes/digest";
 import { dmRoutes } from "./routes/dms";
+import { memoryRoutes } from "./routes/memory";
+import { momentRoutes } from "./routes/moments";
+import { profileRoutes } from "./routes/profile";
+import { pushRoutes } from "./routes/push";
+import { referralRoutes } from "./routes/referral";
 import { eventRoutes } from "./routes/events";
 import { experimentRoutes } from "./routes/experiments";
 import { feedRoutes } from "./routes/feed";
 import { generationRoutes } from "./routes/generations";
 import { healthRoutes } from "./routes/health";
 import { meRoutes } from "./routes/me";
+import { moderationRoutes } from "./routes/moderation";
 import { personaRoutes } from "./routes/personas";
 import { postRoutes } from "./routes/posts";
 import { statRoutes } from "./routes/stats";
@@ -72,8 +82,21 @@ export function createApp(deps: Deps): Hono<AppEnv> {
   v1.route("/billing", billingRoutes());
   v1.route("/generations", generationRoutes());
   v1.route("/experiments", experimentRoutes());
+  v1.route("/cost", costRoutes());
+  // Agent G (S1): account deletion/export/consent and report/block.
+  v1.route("/account", accountRoutes());
+  v1.route("/moderation", moderationRoutes());
+  // Agent H (S2): retention & growth.
+  v1.route("/digest", digestRoutes());
+  v1.route("/memory", memoryRoutes());
+  v1.route("/moments", momentRoutes());
+  v1.route("/referral", referralRoutes());
+  v1.route("/profile", profileRoutes());
+  v1.route("/push", pushRoutes());
   v1.route("/health", healthRoutes());
   if (testHooksEnabled()) v1.route("/__test", testHookRoutes());
+  // `POST /__test/run-job` — the manual scheduler; guards itself with testHooksEnabled().
+  v1.route("/__test", jobRoutes());
   app.route("/v1", v1);
 
   // Unversioned aliases so probes and the E2E harness can reach them either way.

@@ -16,6 +16,9 @@ case "${1:-}" in
     for db in rpgllm rpgllm_test; do $PSQL -tc "select 1 from pg_database where datname='$db'" | grep -q 1 || $PSQL -c "create database $db" >/dev/null; done
     echo "postgres ready (rpgllm, rpgllm_test)";;
   stop) su postgres -c "$PGBIN/pg_ctl -D $PGDATA stop" ;;
-  reset) $PSQL -c "drop database if exists rpgllm_test" >/dev/null; $PSQL -c "create database rpgllm_test" >/dev/null; echo "rpgllm_test reset";;
+  # Agent F: DROP ... WITH (FORCE) (PG13+) — an idle API/vitest connection used to make the E2E
+  # globalSetup fail with "database is being accessed by other users". The API opens a pooled
+  # connection as soon as /v1/health probes the database.
+  reset) $PSQL -c "drop database if exists rpgllm_test with (force)" >/dev/null; $PSQL -c "create database rpgllm_test" >/dev/null; echo "rpgllm_test reset";;
   *) echo "usage: db.sh start|stop|reset"; exit 1;;
 esac

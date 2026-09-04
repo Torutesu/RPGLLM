@@ -18,6 +18,7 @@ import { verifySession } from "../auth";
 import {
   rateLimitAdPerMin, rateLimitAuthPerMin, rateLimitDefaultPerMin, rateLimitEnabled, rateLimitWritePerMin,
 } from "../env";
+import { fail } from "../http";
 import type { AppEnv } from "../types";
 
 export interface Bucket { tokens: number; last: number }
@@ -54,24 +55,13 @@ function prune(store: RateLimitStore, perMin: number, nowMs: number): void {
   }
 }
 
-/**
- * 429 body. NOTE: `RATE_LIMITED` is not yet in `ErrorCodeZ` (`packages/shared` is owned by the
- * orchestrator — see build-notes "Agent F: required shared change"), so this response is built
- * by hand instead of going through `http.ts#fail`, whose `code` argument is typed `ErrorCode`.
- */
-export const RATE_LIMITED_CODE = "RATE_LIMITED";
+/** 429 body. `RATE_LIMITED` is part of `ErrorCodeZ`, so this goes through the shared `fail()`. */
+export const RATE_LIMITED_CODE = "RATE_LIMITED" as const;
 
 export function rateLimitedResponse(retryAfterSec: number): Response {
-  return new Response(
-    JSON.stringify({ data: null, error: { code: RATE_LIMITED_CODE, message: "Too many requests. Please slow down." } }),
-    {
-      status: 429,
-      headers: {
-        "content-type": "application/json; charset=utf-8",
-        "retry-after": String(retryAfterSec),
-      },
-    },
-  );
+  const res = fail(RATE_LIMITED_CODE, "Too many requests. Please slow down.", 429);
+  res.headers.set("retry-after", String(retryAfterSec));
+  return res;
 }
 
 /* ------------------------------------------------------------------ keys ---- */

@@ -70,15 +70,22 @@ export default function Paywall() {
           }}
         >
           <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
-            <Text style={{ color: colors.text, fontSize: font.xl, fontWeight: "800" }}>{t("plusTitle")}</Text>
-            <Pressable testID={T.paywallClose} accessibilityRole="button" onPress={close}>
-              <Text style={{ color: colors.textMuted, fontSize: font.lg }}>×</Text>
+            <Text accessibilityRole="header" style={{ color: colors.text, fontSize: font.xl, fontWeight: "800" }}>
+              {t("plusTitle")}
+            </Text>
+            <Pressable testID={T.paywallClose} accessibilityRole="button" accessibilityLabel={t("close")} onPress={close}>
+              <Text importantForAccessibility="no" style={{ color: colors.textMuted, fontSize: font.lg }}>
+                ×
+              </Text>
             </Pressable>
           </View>
 
           {success ? (
             <View
               testID={T.paywallSuccess}
+              accessibilityRole="alert"
+              accessibilityLiveRegion="polite"
+              accessibilityLabel={t("welcomePlus")}
               style={{ paddingVertical: spacing.xl, alignItems: "center", gap: spacing.sm }}
             >
               <Text style={{ color: colors.positive, fontSize: font.lg, fontWeight: "800" }}>{t("welcomePlus")}</Text>
@@ -92,9 +99,17 @@ export default function Paywall() {
               </View>
 
               {status === "loading" ? <SkeletonList count={3} /> : null}
-              {status === "error" ? <Text style={{ color: colors.textMuted, fontSize: font.sm }}>{t("notSent")}</Text> : null}
+              {status === "error" ? (
+                <Text
+                  accessibilityRole="alert"
+                  accessibilityLiveRegion="polite"
+                  style={{ color: colors.textMuted, fontSize: font.sm }}
+                >
+                  {t("notSent")}
+                </Text>
+              ) : null}
 
-              <View style={{ gap: spacing.md }}>
+              <View accessibilityRole="radiogroup" accessibilityLabel={t("plusTitle")} style={{ gap: spacing.md }}>
                 {(offerings?.plans ?? []).map((p) => {
                   const active = selected === p.id;
                   const periodKey = PERIOD_KEY[p.period] ?? "monthly";
@@ -103,7 +118,10 @@ export default function Paywall() {
                     <Pressable
                       key={p.id}
                       testID={T.plan(p.id)}
-                      accessibilityRole="button"
+                      // one-of-many choice: "radio" makes the selected state audible
+                      accessibilityRole="radio"
+                      accessibilityState={{ selected: active, checked: active }}
+                      accessibilityLabel={`${adFree ? t("adFreeOnly") : t(periodKey)} $${p.usd.toFixed(2)}${p.highlighted ? ` ${t("mostPopular")}` : ""}`}
                       onPress={() => setSelected(p.id)}
                       style={{
                         flexDirection: "row",
@@ -130,7 +148,15 @@ export default function Paywall() {
                 })}
               </View>
 
-              {error ? <Text style={{ color: colors.danger, fontSize: font.sm }}>{error}</Text> : null}
+              {error ? (
+                <Text
+                  accessibilityRole="alert"
+                  accessibilityLiveRegion="polite"
+                  style={{ color: colors.danger, fontSize: font.sm }}
+                >
+                  {error}
+                </Text>
+              ) : null}
 
               <Button
                 testID={T.paywallContinue}
@@ -141,6 +167,7 @@ export default function Paywall() {
               />
               <Pressable
                 accessibilityRole="button"
+                accessibilityLabel={t("restore")}
                 onPress={() => {
                   void getBilling()
                     .restore()
@@ -149,7 +176,9 @@ export default function Paywall() {
                 }}
                 style={{ alignSelf: "center" }}
               >
-                <Text style={{ color: colors.textMuted, fontSize: font.xs }}>{t("restore")}</Text>
+                <Text importantForAccessibility="no" style={{ color: colors.textMuted, fontSize: font.xs }}>
+                  {t("restore")}
+                </Text>
               </Pressable>
             </>
           )}

@@ -6,30 +6,46 @@ import { Avatar } from "./Avatar";
 
 const signed = (n: number): string => (n > 0 ? `+${n}` : String(n));
 
-function Bar({ value }: { value: number }) {
+function Bar({ value, label }: { value: number; label: string }) {
   const anim = useRef(new Animated.Value(0)).current;
   useEffect(() => {
     Animated.timing(anim, { toValue: Math.max(0, Math.min(100, value)), duration: 450, useNativeDriver: false }).start();
   }, [anim, value]);
   const width = anim.interpolate({ inputRange: [0, 100], outputRange: ["0%", "100%"] });
   return (
-    <View style={{ height: 6, backgroundColor: colors.bgElevated, borderRadius: radius.pill, overflow: "hidden", marginTop: spacing.xs }}>
+    <View
+      accessibilityRole="progressbar"
+      accessibilityLabel={label}
+      accessibilityValue={{ min: 0, max: 100, now: Math.round(value) }}
+      style={{ height: 6, backgroundColor: colors.bgElevated, borderRadius: radius.pill, overflow: "hidden", marginTop: spacing.xs }}
+    >
       <Animated.View style={{ height: 6, width, backgroundColor: colors.accent }} />
     </View>
   );
 }
 
+/**
+ * The testid'd node keeps its exact "+5 → 25" text (E2E reads it); the accessible name prefixes
+ * the stat it belongs to, so a screen reader says "Aura +5, 25" instead of a bare number.
+ * (i18n has no localized "up"/"down" wording yet — see build-notes "Agent I".)
+ */
 function StatRow({ testID, label, delta, after, bar }: { testID: string; label: string; delta: number; after: number; bar?: boolean }) {
   const tone = delta > 0 ? colors.positive : delta < 0 ? colors.negative : colors.textMuted;
   return (
     <View style={{ marginBottom: spacing.md }}>
       <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
-        <Text style={{ color: colors.textMuted, fontSize: font.sm }}>{label}</Text>
-        <Text testID={testID} style={{ color: tone, fontSize: font.md, fontWeight: "700" }}>
+        <Text importantForAccessibility="no" style={{ color: colors.textMuted, fontSize: font.sm }}>
+          {label}
+        </Text>
+        <Text
+          testID={testID}
+          accessibilityLabel={`${label} ${signed(delta)}, ${after}`}
+          style={{ color: tone, fontSize: font.md, fontWeight: "700" }}
+        >
           {`${signed(delta)} → ${after}`}
         </Text>
       </View>
-      {bar ? <Bar value={after} /> : null}
+      {bar ? <Bar value={after} label={label} /> : null}
     </View>
   );
 }
@@ -48,6 +64,8 @@ export function StatCard() {
   return (
     <View
       testID={T.statCard}
+      accessibilityRole="summary"
+      accessibilityLiveRegion="polite"
       style={{
         position: "absolute",
         left: 0,
@@ -75,7 +93,10 @@ export function StatCard() {
             {rel.map(([handle, delta]) => (
               <View key={handle} style={{ flexDirection: "row", alignItems: "center", gap: spacing.xs }}>
                 <Avatar handle={handle} size={22} />
-                <Text style={{ color: delta > 0 ? colors.positive : delta < 0 ? colors.negative : colors.textMuted, fontSize: font.xs }}>
+                <Text
+                  accessibilityLabel={`@${handle} ${signed(delta)}`}
+                  style={{ color: delta > 0 ? colors.positive : delta < 0 ? colors.negative : colors.textMuted, fontSize: font.xs }}
+                >
                   {`@${handle} ${delta > 0 ? "↑" : delta < 0 ? "↓" : "→"}`}
                 </Text>
               </View>
@@ -87,9 +108,12 @@ export function StatCard() {
         testID={T.statContinue}
         onPress={closeStatCard}
         accessibilityRole="button"
+        accessibilityLabel={t("continue")}
         style={{ backgroundColor: colors.accent, borderRadius: radius.pill, paddingVertical: spacing.md, alignItems: "center" }}
       >
-        <Text style={{ color: colors.bg, fontWeight: "700", fontSize: font.md }}>{t("continue")}</Text>
+        <Text importantForAccessibility="no" style={{ color: colors.bg, fontWeight: "700", fontSize: font.md }}>
+          {t("continue")}
+        </Text>
       </Pressable>
     </View>
   );

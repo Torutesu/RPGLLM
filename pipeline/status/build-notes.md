@@ -592,3 +592,241 @@ is still materialising replies. It is caught, logged and harmless (pre-existing)
 ### Verification
 `pnpm --filter mobile typecheck` clean · `pnpm --filter api test` 29/29 · `pnpm --filter @rpgllm/llm
 test` 80/80 · `pnpm e2e` (with the web export) **16 passed, 4 skipped**, twice in a row.
+
+## Agent F — security & ops — 2026-09-04
+
+Seven S0 findings fixed plus the missing ops layer. Everything below is in the working tree; no
+commits (orchestrator owns those).
+
+### S0-1 Authentication bypass — real one-time codes
+`POST /v1/auth/email/verify` accepted the constant `DEV_EMAIL_CODE` ("000000") for **any** email:
+in production, anyone could sign in as anyone.
+
+- `apps/api/src/auth-codes.ts` (new) — 6-digit code, **only the salted sha256 hash is stored**
+  (per-code 16-byte salt), 10-minute expiry, ≤5 verify attempts, single use, constant-time compare
+  (`timingSafeEqual`). `MailSender` interface + `ConsoleMailSender` default (`setMailSender()` swaps it).
+- `apps/api/src/routes/auth.ts` — `/email/start` issues and "sends" a code; `/email/verify`
+  (and its `/email` + `/:provider` aliases) accepts the constant dev code **only** when
+  `AUTH_DEV_CODE=1`. `TEST_HOOKS=1` implies `AUTH_DEV_CODE=1`, so the existing vitest harness
+  (`vitest.config.ts` sets `TEST_HOOKS=1`) and the Playwright webServer (`TEST_HOOKS=1`) keep
+  logging in with `000000` — **`e2e/playwright.config.ts` was not touched**. `.env.example` also
+  sets `AUTH_DEV_CODE=1` for local dev.
+- **TODO(P1) — needs the orchestrator:** the pending codes live in an in-memory `Map` on
+  `AppState.emailCodes` because `prisma/schema.prisma` is not mine. Consequences: codes do not
+  survive a restart and do not work across more than one API instance. The fix is a `LoginCode`
+  table (`email, salt, hash, expiresAt, attempts, consumedAt`); `auth-codes.ts` is written so only
+  the store swaps.
+
+### S0-2 JWT secret default — production config guard
+`apps/api/src/config-guard.ts` (new) + called from `index.ts`. With `NODE_ENV=production` **or**
+`APP_ENV=production` the process refuses to boot when `JWT_SECRET` is unset / `dev-secret-change-me`
+/ shorter than 32 chars, or when any of `AUTH_DEV_CODE=1`, `TEST_HOOKS=1`, `BILLING_MODE=test`,
+`ADS_MODE=test` is on — and also when `BILLING_MODE`/`ADS_MODE` are simply **unset**, because their
+code defaults used to be `test`. (`env.ts` now additionally defaults them to `revenuecat`/`admob`
+in production.) All problems are reported at once. Unit-tested.
+
+### S0-3 `.env.example` loaded at runtime
+`index.ts#loadEnvFile` now loads `.env.example` **only when not production** and logs which files
+were applied and how many keys each contributed (`msg:"api.start"`).
+
+### S0-4 No rate limiting → `src/middleware/rate-limit.ts` (new)
+In-process token bucket, no new dependency. Budgets (env-overridable): auth start/verify **5/min
+per IP and per email**, post/reply/DM-send/rate **20/min per user**, ad-reward **10/min per user**,
+everything else **120/min** per user (verified bearer) or per IP. `/__test/*` and `/health` are
+exempt; the limiter is off while `TEST_HOOKS=1` (`RATE_LIMIT_ENABLED=1|0` forces it), so no suite
+flakes on it. 429 carries `Retry-After`. Buckets refill on the injectable clock.
+
+> **⚠ Required change in `packages/shared` (orchestrator): add `"RATE_LIMITED"` to `ErrorCodeZ`.**
+> The 429 body is `{"data":null,"error":{"code":"RATE_LIMITED","message":…,"requestId":…}}`. Because
+> `ErrorCode` does not contain it yet, `middleware/rate-limit.ts#rateLimitedResponse` builds that
+> response by hand instead of calling `http.ts#fail`. Once the code exists in `ErrorCodeZ`, replace
+> the hand-built response with `fail("RATE_LIMITED", …, 429)` (keep the `Retry-After` header) — that
+> is the only follow-up. Clients should treat 429 as "back off", not as a session error.
+
+### S0-5 CORS `*` → allow-list
+`app.ts` now evaluates the origin per request: `CORS_ORIGINS` (comma-separated, default
+`http://localhost:8081,http://localhost:8082`); wildcard only while `TEST_HOOKS=1`. Methods/headers
+the client needs are preserved (`authorization`, `content-type`, `x-request-id`, `accept`,
+`last-event-id`, `GET/POST/OPTIONS`), so SSE `GET` still works; `x-request-id`/`retry-after` are exposed.
+
+### S0-6 Forgeable ad reward
+`apps/api/src/services/ad-verify.ts` (new): `verifyAdMobSSV()` implements the real AdMob
+server-side-verification **signature shape** (ECDSA-SHA256 over the query string up to
+`&signature=`, base64url signature, `key_id` lookup, ±5-minute freshness, `user_id` match) and
+**fails closed** until the Google verifier key set is wired (TODO(P1): fetch + cache
+`https://gstatic.com/admob/reward/verifier-keys.json`, and persist `transaction_id` to block
+replays — that needs a table, so it is an orchestrator follow-up). `routes/wallet.ts` accepts the
+constant `TEST_AD_TOKEN` **only** when `ADS_MODE=test` (constant-time compare); any other mode goes
+through the SSV check and answers 400 when it fails.
+
+### S0-7 `?token=` query auth narrowed
+`auth.ts#requireAuth` accepts a query token only on `GET …/stream` (EventSource); on every other
+route/method it is ignored, so a token in a URL can never drive a mutating call.
+
+### Ops (all new)
+- `.github/workflows/ci.yml` — `lint`, `test` (Node 22, pnpm, Postgres 16 service, `pnpm -r
+  typecheck`, shared tests `--if-present`, `@rpgllm/llm` tests, `prisma migrate deploy`, `api`
+  tests), `e2e` (Playwright; `playwright install --with-deps chromium` is guarded by
+  `if: env.CI == 'true'` and is **never** run in this sandbox, which has Chromium at
+  `/opt/pw-browsers`; CI additionally exports `PW_CHROMIUM_PATH`). HTML report uploaded on failure.
+- `eslint.config.mjs` (flat ESLint 9 + typescript-eslint strict-type-checked, type-aware, scoped to
+  `apps/api`, `packages/*`, `e2e`), `.prettierrc`, `.prettierignore`, root `lint` / `lint:fix` /
+  `format` / `format:check` scripts. `eslint`, `typescript-eslint`, `prettier` were added as
+  devDependencies of **`apps/api`** (`pnpm --filter api add -D …`, never a root install); the
+  hoisted node-linker puts the binaries in the root `node_modules/.bin`, so `pnpm lint` works.
+- `apps/api/Dockerfile` (multi-stage: pnpm fetch → install+`prisma generate`+typecheck → node:22-slim
+  runtime, non-root `node`, `HEALTHCHECK` on `/v1/health`), `.dockerignore`, `docs/deploy.md`.
+- `src/middleware/request-log.ts` — `x-request-id` honored or generated, echoed in the response
+  header, injected into **every JSON error body**, one JSON log line per request
+  (method/path/status/durationMs/userId). `authorization`/`cookie` headers and
+  `?token=`/`?code=`/`?jwt=` values are redacted. `app.ts#onError` uses it instead of `console.error`.
+- Graceful shutdown in `index.ts`: SIGTERM/SIGINT → stop accepting connections, idle sockets closed,
+  in-flight SSE gets `SHUTDOWN_GRACE_MS` (10s) → `prisma.$disconnect()` → exit 0.
+- `/v1/health` gained `db:"ok"|"down"` from a `SELECT 1` with a 1.5s budget; **503 when down**.
+  Existing fields (`ok`, `llmMode`, `champion`) are unchanged.
+
+### Files touched outside my ownership (kept minimal, as required by CLAUDE.md rule 1)
+- `apps/api/src/routes/auth.ts` — the S0-1 fix itself lives here.
+- `apps/api/src/routes/wallet.ts` — 6 lines for the S0-6 ad-token gate.
+- `apps/api/src/routes/health.ts` — the DB probe (fields preserved).
+- `apps/api/src/types.ts` — two added fields: `AppState.emailCodes`, `AppEnv.Variables.requestId`.
+- `scripts/db.sh` — `reset` now does `DROP DATABASE … WITH (FORCE)`. **Why:** the API opens a
+  Prisma connection as soon as `/v1/health` probes the database, and Playwright starts the
+  webServers *before* `globalSetup`; the old `DROP DATABASE` then failed with "database is being
+  accessed by other users". One line, PG13+.
+- `.env.example` — documented + added `AUTH_DEV_CODE`, `CORS_ORIGINS`, the rate-limit knobs,
+  `NODE_ENV`, `REQUEST_LOG`, `HEALTH_DB_TIMEOUT_MS`, `SHUTDOWN_GRACE_MS`.
+
+### Lint debt (deliberate, do not "fix" by mass-rewriting)
+`pnpm lint` is **0 errors / ~309 warnings**. Only bug-shaped rules are errors
+(`no-floating-promises`, `await-thenable`, `no-misused-promises`, `no-explicit-any` + ESLint
+recommended). Everything that mass-fails existing code — `array-type`, `prefer-optional-chain`,
+`no-unnecessary-condition`, `no-non-null-assertion`, `restrict-template-expressions`, the
+`no-unsafe-*` family, `no-deprecated` (zod v4 deprecations in `packages/shared/src/api.ts`),
+`no-base-to-string`, `prefer-regexp-exec`, … — is a **warning**. Each owner should clear their own
+package and the rule can then be promoted to error. `apps/mobile` is not linted at all yet (needs
+the React/React-Native plugin set). `prettier --check` currently reports 140 files, so the CI
+`format:check` step is `continue-on-error: true` until someone runs `pnpm format` package by package.
+
+### Production env checklist (also in `docs/deploy.md`)
+Required: `NODE_ENV=production` (or `APP_ENV=production`) · `JWT_SECRET` random ≥32 chars and not
+`dev-secret-change-me` · `AUTH_DEV_CODE` unset/`0` · `TEST_HOOKS` unset/`0` · `BILLING_MODE=revenuecat`
+· `ADS_MODE=admob` · `DATABASE_URL` · `LLM_MODE=live` + `ANTHROPIC_API_KEY` + `LLM_MODEL_HIGH|MID|LIGHT`
+· `CORS_ORIGINS` = the real app origins. Optional: `PORT`, `AUTH_CODE_TTL_MS`,
+`AUTH_CODE_MAX_ATTEMPTS`, `RATE_LIMIT_*`, `REQUEST_LOG`, `HEALTH_DB_TIMEOUT_MS`, `SHUTDOWN_GRACE_MS`.
+Run `prisma migrate deploy` as a release step (the container does **not** migrate). Before a public
+launch: a real `MailSender`, the AdMob verifier keys, `RATE_LIMITED` in `ErrorCodeZ`, and the
+`LoginCode` table.
+
+### Verification
+`pnpm --filter api typecheck` clean · `pnpm -r typecheck` clean · `pnpm --filter api test`
+**102/102** (29 pre-existing + Agent-owned additions + 23 new in `test/security.test.ts`) ·
+`pnpm lint` 0 errors · `pnpm e2e` **18 passed, 4 skipped, 3 failed** — every `E2E-0xx` P0 case
+passed plus the new `SEC-001`; the three failures are `tests/compliance.spec.ts` (`S1-2a`, `S1-2b`,
+`S1-3/6`), an in-progress feature landed by another agent while this ran, unrelated to these
+changes. `docker build` **not run**: the Docker daemon is not running in this sandbox (client
+29.3.1 present, no `/var/run/docker.sock`), so the Dockerfile is unverified by execution.
+
+## Agent G — store compliance (S1) — 2026-09-04
+
+### What shipped
+
+**API**
+- `src/routes/account.ts` → `/v1/account` (mounted in `app.ts`):
+  - `POST /delete` (auth, `{confirm:"DELETE"}`) → `{deletedAt, purgeAt}`; sets `User.deletedAt`.
+  - `POST /restore` (auth) → `{restored}`; refuses with 410 once the grace window (`DELETION_GRACE_DAYS`=30) has passed.
+  - `GET /export` (auth) → `ExportDataResZ`; the caller's personas/posts/DMs/purchases, capped at 1,000 posts
+    and 1,000 messages with `truncated:true` when either cap is hit.
+  - `POST /consent` (auth) → `ConsentResZ`; **forced to `{analytics:false, locked:true}` for `isMinor`** (S1-6).
+  - `POST /__test/purge-deleted` — TEST_HOOKS only, see "Deviations" (1).
+- `src/services/account.ts`: `requireActiveAccount` (410 `ACCOUNT_DELETED` middleware), `purgeDeletedAccounts(prisma, now)`,
+  `buildExport`, `resolveConsent`, `purgeAtFor`, `withinGraceWindow`, `EXPORT_LIMIT`.
+- `src/routes/moderation.ts` → `/v1/moderation`:
+  - `POST /report` → 201 `{id,status}`. The `snapshot` and `generationId` are read **server-side** from the
+    post / DM message / character / world; a duplicate **open** report for the same `(user,target,targetId)` is 409 `ALREADY_DONE`;
+    an unknown target is 404.
+  - `POST /block` (201) / `POST /unblock` (200) — `{personaId, characterId}`; second block is 409 `BLOCKED`,
+    unblocking something that is not blocked is 404, someone else's persona is 404.
+  - `GET /blocked?personaId=` → `BlockedListResZ`.
+  - `GET /reports?status=open` — moderation queue, gated behind `TEST_HOOKS=1` **or** `ADMIN_TOKEN`
+    (`authorization: Bearer <ADMIN_TOKEN>` or `x-admin-token`). `ADMIN_TOKEN` is read in `services/moderation.ts`
+    (`env.ts` belongs to Agent F).
+- `src/services/moderation.ts`: `blockedCharacterIds(prisma, personaId)`, `withoutBlocked(list, ids, idOf?)`
+  (pure; `idOf` defaults to `authorCharacterId ?? characterId`), `loadReportedContent`, `findOpenReport`, `createReport`.
+- Tests: `test/account.test.ts` (10 cases) + `test/moderation.test.ts` (8 cases). `pnpm --filter api test` green.
+- Reporting and blocking cost **no energy** (they are safety actions, not story actions).
+
+**Client (apps/mobile)**
+- `app/settings.tsx` (SCR-033) — account (id, export, sign out, delete), subscription (plan, store
+  subscription URL per platform / paywall on web, restore), privacy (consent switch, locked for minors),
+  safety (→ blocked list), language (EN/JA), legal (terms / privacy / guidelines / support via `expo-linking`).
+- `app/settings/blocked.tsx` — blocked list with `T.unblock(handle)`.
+- `app/delete-account.tsx` — warning + "type DELETE" + confirm → `deleteDone` → signs out to SCR-002 after 2s.
+- `app/report.tsx` — `?target=&targetId=&handle=`, radio list of `REPORT_REASONS`, optional note, submit →
+  `reportDone`; block affordance (`blockOpen` → `blockConfirm`) when a handle is passed.
+- `src/components/Overflow.tsx` — the "…" button (`T.overflow(id)`).
+- Every added `Pressable`/`Button` carries `accessibilityRole` + an i18n `accessibilityLabel` (S3-6).
+
+**E2E** — `e2e/tests/compliance.spec.ts` (4 cases, local helpers only; `fixtures.ts` untouched):
+report a character reply from the feed overflow; block → gone from feed + DM picker → unblock in settings;
+settings legal links + consent toggle; in-app deletion → back to SCR-002 + the old token is refused with 410.
+
+### Minimal edits to files I do not own (please keep)
+
+1. `apps/api/src/app.ts` — two imports + `v1.route("/account", …)` and `v1.route("/moderation", …)`.
+2. `apps/api/src/routes/feed.ts` — 3 lines: `blockedCharacterIds(...)` + `withoutBlocked(...)` around the
+   post and reply queries, so a blocked character's posts never reach `GET /v1/feed`.
+3. `apps/api/src/routes/dms.ts` — 1 line: `withoutBlocked(threads, ctx.blockedCharacterIds)` in `GET /v1/dms`.
+4. `apps/api/src/services/story.ts` — `StoryContext` gains `blockedCharacterIds`, and `loadStoryContext`
+   filters blocked characters out of `characters`. **Consequence (intended):** blocked characters leave the
+   G1 cast (`castCards`), `involvedFor`, `characterByHandle` (so `materializeReplies` cannot fall back to
+   them) and the DM "New message" picker. Nothing else changes.
+5. `apps/mobile/app/(tabs)/feed.tsx` — gear button (`T.settingsBtn`) in the header, `loadBlocked()` on mount,
+   and the client-side blocked filter on the feed + inline replies. **Plus one bug fix:** the `loadFeed`
+   effect and `useFocusEffect` now depend on `me?.persona?.id`. Without it, a *direct* load of `/feed`
+   (reload / deep link) never fetched the feed at all — the screen mounts before the async boot has `me`,
+   and nothing re-ran the effect. It showed as an empty "Your world is waking up…" feed.
+6. `apps/mobile/src/components/PostCell.tsx` — `CellOverflow`, rendered as an absolutely positioned **sibling**
+   of the cell's `Pressable` (never nested inside it, so tapping "…" cannot also open the post detail).
+7. `apps/mobile/src/api/client.ts` — additive endpoint methods + a local `ReportTarget` alias.
+8. `apps/mobile/src/state/store.tsx` — additive state (`blocked`, `analyticsConsent`) and actions
+   (`loadBlocked`, `blockByHandle`, `unblockCharacter`, `reportContent`, `setConsent`, `exportMyData`,
+   `deleteAccount`, `restorePurchases`).
+
+### Request to Agent F (apps/api/src/auth.ts) — soft-deleted users must be locked out globally
+
+`requireActiveAccount` (services/account.ts) only guards the two routers I own, so a deleted account can
+still call `/v1/feed`, `/v1/posts`, … until its purge. Please add to `requireAuth`, after the user lookup:
+
+```ts
+// S1-1: the account is scheduled for deletion. `/v1/account/restore` is the one way back.
+if (user.deletedAt && c.req.path !== "/v1/account/restore") {
+  return fail("ACCOUNT_DELETED", "This account is scheduled for deletion", 410);
+}
+```
+
+The `restore` exemption is required: the caller of `POST /v1/account/restore` is by definition soft-deleted.
+`e2e/tests/compliance.spec.ts` asserts 410 on `GET /v1/account/export`, so it keeps passing either way.
+
+### Deviations / open items
+
+1. **Purge hook path.** The purge routine is exposed at `POST /v1/account/__test/purge-deleted`
+   (not `/v1/__test/purge-deleted`): `routes/test-hooks.ts` is not mine and `app.ts` was limited to two
+   route lines. It is guarded by `testHooksEnabled()` and returns
+   `{users, personas, posts, messages, generations}`. In production the same function should be run from a
+   daily job (`purgeDeletedAccounts(prisma, new Date())`).
+2. **`MeResZ` has no `email` and no `analyticsConsent`.** SCR-033's account row therefore shows the user id,
+   and the consent switch starts from the server default (`false`) after each boot; the server value is
+   authoritative on write (and always `false` for minors). Please add both fields to `MeResZ`
+   (`packages/shared` is orchestrator-owned) and I/whoever owns settings can bind them properly.
+3. **Missing i18n strings** (used the closest thing): no key for the free tier — the plan row renders the
+   literal `"Free"`; the support link reuses `support`; the consent switch renders `ON`/`OFF` (no keys).
+   `T.reportOpen` is unused: the "…" opens the report screen directly instead of an intermediate menu.
+4. **Native export** uses `Share.share({message: json})` because `expo-file-system` is not a dependency —
+   TODO(P1): write the JSON to the cache dir and share the file (web already downloads a real `.json`).
+5. **DM thread header has no "…" yet** — `app/dms/[threadId].tsx` is not mine. The API already accepts
+   `target:"dm_message"`; whoever owns that screen can drop in `<Overflow id={m.id} target="dm_message"
+   targetId={m.id} handle={character.handle} />`.
+6. **Blocking hides, it does not delete.** Rows stay in the database (so an unblock restores the history);
+   only reads are filtered. `GET /v1/dms/:threadId` for a blocked character still works if deep-linked.
+7. Agent H: `/settings` exists — feel free to link it from SCR-026 (I did not touch `app/profile.tsx`).

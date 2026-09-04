@@ -58,9 +58,12 @@ export default function Compose() {
           <Pressable
             testID={T.composeCancel}
             accessibilityRole="button"
+            accessibilityLabel={t("cancel")}
             onPress={() => (router.canGoBack() ? router.back() : router.replace("/feed"))}
           >
-            <Text style={{ color: colors.accent, fontSize: font.md }}>{t("cancel")}</Text>
+            <Text importantForAccessibility="no" style={{ color: colors.accent, fontSize: font.md }}>
+              {t("cancel")}
+            </Text>
           </Pressable>
           <Button
             testID={T.composeSubmit}
@@ -79,6 +82,7 @@ export default function Compose() {
 
         <TextInput
           testID={T.composeInput}
+          accessibilityLabel={t("post")}
           value={text}
           onChangeText={(v) => setText(v.slice(0, MAX))}
           placeholder={t("post")}
@@ -103,7 +107,9 @@ export default function Compose() {
 
         <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
           <Text style={{ color: colors.textMuted, fontSize: font.xs }}>{`${text.length}/${MAX}`}</Text>
-          <Text style={{ color: colors.energy, fontSize: font.xs }}>{`⚡ ${energy}`}</Text>
+          <Text accessibilityLabel={`${t("energy")} ${energy}`} style={{ color: colors.energy, fontSize: font.xs }}>
+            {`⚡ ${energy}`}
+          </Text>
         </View>
       </View>
     </Screen>

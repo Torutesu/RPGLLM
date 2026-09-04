@@ -57,6 +57,9 @@ export default function AuthScreen() {
           <Wordmark />
           <View
             testID={T.ageBlocked}
+            accessibilityRole="alert"
+            accessibilityLiveRegion="polite"
+            accessibilityLabel={t("underAge")}
             style={{
               borderWidth: 1,
               borderColor: colors.danger,
@@ -134,16 +137,23 @@ export default function AuthScreen() {
 }
 
 function LocaleToggle({ locale, onChange }: { locale: Locale; onChange: (l: Locale) => void }) {
+  const { t } = useT();
   const next = LOCALES[(LOCALES.indexOf(locale) + 1) % LOCALES.length] as Locale;
   return (
     <Pressable
       testID={T.localeToggle}
       onPress={() => onChange(next)}
       accessibilityRole="button"
+      accessibilityLabel={t("language")}
+      accessibilityValue={{ text: locale.toUpperCase() }}
       style={{ flexDirection: "row", gap: spacing.sm, alignSelf: "flex-start", padding: spacing.sm }}
     >
       {LOCALES.map((l) => (
-        <Text key={l} style={{ color: l === locale ? colors.accent : colors.textMuted, fontSize: font.sm, fontWeight: "700" }}>
+        <Text
+          key={l}
+          importantForAccessibility="no"
+          style={{ color: l === locale ? colors.accent : colors.textMuted, fontSize: font.sm, fontWeight: "700" }}
+        >
           {l.toUpperCase()}
         </Text>
       ))}

@@ -3,10 +3,18 @@ import {
   CreatePersonaResZ, FeedResZ, CreatePostResZ, PostDetailResZ, MoreRepliesResZ, PendingEventResZ,
   ChooseEventResZ, StatResZ, DMListResZ, CreateThreadResZ, DMThreadResZ, SendDMResZ, WalletResZ,
   AdRewardResZ, CoffeeResZ, OfferingsResZ, DevPurchaseResZ, RateResZ, AssignmentsResZ, HealthResZ,
-  type ErrorCode, type Locale, type PlanId,
+  // S1 (Agent G): account deletion / export / consent and report / block.
+  DeleteAccountResZ, CancelDeletionResZ, ExportDataResZ, ConsentResZ, ReportResZ, BlockedListResZ,
+  // S2 (Agent H): digest / memory / moments / referral / profile / push.
+  DigestResZ, MarkDigestSeenResZ, MemoryLedgerResZ, MomentResZ, MomentListResZ, ReferralResZ,
+  RedeemReferralResZ, ProfileResZ, RegisterPushResZ,
+  type ErrorCode, type Locale, type PlanId, type ReportReason,
 } from "@rpgllm/shared";
 import { API_BASE, g } from "../env";
 import { getToken } from "../auth/token";
+
+/** `ReportTargetZ` has no exported TS alias in the contract; this mirrors it 1:1. */
+export type ReportTarget = "post" | "dm_message" | "character" | "world";
 
 export class ApiError extends Error {
   readonly code: ErrorCode;
@@ -173,4 +181,70 @@ export const api = {
       method: "POST", body: { value, regenerate }, query: { postId }, schema: RateResZ,
     }),
   assignments: () => request("/experiments/assignments", { schema: AssignmentsResZ }),
+
+  /* ---------- S1 store-compliance surface (Agent G) ---------- */
+
+  /** Guideline 3.1.1 — restore purchases from the store account. */
+  restorePurchases: (rcAppUserId: string) =>
+    request("/billing/restore", {
+      method: "POST", body: { rcAppUserId },
+      schema: { parse: (u: unknown) => u as { subscription: { plan: string; active: boolean } | null } },
+    }),
+
+  /** Guideline 5.1.1(v) — in-app account deletion. */
+  deleteAccount: () => request("/account/delete", { method: "POST", body: { confirm: "DELETE" }, schema: DeleteAccountResZ }),
+  restoreAccount: () => request("/account/restore", { method: "POST", body: {}, schema: CancelDeletionResZ }),
+  exportData: () => request("/account/export", { schema: ExportDataResZ }),
+  setConsent: (analytics: boolean) =>
+    request("/account/consent", { method: "POST", body: { analytics }, schema: ConsentResZ }),
+
+  /** Guideline 1.2 — report and block. */
+  report: (body: { target: ReportTarget; targetId: string; reason: ReportReason; note: string }) =>
+    request("/moderation/report", { method: "POST", body, schema: ReportResZ }),
+  block: (personaId: string, characterId: string) =>
+    request("/moderation/block", {
+      method: "POST", body: { personaId, characterId },
+      schema: { parse: (u: unknown) => u as { blocked: boolean; characterId: string; handle: string } },
+    }),
+  unblock: (personaId: string, characterId: string) =>
+    request("/moderation/unblock", {
+      method: "POST", body: { personaId, characterId },
+      schema: { parse: (u: unknown) => u as { blocked: boolean; characterId: string } },
+    }),
+  blocked: (personaId: string) => request("/moderation/blocked", { query: { personaId }, schema: BlockedListResZ }),
+
+  /* ---------- S2 retention & growth (Agent H) ---------- */
+
+  /** SCR-038 — "While you were away". The read also runs the offline director when it is due. */
+  digest: (personaId: string) => request("/digest", { query: { personaId }, schema: DigestResZ }),
+  markDigestSeen: (id: string) =>
+    request(`/digest/${encodeURIComponent(id)}/seen`, { method: "POST", body: {}, schema: MarkDigestSeenResZ }),
+
+  /** SCR-039 — memory ledger; `character` is the handle or the character id. */
+  memory: (character: string, personaId?: string) =>
+    request(`/memory/${encodeURIComponent(character)}`, { query: { personaId }, schema: MemoryLedgerResZ }),
+
+  /** SCR-040 — shareable moments. `sharedMoment` is public: it must not send a bearer. */
+  moments: (personaId: string) => request("/moments", { query: { personaId }, schema: MomentListResZ }),
+  sharedMoment: (slug: string) =>
+    request(`/moments/${encodeURIComponent(slug)}`, { schema: MomentResZ, auth: false }),
+
+  /** SCR-041 — invite a friend. */
+  referral: () => request("/referral", { schema: ReferralResZ }),
+  redeemReferral: (code: string) =>
+    request("/referral/redeem", { method: "POST", body: { code }, schema: RedeemReferralResZ }),
+
+  /** SCR-026 — profile. */
+  profile: (personaId: string) => request("/profile", { query: { personaId }, schema: ProfileResZ }),
+
+  /** S2-2 — Expo push token. */
+  registerPush: (token: string, platform: "ios" | "android" | "web") =>
+    request("/push/register", { method: "POST", body: { token, platform }, schema: RegisterPushResZ }),
 };
+
+/** Response types for the S2 screens, inferred from the shared contracts. */
+export type Digest = NonNullable<Awaited<ReturnType<typeof api.digest>>["digest"]>;
+export type MemoryLedger = Awaited<ReturnType<typeof api.memory>>;
+export type Moment = Awaited<ReturnType<typeof api.sharedMoment>>["moment"];
+export type Profile = Awaited<ReturnType<typeof api.profile>>;
+export type ReferralInfo = Awaited<ReturnType<typeof api.referral>>;

@@ -55,21 +55,31 @@ export default function EventCard() {
             gap: spacing.lg,
           }}
         >
-          <Text style={{ color: colors.negative, fontSize: font.sm, fontWeight: "700" }}>{`🎭 ${t("event")}`}</Text>
+          <Text
+            accessibilityRole="header"
+            accessibilityLabel={t("event")}
+            style={{ color: colors.negative, fontSize: font.sm, fontWeight: "700" }}
+          >
+            {`🎭 ${t("event")}`}
+          </Text>
           {!event ? (
             <SkeletonList count={2} />
           ) : (
             <>
-              <Text style={{ color: colors.text, fontSize: font.lg, fontWeight: "700" }}>{event.title}</Text>
+              <Text accessibilityRole="header" style={{ color: colors.text, fontSize: font.lg, fontWeight: "700" }}>
+                {event.title}
+              </Text>
               <Text testID={T.eventPrompt} style={{ color: colors.text, fontSize: font.md }}>
                 {event.prompt}
               </Text>
-              <View style={{ gap: spacing.md }}>
+              <View accessibilityRole="radiogroup" accessibilityLabel={event.prompt} style={{ gap: spacing.md }}>
                 {event.choices.map((c, i) => (
                   <Pressable
                     key={c.id}
                     testID={T.eventChoice(i)}
                     accessibilityRole="button"
+                    accessibilityLabel={c.label}
+                    accessibilityState={{ disabled: busy, busy }}
                     disabled={busy}
                     onPress={() => void onChoose(c.id)}
                     style={{
@@ -81,21 +91,39 @@ export default function EventCard() {
                       opacity: busy ? 0.5 : 1,
                     }}
                   >
-                    <Text style={{ color: colors.text, fontSize: font.md }}>{c.label}</Text>
+                    <Text importantForAccessibility="no" style={{ color: colors.text, fontSize: font.md }}>
+                      {c.label}
+                    </Text>
                   </Pressable>
                 ))}
               </View>
-              <Text style={{ color: colors.energy, fontSize: font.xs, alignSelf: "flex-end" }}>⚡1</Text>
+              <Text
+                accessibilityLabel={`${t("energy")} 1`}
+                style={{ color: colors.energy, fontSize: font.xs, alignSelf: "flex-end" }}
+              >
+                ⚡1
+              </Text>
             </>
           )}
-          {error ? <Text style={{ color: colors.danger, fontSize: font.sm }}>{error}</Text> : null}
+          {error ? (
+            <Text
+              accessibilityRole="alert"
+              accessibilityLiveRegion="polite"
+              style={{ color: colors.danger, fontSize: font.sm }}
+            >
+              {error}
+            </Text>
+          ) : null}
         </View>
         <Pressable
           accessibilityRole="button"
+          accessibilityLabel={t("cancel")}
           onPress={() => (router.canGoBack() ? router.back() : router.replace("/feed"))}
           style={{ alignSelf: "center", padding: spacing.md }}
         >
-          <Text style={{ color: colors.textMuted, fontSize: font.sm }}>{t("cancel")}</Text>
+          <Text importantForAccessibility="no" style={{ color: colors.textMuted, fontSize: font.sm }}>
+            {t("cancel")}
+          </Text>
         </Pressable>
       </ScrollView>
     </Screen>

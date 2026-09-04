@@ -1,0 +1,16 @@
+**/node_modules
+**/.git
+**/dist
+**/build
+**/.expo
+**/coverage
+apps/mobile
+e2e/playwright-report
+e2e/test-results
+**/*.log
+.env
+.env.*
+!.env.example
+pipeline
+docs
+**/.DS_Store

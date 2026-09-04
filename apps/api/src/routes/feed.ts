@@ -2,6 +2,7 @@ import { Hono } from "hono";
 import { requireAuth } from "../auth";
 import { notFound, ok } from "../http";
 import { pendingEvent } from "../services/events";
+import { blockedCharacterIds, withoutBlocked } from "../services/moderation";   // Agent G (S1-2)
 import { toApiEvent, toApiPost, toApiSnapshot } from "../services/serialize";
 import type { AppEnv } from "../types";
 
@@ -20,21 +21,22 @@ export function feedRoutes(): Hono<AppEnv> {
     if (!persona || persona.userId !== user.id) return notFound("Persona");
 
     const cursor = c.req.query("cursor");
-    const rows = await deps.prisma.post.findMany({
+    const blocked = await blockedCharacterIds(deps.prisma, persona.id);   // Agent G (S1-2)
+    const rows = withoutBlocked(await deps.prisma.post.findMany({
       where: { personaId: persona.id, parentId: null },
       orderBy: [{ createdAt: "desc" }, { id: "desc" }],
       take: PAGE,
       ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
       include: { authorCharacter: true },
-    });
+    }), blocked);
 
-    const replies = rows.length
+    const replies = withoutBlocked(rows.length
       ? await deps.prisma.post.findMany({
         where: { parentId: { in: rows.map((r) => r.id) }, kind: "character" },
         orderBy: { createdAt: "asc" },
         include: { authorCharacter: true },
       })
-      : [];
+      : [], blocked);   // Agent G (S1-2)
     const byParent = new Map<string, typeof replies>();
     for (const r of replies) {
       if (!r.parentId) continue;

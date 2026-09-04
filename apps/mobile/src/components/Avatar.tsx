@@ -10,13 +10,23 @@ function hash(s: string): number {
   return h;
 }
 
-/** Deterministic initials avatar — no network images anywhere in the app. */
-export function Avatar({ handle, size = 40 }: { handle: string; size?: number }) {
+/**
+ * Deterministic initials avatar — no network images anywhere in the app.
+ *
+ * An avatar always sits next to the handle it belongs to, so by default it is decorative and is
+ * taken out of the accessibility tree; a caller that renders one on its own passes `label` to get
+ * an image role with a name instead.
+ */
+export function Avatar({ handle, size = 40, label }: { handle: string; size?: number; label?: string }) {
   const clean = handle.replace(/^@/, "");
   const bg = PALETTE[hash(clean) % PALETTE.length] ?? colors.accent;
   const initials = clean.slice(0, 2).toUpperCase();
+  const a11y = label === undefined
+    ? ({ accessibilityElementsHidden: true, importantForAccessibility: "no-hide-descendants" } as const)
+    : ({ accessibilityRole: "image", accessibilityLabel: label } as const);
   return (
     <View
+      {...a11y}
       style={{
         width: size,
         height: size,

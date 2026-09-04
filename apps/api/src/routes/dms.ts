@@ -6,6 +6,7 @@ import { fail, notFound, ok, parseBody } from "../http";
 import { runDMStream } from "../services/dm-stream";
 import { sameHandle } from "../services/handles";
 import { localized } from "../services/locale";
+import { withoutBlocked } from "../services/moderation";   // Agent G (S1-2)
 import { safetyGate } from "../services/safety";
 import { toApiCharacter, toApiMessage, toApiThread } from "../services/serialize";
 import { loadStoryContext } from "../services/story";
@@ -36,11 +37,11 @@ export function dmRoutes(): Hono<AppEnv> {
       return s ? localized(s.intro, ctx.locale) : undefined;
     };
 
-    const threads = await deps.prisma.dMThread.findMany({
+    const threads = withoutBlocked(await deps.prisma.dMThread.findMany({
       where: { personaId: persona.id },
       orderBy: { lastMessageAt: "desc" },
       include: { character: true, messages: { orderBy: { createdAt: "desc" }, take: 1 } },
-    });
+    }), ctx.blockedCharacterIds);   // Agent G (S1-2)
     const followerIds = new Set(ctx.relationships.filter((r) => r.isFollower).map((r) => r.characterId));
     return ok({
       threads: threads.map((t) => toApiThread(t, ctx.locale, t.messages[0] ?? null, intro(t.character.handle))),
