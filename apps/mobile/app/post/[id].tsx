@@ -70,7 +70,7 @@ export default function PostDetailScreen() {
       if (!p.generationId) return;
       setBusyId(p.id);
       void api
-        .rate(p.generationId, 1, false)
+        .rate(p.generationId, 1, false, p.id)
         .catch(() => undefined)
         .finally(() => setBusyId(null));
     },
@@ -78,7 +78,7 @@ export default function PostDetailScreen() {
       if (!p.generationId) return;
       setBusyId(p.id);
       void api
-        .rate(p.generationId, -1, true)
+        .rate(p.generationId, -1, true, p.id)
         .then((res) => applyReplacement(res.replacement))
         .catch(() => undefined)
         .finally(() => setBusyId(null));

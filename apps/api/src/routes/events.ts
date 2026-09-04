@@ -94,6 +94,7 @@ export function eventRoutes(): Hono<AppEnv> {
             kind: "news",
             text: newsText,
             generationId: event.generationId,
+            createdAt: deps.clock.now(),
             metrics: {},
           },
         });

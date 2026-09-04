@@ -125,7 +125,11 @@ export function createFakeGateway(initialMode: LlmMode = "replay"): FakeGateway 
     const k = Math.max(1, Math.min(4, input.k));
     const replies = Array.from({ length: k }, (_v, i) => ({
       characterHandle: handles[i % handles.length] ?? "@unknown",
-      text: `${body[(Math.floor(rnd() * body.length) + i) % body.length] ?? "ok"}${tier === "high" ? (ja ? "(再考)" : " (reconsidered)") : ""}`,
+      // A 👎 regeneration must read differently from the line it replaces, whatever tier it lands
+      // on: without the escalatedFrom arm a light→mid escalation could redraw the same line.
+      text: `${body[(Math.floor(rnd() * body.length) + i) % body.length] ?? "ok"}${
+        tier === "high" || opts?.escalatedFrom ? (ja ? "(再考)" : " (reconsidered)") : ""
+      }`,
     }));
     const relationship_deltas: Record<string, -1 | 0 | 1> = {};
     for (const h of handles.slice(0, 3)) relationship_deltas[h] = 1;

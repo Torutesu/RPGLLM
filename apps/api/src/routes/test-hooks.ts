@@ -26,6 +26,10 @@ export function testHookRoutes(): Hono<AppEnv> {
     const state = c.get("state");
     const list = TRUNCATE_TABLES.map((t) => `"${t}"`).join(", ");
     await deps.prisma.$executeRawUnsafe(`TRUNCATE TABLE ${list} RESTART IDENTITY CASCADE`);
+    // Time travel is process-wide: without this, E2E-015's +1 day would make every later case
+    // seed onboarding posts a day in the future (they carry an explicit clock createdAt while
+    // every other row uses the DB default) and invert the feed order.
+    deps.clock.reset();
     state.softenedPosts.clear();
     state.softenedThreads.clear();
     state.personaIdempotency.clear();

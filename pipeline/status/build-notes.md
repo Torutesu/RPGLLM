@@ -509,3 +509,86 @@ Deviations and decisions made while driving E2E P0 to green (all in code; spec t
 - **Playwright**: `launchOptions.executablePath=/opt/pw-browsers/chromium` (the bundled revision differs from Playwright 1.62's); `reuseExistingServer` only with `E2E_REUSE=1` (a stray mock API on :4000 had been reused silently).
 - **Web export** runs with `--clear`: Metro's transform cache had frozen `EXPO_PUBLIC_*` values from an earlier export, leaving the ads flag `undefined`.
 - **Sandbox limits**: no Anthropic API key here, so `LLM_MODE=live` is implemented and structurally tested only; E2E runs in replay.
+
+## Agent E — integration fixes (E2E-005 / E2E-014) — 2026-09-04
+
+Suite went from 14/16 to **16 passed, 4 skipped**. No test was skipped, relaxed or re-timed; no
+fixture was changed (both fixtures were correct — the failures were product bugs).
+
+### E2E-005 — the news post was not first in the feed
+
+Root cause: **the `/__test/time-travel` clock offset leaked across cases, and `Post.createdAt` had
+two different time sources.** `createClock()` keeps a process-wide `offsetMs`; `POST /__test/reset`
+truncated the tables but never cleared it. Test files run alphabetically, so `economy.spec.ts`
+E2E-015 (`time-travel {days:1}`) left the clock a day ahead for every later case. Onboarding is the
+only place that wrote an explicit `createdAt` (`deps.clock.now()`, in
+`apps/api/src/services/persona.ts#seedInitialFeed`, which backdates the 5 ambient posts by a minute
+each so the welcome post sits on top); every other row relied on Prisma's `@default(now())`, i.e.
+the real DB clock. With the offset in force, the 6 onboarding posts were stamped **a day in the
+future** and `GET /v1/feed` (`createdAt desc`) returned them above everything the case then created
+— the six standalone character/ambient cells above `thescoop` in the failure snapshot. The client
+merge was innocent: `loadFeed` already lets the server order win.
+
+Fix (both halves, so neither can bite again):
+- `apps/api/src/clock.ts` — `Clock.reset()`; `apps/api/src/routes/test-hooks.ts` — `/__test/reset`
+  calls it, so one case can no longer shift the next case's clock.
+- Every `Post` row is now stamped from the injectable clock (`createdAt: deps.clock.now()` in
+  `routes/posts.ts`, `services/post-stream.ts` ×2, `routes/events.ts`), matching the Clock's stated
+  contract ("every time read goes through this"). Feed order is now correct even *while* the clock
+  is travelled — verified by hand: reset → time-travel +1d → 8 posts → event choice → news first.
+
+### The `"..."` cell — placeholder welcome post
+
+Root cause: `seedInitialFeed` built its G1 input from **raw DB handles** (`@hivequeenbea`), while
+`services/story.ts#castCards`/`involvedFor` normalise to bare handles (orchestrator decision:
+"generator inputs get bare handles"). `replayG1`'s `characterFixture()` lookup therefore missed and
+G1 returned its `"..."` placeholder — and because `text = generated || fallbackText`, the
+placeholder beat the authored `welcomePosts` line. Fixed by `normHandle`ing `cast` / `involved` /
+`recentFeed` in `apps/api/src/services/persona.ts`. The welcome post now carries a real line from
+the world fixtures; E2E-002's "exactly 1 character cell from the first follower" still holds (k=1,
+involved-first ordering unchanged).
+
+### E2E-014 — 👎 did not replace the reply
+
+Root cause: **an unauthenticated first request tore the session down.** E2E-014 is the only case
+that boots straight into a deep route (`page.goto("/post/:id")`). React runs child effects before
+the provider's, so `PostDetailScreen`'s `api.post(id)` fired before `AppProvider`'s async boot had
+awaited `loadToken()`; `getToken()` returned `null` (cache cold), the request went out with no
+bearer, came back 401, and the client's global `onUnauthorized` handler did `saveToken(null)` —
+wiping the JWT out of `localStorage` and the cache. The thread still rendered (a later retry
+re-read the token before the 401 landed), but the subsequent `POST /generations/:id/rate` went out
+unauthenticated and 401'd; `onDown`'s `.catch(() => undefined)` swallowed it, so nothing changed on
+screen. The API side was always correct.
+
+Fixes (client only):
+- `apps/mobile/src/auth/token.ts` — on web, `getToken()` falls back to a synchronous
+  `localStorage` read when the cache is still cold. The web store *is* synchronous; there is no
+  reason for a request to miss the bearer just because the async boot has not run.
+- `apps/mobile/src/api/client.ts` — a 401 only signs the user out when the request actually carried
+  a bearer. A 401 on a token-less request can no longer destroy a valid session.
+- `apps/mobile/src/api/client.ts` + `app/post/[id].tsx` — 👍/👎 now send `?postId=` (the API has
+  always accepted it). One G1 call produces K replies sharing a `generationId`; without it the
+  server fell back to `posts[0]` and rating the 2nd/3rd reply replaced the wrong row.
+
+### Two determinism bugs found on the way (both would have made the suite flaky)
+
+- `apps/api/src/routes/generations.ts` — the replay pool for a character is 3 buckets × 3 lines, so
+  a 👎 re-roll landed on the *same* line about 1 time in 9 (observed once while debugging; E2E-014
+  asserts the text changes). The regenerate path now re-rolls the seed up to `REGEN_ATTEMPTS = 2`
+  more times while the new text equals the rejected one. Every attempt is still logged to
+  `GenerationLog` with `escalatedFrom`, so E2E-013/014's assertions are unaffected. This is also the
+  right product behaviour: 👎 promises a *different* line.
+- `apps/api/src/fake-gateway.ts` — same collision in the vitest fake (it only marked a regenerated
+  line with `(reconsidered)` at the `high` tier, so a `light → mid` escalation could redraw the
+  original). `apps/api/test/generations.test.ts` failed roughly 1 run in 12 because of it; the fake
+  now marks any call carrying `escalatedFrom`. **This was a pre-existing flake**, confirmed by
+  reproducing it on a clean tree.
+
+### Known, left alone
+`[api] post stream failed … P2025 No record was found for an update` is logged occasionally by the
+API webServer: the next case's `/__test/reset` truncates `Post` while the previous case's SSE stream
+is still materialising replies. It is caught, logged and harmless (pre-existing).
+
+### Verification
+`pnpm --filter mobile typecheck` clean · `pnpm --filter api test` 29/29 · `pnpm --filter @rpgllm/llm
+test` 80/80 · `pnpm e2e` (with the web export) **16 passed, 4 skipped**, twice in a row.

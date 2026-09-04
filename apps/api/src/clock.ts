@@ -4,6 +4,8 @@ export interface Clock {
   /** shift the clock forward (or back) by whole days; used by the TEST_HOOKS time-travel endpoint */
   offsetDays(days: number): void;
   offsetMs(): number;
+  /** drop any time travel; `/__test/reset` calls it so one case cannot shift the next one's clock */
+  reset(): void;
 }
 
 export function createClock(): Clock {
@@ -14,6 +16,9 @@ export function createClock(): Clock {
       offsetMs += Math.round(days * 24 * 60 * 60 * 1000);
     },
     offsetMs: () => offsetMs,
+    reset() {
+      offsetMs = 0;
+    },
   };
 }
 

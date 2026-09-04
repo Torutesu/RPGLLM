@@ -62,9 +62,10 @@ export async function request<T>(path: string, opts: Options<T>): Promise<T> {
   const url = buildUrl(path, opts.query);
   const headers: Record<string, string> = { Accept: "application/json" };
   if (opts.body !== undefined) headers["Content-Type"] = "application/json";
+  let sentToken: string | null = null;
   if (opts.auth !== false) {
-    const token = getToken();
-    if (token) headers.Authorization = `Bearer ${token}`;
+    sentToken = getToken();
+    if (sentToken) headers.Authorization = `Bearer ${sentToken}`;
   }
 
   let res: Response;
@@ -94,7 +95,9 @@ export async function request<T>(path: string, opts: Options<T>): Promise<T> {
     const message = parsed.success ? parsed.data.message : `HTTP ${res.status}`;
     const err = new ApiError(code, res.status, message);
     if (err.isEnergy) handlers.onEnergyRequired?.(err);
-    if (res.status === 401) handlers.onUnauthorized?.(err);
+    // Only a rejected *session* signs the user out; a 401 on a request that carried no bearer
+    // would otherwise wipe a token that was simply not loaded yet.
+    if (res.status === 401 && sentToken) handlers.onUnauthorized?.(err);
     if (res.status >= 500) handlers.onNetworkError?.(err);
     throw err;
   }
@@ -164,7 +167,10 @@ export const api = {
   offerings: () => request("/billing/offerings", { schema: OfferingsResZ }),
   devPurchase: (plan: PlanId) => request("/billing/dev-purchase", { method: "POST", body: { plan }, schema: DevPurchaseResZ }),
 
-  rate: (generationId: string, value: 1 | -1, regenerate: boolean) =>
-    request(`/generations/${encodeURIComponent(generationId)}/rate`, { method: "POST", body: { value, regenerate }, schema: RateResZ }),
+  /** `postId` disambiguates: one G1 call produces K replies that share a generationId. */
+  rate: (generationId: string, value: 1 | -1, regenerate: boolean, postId?: string) =>
+    request(`/generations/${encodeURIComponent(generationId)}/rate`, {
+      method: "POST", body: { value, regenerate }, query: { postId }, schema: RateResZ,
+    }),
   assignments: () => request("/experiments/assignments", { schema: AssignmentsResZ }),
 };

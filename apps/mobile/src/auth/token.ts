@@ -6,8 +6,22 @@ let cached: string | null = null;
 
 const hasWindow = () => typeof window !== "undefined" && typeof window.localStorage !== "undefined";
 
-/** Synchronous read for hot paths (SSE url building, request headers). */
+/**
+ * Synchronous read for hot paths (SSE url building, request headers).
+ *
+ * On web the store is synchronous, so fall back to it when the cache is still cold: screen
+ * effects run before `AppProvider`'s async boot has awaited `loadToken()`, and a request sent
+ * without the bearer comes back 401 — which tears the session down (E2E-014 boots straight
+ * into `/post/:id`).
+ */
 export function getToken(): string | null {
+  if (cached === null && Platform.OS === "web" && hasWindow()) {
+    try {
+      cached = window.localStorage.getItem(KEY);
+    } catch {
+      /* private mode */
+    }
+  }
   return cached;
 }
 

@@ -43,6 +43,9 @@ export function postRoutes(): Hono<AppEnv> {
             kind: "user",
             text: body.value.text,
             parentId: body.value.parentId,
+            // Every Post row is stamped from the injectable clock, so `/__test/time-travel`
+            // can never order onboarding posts (which already did) above later ones.
+            createdAt: deps.clock.now(),
             metrics: {},
           },
         });

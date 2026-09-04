@@ -106,6 +106,7 @@ export async function materializeReplies(
       text: reply.text,
       parentId: post.id,
       generationId,
+      createdAt: deps.clock.now(),
       metrics: {},
     }, ctx.persona.followers);
     rows.push(row);
@@ -156,6 +157,7 @@ export async function runPostStream(
         kind: "news",
         text: result.output.news.text,
         generationId,
+        createdAt: deps.clock.now(),
         metrics: {},
       }, ctx.persona.followers, { causedBy: statCause(post.id) });
       await emit({ type: "news", post: toApiPost(newsRow, ctx.persona) });

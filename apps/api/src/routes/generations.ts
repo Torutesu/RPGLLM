@@ -12,6 +12,9 @@ import { toApiMessage, toApiPost } from "../services/serialize";
 import { baseCtx, loadStoryContext, personaState } from "../services/story";
 import type { AppEnv } from "../types";
 
+/** Extra 👎 re-rolls allowed when the regenerated line comes back identical. */
+const REGEN_ATTEMPTS = 2;
+
 /**
  * SCR-012 / E2E-014. 👎 with regenerate=true re-runs the same generator one tier up
  * (light→mid→high, high stays high) and swaps the text in place.
@@ -52,10 +55,22 @@ export function generationRoutes(): Hono<AppEnv> {
       const input = await buildG1InputFor(deps, ctx, parent, {
         k: 1, softened: false, includeNews: false, seedSuffix: `:regen:${target.id}`,
       });
-      const result = await deps.gateway.g1(input, { tier, escalatedFrom: id });
-      const newGenerationId = await logGeneration(deps.prisma, result.meta, user.id);
       const handle = target.authorCharacter?.handle ?? "";
-      const reply = result.output.replies.find((r) => sameHandle(r.characterHandle, handle)) ?? result.output.replies[0];
+      const pickReply = (out: { replies: { characterHandle: string; text: string }[] }) =>
+        out.replies.find((r) => sameHandle(r.characterHandle, handle)) ?? out.replies[0];
+
+      let result = await deps.gateway.g1(input, { tier, escalatedFrom: id });
+      let newGenerationId = await logGeneration(deps.prisma, result.meta, user.id);
+      let reply = pickReply(result.output);
+      // SCR-012 promises a *different* line: a finite reply pool (and a repetitive model) can
+      // redraw the one that was just rejected, so re-roll the seed a couple of times.
+      for (let attempt = 1; attempt <= REGEN_ATTEMPTS && reply?.text === target.text; attempt += 1) {
+        const retry = { ...input, seed: seedFrom(`${parent.id}:regen:${target.id}:${attempt}`) };
+        result = await deps.gateway.g1(retry, { tier, escalatedFrom: id });
+        newGenerationId = await logGeneration(deps.prisma, result.meta, user.id);
+        reply = pickReply(result.output);
+      }
+
       const updated = await deps.prisma.post.update({
         where: { id: target.id },
         data: { text: reply?.text ?? target.text, generationId: newGenerationId },

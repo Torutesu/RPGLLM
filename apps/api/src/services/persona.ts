@@ -109,11 +109,13 @@ async function seedInitialFeed(
       handle: persona.handle, displayName: persona.displayName, bio: persona.bio, voiceNotes: persona.voiceNotes,
       followers: persona.followers, aura: persona.aura, humor: persona.humor, level: persona.level, worldSummary: persona.worldSummary,
     },
+    // Generators and replay fixtures key on bare handles; the DB stores them with a leading "@".
+    // Without normHandle the fixture lookup misses and G1 returns the "..." placeholder.
     cast: characters.map((c) => ({
-      handle: c.handle, displayName: c.displayName, role: c.role, card: localized(c.card, locale), isPressAccount: c.isPressAccount,
+      handle: normHandle(c.handle), displayName: c.displayName, role: c.role, card: localized(c.card, locale), isPressAccount: c.isPressAccount,
     })),
-    involved: [{ handle: firstFollower.handle, affinity: 20, summary: "", isFollower: true }],
-    recentFeed: shuffled.map((a) => ({ authorHandle: firstFollower.handle, kind: "ambient" as const, text: a.text })),
+    involved: [{ handle: normHandle(firstFollower.handle), affinity: 20, summary: "", isFollower: true }],
+    recentFeed: shuffled.map((a) => ({ authorHandle: normHandle(firstFollower.handle), kind: "ambient" as const, text: a.text })),
     post: { text: persona.bio.length > 0 ? persona.bio : persona.displayName, parentAuthorHandle: null, parentText: null },
     k: 1,
     softened: false,
