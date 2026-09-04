@@ -51,5 +51,17 @@ export const en = {
   fallbackNotice: "Signal lost — your world will catch up",
   feed: "Feed",
   dms: "DMs",
+  retry: "Retry",
+  loadFailed: "Couldn't load. Try again.",
+  signInFailed: "Sign-in failed. Try again.",
+  noReactions: "No reactions yet",
+  showMore: "Show more",
+  handleTaken: "Taken",
+  handleAvailable: "Available",
+  voiceNotes: "How do you talk? (optional)",
+  notAvailableRegion: "Not available in your region",
+  continueWithApple: "Continue with Apple",
+  continueWithGoogle: "Continue with Google",
+  adsToday: "ads today",
 } as const;
 export type Strings = { [K in keyof typeof en]: (typeof en)[K] extends readonly string[] ? readonly string[] : string };
