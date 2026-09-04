@@ -145,7 +145,7 @@ export async function applyRelationshipDeltas(
     });
     rel.affinity = affinity;
     rel.isFollower = rel.isFollower || affinity >= 10;
-    applied[`@${normHandle(handle)}`] = delta;
+    applied[normHandle(handle)] = delta;
   }
   return applied;
 }

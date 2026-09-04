@@ -1,5 +1,6 @@
 import type { Locale, WorldSeed } from "@rpgllm/shared";
 import { LOCALES } from "@rpgllm/shared";
+import { bareHandle, bareKeys } from "../handles.js";
 
 /**
  * Authoring format for a preset world.
@@ -88,6 +89,14 @@ export function buildWorld(src: WorldSource): WorldSeed {
   const bible = {} as Record<Locale, string>;
   for (const locale of LOCALES) bible[locale] = renderBible(src, locale);
 
+  const ambientPool = {} as WorldSeed["ambientPool"];
+  for (const locale of LOCALES) {
+    ambientPool[locale] = (src.ambientPool[locale] ?? []).map((p) => ({
+      handle: bareHandle(p.handle),
+      text: p.text,
+    }));
+  }
+
   return {
     slug: src.slug,
     difficulty: src.difficulty,
@@ -95,7 +104,7 @@ export function buildWorld(src: WorldSource): WorldSeed {
     scenario: src.scenario,
     bible,
     cast: src.cast.map((c) => ({
-      handle: c.handle,
+      handle: bareHandle(c.handle),
       displayName: c.displayName,
       role: c.role,
       card: c.card,
@@ -104,14 +113,14 @@ export function buildWorld(src: WorldSource): WorldSeed {
       canBeFirstFollower: c.canBeFirstFollower ?? true,
       avatarKey: c.avatarKey,
     })),
-    presetPersonas: src.presetPersonas,
+    presetPersonas: src.presetPersonas.map((p) => ({ ...p, handle: bareHandle(p.handle) })),
     presetEvents: src.presetEvents.map((e) => ({
       title: e.title,
       prompt: e.prompt,
       choices: e.choices as WorldSeed["presetEvents"][number]["choices"],
     })),
-    fallbackReplies: src.fallbackReplies,
-    ambientPool: src.ambientPool,
-    welcomePosts: src.welcomePosts,
+    fallbackReplies: bareKeys(src.fallbackReplies),
+    ambientPool,
+    welcomePosts: bareKeys(src.welcomePosts),
   };
 }

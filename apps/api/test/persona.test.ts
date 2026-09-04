@@ -17,7 +17,7 @@ describe("persona creation seeds the feed (E2E-002)", () => {
     const character = feed.data.posts.filter((p) => p.kind === "character");
     expect(ambient).toHaveLength(PACING.AMBIENT_SEED_COUNT);
     expect(character).toHaveLength(1);
-    expect(character[0]?.author.handle).toBe("@hivequeenbea");
+    expect(character[0]?.author.handle).toBe("hivequeenbea");
 
     const rels = await prisma.relationshipState.findMany({ where: { personaId: fx.personaId } });
     expect(rels).toHaveLength(fx.characters.length);

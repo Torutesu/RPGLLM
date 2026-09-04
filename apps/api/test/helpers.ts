@@ -119,7 +119,7 @@ export async function signupWithPersona(
   const detail = await call<{ characters: { id: string; handle: string; canBeFirstFollower: boolean }[] }>(
     h, "GET", `/v1/worlds/${world.id}`, { token },
   );
-  const firstFollower = detail.data.characters.find((ch) => ch.handle === "@hivequeenbea")
+  const firstFollower = detail.data.characters.find((ch) => ch.handle === "hivequeenbea")
     ?? detail.data.characters.find((ch) => ch.canBeFirstFollower)!;
   const created = await call<{ persona: { id: string }; feedReady: boolean }>(h, "POST", "/v1/personas", {
     token,

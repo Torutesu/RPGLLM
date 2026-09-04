@@ -41,7 +41,7 @@ describe("drama events (E2E-005)", () => {
     expect(chosen.data.snapshot.cause).toBe(`event:${event.id}`);
     expect(chosen.data.snapshot.followersDelta).toBeGreaterThan(0);
     expect(chosen.data.newsPost?.kind).toBe("news");
-    expect(chosen.data.newsPost?.author.handle).toBe("@gmz");
+    expect(chosen.data.newsPost?.author.handle).toBe("gmz");
 
     const after = await prisma.persona.findUniqueOrThrow({ where: { id: fx.personaId } });
     expect(after.followers).toBeGreaterThan(before.followers);

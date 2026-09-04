@@ -241,8 +241,14 @@ export async function uiEmailLogin(page: Page, email: string): Promise<void> {
   await gotoApp(page, ROUTES.auth);
   await page.getByTestId(T.authEmailBtn).click();
   await page.getByTestId(T.authEmailInput).fill(email);
-  await page.getByTestId(T.authSubmit).click();
   const code = page.getByTestId(T.authCodeInput);
+  // SCR-002 may show the code field together with the email field (single step) or after the first submit (two steps)
+  if (await code.isVisible()) {
+    await code.fill(DEV_EMAIL_CODE);
+    await page.getByTestId(T.authSubmit).click();
+    return;
+  }
+  await page.getByTestId(T.authSubmit).click();
   await expect(code, "SCR-002 must ask for the 6-digit code").toBeVisible({ timeout: 15_000 });
   await code.fill(DEV_EMAIL_CODE);
   await page.getByTestId(T.authSubmit).click();
@@ -260,11 +266,36 @@ export interface EnterWorldOptions {
   worldSlug?: string; personaHandle?: string; followerHandle?: string;
 }
 
+/** Reads the seeded world's first preset persona and first eligible follower through the API (bearer from the browser). */
+export async function worldPresets(page: Page, worldSlug: string): Promise<{ personaHandle: string | null; followerHandle: string | null }> {
+  const jwt = await browserToken(page);
+  const headers = jwt ? bearer(jwt) : {};
+  try {
+    const worlds = await page.request.get(apiUrl("/v1/worlds"), { headers, failOnStatusCode: false });
+    if (!worlds.ok()) return { personaHandle: null, followerHandle: null };
+    const list = ((await worlds.json()) as { data: { id: string; slug: string }[] }).data;
+    const world = list.find((w) => w.slug === worldSlug);
+    if (!world) return { personaHandle: null, followerHandle: null };
+    const detail = await page.request.get(apiUrl(`/v1/worlds/${world.id}`), { headers, failOnStatusCode: false });
+    if (!detail.ok()) return { personaHandle: null, followerHandle: null };
+    const d = ((await detail.json()) as { data: { characters: { handle: string; canBeFirstFollower: boolean }[]; presetPersonas: { handle: string }[] } }).data;
+    const strip = (h: string) => h.replace(/^@/, "");
+    return {
+      personaHandle: d.presetPersonas[0] ? strip(d.presetPersonas[0].handle) : null,
+      followerHandle: d.characters.find((c) => c.canBeFirstFollower) ? strip(d.characters.find((c) => c.canBeFirstFollower)!.handle) : null,
+    };
+  } catch {
+    return { personaHandle: null, followerHandle: null };
+  }
+}
+
 /** SCR-003 → SCR-004 → SCR-006 → SCR-010, entirely through the UI (the "3 taps" of E2E-002). */
 export async function enterWorld(page: Page, opts: EnterWorldOptions = {}): Promise<void> {
   const worldSlug = opts.worldSlug ?? WORLD_SLUG;
-  const personaHandle = opts.personaHandle ?? PERSONA_HANDLE;
-  const followerHandle = opts.followerHandle ?? FIRST_FOLLOWER;
+  // Preset handles come from the seeded world (original characters), not from hardcoded names.
+  const presets = await worldPresets(page, worldSlug);
+  const personaHandle = opts.personaHandle ?? presets.personaHandle ?? PERSONA_HANDLE;
+  const followerHandle = opts.followerHandle ?? presets.followerHandle ?? FIRST_FOLLOWER;
 
   await gotoApp(page, ROUTES.root);
   const card = page.getByTestId(T.worldCard(worldSlug));

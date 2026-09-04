@@ -148,7 +148,7 @@ export function dmRoutes(): Hono<AppEnv> {
       thread: toApiThread(thread, ctx.locale, messages[messages.length - 1] ?? null),
       messages: messages.map(toApiMessage),
       relationship: {
-        characterHandle: `@${thread.character.handle.replace(/^@+/, "")}`,
+        characterHandle: thread.character.handle.replace(/^@+/, ""),
         affinity: relationship?.affinity ?? 0,
         summary: relationship?.summary ?? "",
         isFollower: relationship?.isFollower ?? false,

@@ -52,7 +52,7 @@ export function toApiPost(
     }
     : row.authorPersonaId && persona
       ? { handle: atHandle(persona.handle), displayName: persona.displayName, avatarUrl: persona.avatarUrl, verified: true, isYou: true }
-      : { handle: "@world", displayName: "World", avatarUrl: null, verified: false, isYou: false };
+      : { handle: "world", displayName: "World", avatarUrl: null, verified: false, isYou: false };
   const post: ApiPost = {
     id: row.id,
     kind: row.kind,

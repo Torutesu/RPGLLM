@@ -19,7 +19,17 @@ const source: WorldSource = {
   outro,
   cast,
 
+  // presetPersonas[0] is the default selection in SCR-004 and the one E2E-002 picks (@taytay19).
   presetPersonas: [
+    {
+      handle: "@taytay19",
+      displayName: { en: "Tay", ja: "テイ" },
+      bio: {
+        en: "writes everything herself, allegedly. sheldon row alum.",
+        ja: "全曲自作、らしい。シェルドン・ロウ出身。",
+      },
+      avatarKey: "pop-persona-tay",
+    },
     {
       handle: "@hivequeen",
       displayName: { en: "Hive", ja: "ハイヴ" },
@@ -46,15 +56,6 @@ const source: WorldSource = {
         ja: "囁き系。張り上げません。一生。",
       },
       avatarKey: "pop-persona-ari",
-    },
-    {
-      handle: "@taytay19",
-      displayName: { en: "Tay", ja: "テイ" },
-      bio: {
-        en: "writes everything herself, allegedly. sheldon row alum.",
-        ja: "全曲自作、らしい。シェルドン・ロウ出身。",
-      },
-      avatarKey: "pop-persona-tay",
     },
     {
       handle: "@dune",

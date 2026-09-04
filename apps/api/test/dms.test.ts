@@ -15,7 +15,7 @@ describe("DMs (E2E-006)", () => {
       h, "GET", `/v1/dms?personaId=${fx.personaId}`, { token: fx.token },
     );
     expect(inbox.data.threads).toHaveLength(0);
-    expect(inbox.data.followers.map((f) => f.handle)).toContain("@hivequeenbea");
+    expect(inbox.data.followers.map((f) => f.handle)).toContain("hivequeenbea");
 
     const thread = await call<{ thread: { id: string; character: { handle: string } } }>(h, "POST", "/v1/dms", {
       token: fx.token, body: { personaId: fx.personaId, characterId: fx.firstFollowerId },
