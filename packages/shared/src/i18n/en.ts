@@ -64,6 +64,8 @@ export const en = {
   continueWithGoogle: "Continue with Google",
   adsToday: "ads today",
   freePlan: "Free",
+  freeTrial: "Free trial",
+  trialDays: "day free trial",
   up: "up",
   down: "down",
   typing: "typing…",

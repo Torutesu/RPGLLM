@@ -65,6 +65,8 @@ export const ja: Strings = {
   continueWithGoogle: "Googleで続ける",
   adsToday: "本日の広告",
   freePlan: "無料プラン",
+  freeTrial: "無料トライアル",
+  trialDays: "日間無料",
   up: "上昇",
   down: "下降",
   typing: "入力中…",

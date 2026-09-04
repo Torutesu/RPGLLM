@@ -92,6 +92,10 @@ export function budgetFor(method: string, path: string): BudgetKind {
   if (p.startsWith("/__test")) return "exempt";
   if (p === "/health" || p === "/health/") return "exempt";
   if (method === "OPTIONS") return "exempt";
+  // The store's webhook is authenticated by its HMAC, not by a session, and it arrives from a small
+  // set of sender IPs. Throttling it would drop purchase events into RevenueCat's retry queue for
+  // no security gain — the signature already decides what is accepted, and every event is idempotent.
+  if (p === "/billing/webhook") return "exempt";
 
   if (p.startsWith("/auth/")) {
     if (p === "/auth/age-gate") return "default";

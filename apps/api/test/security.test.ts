@@ -169,6 +169,9 @@ describe("S0-2 production config guard", () => {
 
 describe("S0-4 rate limiting", () => {
   it("classifies routes into the documented budgets", () => {
+    // The store webhook carries its own HMAC and is idempotent; throttling it would only feed
+    // RevenueCat's retry queue.
+    expect(budgetFor("POST", "/v1/billing/webhook")).toBe("exempt");
     expect(budgetFor("POST", "/v1/auth/email/start")).toBe("auth");
     expect(budgetFor("POST", "/v1/auth/email/verify")).toBe("auth");
     expect(budgetFor("POST", "/v1/auth/age-gate")).toBe("default");
