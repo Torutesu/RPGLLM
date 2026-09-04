@@ -1,4 +1,9 @@
 /**
+ * Stand-in gateway, used only when `@rpgllm/llm` fails to load. Its variant ids are prefixed
+ * `fake:` on purpose: they flow into `GenerationLog`, and from there into the bandit arms and
+ * the cost dashboard, so they must never be mistaken for a real arm.
+ */
+/**
  * Deterministic in-process Gateway.
  *
  * Two jobs:
@@ -89,7 +94,7 @@ export function createFakeGateway(initialMode: LlmMode = "replay"): FakeGateway 
 
   const g1 = async (input: G1Input, opts?: RunOptions): Promise<GenerationResult<G1Output>> => {
     // Keep variantId consistent with GET /experiments/assignments (E2E-013 compares the two).
-    const assignedVariant = opts?.variantId ?? assignments(input.userId ?? "").g1_model ?? "g1_mid_v1";
+    const assignedVariant = opts?.variantId ?? assignments(input.userId ?? "").g1_model ?? "fake:g1-mid";
     const tier = opts?.tier ?? (assignedVariant.includes("light") ? "light" : "mid");
     const runOpts: RunOptions = { ...opts, tier, variantId: assignedVariant };
     record("G1", tier, opts, input);
@@ -364,7 +369,7 @@ export function createFakeGateway(initialMode: LlmMode = "replay"): FakeGateway 
   const assignments = (userId: string): Record<string, string> => {
     const h = hashString(userId || "anon");
     return {
-      g1_model: h % 2 === 0 ? "g1_mid_v1" : "g1_light_v1",
+      g1_model: h % 2 === 0 ? "fake:g1-mid" : "fake:g1-light",
       paywall_trial: h % 2 === 0 ? "trial_7" : "trial_0",
       paywall_adfree: h % 2 === 0 ? "adfree_on" : "adfree_off",
     };
@@ -376,7 +381,7 @@ export function createFakeGateway(initialMode: LlmMode = "replay"): FakeGateway 
     g1, g2, g4, g5, g7, g8, g10, gj,
     batch, batchG1, batchG2, batchG4, batchG5, batchG7, batchG10, batchGJ,
     assignments,
-    champion: () => ({ G1: "g1_mid_v1", G4: "g4_mid_v1", G5: "g5_high_v1", G8: "g8_light_v1" }),
+    champion: () => ({ G1: "fake:g1-mid", G4: "fake:g4-mid", G5: "fake:g5-high", G8: "fake:g8-light" }),
     calls,
     failNext: (n: number) => { forcedFailures = n; },
   };
