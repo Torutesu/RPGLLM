@@ -1,9 +1,10 @@
 import React from "react";
-import { Pressable, Text } from "react-native";
+import { Pressable } from "react-native";
 import { router } from "expo-router";
-import { T, colors, font, spacing } from "@rpgllm/shared";
+import { T, colors, radius, spacing } from "@rpgllm/shared";
 import { useT } from "../state/store";
 import type { ReportTarget } from "../api/client";
+import { Icon } from "../ui";
 
 /**
  * SCR-037 — the "…" affordance that opens report / block (App Store Guideline 1.2).
@@ -32,9 +33,14 @@ export function Overflow({
       onPress={() =>
         router.push({ pathname: "/report", params: { target, targetId, ...(handle ? { handle } : {}) } })
       }
-      style={{ paddingHorizontal: spacing.sm, paddingVertical: spacing.xs }}
+      style={({ pressed }) => ({
+        paddingHorizontal: spacing.sm,
+        paddingVertical: spacing.xs,
+        borderRadius: radius.pill,
+        backgroundColor: pressed ? colors.cardHi : "transparent",
+      })}
     >
-      <Text style={{ color: colors.textMuted, fontSize: font.md, fontWeight: "700" }}>…</Text>
+      <Icon name="more" size={16} color={colors.textMuted} />
     </Pressable>
   );
 }

@@ -5,6 +5,7 @@ import { fail } from "./http";
 import { rateLimit, type RateLimitStore } from "./middleware/rate-limit";
 import { logError, requestLog } from "./middleware/request-log";
 import { accountRoutes } from "./routes/account";
+import { achievementRoutes } from "./routes/achievements";
 import { authRoutes } from "./routes/auth";
 import { billingRoutes } from "./routes/billing";
 import { costRoutes } from "./routes/cost";
@@ -23,9 +24,13 @@ import { generationRoutes } from "./routes/generations";
 import { healthRoutes } from "./routes/health";
 import { meRoutes } from "./routes/me";
 import { moderationRoutes } from "./routes/moderation";
+import { notificationRoutes } from "./routes/notifications";
 import { personaRoutes } from "./routes/personas";
 import { postRoutes } from "./routes/posts";
+import { characterRoutes } from "./routes/characters";
+import { trendingRoutes } from "./routes/trending";
 import { statRoutes } from "./routes/stats";
+import { streakRoutes } from "./routes/streak";
 import { testHookRoutes } from "./routes/test-hooks";
 import { walletRoutes } from "./routes/wallet";
 import { worldRoutes } from "./routes/worlds";
@@ -93,6 +98,13 @@ export function createApp(deps: Deps): Hono<AppEnv> {
   v1.route("/referral", referralRoutes());
   v1.route("/profile", profileRoutes());
   v1.route("/push", pushRoutes());
+  // Agent L: engagement surfaces — notifications, daily streak, achievements.
+  v1.route("/notifications", notificationRoutes());
+  v1.route("/streak", streakRoutes());
+  v1.route("/achievements", achievementRoutes());
+  // Agent K: feed & discovery (SCR-046/047).
+  v1.route("/trending", trendingRoutes());
+  v1.route("/characters", characterRoutes());
   v1.route("/health", healthRoutes());
   if (testHooksEnabled()) v1.route("/__test", testHookRoutes());
   // `POST /__test/run-job` — the manual scheduler; guards itself with testHooksEnabled().

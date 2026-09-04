@@ -3,7 +3,9 @@ import type { Prisma } from "@prisma/client";
 import { ChooseEventReqZ } from "@rpgllm/shared";
 import { requireAuth } from "../auth";
 import { fail, notFound, ok, parseBody } from "../http";
+import { evaluateQuietly } from "../services/achievements";
 import { pendingEvent } from "../services/events";
+import { notifyFollowerMilestones } from "../services/notify";
 import { computeMetrics } from "../services/rng";
 import { readChoices, toApiEvent, toApiPost, toApiSnapshot } from "../services/serialize";
 import { applyRelationshipDeltas, applyStatDeltas, loadStoryContext, pressAccount } from "../services/story";
@@ -56,6 +58,12 @@ export function eventRoutes(): Hono<AppEnv> {
           },
         });
         await tx.event.update({ where: { id: event.id }, data: { chosenId: choice.id, resolvedAt: deps.clock.now() } });
+        await notifyFollowerMilestones(tx, {
+          personaId: ctx.persona.id,
+          locale: ctx.locale,
+          before: ctx.persona.followers,
+          after: applied.followers,
+        });
         return left;
       });
     } catch (err) {
@@ -108,6 +116,9 @@ export function eventRoutes(): Hono<AppEnv> {
         newsPost = toApiPost(updated, ctx.persona);
       }
     }
+
+    // Agent L: the collection drive re-evaluates after every energy-spending action.
+    await evaluateQuietly(deps.prisma, ctx.persona.id, ctx.locale);
 
     const persona = { followers: applied.followers, aura: applied.aura, humor: applied.humor };
     return ok({ snapshot: toApiSnapshot(snapshot, persona), newsPost, energy });

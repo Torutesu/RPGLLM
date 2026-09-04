@@ -1,10 +1,12 @@
 import React, { useState } from "react";
-import { Pressable, Share, Text, View } from "react-native";
-import { T, colors, font, radius, spacing } from "@rpgllm/shared";
+import { Share, Text, View } from "react-native";
+import { T, colors, compactNumber, elevation, gradients, layout, radius, spacing } from "@rpgllm/shared";
 import type { Moment } from "../api/client";
 import { IS_WEB } from "../env";
 import { useT } from "../state/store";
 import { Avatar } from "./Avatar";
+import { Button, Wordmark } from "./ui";
+import { Gradient, Icon, typo } from "../ui";
 
 /**
  * SCR-040 — the Shareable Moment card (S2-4 / AIF-005).
@@ -56,16 +58,40 @@ export function shareUrlFor(slug: string): string {
   return `/moment/${slug}`;
 }
 
-function DeltaRow({ label, value }: { label: string; value: number }) {
+function DeltaTile({ label, value }: { label: string; value: number }) {
   const tone = value > 0 ? colors.positive : value < 0 ? colors.negative : colors.textMuted;
   return (
-    <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
-      <Text style={{ color: colors.textMuted, fontSize: font.sm }}>{label}</Text>
-      <Text style={{ color: tone, fontSize: font.lg, fontWeight: "800" }}>{signed(value)}</Text>
+    <View
+      accessibilityRole="text"
+      accessibilityLabel={`${label} ${signed(value)}`}
+      style={{
+        flex: 1,
+        gap: 2,
+        paddingVertical: spacing.md,
+        paddingHorizontal: spacing.md,
+        borderRadius: radius.md,
+        backgroundColor: "rgba(255,255,255,0.04)",
+        borderWidth: 1,
+        borderColor: colors.border,
+      }}
+    >
+      <Text importantForAccessibility="no" style={[typo.micro, { color: colors.textMuted }]}>
+        {label.toUpperCase()}
+      </Text>
+      <View style={{ flexDirection: "row", alignItems: "center", gap: spacing.xxs }}>
+        <Icon name={value > 0 ? "arrowUp" : value < 0 ? "arrowDown" : "minus"} size={13} color={tone} />
+        <Text importantForAccessibility="no" style={[typo.number, { color: tone }]}>
+          {value > 0 ? `+${compactNumber(value)}` : compactNumber(value)}
+        </Text>
+      </View>
     </View>
   );
 }
 
+/**
+ * SCR-040 — the card people screenshot. It has to survive being cropped and reposted, so the
+ * hierarchy is: brand, headline, the numbers that changed, who reacted, who you are.
+ */
 export function MomentCard({ moment, onClose }: MomentCardProps) {
   const { t } = useT();
   const [note, setNote] = useState<string | null>(null);
@@ -75,6 +101,7 @@ export function MomentCard({ moment, onClose }: MomentCardProps) {
   const reactions = readReactions(payload).slice(0, 3);
   const persona = readPersona(payload);
   const url = shareUrlFor(moment.shareSlug);
+  const winning = deltas.followers + deltas.aura >= 0;
 
   const onShare = async () => {
     const message = `${moment.headline}\n${url}`;
@@ -100,91 +127,87 @@ export function MomentCard({ moment, onClose }: MomentCardProps) {
       testID={T.momentCard}
       accessibilityRole="summary"
       accessibilityLabel={`${t("shareMoment")}: ${moment.headline}`}
-      style={{
-        width: "100%",
-        maxWidth: 360,
-        aspectRatio: 9 / 16,
-        alignSelf: "center",
-        backgroundColor: colors.card,
-        borderWidth: 1,
-        borderColor: colors.border,
-        borderRadius: radius.lg,
-        padding: spacing.xl,
-        justifyContent: "space-between",
-        gap: spacing.md,
-      }}
+      style={[
+        {
+          width: "100%",
+          maxWidth: 380,
+          aspectRatio: 9 / 16,
+          alignSelf: "center",
+          backgroundColor: colors.bgElevated,
+          borderWidth: 1,
+          borderColor: colors.borderHi,
+          borderRadius: radius.xl,
+          overflow: "hidden",
+        },
+        elevation.high,
+      ]}
     >
-      <View style={{ gap: spacing.sm }}>
-        <Text style={{ color: colors.accent, fontSize: font.xs, fontWeight: "800", letterSpacing: 1 }}>
-          {t("shareMoment").toUpperCase()}
-        </Text>
-        <Text style={{ color: colors.text, fontSize: font.xl, fontWeight: "800" }} numberOfLines={4}>
-          {moment.headline}
-        </Text>
-        <Text style={{ color: colors.textMuted, fontSize: font.sm }} numberOfLines={4}>
-          {moment.body}
-        </Text>
-      </View>
+      <Gradient
+        colors={winning ? ["rgba(61,224,138,0.20)", "rgba(124,92,255,0.14)", "rgba(7,7,12,0)"] : ["rgba(255,77,94,0.22)", "rgba(124,92,255,0.12)", "rgba(7,7,12,0)"]}
+        angle={155}
+        pointerEvents="none"
+        style={{ position: "absolute", left: 0, right: 0, top: 0, height: 380 }}
+      />
+      <Gradient colors={winning ? [...gradients.win] : [...gradients.lose]} angle={90} pointerEvents="none" style={{ height: 4 }} />
 
-      <View style={{ gap: spacing.sm }}>
-        <DeltaRow label={t("followers")} value={deltas.followers} />
-        <DeltaRow label={t("aura")} value={deltas.aura} />
-        <DeltaRow label={t("humor")} value={deltas.humor} />
-      </View>
-
-      <View style={{ gap: spacing.sm }}>
-        {reactions.map((r, i) => (
-          <View key={`${r.handle}-${i}`} style={{ flexDirection: "row", gap: spacing.sm, alignItems: "flex-start" }}>
-            <Avatar handle={r.handle} size={22} />
-            <Text style={{ color: colors.text, fontSize: font.xs, flex: 1 }} numberOfLines={2}>
-              {`@${r.handle} ${r.text}`}
-            </Text>
+      <View style={{ flex: 1, padding: spacing.xl, justifyContent: "space-between", gap: spacing.md }}>
+        <View style={{ gap: spacing.sm }}>
+          <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+            <Wordmark size={22} />
+            <Text style={[typo.micro, { color: colors.textMuted }]}>{t("shareMoment").toUpperCase()}</Text>
           </View>
-        ))}
-      </View>
+          <Text style={[typo.title, { color: colors.text, marginTop: spacing.sm }]} numberOfLines={4}>
+            {moment.headline}
+          </Text>
+          <Text style={[typo.meta, { color: colors.textDim }]} numberOfLines={4}>
+            {moment.body}
+          </Text>
+        </View>
 
-      <View style={{ flexDirection: "row", alignItems: "center", gap: spacing.sm }}>
-        <Avatar handle={persona.handle} size={28} />
-        <Text style={{ color: colors.textMuted, fontSize: font.xs, flex: 1 }} numberOfLines={1}>
-          {`@${persona.handle} · ${t("level")} ${persona.level} · ${after.followers} ${t("followers")}`}
-        </Text>
-      </View>
+        <View style={{ flexDirection: "row", gap: spacing.sm }}>
+          <DeltaTile label={t("followers")} value={deltas.followers} />
+          <DeltaTile label={t("aura")} value={deltas.aura} />
+          <DeltaTile label={t("humor")} value={deltas.humor} />
+        </View>
 
-      {note ? <Text style={{ color: colors.positive, fontSize: font.xs }}>{note}</Text> : null}
+        <View style={{ gap: spacing.sm }}>
+          {reactions.map((r, i) => (
+            <View key={`${r.handle}-${i}`} style={{ flexDirection: "row", gap: spacing.sm, alignItems: "center" }}>
+              <Avatar handle={r.handle} size={layout.avatarXs} />
+              <Text style={[typo.caption, { color: colors.textDim, flex: 1 }]} numberOfLines={2}>
+                {`“${r.text}”`}
+              </Text>
+            </View>
+          ))}
+        </View>
 
-      <View style={{ flexDirection: "row", gap: spacing.md }}>
-        <Pressable
-          testID={T.momentShare}
-          accessibilityRole="button"
-          accessibilityLabel={t("share")}
-          onPress={() => void onShare()}
+        <View
           style={{
-            flex: 1,
-            backgroundColor: colors.accent,
-            borderRadius: radius.pill,
-            paddingVertical: spacing.md,
+            flexDirection: "row",
             alignItems: "center",
+            gap: spacing.sm,
+            paddingTop: spacing.md,
+            borderTopWidth: 1,
+            borderTopColor: colors.border,
           }}
         >
-          <Text style={{ color: colors.bg, fontSize: font.sm, fontWeight: "700" }}>{t("share")}</Text>
-        </Pressable>
-        {onClose ? (
-          <Pressable
-            testID={T.momentClose}
-            accessibilityRole="button"
-            accessibilityLabel={t("close")}
-            onPress={onClose}
-            style={{
-              paddingVertical: spacing.md,
-              paddingHorizontal: spacing.lg,
-              borderRadius: radius.pill,
-              borderWidth: 1,
-              borderColor: colors.border,
-            }}
-          >
-            <Text style={{ color: colors.text, fontSize: font.sm, fontWeight: "700" }}>{t("close")}</Text>
-          </Pressable>
-        ) : null}
+          <Avatar handle={persona.handle} size={layout.avatarSm} ring />
+          <View style={{ flex: 1 }}>
+            <Text style={[typo.metaStrong, { color: colors.text }]} numberOfLines={1}>
+              {`@${persona.handle}`}
+            </Text>
+            <Text style={[typo.caption, { color: colors.textMuted }]} numberOfLines={1}>
+              {`${t("level")} ${persona.level} · ${compactNumber(after.followers)} ${t("followers")}`}
+            </Text>
+          </View>
+        </View>
+
+        {note ? <Text style={[typo.caption, { color: colors.positive }]}>{note}</Text> : null}
+
+        <View style={{ flexDirection: "row", gap: spacing.md }}>
+          <Button testID={T.momentShare} label={t("share")} onPress={() => void onShare()} icon="share" style={{ flex: 1 }} />
+          {onClose ? <Button testID={T.momentClose} label={t("close")} onPress={onClose} variant="ghost" /> : null}
+        </View>
       </View>
     </View>
   );

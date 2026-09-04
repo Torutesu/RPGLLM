@@ -4,7 +4,9 @@ import type { Prisma } from "@prisma/client";
 import { CreatePostReqZ, PACING, type PostStreamEvent } from "@rpgllm/shared";
 import { requireAuth } from "../auth";
 import { fail, notFound, ok, parseBody } from "../http";
+import { evaluateQuietly } from "../services/achievements";
 import { logGeneration } from "../services/generation";
+import { heatFor } from "../services/heat";
 import { buildG1InputFor, materializeReplies, runPostStream } from "../services/post-stream";
 import { computeMetrics } from "../services/rng";
 import { safetyGate } from "../services/safety";
@@ -51,9 +53,15 @@ export function postRoutes(): Hono<AppEnv> {
         });
         await spendEnergy(tx, wallet.id, `post:${post.id}`);
         await tx.persona.update({ where: { id: ctx.persona.id }, data: { actionCount: { increment: 1 } } });
+        // Agent K: heat is stamped with the metrics so trending can rank in SQL. The player's own
+        // posts never carry media (`mediaFor` returns null for `user`).
+        const metrics = computeMetrics(post.id, ctx.persona.followers);
         return await tx.post.update({
           where: { id: post.id },
-          data: { metrics: computeMetrics(post.id, ctx.persona.followers) as unknown as Prisma.InputJsonValue },
+          data: {
+            metrics: metrics as unknown as Prisma.InputJsonValue,
+            heat: heatFor({ metrics, kind: post.kind, createdAt: post.createdAt, now: deps.clock.now() }),
+          },
           include: { authorCharacter: true },
         });
       });
@@ -63,6 +71,8 @@ export function postRoutes(): Hono<AppEnv> {
     }
 
     if (gate.verdict === "soften") state.softenedPosts.set(created.id, true);
+    // Agent L: "First words" has to be unlocked by the time the client opens SCR-044.
+    await evaluateQuietly(deps.prisma, ctx.persona.id, ctx.locale);
     return ok({ post: toApiPost(created, ctx.persona), streamUrl: `/v1/posts/${created.id}/stream` }, 201);
   });
 

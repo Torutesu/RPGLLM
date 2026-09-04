@@ -7,7 +7,8 @@ import { logGeneration } from "./generation";
 import { localized } from "./locale";
 import { seedFrom } from "./rng";
 import { toApiMessage } from "./serialize";
-import { baseCtx, personaState, type StoryContext } from "./story";
+import { dmText, followText, notify } from "./notify";
+import { FOLLOW_AT, baseCtx, personaState, type StoryContext } from "./story";
 import { currentEnergy, refundEnergy } from "./wallet";
 
 export type DMEmit = (ev: DMStreamEvent) => Promise<void>;
@@ -83,9 +84,34 @@ export async function runDMStream(
   }
 
   const affinity = clamp(relationship.affinity + result.output.affinity_delta, -100, 100);
-  await deps.prisma.relationshipState.update({
-    where: { id: relationship.id },
-    data: { affinity, isFollower: relationship.isFollower || affinity >= 10 },
+  const becameFollower = !relationship.isFollower && affinity >= FOLLOW_AT;
+  // Agent L: the reply, the affinity move and the notifications it causes land together.
+  await deps.prisma.$transaction(async (tx) => {
+    await tx.relationshipState.update({
+      where: { id: relationship.id },
+      data: { affinity, isFollower: relationship.isFollower || affinity >= FOLLOW_AT },
+    });
+    if (result.output.bubbles.length > 0) {
+      await notify(tx, {
+        personaId: ctx.persona.id,
+        kind: "dm",
+        actorId: thread.characterId,
+        target: `dm:${thread.id}`,
+        text: dmText(ctx.locale, thread.character.displayName),
+        payload: { threadId: thread.id },
+        createdAt: deps.clock.now(),
+      });
+    }
+    if (becameFollower) {
+      await notify(tx, {
+        personaId: ctx.persona.id,
+        kind: "follow",
+        actorId: thread.characterId,
+        target: "profile",
+        text: followText(ctx.locale, thread.character.displayName),
+        payload: { characterId: thread.characterId, affinity },
+      });
+    }
   });
   if (result.output.memory_note) {
     await deps.prisma.memoryEntry.create({

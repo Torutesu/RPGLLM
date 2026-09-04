@@ -1149,3 +1149,231 @@ produce dozens of bogus `PrismaClientKnownRequestError` / arithmetic failures. `
 aggregation assertions are pinned to a window in the *past* (the fixture sits on two whole UTC days
 before today) precisely so a concurrent suite writing rows at "now" cannot perturb them; the HTTP
 cases use `>=` for the same reason.
+
+---
+
+## Agent J — the visual system (`apps/mobile/src/ui/**`, `apps/mobile/src/components/**`)
+
+The verdict on the previous build was "about 30 out of 100": system font with no hierarchy,
+two-letter initials on flat discs for avatars, emoji standing in for icons (💬 🔁 ❤ ⚡ ☕ ⚙ 👍 👎),
+no timestamps, flat black with 1px grey rules, no motion, and empty screens that read as broken.
+This pass replaces the foundation those screens are built on. Screens themselves are owned by other
+agents; everything below is available to them by import.
+
+### New: `src/ui/**` — the primitives
+
+| file | what it gives you |
+| --- | --- |
+| `Gradient.tsx` | `<Gradient colors angle locations style>` over `expo-linear-gradient` — a real CSS gradient on web, a native layer on iOS/Android, CSS angle convention (180° = downward). Plus `GradientRule` (a hairline that fades at both ends) and `Scrim`. |
+| `Icon.tsx` | 35 SVG glyphs on one 24×24 grid at one 1.8 stroke, single `paths` map, props `name / size / color / filled`. Covers the required set plus `crown`, `refresh`, `clock`, `search`, `arrowUp`, `arrowDown`, `trendUp`, `trendDown`, `minus`. Hidden from the a11y tree — the control around an icon carries the name. |
+| `Avatar.tsx` | Generated character portraits: a two-stop gradient orb in the handle's `identityFor()` colours plus one of ten geometric motifs (arcs, bullseye, scatter, equaliser bars, an eyes-and-smile face, a visor, a wedge, chevrons, an orbit, waves), chosen by an independent hash, with a light/ink inversion and a zoom step on top — ~700 distinct looks, deterministic across devices and reinstalls. Props `size / label / ring / badge / dim`. |
+| `motion.ts` | Token easings as `Easing.bezier`, `timing()`, `duration`, `NATIVE_DRIVER`, `useAnimatedValue`, `useOnChange`, `useReduceMotion()` and `useHaptic()`. |
+| `anim.tsx` | `AnimatedNumber` (per-digit roll, up or down with the value), `Pulse`, `Burst` (the like particles), `FadeSlideIn` (list stagger), `Shimmer` (skeletons), `PressScale`. |
+| `type.ts` | The type ramp — `typo.hero/display/title/h1/h2/body/bodyStrong/name/meta/metaStrong/label/caption/micro/count/number`. Spread it, then set colour at the call site. |
+| `fonts.ts` | Loads the two faces at import time and never blocks first paint; `useFontsLoaded()` re-renders a root once they land (native only — on web the browser reflows by itself). |
+
+### Rewritten: `src/components/**`
+
+Every exported name, prop shape and `testID` is unchanged.
+
+- `ui.tsx` — `Screen` (now carries the violet top wash and the font gate), `Centered`, `Button`
+  (gradient primary / tinted secondary / ghost / danger, pressed + disabled states, spinner, leading
+  icon, `compact`, and a real focus ring on web), `Field` (focus border, UA outline suppressed on
+  web), `HeaderBar` (SVG back chevron), `Wordmark` (SVG text with the brand gradient poured through
+  it), plus new `IconButton`, `Card`, `SectionHeader`, `Divider`, `Row`, `Chip`.
+- `PostCell.tsx` — display name semibold, verified as an SVG check on a disc, handle · `timeAgo()`
+  dim on the same line (`T.postTime`), body at 16/23, SVG action icons with `compactNumber` counts,
+  a `Burst` on like, identity-coloured 2px left rail on replies, overflow "…" pinned to the top-right
+  of the name row. `ReplyCell` and every testID kept.
+- `Avatar.tsx` — now a two-line re-export of `src/ui/Avatar`.
+- `Bubble.tsx` — tails, grouped runs, relative timestamps, and a real three-dot typing animation.
+  Adds `MessageStream` (grouping + tails computed from the array) for the DM screen to adopt.
+- `EnergyBadge.tsx` — bolt icon, `AnimatedNumber`, glow + pulse at full, dim at empty.
+- `Skeleton.tsx` — shimmer sweep instead of a static grey box.
+- `StatCard.tsx` — the dopamine moment: the follower count counts up from where it was, bars grow
+  from before to after, deltas get a coloured arrow (not colour alone), the cast that changed its
+  mind is shown as faces, entrance staggered. The `T.stat*` nodes keep their exact `"+5 → 25"` text.
+- `Toast.tsx` / `InlineError` — icon and colour by kind, slide-in, left accent rail.
+- `Empty.tsx` (**new**) — `Empty` (icon in a glowing disc + headline + body + one action) and
+  `EmptyLine`. Nothing in `src/ui`/`src/components` is a void any more; the screens that still are
+  (DM list, notifications, blocked list, memory ledger) only need to import this.
+- `DigestCard.tsx`, `MomentCard.tsx`, `Overflow.tsx` — moved onto the same system.
+
+### Dependencies added (`apps/mobile`, via `npx expo install`)
+
+`expo-linear-gradient@~57.0.1`, `expo-haptics@~57.0.2`, `@expo-google-fonts/inter@^0.4.2`,
+`@expo-google-fonts/space-grotesk@^0.4.1`. Six font files (~1.4 MB) land in the web export.
+
+**`react-native-reanimated` was deliberately not added.** It needs a `babel.config.js` (there is
+none) and a worklets runtime, and three other agents were mid-flight on the same web export; the
+risk of breaking everyone's build outweighed the benefit, because RN's own `Animated` — which
+react-native-web already implements — covers every effect the design calls for. `motion.ts` sets
+`useNativeDriver` from `NATIVE_DRIVER` (false on web) so no animation logs a fallback warning.
+
+### Fonts
+
+Space Grotesk (display: wordmark, hero numbers, level-ups) and Inter (text). `src/ui/fonts.ts`
+calls `Font.loadAsync` as a module side effect — fire and forget, nothing awaits it, and a failed
+load leaves the platform stack in place. Verified on the web export: `post-text` computes to
+`Inter_400Regular`, `post-author` to `Inter_600SemiBold`, the wordmark to `SpaceGrotesk_700Bold`.
+
+**Screens that style raw `<Text>` themselves still render in the system stack.** Font loading is a
+root concern and `app/_layout.tsx` is not mine; the fix for a screen owner is one import —
+`import { typo } from "../src/ui"` — and spreading the matching role instead of `{ fontSize, fontWeight }`.
+
+### Tokens / strings I wanted and did not have
+
+- **`news` copy.** `PostCell` labels a `kind === "news"` post with a chip. `en.ts` has no `news`
+  key, so it uses `t("event")` ("Event"). The previous code hardcoded the literal `"NEWS"`, which
+  breaks rule 4. A `news: "News"` string would be the right fix.
+- **`up` / `down` for stat deltas** exist but read oddly in the a11y name; `StatCard` still builds
+  `"Aura +5, 25"` (Agent I noted the same gap).
+- No token gap in `tokens.ts` — the new palette, `identityFor`/`hashString`, `timeAgo`,
+  `compactNumber`, `layout.avatar*`, `elevation`, `glow` and `motion` covered everything.
+
+### One thing the E2E owner should know
+
+`T.postTime` (`"post-time"`) is now rendered, and `POST_CELL` in `e2e/fixtures.ts` is
+`[data-testid^="post-"]` minus `post-kind-*`, `post-text`, `post-author` — so it also matches the
+timestamp nodes. Verified against every current use and none breaks: `cellsOfKind` filters on a
+`post-kind-*` descendant, `cellsByHandle`/`repliesBy` filter on handle text, `postCells().first()`
+is still the cell (document order), and the only count assertion is `toBeGreaterThan(0)`. Adding
+`:not([data-testid="post-time"])` to `POST_CELL` would make that robust rather than lucky.
+
+### Left to the screen owners
+
+Icons in the tab bar, a gradient compose FAB, `Empty` on the DM/notifications/blocked/memory
+screens, `MessageStream` in `app/dms/[threadId].tsx`, and the emoji still hardcoded in
+`app/energy.tsx` (⚡ ☕ ⭐ ▶) and `app/(tabs)/_layout.tsx`. All of these are one import away.
+`src/components/Brand.tsx` (onboarding chrome) already builds on `src/ui`; the radial orb it adds is
+the one thing `expo-linear-gradient` cannot do.
+
+### Verification
+
+- `pnpm --filter mobile typecheck` — clean for every file in `src/ui/**` and `src/components/**`.
+  (The run also reports errors in `app/index.tsx`, `app/onboarding/*` and the new
+  `PersonaCard`/`WorldCard`/`IntroSlides`: another agent was mid-refactor of `Brand.tsx`'s exports
+  while I ran it. None are in my files.)
+- Web export — `expo export -p web` succeeds. Run into `dist-j` rather than `dist` so as not to
+  clobber a parallel agent's served build; same command, same code path.
+- Every previously existing `testID` re-verified in the DOM of the real export, driven through the
+  UI: `feed-list`, `post-<id>`, `post-kind-user|character`, `post-text`, `post-author`, `post-time`,
+  `overflow-<id>`, `energy-badge` (reads a bare `"7"`, so `badgeEnergy()`'s regex is unaffected by
+  the digit roll), `compose-fab/-input/-submit`, `stat-card`, `stat-aura` (`"+3 → 25"`),
+  `stat-followers`, `stat-humor`, `stat-narrative`, `stat-continue`, `reply-<id>`, `rate-up-<id>`,
+  `rate-down-<id>`, `reply-btn`, `dm-bubble`, `energy-modal`, `energy-value`. Zero page errors.
+- `pnpm e2e` could not be run to completion: `app/onboarding/persona.tsx` currently throws React
+  #130 (an undefined component — `Brand.tsx` exports being refactored under it), so every case dies
+  in `enterWorld()` before reaching a screen I own. Re-run once that lands.
+
+---
+
+## Agent K — feed & discovery (SCR-010 rewrite, SCR-046 Explore, SCR-047 character pages)
+
+The feed was the screen people live in and it was a wall of same-sized text: no timestamps, no
+pictures, no sense of which world you were in, no idea what anyone was talking about, and no way to
+reach a character. Everything below exists to fix that.
+
+### API
+
+| Endpoint | Contract | Notes |
+|---|---|---|
+| `GET /v1/trending?personaId=` | `TrendingResZ` | topics, rising characters, your rank |
+| `GET /v1/characters/:handle?personaId=` | `CharacterProfileResZ` | resolves by handle (with or without `@`, any case) **or** by character id |
+
+New services: `services/media.ts`, `services/heat.ts`, `services/trending.ts`. Two route files
+(`routes/trending.ts`, `routes/characters.ts`) and two `v1.route` lines in `app.ts`.
+
+- **heat** (`services/heat.ts`) — 0..100 from the 演出 metrics on a log curve (saturating at ~5000
+  weighted engagements), decayed 35% over two days, +12 for a news post, plus up to 25 for the stat
+  swing the post caused. `HEAT.HOT` earns a flame and an identity rail in the feed.
+- **trending** (`services/trending.ts`) — topics are extracted deterministically from the text of
+  the last 120 posts: hashtags, then capitalised runs, then word pairs, then bare words, each tier
+  sorted by post count and heat, with a containment check so "second chorus" suppresses "chorus".
+  Contractions and a small hand-written stop list are dropped. Rising characters sum
+  `StatSnapshot.relDeltas` **in SQL** (`jsonb_each_text` + `jsonb_exists`), the persona/world counts
+  are a SQL aggregate, and the heat curve is written once more in SQL (`SQL_HEAT`) so ranking never
+  loads rows into JS. `$2` is always the injectable clock, never `now()`, so `/__test/time-travel`
+  keeps working. Blocked characters are excluded from the topic window and the rail.
+- **rank** — a world is not eight famous characters, it is eight famous characters and a crowd. The
+  percentile is computed against a 10,000-account power-law population (`P(X>f) = (50/f)^0.8`) plus
+  the cast plus the other personas. Without the crowd a new persona is "top 100%" forever, which is
+  accurate and product suicide; with it a fresh account reads ~45% and becomes `youAreTrending` at
+  the top 25%.
+- **character bio** — `WorldCharacter.card` is a prompt, not a bio: it opens with `Voice:` and ends
+  with an `NG:` line of things the model must never do. `bioFrom()` strips both and keeps the rest.
+
+### Two deliberate duplications (please read before "fixing" them)
+
+1. **`Post.mediaKind` / `mediaSeed` / `heat` never reach the client.** They exist in
+   `schema.prisma` and the server stamps them, but `PostZ` in `packages/shared/src/api.ts` has no
+   field to carry them and `packages/shared` is frozen for this pass. So the client derives the same
+   values in `apps/mobile/src/lib/derive.ts`: media from the post id via the *shared* `hashString`
+   (byte-identical to `services/media.ts` by construction), heat from the same curve over metrics +
+   age. The server additionally folds in the stat swing, which only ever raises its number — so a
+   post the client draws cool is never one the server called viral. **If `PostZ` ever gains
+   `mediaKind`/`mediaSeed`/`heat`, delete `derive.ts`'s copies and read the fields.**
+2. The heat curve exists three times: TS (`services/heat.ts`), SQL (`services/trending.ts`), and
+   the client mirror. Change one, change all three; the doc comment on each says so.
+
+### Procedural post media — no bitmaps, anywhere
+
+`components/PostMedia.tsx` draws the picture from the seed with `react-native-svg`, so it is
+identical on iOS, Android and web, costs nothing to serve, can never 404, and carries no likeness
+or scraped photo. Three kinds (`MEDIA_KINDS`): `art` (gradient/blob/arc composition in the author's
+identity colours, plus film grain, at 16:9, 4:5 or 1:1), `chart` (a stream count going up or down,
+wordless so it needs no translation), `leak` (a redacted message-thread screenshot — the receipts
+that drive every scandal). `T.postMedia(id)`.
+
+Rate: `MEDIA_EVERY` (1 in 4) for character/ambient posts, **1 in 2 for the press account** — a
+gossip feed without screenshots is not a gossip feed. Excluded: the player's own posts (no camera
+roll in this world) and *replies*, so `MEDIA_EVERY` means "one in four cells you scroll past"
+rather than one in four rows of the table.
+
+### Client
+
+- `app/(tabs)/feed.tsx` — rewritten. Header (`T.feedHeader`): world chip (`T.worldChip`, gradient
+  dot + world title, taps into Explore), Agent L's `StreakChip`, the energy badge, the settings
+  gear. Under it the `TrendingStrip` (`T.trendingList`, heat-coloured chips, tap filters the feed
+  on the topic, tap again clears). Rows are a local `FeedRow`: Agent J's `PostCell` unchanged, then
+  the picture inset to the text column (`marginTop: -1` covers the cell's own hairline so it reads
+  as part of the post), then the replies on their identity rail, all inside a `FadeSlideIn` stagger
+  capped at 6 rows. A hot post gets a `TRENDING NOW` ribbon and an identity-coloured left rail.
+  Pull-to-refresh reloads the feed *and* the strip; `onEndReached` pages the cursor with a real
+  footer spinner; the empty state is a gradient card instead of a line of grey text.
+  Every pre-existing testID is intact (`T.feedList`, `T.post(id)`, `T.composeFab`, `T.energyBadge`,
+  `T.eventBanner`, `T.statToast`, `T.fallbackToast`, `T.settingsBtn`, `DigestCard`, `MomentCard`,
+  `StatCard`) and the blocked-character filter still runs client-side over the server-filtered read.
+- `app/explore.tsx` (SCR-046) — rank card (`T.trendingRank`, `youAreTrending` when it applies),
+  heat-ranked topic cards with a heat bar, the "rising with you" avatar rail
+  (`T.risingCharacter(handle)`), and the other preset worlds as invitations to start a second story.
+- `app/character/[handle].tsx` (SCR-047) — identity-gradient hero, role chip, follow state
+  (`T.characterFollowState`), a centre-out affinity bar, a link into the memory ledger, DM and
+  block/unblock, and their recent posts with media (`T.characterPosts`). Reachable from the rising
+  rail and from a hit target over any author's avatar in the feed.
+- Shared files touched, minimally: `app/(tabs)/_layout.tsx` (one Explore tab entry, `T.tabExplore`),
+  `src/api/client.ts` (`api.trending`, `api.character` + two exported types),
+  `services/post-stream.ts` and `routes/posts.ts` (media/heat stamped in the same update as the
+  metrics). **`src/state/store.tsx` was not touched at all** — trending is local state in the two
+  screens that use it, which also keeps it off the critical path of a feed load.
+
+### Note for whoever owns `e2e/fixtures.ts`
+
+`POST_CELL` is `[data-testid^="post-"]` minus `post-kind-*`, `post-text`, `post-author`. It now also
+matches `post-time` (Agent J) and `post-media-<id>` (mine). Verified harmless against every current
+use — `cellsOfKind` filters on a `post-kind-*` descendant, the handle filters match on text,
+`.first()` is still the outer cell in document order, and the only count assertion is
+`toBeGreaterThan(0)`. `discovery.spec.ts` uses its own selector with both exclusions added.
+Adding `:not([data-testid="post-time"]):not([data-testid^="post-media-"])` to `POST_CELL` would make
+that robust rather than lucky.
+
+### Verification
+
+- `pnpm --filter api typecheck`, `pnpm --filter mobile typecheck` — clean.
+- `pnpm --filter api test` — green. 28 new cases in `test/trending.test.ts` and
+  `test/characters.test.ts` (heat curve, media determinism/rate/reply exclusion, topic extraction,
+  the rank curve, the two endpoints, blocked-character filtering, ownership 404s).
+- New E2E file `e2e/tests/discovery.spec.ts`: DISC-001..006.
+- API test runs isolate with `TEST_DATABASE_URL=…/rpgllm_k` (the vitest config's `env` block
+  overrides a plain `DATABASE_URL`, so that is the only var that works); the shared `rpgllm_test`
+  database was being truncated by parallel agents throughout.

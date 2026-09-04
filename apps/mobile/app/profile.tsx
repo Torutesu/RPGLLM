@@ -101,6 +101,28 @@ export default function ProfileScreen() {
             </View>
           ) : null}
 
+          {/* Agent L: the way into SCR-044. */}
+          <Pressable
+            testID={T.achievementsOpen}
+            accessibilityRole="button"
+            accessibilityLabel={t("achievements")}
+            onPress={() => router.push("/achievements")}
+            style={({ pressed }) => ({
+              flexDirection: "row",
+              alignItems: "center",
+              justifyContent: "space-between",
+              paddingVertical: spacing.md,
+              paddingHorizontal: spacing.lg,
+              borderRadius: radius.md,
+              borderWidth: 1,
+              borderColor: colors.border,
+              backgroundColor: pressed ? colors.cardHi : colors.card,
+            })}
+          >
+            <Text style={{ color: colors.text, fontSize: font.md, fontWeight: "700" }}>{t("achievements")}</Text>
+            <Text style={{ color: colors.textMuted, fontSize: font.sm }}>›</Text>
+          </Pressable>
+
           <View
             accessibilityRole="progressbar"
             accessibilityLabel={`${t("level")} ${profile?.levelProgress.level ?? 1}`}

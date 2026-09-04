@@ -5,6 +5,7 @@ import { seedFrom } from "./rng";
 import { localized } from "./locale";
 import { baseCtx, personaState, type StoryContext } from "./story";
 import type { StoredChoice } from "./serialize";
+import { eventText, notify } from "./notify";
 import type { Deps } from "../types";
 
 export const pendingEvent = (deps: Deps, personaId: string): Promise<DramaEvent | null> =>
@@ -85,14 +86,25 @@ export async function generateEvent(deps: Deps, ctx: StoryContext, cause: string
     }
   }
 
-  return await deps.prisma.event.create({
-    data: {
+  // Agent L: the drama card and its notification are written together.
+  return await deps.prisma.$transaction(async (tx) => {
+    const created = await tx.event.create({
+      data: {
+        personaId: ctx.persona.id,
+        title,
+        prompt,
+        choices: choices as unknown as Prisma.InputJsonValue,
+        generationId,
+      },
+    });
+    await notify(tx, {
       personaId: ctx.persona.id,
-      title,
-      prompt,
-      choices: choices as unknown as Prisma.InputJsonValue,
-      generationId,
-    },
+      kind: "event",
+      target: `event:${created.id}`,
+      text: eventText(ctx.locale, created.title),
+      payload: { eventId: created.id },
+    });
+    return created;
   });
 }
 

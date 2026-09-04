@@ -2,11 +2,14 @@ import type { Post, Prisma, PrismaClient, WorldCharacter } from "@prisma/client"
 import type { G1Input, G1Output, PostStreamEvent } from "@rpgllm/shared";
 import { PACING } from "@rpgllm/shared";
 import { postStreamDelayMs } from "../env";
-import type { AppState, Deps } from "../types";
+import type { AppState, Deps, Tx } from "../types";
 import { logGeneration } from "./generation";
+import { heatFor } from "./heat";
+import { mediaFor } from "./media";
 import { computeMetrics, seedFrom } from "./rng";
 import { metricsCausedBy, toApiPost, toApiSnapshot, toApiEvent, type PostRow } from "./serialize";
 import { generateEvent, ensureEvent, pendingEvent } from "./events";
+import { LIKES_PER_POST, likeText, notify, notifyFollowerMilestones, replyText } from "./notify";
 import { currentEnergy, refundEnergy } from "./wallet";
 import {
   applyRelationshipDeltas, applyStatDeltas, baseCtx, castCards, characterByHandle, involvedFor,
@@ -17,16 +20,22 @@ export type Emit = (ev: PostStreamEvent) => Promise<void>;
 const sleep = (ms: number) => (ms > 0 ? new Promise((r) => setTimeout(r, ms)) : Promise.resolve());
 
 async function createPostWithMetrics(
-  prisma: PrismaClient,
+  prisma: PrismaClient | Tx,
   data: Prisma.PostUncheckedCreateInput,
   followers: number,
   extraMetrics: Record<string, unknown> = {},
 ): Promise<PostRow> {
   const created = await prisma.post.create({ data });
   const metrics = { ...computeMetrics(created.id, followers), ...extraMetrics };
+  // Agent K: procedural media (one row in MEDIA_EVERY, deterministic from the id) and the heat
+  // score trending ranks on are stamped in the same update as the metrics.
   return await prisma.post.update({
     where: { id: created.id },
-    data: { metrics: metrics as unknown as Prisma.InputJsonValue },
+    data: {
+      metrics: metrics as unknown as Prisma.InputJsonValue,
+      ...mediaFor(created.id, created.kind, created.parentId),
+      heat: heatFor({ metrics, kind: created.kind, createdAt: created.createdAt, now: created.createdAt }),
+    },
     include: { authorCharacter: true },
   });
 }
@@ -94,21 +103,57 @@ export async function materializeReplies(
 ): Promise<PostRow[]> {
   const rows: PostRow[] = [];
   const delay = postStreamDelayMs();
+  // Only the persona's own post earns reply/like notifications (a character replying to another
+  // character is not about you), and only the first pass: `more-replies` re-enters here.
+  const notifiesPersona = post.authorPersonaId === ctx.persona.id;
+  let likes = await deps.prisma.notification.count({
+    where: { personaId: ctx.persona.id, kind: "like", target: `post:${post.id}` },
+  });
   for (const [i, reply] of output.replies.entries()) {
     const character: WorldCharacter | undefined =
       characterByHandle(ctx.characters, reply.characterHandle) ?? ctx.characters[i % Math.max(1, ctx.characters.length)];
     if (!character) continue;
-    const row = await createPostWithMetrics(deps.prisma, {
-      worldId: ctx.world.id,
-      personaId: ctx.persona.id,
-      authorCharacterId: character.id,
-      kind: "character",
-      text: reply.text,
-      parentId: post.id,
-      generationId,
-      createdAt: deps.clock.now(),
-      metrics: {},
-    }, ctx.persona.followers);
+    // The reply row and the notifications it causes are written together: a rolled-back reply must
+    // never leave a "@x replied to you" row behind (Agent L).
+    const row = await deps.prisma.$transaction(async (tx) => {
+      const created = await createPostWithMetrics(tx, {
+        worldId: ctx.world.id,
+        personaId: ctx.persona.id,
+        authorCharacterId: character.id,
+        kind: "character",
+        text: reply.text,
+        parentId: post.id,
+        generationId,
+        createdAt: deps.clock.now(),
+        metrics: {},
+      }, ctx.persona.followers);
+      if (notifiesPersona) {
+        await notify(tx, {
+          personaId: ctx.persona.id,
+          kind: "reply",
+          actorId: character.id,
+          target: `post:${post.id}`,
+          text: replyText(ctx.locale, character.displayName),
+          payload: { postId: post.id, replyId: created.id },
+          createdAt: deps.clock.now(),
+        });
+        // The reaction fan-out also "likes" the post — one row per reacting character, capped so a
+        // single post can never flood the tab.
+        if (likes < LIKES_PER_POST) {
+          likes += 1;
+          await notify(tx, {
+            personaId: ctx.persona.id,
+            kind: "like",
+            actorId: character.id,
+            target: `post:${post.id}`,
+            text: likeText(ctx.locale, character.displayName),
+            payload: { postId: post.id },
+            createdAt: deps.clock.now(),
+          });
+        }
+      }
+      return created;
+    });
     rows.push(row);
     if (emit) {
       await emit({ type: "reply", post: toApiPost(row, ctx.persona) });
@@ -172,6 +217,12 @@ export async function runPostStream(
     });
     const relDeltas = await applyRelationshipDeltas(tx, ctx, result.output.relationship_deltas);
     await writeMemoryNotes(tx, ctx, result.output.memory_notes, statCause(post.id));
+    await notifyFollowerMilestones(tx, {
+      personaId: ctx.persona.id,
+      locale: ctx.locale,
+      before: ctx.persona.followers,
+      after: applied.followers,
+    });
     return await tx.statSnapshot.create({
       data: {
         personaId: ctx.persona.id,

@@ -4,6 +4,7 @@ import { PACING, STATS } from "@rpgllm/shared";
 import { normHandle, sameHandle } from "./handles";
 import { blockedCharacterIds, withoutBlocked } from "./moderation";   // Agent G (S1-2)
 import { localized, type LocaleKey } from "./locale";
+import { followText, notify } from "./notify";
 import type { Tx } from "../types";
 import { getWorldSeed } from "./world-seeds";
 
@@ -131,6 +132,9 @@ export function applyStatDeltas(persona: Persona, deltas: { followers: number; a
   return { followers, aura, humor, xp, level, followersDelta, auraDelta: aura - persona.aura, humorDelta: humor - persona.humor };
 }
 
+/** A character starts following you at this affinity and is never demoted. */
+export const FOLLOW_AT = 10;
+
 /** affinity ±5 per delta; a character becomes a follower at affinity >= 10 (never demoted). */
 export async function applyRelationshipDeltas(
   tx: Tx,
@@ -146,12 +150,24 @@ export async function applyRelationshipDeltas(
     const rel = ctx.relationships.find((r) => r.characterId === character.id);
     if (!rel) continue;
     const affinity = clamp(rel.affinity + delta * 5, -100, 100);
+    const becameFollower = !rel.isFollower && affinity >= FOLLOW_AT;
     await tx.relationshipState.update({
       where: { id: rel.id },
-      data: { affinity, isFollower: rel.isFollower || affinity >= 10 },
+      data: { affinity, isFollower: rel.isFollower || affinity >= FOLLOW_AT },
     });
+    // Agent L: crossing the follow threshold is a notification, written in this transaction.
+    if (becameFollower) {
+      await notify(tx, {
+        personaId: ctx.persona.id,
+        kind: "follow",
+        actorId: character.id,
+        target: "profile",
+        text: followText(ctx.locale, character.displayName),
+        payload: { characterId: character.id, affinity },
+      });
+    }
     rel.affinity = affinity;
-    rel.isFollower = rel.isFollower || affinity >= 10;
+    rel.isFollower = rel.isFollower || affinity >= FOLLOW_AT;
     applied[normHandle(handle)] = delta;
   }
   return applied;

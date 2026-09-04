@@ -1,18 +1,23 @@
-import React, { useEffect, useState } from "react";
-import { Pressable, ScrollView, Text, View } from "react-native";
+import React, { useEffect, useMemo, useState } from "react";
+import { ScrollView, Text, View, useWindowDimensions } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
-import { T, colors, font, radius, spacing } from "@rpgllm/shared";
+import { T, colors, radius, spacing } from "@rpgllm/shared";
 import { useActions, useAppState, useT } from "../../src/state/store";
-import { Button, Screen } from "../../src/components/ui";
+import { Button, Chip, Screen } from "../../src/components/ui";
 import { SkeletonList } from "../../src/components/Skeleton";
-import { Avatar } from "../../src/components/Avatar";
+import { Aurora, StepDots } from "../../src/components/Brand";
+import { FadeSlideIn, typo } from "../../src/ui";
+import { PersonaCard } from "../../src/components/PersonaCard";
 
-/** SCR-004 — preset persona grid. */
+const MAX_W = 560;
+
+/** SCR-004 — "Who do you want to play as?" Step 2 of the first run. */
 export default function PersonaPicker() {
   const params = useLocalSearchParams<{ worldId?: string }>();
   const { world, worldStatus, draft } = useAppState();
   const { loadWorld, setDraft } = useActions();
   const { t } = useT();
+  const { width } = useWindowDimensions();
   const [selected, setSelected] = useState<string | null>(null);
 
   const worldId = params.worldId ?? draft?.worldId ?? "";
@@ -21,7 +26,13 @@ export default function PersonaPicker() {
     if (worldId) void loadWorld(worldId);
   }, [loadWorld, worldId]);
 
-  const presets = world?.presetPersonas ?? [];
+  const presets = useMemo(() => world?.presetPersonas ?? [], [world]);
+  const chosen = presets.find((p) => p.handle === selected) ?? null;
+
+  // Fixed tile footprint: the grid must not reflow when a tile is picked.
+  const inner = Math.min(MAX_W, width) - spacing.lg * 2;
+  const columns = inner > 460 ? 4 : 3;
+  const tile = Math.floor(inner / columns);
 
   const goEdit = () => {
     setDraft({
@@ -37,15 +48,14 @@ export default function PersonaPicker() {
   };
 
   const onContinue = () => {
-    const preset = presets.find((p) => p.handle === selected);
-    if (!preset) return;
+    if (!chosen) return;
     setDraft({
       worldId,
       worldSlug: world?.world.slug ?? draft?.worldSlug ?? "",
-      handle: preset.handle,
-      displayName: preset.displayName,
-      bio: preset.bio,
-      avatarUrl: preset.avatarUrl,
+      handle: chosen.handle,
+      displayName: chosen.displayName,
+      bio: chosen.bio,
+      avatarUrl: chosen.avatarUrl,
       voiceNotes: "",
     });
     router.push("/onboarding/first-follower");
@@ -53,54 +63,73 @@ export default function PersonaPicker() {
 
   return (
     <Screen>
-      <ScrollView contentContainerStyle={{ padding: spacing.lg, gap: spacing.lg }}>
-        <Text accessibilityRole="header" style={{ color: colors.text, fontSize: font.xl, fontWeight: "800" }}>
-          {t("whoToPlay")}
-        </Text>
-        {worldStatus === "loading" && !world ? <SkeletonList count={3} /> : null}
-        <View
-          accessibilityRole="radiogroup"
-          accessibilityLabel={t("whoToPlay")}
-          style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.lg, justifyContent: "center" }}
-        >
-          {presets.map((p) => {
-            const active = selected === p.handle;
-            return (
-              <Pressable
-                key={p.handle}
-                testID={T.personaPreset(p.handle)}
-                onPress={() => setSelected(p.handle)}
-                accessibilityRole="radio"
-                accessibilityState={{ selected: active, checked: active }}
-                accessibilityLabel={`${p.displayName} @${p.handle}`}
-                style={{
-                  alignItems: "center",
-                  gap: spacing.xs,
-                  padding: spacing.sm,
-                  borderRadius: radius.md,
-                  borderWidth: 2,
-                  borderColor: active ? colors.accent : "transparent",
-                  width: 104,
-                }}
-              >
-                <Avatar handle={p.handle} size={56} />
-                <Text
-                  numberOfLines={1}
-                  importantForAccessibility="no"
-                  style={{ color: active ? colors.accent : colors.text, fontSize: font.xs, fontWeight: "700" }}
-                >
-                  {`@${p.handle}`}
+      <Aurora seed={world?.world.slug ?? "persona"} intensity={0.45} />
+      <ScrollView contentContainerStyle={{ padding: spacing.lg, paddingTop: spacing.xxl, paddingBottom: spacing.xxxl, gap: spacing.xl }}>
+        <View style={{ width: "100%", maxWidth: MAX_W, alignSelf: "center", gap: spacing.lg }}>
+          <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+            <View />
+            <StepDots step={1} />
+          </View>
+
+          {world ? (
+            <View style={{ flexDirection: "row", alignItems: "center", gap: spacing.sm, flexWrap: "wrap" }}>
+              <Chip label={"★".repeat(Math.max(1, world.world.difficulty))} color={colors.energy} />
+              <Text style={[typo.metaStrong, { color: colors.textDim }]}>{world.world.title}</Text>
+            </View>
+          ) : null}
+
+          <Text accessibilityRole="header" style={[typo.title, { color: colors.text }]}>
+            {t("whoToPlay")}
+          </Text>
+
+          {worldStatus === "loading" && !world ? <SkeletonList count={3} /> : null}
+
+          <View
+            accessibilityRole="radiogroup"
+            accessibilityLabel={t("whoToPlay")}
+            style={{ flexDirection: "row", flexWrap: "wrap", justifyContent: "flex-start" }}
+          >
+            {presets.map((p, i) => (
+              <FadeSlideIn key={p.handle} delay={i * 45} distance={10}>
+                <PersonaCard
+                  handle={p.handle}
+                  displayName={p.displayName}
+                  selected={selected === p.handle}
+                  onPress={() => setSelected(p.handle)}
+                  testID={T.personaPreset(p.handle)}
+                  width={tile}
+                />
+              </FadeSlideIn>
+            ))}
+          </View>
+
+          {/* Fixed-height preview: the footer below never moves while you choose. */}
+          <View
+            style={{
+              minHeight: 62,
+              justifyContent: "center",
+              borderRadius: radius.lg,
+              borderWidth: 1,
+              borderColor: chosen ? colors.borderHi : "transparent",
+              backgroundColor: chosen ? colors.card : "transparent",
+              paddingHorizontal: chosen ? spacing.lg : 0,
+              paddingVertical: spacing.md,
+            }}
+          >
+            {chosen ? (
+              <View style={{ gap: spacing.xs }} accessibilityLiveRegion="polite">
+                <Text style={[typo.name, { color: colors.text }]}>{`@${chosen.handle.replace(/^@/, "")}`}</Text>
+                <Text numberOfLines={2} style={[typo.meta, { color: colors.textDim }]}>
+                  {chosen.bio}
                 </Text>
-                <Text numberOfLines={1} importantForAccessibility="no" style={{ color: colors.textMuted, fontSize: font.xs }}>
-                  {p.displayName}
-                </Text>
-              </Pressable>
-            );
-          })}
-        </View>
-        <View style={{ flexDirection: "row", gap: spacing.md, justifyContent: "space-between" }}>
-          <Button testID={T.personaCreateOwn} label={t("createOwn")} variant="ghost" onPress={goEdit} style={{ flex: 1 }} />
-          <Button testID={T.personaContinue} label={t("continue")} onPress={onContinue} disabled={!selected} style={{ flex: 1 }} />
+              </View>
+            ) : null}
+          </View>
+
+          <View style={{ gap: spacing.md }}>
+            <Button testID={T.personaContinue} label={t("continue")} onPress={onContinue} disabled={!chosen} />
+            <Button testID={T.personaCreateOwn} label={t("createOwn")} variant="ghost" onPress={goEdit} />
+          </View>
         </View>
       </ScrollView>
     </Screen>

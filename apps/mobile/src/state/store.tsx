@@ -1,8 +1,11 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { Platform } from "react-native";
 import { router } from "expo-router";
-import { LOCALES, type Locale, type PlanId, type Post, type ReportReason, t, type StringKey } from "@rpgllm/shared";
-import { api, ApiError, setApiHandlers, type ReportTarget } from "../api/client";
+import { FOLLOWER_MILESTONES, LOCALES, type Locale, type PlanId, type Post, type ReportReason, t, type StringKey } from "@rpgllm/shared";
+import {
+  api, ApiError, setApiHandlers,
+  type Achievement, type AchievementsRes, type Notification, type ReportTarget, type Streak,
+} from "../api/client";
 import { subscribe, type StreamEvent, type Subscription as StreamSub } from "../api/sse";
 import { getAds } from "../adapters/ads";
 import { getBilling } from "../adapters/billing";
@@ -55,7 +58,28 @@ export type AppState = {
   blocked: BlockedCharacter[];
   /** S1-6 analytics consent, seeded from `/v1/me` on every refresh and updated by the toggle. */
   analyticsConsent: boolean;
+
+  /* ---------------- Engagement surfaces (Agent L) ---------------- */
+  /** SCR-042. `notifUnread` drives the tab badge and is the reason people come back. */
+  notifications: Notification[];
+  notifUnread: number;
+  notifCursor: string | null;
+  notifStatus: LoadStatus;
+  /** The daily check-in. `streakShownFor` is the UTC day the card was already shown for. */
+  streak: Streak | null;
+  streakShownFor: string | null;
+  /** SCR-044. */
+  achievements: AchievementsRes | null;
+  achievementsStatus: LoadStatus;
+  /** SCR-045 — the one moment on screen right now, if any. */
+  celebration: Celebration | null;
 };
+
+/** A full-screen celebration (SCR-045). Copy is resolved in the component from i18n. */
+export type Celebration =
+  | { kind: "level"; value: number }
+  | { kind: "milestone"; value: number }
+  | { kind: "achievement"; key: string; icon: string; title: string; value: number };
 
 const initialLocale = (): Locale => {
   try {
@@ -94,6 +118,15 @@ const initialState: AppState = {
   streaming: false,
   blocked: [],
   analyticsConsent: false,
+  notifications: [],
+  notifUnread: 0,
+  notifCursor: null,
+  notifStatus: "idle",
+  streak: null,
+  streakShownFor: null,
+  achievements: null,
+  achievementsStatus: "idle",
+  celebration: null,
 };
 
 export type PostResult =
@@ -141,6 +174,16 @@ export type Actions = {
   exportMyData: () => Promise<{ ok: boolean; json?: string; message?: string }>;
   deleteAccount: () => Promise<{ ok: boolean; message?: string }>;
   restorePurchases: () => Promise<{ ok: boolean; plan: string | null; message?: string }>;
+  /* Engagement surfaces (Agent L) */
+  loadNotifications: () => Promise<void>;
+  loadMoreNotifications: () => Promise<void>;
+  markNotificationsRead: (ids: string[] | null) => Promise<void>;
+  loadStreak: () => Promise<Streak | null>;
+  dismissStreak: () => void;
+  loadAchievements: () => Promise<void>;
+  markAchievementsSeen: (keys: string[]) => Promise<void>;
+  celebrate: (c: Celebration) => void;
+  dismissCelebration: () => void;
 };
 
 const StateCtx = createContext<AppState>(initialState);
@@ -216,8 +259,20 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const refreshMe = useCallback(async (): Promise<Me | null> => {
     try {
+      const before = ref.current.me?.persona ?? null;
       const me = await api.me();
       patch({ me, locale: me.user.locale, needsAgeGate: me.user.birthYear === null, analyticsConsent: me.user.analyticsConsent });
+      // SCR-045 (Agent L): progression the player earned between two reads gets its moment.
+      const after = me.persona;
+      if (before && after) {
+        if (after.level > before.level) {
+          patch({ celebration: { kind: "level", value: after.level } });
+        } else {
+          const crossed = FOLLOWER_MILESTONES.filter((m) => before.followers < m && after.followers >= m);
+          const top = crossed[crossed.length - 1];
+          if (top !== undefined) patch({ celebration: { kind: "milestone", value: top } });
+        }
+      }
       return me;
     } catch (e) {
       if (e instanceof ApiError && e.status === 401) patch({ me: null, token: null });
@@ -664,6 +719,123 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       }
     };
 
+    /* ---------------- Engagement surfaces (Agent L) ---------------- */
+
+    const loadNotifications: Actions["loadNotifications"] = async () => {
+      const personaId = ref.current.me?.persona?.id;
+      if (!personaId) return;
+      patch({ notifStatus: ref.current.notifications.length ? ref.current.notifStatus : "loading" });
+      try {
+        const res = await api.notifications(personaId, null);
+        patch({
+          notifications: res.notifications,
+          notifUnread: res.unread,
+          notifCursor: res.nextCursor,
+          notifStatus: "ready",
+        });
+      } catch {
+        patch({ notifStatus: "error" });
+      }
+    };
+
+    const loadMoreNotifications: Actions["loadMoreNotifications"] = async () => {
+      const personaId = ref.current.me?.persona?.id;
+      const cursor = ref.current.notifCursor;
+      if (!personaId || !cursor) return;
+      try {
+        const res = await api.notifications(personaId, cursor);
+        const seen = new Set(ref.current.notifications.map((n) => n.id));
+        patch((s2) => ({
+          notifications: [...s2.notifications, ...res.notifications.filter((n) => !seen.has(n.id))],
+          notifUnread: res.unread,
+          notifCursor: res.nextCursor,
+        }));
+      } catch {
+        /* keep what we have */
+      }
+    };
+
+    const markNotificationsRead: Actions["markNotificationsRead"] = async (ids) => {
+      const personaId = ref.current.me?.persona?.id;
+      if (!personaId) return;
+      const at = new Date().toISOString();
+      // Optimistic: the badge has to clear on the tap, not on the round trip.
+      patch((s2) => ({
+        notifications: s2.notifications.map((n) =>
+          n.readAt === null && (ids === null || ids.includes(n.id)) ? { ...n, readAt: at } : n,
+        ),
+        notifUnread: ids === null ? 0 : Math.max(0, s2.notifUnread - ids.length),
+      }));
+      try {
+        const res = await api.markNotificationsRead(personaId, ids);
+        patch({ notifUnread: res.unread });
+      } catch {
+        void loadNotifications();
+      }
+    };
+
+    const loadStreak: Actions["loadStreak"] = async () => {
+      if (!ref.current.me) return null;
+      try {
+        const streak = await api.streak();
+        patch({ streak });
+        return streak;
+      } catch {
+        return null;
+      }
+    };
+
+    const dismissStreak: Actions["dismissStreak"] = () => {
+      patch({ streakShownFor: new Date().toISOString().slice(0, 10) });
+    };
+
+    const loadAchievements: Actions["loadAchievements"] = async () => {
+      const personaId = ref.current.me?.persona?.id;
+      if (!personaId) return;
+      patch({ achievementsStatus: ref.current.achievements ? ref.current.achievementsStatus : "loading" });
+      try {
+        const achievements = await api.achievements(personaId);
+        patch({ achievements, achievementsStatus: "ready" });
+        // Anything unlocked but never shown gets its moment, then is marked seen.
+        const next: Achievement | undefined = achievements.pending[0];
+        if (next && !ref.current.celebration) {
+          patch({
+            celebration: {
+              kind: "achievement", key: next.key, icon: next.icon, title: next.title, value: next.value,
+            },
+          });
+          void markAchievementsSeen(achievements.pending.map((a) => a.key));
+        }
+      } catch {
+        patch({ achievementsStatus: "error" });
+      }
+    };
+
+    const markAchievementsSeen: Actions["markAchievementsSeen"] = async (keys) => {
+      const personaId = ref.current.me?.persona?.id;
+      if (!personaId || keys.length === 0) return;
+      const at = new Date().toISOString();
+      patch((s2) => ({
+        achievements: s2.achievements
+          ? {
+            ...s2.achievements,
+            achievements: s2.achievements.achievements.map((a) =>
+              keys.includes(a.key) && a.seenAt === null ? { ...a, seenAt: at } : a,
+            ),
+            pending: s2.achievements.pending.filter((a) => !keys.includes(a.key)),
+          }
+          : s2.achievements,
+      }));
+      try {
+        await api.markAchievementsSeen(personaId, keys);
+      } catch {
+        /* the next read reports them again */
+      }
+    };
+
+    const celebrate: Actions["celebrate"] = (c) => patch({ celebration: c });
+    const dismissCelebration: Actions["dismissCelebration"] = () => patch({ celebration: null });
+
     return {
       setLocale,
       signIn,
@@ -700,6 +872,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       exportMyData,
       deleteAccount,
       restorePurchases,
+      loadNotifications,
+      loadMoreNotifications,
+      markNotificationsRead,
+      loadStreak,
+      dismissStreak,
+      loadAchievements,
+      markAchievementsSeen,
+      celebrate,
+      dismissCelebration,
     };
   }, [clearToast, insertPost, openStatCard, closeStatCard, patch, refreshMe, replacePost, showToast, startStream, stopStream]);
 

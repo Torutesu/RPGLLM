@@ -6,6 +6,7 @@ import { isAway, newestUnseenDigest } from "../services/digest";
 import { logGeneration } from "../services/generation";
 import { normHandle } from "../services/handles";
 import { localized } from "../services/locale";
+import { digestText, dmText, notify } from "../services/notify";
 import { notifyUser } from "../services/push";
 import { computeMetrics, seedFrom } from "../services/rng";
 import {
@@ -206,8 +207,21 @@ async function dmFromFavourite(
     create: { personaId: ctx.persona.id, characterId: character.id, lastMessageAt: now },
     update: { lastMessageAt: now, unreadCount: { increment: 1 } },
   });
-  const message = await deps.prisma.dMMessage.create({
-    data: { threadId: thread.id, fromCharacter: true, text, generationId, createdAt: now },
+  const message = await deps.prisma.$transaction(async (tx) => {
+    const row = await tx.dMMessage.create({
+      data: { threadId: thread.id, fromCharacter: true, text, generationId, createdAt: now },
+    });
+    // Agent L: an unprompted DM is the strongest pull-back there is — it gets a notification row.
+    await notify(tx, {
+      personaId: ctx.persona.id,
+      kind: "dm",
+      actorId: character.id,
+      target: `dm:${thread.id}`,
+      text: dmText(ctx.locale, character.displayName),
+      payload: { threadId: thread.id, proactive: true },
+      createdAt: now,
+    });
+    return row;
   });
   // upsert's `create` branch cannot also bump the counter
   await deps.prisma.dMThread.update({ where: { id: thread.id }, data: { unreadCount: Math.max(1, thread.unreadCount) } });
@@ -233,14 +247,25 @@ export async function generateDigestFor(
   const postIds = await worldPosts(deps, ctx, beat);
   const dmMessageId = await dmFromFavourite(deps, ctx, beat);
 
-  const digest = await deps.prisma.digest.create({
-    data: {
+  const digest = await deps.prisma.$transaction(async (tx) => {
+    const row = await tx.digest.create({
+      data: {
+        personaId: persona.id,
+        headline: beat.headline,
+        body: beat.body,
+        postIds: postIds as unknown as Prisma.InputJsonValue,
+        createdAt: deps.clock.now(),
+      },
+    });
+    await notify(tx, {
       personaId: persona.id,
-      headline: beat.headline,
-      body: beat.body,
-      postIds: postIds as unknown as Prisma.InputJsonValue,
+      kind: "digest",
+      target: `digest:${row.id}`,
+      text: digestText(ctx.locale, beat.headline),
+      payload: { digestId: row.id },
       createdAt: deps.clock.now(),
-    },
+    });
+    return row;
   });
 
   const push = await notifyUser(deps.prisma, user.id, {

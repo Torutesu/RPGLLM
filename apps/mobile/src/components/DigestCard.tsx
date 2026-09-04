@@ -1,9 +1,11 @@
 import React, { useCallback, useEffect, useState } from "react";
-import { Pressable, Text, View } from "react-native";
+import { Text, View } from "react-native";
 import { useFocusEffect } from "expo-router";
-import { T, colors, font, radius, spacing } from "@rpgllm/shared";
+import { T, colors, elevation, gradients, radius, spacing } from "@rpgllm/shared";
 import { api, type Digest } from "../api/client";
 import { useActions, useAppState, useT } from "../state/store";
+import { Button } from "./ui";
+import { FadeSlideIn, Gradient, Icon, typo } from "../ui";
 
 /**
  * SCR-038 — "While you were away" (S2-1 / AIF-001).
@@ -61,43 +63,50 @@ export function DigestCard() {
   if (!digest) return null;
 
   return (
-    <View
-      testID={T.digestCard}
-      accessibilityRole="summary"
-      accessibilityLabel={`${t("whileYouWereAway")}: ${digest.headline}`}
-      style={{
-        margin: spacing.md,
-        padding: spacing.lg,
-        backgroundColor: colors.card,
-        borderWidth: 1,
-        borderColor: colors.accent,
-        borderRadius: radius.md,
-        gap: spacing.sm,
-      }}
-    >
-      <Text style={{ color: colors.accent, fontSize: font.xs, fontWeight: "700" }}>{t("whileYouWereAway")}</Text>
-      <Text testID={T.digestHeadline} style={{ color: colors.text, fontSize: font.md, fontWeight: "700" }}>
-        {digest.headline}
-      </Text>
-      <Text testID={T.digestBody} style={{ color: colors.textMuted, fontSize: font.sm }}>
-        {digest.body}
-      </Text>
-      <Pressable
-        testID={T.digestDismiss}
-        accessibilityRole="button"
-        accessibilityLabel={t("catchUp")}
-        onPress={() => void dismiss()}
-        style={{
-          alignSelf: "flex-start",
-          marginTop: spacing.sm,
-          backgroundColor: colors.accent,
-          borderRadius: radius.pill,
-          paddingVertical: spacing.sm,
-          paddingHorizontal: spacing.lg,
-        }}
+    <FadeSlideIn style={{ marginHorizontal: spacing.lg, marginTop: spacing.md }}>
+      <View
+        testID={T.digestCard}
+        accessibilityRole="summary"
+        accessibilityLabel={`${t("whileYouWereAway")}: ${digest.headline}`}
+        style={[
+          {
+            backgroundColor: colors.card,
+            borderWidth: 1,
+            borderColor: colors.borderHi,
+            borderRadius: radius.lg,
+            overflow: "hidden",
+          },
+          elevation.mid,
+        ]}
       >
-        <Text style={{ color: colors.bg, fontSize: font.sm, fontWeight: "700" }}>{t("catchUp")}</Text>
-      </Pressable>
-    </View>
+        <Gradient colors={gradients.brand} angle={90} pointerEvents="none" style={{ height: 3 }} />
+        <Gradient
+          colors={["rgba(124,92,255,0.16)", "rgba(124,92,255,0)"]}
+          angle={165}
+          pointerEvents="none"
+          style={{ position: "absolute", left: 0, right: 0, top: 0, height: 140 }}
+        />
+        <View style={{ padding: spacing.lg, gap: spacing.sm }}>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: spacing.xs }}>
+            <Icon name="clock" size={13} color={colors.accentHi} />
+            <Text style={[typo.micro, { color: colors.accentHi }]}>{t("whileYouWereAway").toUpperCase()}</Text>
+          </View>
+          <Text testID={T.digestHeadline} style={[typo.h2, { color: colors.text }]}>
+            {digest.headline}
+          </Text>
+          <Text testID={T.digestBody} style={[typo.meta, { color: colors.textDim }]}>
+            {digest.body}
+          </Text>
+          <Button
+            testID={T.digestDismiss}
+            label={t("catchUp")}
+            onPress={() => void dismiss()}
+            icon="sparkle"
+            compact
+            style={{ alignSelf: "flex-start", marginTop: spacing.sm }}
+          />
+        </View>
+      </View>
+    </FadeSlideIn>
   );
 }

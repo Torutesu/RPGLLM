@@ -13,12 +13,16 @@
     "ios": "expo run:ios"
   },
   "dependencies": {
+    "@expo-google-fonts/inter": "^0.4.2",
+    "@expo-google-fonts/space-grotesk": "^0.4.1",
     "@expo/metro-runtime": "~57.0.15",
     "@react-native-async-storage/async-storage": "2.2.0",
     "@rpgllm/shared": "workspace:*",
     "expo": "~57.0.19",
     "expo-constants": "~57.0.17",
     "expo-font": "~57.0.3",
+    "expo-haptics": "~57.0.2",
+    "expo-linear-gradient": "~57.0.1",
     "expo-linking": "~57.0.9",
     "expo-router": "~57.0.18",
     "expo-secure-store": "~57.0.3",

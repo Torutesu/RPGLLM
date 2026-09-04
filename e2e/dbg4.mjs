@@ -1,0 +1,16 @@
+import { chromium } from "playwright";
+const WEB = "http://localhost:8191", API = "http://localhost:4100/v1";
+const j = async r => r.json();
+const post = (p,b,a)=>fetch(API+p,{method:"POST",headers:{"content-type":"application/json",...(a?{authorization:"Bearer "+a}:{})},body:JSON.stringify(b)}).then(j);
+const { data: { jwt } } = await post("/auth/email/verify", { email: `dbg${Date.now()}@test.local`, code: "000000" });
+await post("/auth/age-gate", { birthYear: 1995, locale: "en" }, jwt);
+const b = await chromium.launch({ executablePath: "/opt/pw-browsers/chromium" });
+const page = await b.newPage({ viewport:{width:420,height:900}, deviceScaleFactor:2 });
+page.on("response", async r => { if (r.url().includes(":4100")) console.log("RES", r.status(), r.url()); });
+page.on("requestfailed", r => console.log("FAILED", r.url(), r.failure()?.errorText));
+page.on("console", m => { if(m.type()==="error") console.log("[err]", m.text().slice(0,300)); });
+await page.addInitScript(([k,v])=>localStorage.setItem(k,v), ["rpgllm.jwt", jwt]);
+await page.goto(WEB+"/onboarding/scenario", { waitUntil: "domcontentloaded" });
+await page.waitForTimeout(5000);
+console.log("TEXT:", (await page.innerText("body")).slice(0,200).replace(/\n/g," | "));
+await b.close();

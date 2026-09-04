@@ -8,6 +8,10 @@ import {
   // S2 (Agent H): digest / memory / moments / referral / profile / push.
   DigestResZ, MarkDigestSeenResZ, MemoryLedgerResZ, MomentResZ, MomentListResZ, ReferralResZ,
   RedeemReferralResZ, ProfileResZ, RegisterPushResZ,
+  // Feed & discovery (Agent K): SCR-046 trending / explore, SCR-047 character profile.
+  TrendingResZ, CharacterProfileResZ,
+  // Engagement (Agent L): notifications / streak / achievements.
+  NotificationsResZ, MarkNotificationsReadResZ, StreakResZ, AchievementsResZ,
   type ErrorCode, type Locale, type PlanId, type ReportReason,
 } from "@rpgllm/shared";
 import { API_BASE, g } from "../env";
@@ -237,6 +241,38 @@ export const api = {
   /** SCR-026 — profile. */
   profile: (personaId: string) => request("/profile", { query: { personaId }, schema: ProfileResZ }),
 
+  /* ---------- Engagement surfaces (Agent L) ---------- */
+
+  /** SCR-042 — notifications, newest first, id-cursored. */
+  notifications: (personaId: string, cursor?: string | null) =>
+    request("/notifications", { query: { personaId, cursor }, schema: NotificationsResZ }),
+  /** `ids: null` means "all" — one tap clears the badge. */
+  markNotificationsRead: (personaId: string, ids: string[] | null) =>
+    request("/notifications/read", {
+      method: "POST", body: { ids }, query: { personaId }, schema: MarkNotificationsReadResZ,
+    }),
+
+  /** The daily check-in. Idempotent: `/v1/me` may already have claimed today. */
+  streak: () => request("/streak", { schema: StreakResZ }),
+
+  /** SCR-044 — achievements. */
+  achievements: (personaId: string) =>
+    request("/achievements", { query: { personaId }, schema: AchievementsResZ }),
+  markAchievementsSeen: (personaId: string, keys: string[]) =>
+    request("/achievements/seen", {
+      method: "POST", body: { keys }, query: { personaId },
+      schema: { parse: (u: unknown) => u as { pending: number } },
+    }),
+
+  /* ---------- Feed & discovery (Agent K) ---------- */
+
+  /** SCR-046 — trending topics, rising characters and your rank in the world. */
+  trending: (personaId: string) => request("/trending", { query: { personaId }, schema: TrendingResZ }),
+
+  /** SCR-047 — one character's page. `character` is the handle (with or without "@") or the id. */
+  character: (character: string, personaId?: string) =>
+    request(`/characters/${encodeURIComponent(character)}`, { query: { personaId }, schema: CharacterProfileResZ }),
+
   /** S2-2 — Expo push token. */
   registerPush: (token: string, platform: "ios" | "android" | "web") =>
     request("/push/register", { method: "POST", body: { token, platform }, schema: RegisterPushResZ }),
@@ -248,3 +284,11 @@ export type MemoryLedger = Awaited<ReturnType<typeof api.memory>>;
 export type Moment = Awaited<ReturnType<typeof api.sharedMoment>>["moment"];
 export type Profile = Awaited<ReturnType<typeof api.profile>>;
 export type ReferralInfo = Awaited<ReturnType<typeof api.referral>>;
+export type Trending = Awaited<ReturnType<typeof api.trending>>;
+export type CharacterProfile = Awaited<ReturnType<typeof api.character>>;
+/** Engagement (Agent L). */
+export type NotificationsRes = Awaited<ReturnType<typeof api.notifications>>;
+export type Notification = NotificationsRes["notifications"][number];
+export type Streak = Awaited<ReturnType<typeof api.streak>>;
+export type AchievementsRes = Awaited<ReturnType<typeof api.achievements>>;
+export type Achievement = AchievementsRes["achievements"][number];

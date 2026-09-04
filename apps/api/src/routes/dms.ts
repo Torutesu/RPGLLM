@@ -3,6 +3,7 @@ import { streamSSE } from "hono/streaming";
 import { CreateThreadReqZ, SendDMReqZ, type DMStreamEvent } from "@rpgllm/shared";
 import { requireAuth } from "../auth";
 import { fail, notFound, ok, parseBody } from "../http";
+import { evaluateQuietly } from "../services/achievements";
 import { runDMStream } from "../services/dm-stream";
 import { sameHandle } from "../services/handles";
 import { localized } from "../services/locale";
@@ -98,6 +99,7 @@ export function dmRoutes(): Hono<AppEnv> {
     }
 
     if (gate.verdict === "soften") state.softenedThreads.set(thread.id, true);
+    await evaluateQuietly(deps.prisma, ctx.persona.id, ctx.locale);
     return ok({ message: toApiMessage(message), streamUrl: `/v1/dms/${thread.id}/stream` }, 201);
   });
 
