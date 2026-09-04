@@ -62,7 +62,7 @@ export default function PersonaPicker() {
   };
 
   return (
-    <Screen>
+    <Screen wash={false}>
       <Aurora seed={world?.world.slug ?? "persona"} intensity={0.45} />
       <ScrollView contentContainerStyle={{ padding: spacing.lg, paddingTop: spacing.xxl, paddingBottom: spacing.xxxl, gap: spacing.xl }}>
         <View style={{ width: "100%", maxWidth: MAX_W, alignSelf: "center", gap: spacing.lg }}>

@@ -194,8 +194,8 @@ describe("Agent K — where you rank", () => {
 
 describe("Agent K — cast follower flavour", () => {
   it("is stable per handle and puts the press account on top", () => {
-    expect(castFollowers("gmz", true)).toBe(castFollowers("@GMZ", true));
-    expect(castFollowers("gmz", true)).toBeGreaterThan(castFollowers("gmz", false));
+    expect(castFollowers("thescoop", true)).toBe(castFollowers("@THESCOOP", true));
+    expect(castFollowers("thescoop", true)).toBeGreaterThan(castFollowers("thescoop", false));
     expect(castFollowers("hivequeenbea", false)).toBeGreaterThan(0);
   });
 });

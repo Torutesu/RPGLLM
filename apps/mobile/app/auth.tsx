@@ -113,7 +113,7 @@ export default function AuthScreen() {
   const bandHeight = compactDeck ? 148 : deckHeight;
 
   return (
-    <Screen>
+    <Screen wash={false}>
       <Aurora seed="status-auth" />
       <ScrollView contentContainerStyle={{ flexGrow: 1 }} keyboardShouldPersistTaps="handled">
         <View style={{ flexGrow: 1, width: "100%", maxWidth: 520, alignSelf: "center", paddingBottom: spacing.xl }}>
@@ -304,7 +304,7 @@ function BlockedScreen({ onBack }: { onBack: () => void }) {
   }, [breathe, reduce]);
 
   return (
-    <Screen>
+    <Screen wash={false}>
       <Aurora seed="status-blocked" intensity={0.5} />
       <ScrollView contentContainerStyle={{ flexGrow: 1, justifyContent: "center", padding: spacing.xl, gap: spacing.xl }}>
         <View style={{ width: "100%", maxWidth: 460, alignSelf: "center", gap: spacing.xl }}>

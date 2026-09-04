@@ -51,7 +51,7 @@ function Splash() {
   }, [pulse, reduce]);
 
   return (
-    <Screen>
+    <Screen wash={false}>
       <Animated.View style={{ flex: 1, opacity: enter }}>
         <Aurora seed="status-boot" intensity={0.45} />
         <View style={{ flex: 1, alignItems: "center", justifyContent: "center", gap: spacing.lg }}>

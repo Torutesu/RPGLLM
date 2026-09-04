@@ -217,7 +217,7 @@ function DramaArt({ active }: { active: boolean }) {
     <View style={{ flex: 1, justifyContent: "center", paddingHorizontal: spacing.xl }}>
       <View style={{ backgroundColor: colors.card, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border, padding: spacing.lg, gap: spacing.md }}>
         <View style={{ flexDirection: "row", alignItems: "center", gap: spacing.md }}>
-          <Avatar handle="gmz" size={layout.avatarMd - 8} badge="flame" />
+          <Avatar handle="thescoop" size={layout.avatarMd - 8} badge="flame" />
           <View style={{ gap: spacing.xs, flex: 1 }}>
             <Bar w={104} tone="rgba(255,255,255,0.4)" h={8} />
             <Bar w={66} tone="rgba(255,255,255,0.18)" h={6} />

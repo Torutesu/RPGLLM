@@ -57,7 +57,7 @@ export default function ScenarioPicker() {
   };
 
   return (
-    <Screen>
+    <Screen wash={false}>
       <Aurora seed="pick-your-story" intensity={0.55} />
       <ScrollView contentContainerStyle={{ padding: spacing.lg, paddingTop: spacing.xxl, paddingBottom: spacing.xxxl, gap: spacing.xl }}>
         <View style={{ width: "100%", maxWidth: 560, alignSelf: "center", gap: spacing.xl }}>

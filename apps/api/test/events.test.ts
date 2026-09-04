@@ -10,6 +10,10 @@ beforeEach(async () => { await resetDatabase(); h.gateway.setMode("replay"); h.g
 describe("drama events (E2E-005)", () => {
   it("surfaces an event on the 8th action and applies the chosen deltas", async () => {
     const fx = await signupWithPersona(h);
+    // The press handle differs per world and between the stand-in and the real seeds, so read it
+    // from the database rather than hardcoding a name.
+    const press = await prisma.worldCharacter.findFirstOrThrow({ where: { isPressAccount: true } });
+    const pressHandle = press.handle.replace(/^@/, "");
     await setEnergy(h, fx.token, 40);
 
     let lastEvents: Awaited<ReturnType<typeof readSSE>> = [];
@@ -41,7 +45,9 @@ describe("drama events (E2E-005)", () => {
     expect(chosen.data.snapshot.cause).toBe(`event:${event.id}`);
     expect(chosen.data.snapshot.followersDelta).toBeGreaterThan(0);
     expect(chosen.data.newsPost?.kind).toBe("news");
-    expect(chosen.data.newsPost?.author.handle).toBe("gmz");
+    // The press handle differs per world (and between the stand-in and the real seeds), so assert
+    // the role rather than the name.
+    expect(chosen.data.newsPost?.author.handle).toBe(pressHandle);
 
     const after = await prisma.persona.findUniqueOrThrow({ where: { id: fx.personaId } });
     expect(after.followers).toBeGreaterThan(before.followers);

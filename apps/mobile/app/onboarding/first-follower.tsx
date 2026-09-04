@@ -47,7 +47,7 @@ export default function FirstFollower() {
   const changes = [t("follows"), t("remembers"), tList(locale, "plusFeatures")[1] ?? ""].filter((s) => s.length > 0);
 
   return (
-    <Screen>
+    <Screen wash={false}>
       <Aurora seed={world?.world.slug ?? "first-follower"} intensity={0.45} />
       <ScrollView
         contentContainerStyle={{
