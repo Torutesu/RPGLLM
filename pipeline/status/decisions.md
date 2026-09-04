@@ -11,3 +11,4 @@
 | 2026-09-04 | 2 | 蒸留先に**非 Anthropic 小型モデルを許容**(Phase 3)。MVP はゲートウェイを provider-agnostic に | ユーザー決定 |
 | 2026-09-04 | 2 | 年齢: **13+**、登録時に年齢ゲート、18歳未満は非パーソナライズ広告+ティーン表現フィルタ | Status は App Store 13+/Play Everyone、法的ゲートは未確認。COPPA/EU DSA 準拠のため我々は明示ゲート |
 | 2026-09-04 | 2 | オフライン評価予算は既定 **$300/月** [ASSUMED] | ユーザー未回答のため既定値 |
+| 2026-09-04 | 3 | Stage 3(Build)完了: E2E P0 16/16 緑(Web/Chromium, LLM_MODE=replay)。統合ログは build-notes.md | クロスプラットフォームは Expo 単一コード、live LLM は本番キーで別途検証 |

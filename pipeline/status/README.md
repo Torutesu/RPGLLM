@@ -12,4 +12,10 @@
 | `spec/04-e2e-cases.md` | E2E ケース 20 件(P0 16 件) |
 | `spec/05-ai-features.md` | AI 機能仕様(AIF-006, 009〜015) |
 
-次ステージ: Stage 3(Build)。Expo(iOS/Android/Web)+ Hono/Prisma。
+| `build-plan.md` / `build-notes.md` | Stage 3: 実装計画、各エージェントの記録、統合時の判断 |
+
+## Stage 3 の状態(2026-09-04)
+- `pnpm e2e` → **P0 16/16 passed, P1 4 skipped**(Chromium、`LLM_MODE=replay`)
+- 単体: API 29、LLM 80、typecheck 全パッケージ緑
+- 実行: `scripts/db.sh start` → `pnpm e2e`(API :4000 と Web :8082 を自動起動)
+- 未検証: `LLM_MODE=live`(この環境に API キーなし)、iOS/Android 実機(コードは同一、`expo run:ios|android`)
