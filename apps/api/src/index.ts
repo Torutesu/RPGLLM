@@ -1,50 +1,15 @@
-import { readFileSync } from "node:fs";
-import { dirname, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
 import { serve } from "@hono/node-server";
 import { PrismaClient } from "@prisma/client";
 import { createApp } from "./app";
 import { createClock } from "./clock";
 import { assertProductionConfig } from "./config-guard";
+import { loadEnvFile } from "./env-file";
 import { loadGateway } from "./llm-loader";
 import {
   adsMode, authDevCodeEnabled, billingMode, corsAllowAll, corsOrigins, isProduction, llmMode, nodeEnv,
   port, rateLimitEnabled, shutdownGraceMs, testHooksEnabled,
 } from "./env";
 import { logLine } from "./middleware/request-log";
-
-/**
- * Minimal .env loader: repo-root `.env` first, then `.env.example` for defaults.
- * S0-3: `.env.example` carries development secrets (`JWT_SECRET=dev-secret-change-me`,
- * `AUTH_DEV_CODE=1`, test billing/ads) — in production it is never read. Real environment
- * variables always win over both files.
- */
-function loadEnvFile(): string[] {
-  const here = dirname(fileURLToPath(import.meta.url));
-  const files = isProduction() ? [".env"] : [".env", ".env.example"];
-  const applied: string[] = [];
-  for (const file of files) {
-    const path = resolve(here, "../../..", file);
-    let text: string;
-    try {
-      text = readFileSync(path, "utf8");
-    } catch {
-      continue;
-    }
-    let count = 0;
-    for (const line of text.split("\n")) {
-      const trimmed = line.trim();
-      if (!trimmed || trimmed.startsWith("#")) continue;
-      const eq = trimmed.indexOf("=");
-      if (eq < 0) continue;
-      const key = trimmed.slice(0, eq).trim();
-      const value = trimmed.slice(eq + 1).replace(/\s+#.*$/, "").trim().replace(/^["']|["']$/g, "");
-      if (process.env[key] === undefined) { process.env[key] = value; count += 1; }
-    }
-    applied.push(`${file} (+${count})`);
-  }
-  return applied;
-}
 
 async function main(): Promise<void> {
   const applied = loadEnvFile();

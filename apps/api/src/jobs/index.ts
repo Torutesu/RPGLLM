@@ -13,15 +13,22 @@ export * from "./memory-consolidate";
 export * from "./offline-director";
 
 /**
- * S2 background work. **There is no scheduler in this build** (no cron, no worker, no queue):
- * every job is a plain function that a cron/worker would call, and each one also has an
- * opportunistic trigger on a read so the product works without one:
+ * S2 background work. The **scheduler is `src/worker.ts`** (Agent O) — it runs the whole `JOBS`
+ * table from `@rpgllm/shared` on cron, under a per-job Postgres advisory lock, and `GET /v1/jobs`
+ * shows what it did. What lives in *this* file is the older, narrower path that the E2E suite
+ * drives: three of the jobs called directly, with the extra `force`/`limit` knobs a test needs.
+ * Each of those three also keeps its opportunistic trigger on a read, so the product still works
+ * if nobody deploys the worker:
  *
- *   | job      | function                 | opportunistic trigger        | test hook                          |
- *   |----------|--------------------------|------------------------------|------------------------------------|
- *   | digest   | runOfflineDirector       | GET /v1/digest               | POST /v1/__test/run-job {digest}   |
- *   | memory   | runMemoryConsolidation   | GET /v1/memory/:characterId  | POST /v1/__test/run-job {memory}   |
- *   | ambient  | runAmbientRefill         | —                            | POST /v1/__test/run-job {ambient}  |
+ *   | job      | function                 | opportunistic trigger        | scheduled name      | test hook                          |
+ *   |----------|--------------------------|------------------------------|---------------------|------------------------------------|
+ *   | digest   | runOfflineDirector       | GET /v1/digest               | `offline-director`  | POST /v1/__test/run-job {digest}   |
+ *   | memory   | runMemoryConsolidation   | GET /v1/memory/:characterId  | `memory-consolidate`| POST /v1/__test/run-job {memory}   |
+ *   | ambient  | runAmbientRefill         | —                            | `ambient-refill`    | POST /v1/__test/run-job {ambient}  |
+ *
+ * For everything else (`purge-deleted`, `purge-login-codes`, `bandit-update`) and for the locked,
+ * logged version of these three, use `POST /v1/jobs/run` (`routes/jobs.ts`) or
+ * `pnpm --filter api worker --once=<job>`.
  */
 export const JOB_NAMES = ["digest", "memory", "ambient", "all"] as const;
 export type JobName = (typeof JOB_NAMES)[number];

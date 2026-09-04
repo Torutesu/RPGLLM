@@ -179,12 +179,16 @@ describe("gateway — experiments", () => {
     const a = gw.assignments("user-abc");
     const b = gw.assignments("user-abc");
     expect(a).toEqual(b);
+    // G2/G10/GJ joined the registry with the Batch tier (§5.4 / §6.2, Agent N).
     expect(Object.keys(a).sort()).toEqual([
       "g1",
+      "g10",
+      "g2",
       "g4",
       "g5",
       "g7",
       "g8",
+      "gj",
       "paywall_adfree",
       "paywall_trial",
     ]);
@@ -210,10 +214,13 @@ describe("gateway — experiments", () => {
   it("exposes the champion map", () => {
     expect(createGateway().champion()).toEqual({
       G1: "g1-sonnet-v1",
+      G2: "g2-haiku-v1",
       G4: "g4-sonnet-v1",
       G5: "g5-opus-v1",
       G7: "g7-haiku-v1",
       G8: "g8-haiku-v1",
+      G10: "g10-sonnet-v1",
+      GJ: "gj-opus-v1",
     });
   });
 });

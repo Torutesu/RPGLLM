@@ -1,16 +1,20 @@
-import type { PrismaClient } from "@prisma/client";
+import type { PrismaClient, User } from "@prisma/client";
 import { STREAK_LADDER, rewardForStreakDay } from "@rpgllm/shared";
 import type { Clock } from "../clock";
+import type { Tx } from "../types";
 import { ensureWallet } from "./wallet";
 
 /**
  * Daily streak + check-in.
  *
- * There is no `User.streakDays` column and `prisma/schema.prisma` is frozen for this pass, so the
- * streak is **derived from the ledger it pays into**: every check-in writes an energy `LedgerEntry`
- * whose ref encodes the whole state — `streak:<YYYY-MM-DD>:<day>:<best>`. One `findFirst` on the
- * newest such row is the entire read, the payout and the history can never disagree, and the wallet
- * screen already shows the entries. Recorded as a deviation in build-notes "## Agent L".
+ * The streak lives on **`User.streakDays` / `streakBestDays` / `streakLastAt`** (Agent O). Agent L
+ * originally derived it from the `LedgerEntry` row each check-in writes, because the columns had
+ * not landed; that made the streak only as durable as the ledger (a retention policy pruning
+ * `LedgerEntry` would silently reset everyone) — see build-notes "Orchestrator — streak storage".
+ *
+ * The ledger is still written on every payout: it stays the **payment record** (and the wallet
+ * screen renders it), with the same `ref = "streak:<YYYY-MM-DD>:<day>:<best>"` shape, which is also
+ * what `migrateLegacyStreak()` reads once per account to carry a pre-columns streak across.
  */
 const PREFIX = "streak:";
 const utcDay = (d: Date): string => d.toISOString().slice(0, 10);
@@ -40,28 +44,64 @@ export interface StreakState {
   ladder: StreakLadderRow[];
 }
 
-interface Parsed { date: string; day: number; best: number }
-
-function parseRef(ref: string | null): Parsed | null {
-  if (!ref || !ref.startsWith(PREFIX)) return null;
-  const [date, day, best] = ref.slice(PREFIX.length).split(":");
-  if (!date) return null;
-  const d = Number(day);
-  const b = Number(best);
-  return { date, day: Number.isFinite(d) && d > 0 ? d : 1, best: Number.isFinite(b) && b > 0 ? b : 1 };
-}
+/** What the columns say, normalised: `day` is the UTC date of the last check-in. */
+interface Columns { date: string | null; days: number; best: number; lastAt: Date | null }
 
 const ladderFor = (days: number): StreakLadderRow[] =>
   STREAK_LADDER.map((row) => ({ ...row, reached: row.day <= Math.min(days, STREAK_LADDER.length) }));
 
-async function latestFor(prisma: PrismaClient, walletId: string): Promise<Parsed | null> {
+function parseRef(ref: string | null | undefined): { date: string; days: number; best: number } | null {
+  if (!ref?.startsWith(PREFIX)) return null;
+  const [date, day, best] = ref.slice(PREFIX.length).split(":");
+  if (!date) return null;
+  const d = Number(day);
+  const b = Number(best);
+  return { date, days: Number.isFinite(d) && d > 0 ? d : 1, best: Number.isFinite(b) && b > 0 ? b : 1 };
+}
+
+/**
+ * Opportunistic migration: an account that checked in before the columns existed has
+ * `streakLastAt = null` but a `streak:` ledger row. Read it once, write the columns, and the
+ * account keeps its days. Runs at most once per account (afterwards `streakLastAt` is set), and is
+ * a no-op for everyone who has never checked in.
+ */
+export async function migrateLegacyStreak(
+  prisma: PrismaClient,
+  user: Pick<User, "id" | "streakDays" | "streakBestDays" | "streakLastAt">,
+  walletId: string,
+): Promise<Columns> {
+  if (user.streakLastAt) {
+    return { date: utcDay(user.streakLastAt), days: user.streakDays, best: user.streakBestDays, lastAt: user.streakLastAt };
+  }
   const row = await prisma.ledgerEntry.findFirst({
     where: { walletId, currency: "energy", source: "daily_refill", ref: { startsWith: PREFIX } },
     orderBy: { createdAt: "desc" },
-    select: { ref: true },
+    select: { ref: true, createdAt: true },
   });
-  return parseRef(row?.ref ?? null);
+  const legacy = parseRef(row?.ref);
+  if (!legacy || !row) return { date: null, days: 0, best: user.streakBestDays, lastAt: null };
+
+  // Prefer the ledger row's own timestamp when it agrees with the encoded date (it carries the
+  // clock the check-in ran on, time travel included); otherwise pin to that date's midnight.
+  const lastAt = utcDay(row.createdAt) === legacy.date ? row.createdAt : new Date(`${legacy.date}T00:00:00.000Z`);
+  const best = Math.max(legacy.best, legacy.days, user.streakBestDays);
+  await prisma.user.updateMany({
+    where: { id: user.id, streakLastAt: null },
+    data: { streakDays: legacy.days, streakBestDays: best, streakLastAt: lastAt },
+  });
+  return { date: legacy.date, days: legacy.days, best, lastAt };
 }
+
+async function loadColumns(prisma: PrismaClient, userId: string, walletId: string): Promise<Columns> {
+  const user = await prisma.user.findUniqueOrThrow({
+    where: { id: userId },
+    select: { id: true, streakDays: true, streakBestDays: true, streakLastAt: true },
+  });
+  return await migrateLegacyStreak(prisma, user, walletId);
+}
+
+const stateFor = (days: number, best: number, claimedToday: boolean, reward: StreakState["reward"]): StreakState =>
+  ({ days, best, claimedToday, reward, ladder: ladderFor(days) });
 
 /**
  * Advance the streak for today and pay the ladder. Idempotent per UTC day: a second call the same
@@ -71,20 +111,12 @@ export async function checkIn(prisma: PrismaClient, clock: Clock, userId: string
   const { wallet, dailyMax } = await ensureWallet(prisma, clock, userId);
   const now = clock.now();
   const today = utcDay(now);
-  const latest = await latestFor(prisma, wallet.id);
+  const current = await loadColumns(prisma, userId, wallet.id);
 
-  if (latest && latest.date === today) {
-    return {
-      days: latest.day,
-      best: latest.best,
-      claimedToday: true,
-      reward: rewardForStreakDay(latest.day),
-      ladder: ladderFor(latest.day),
-    };
-  }
+  if (current.date === today) return stateFor(current.days, current.best, true, rewardForStreakDay(current.days));
 
-  const days = latest && latest.date === dayBefore(today) ? latest.day + 1 : 1;
-  const best = Math.max(days, latest?.best ?? 0);
+  const days = current.date === dayBefore(today) ? current.days + 1 : 1;
+  const best = Math.max(days, current.best);
   const reward = rewardForStreakDay(days);
   const ref = `${PREFIX}${today}:${days}:${best}`;
 
@@ -93,10 +125,14 @@ export async function checkIn(prisma: PrismaClient, clock: Clock, userId: string
   // gets the coffee and gems and no free headroom. Coffee and gems have no ceiling.
   const energyGrant = Math.max(0, Math.min(reward.energy, dailyMax - wallet.energy));
 
-  await prisma.$transaction(async (tx) => {
-    // Re-check inside the transaction: two tabs opening at once must not pay twice.
-    const again = await tx.ledgerEntry.findFirst({ where: { walletId: wallet.id, ref }, select: { id: true } });
-    if (again) return;
+  const paid = await prisma.$transaction(async (tx) => {
+    // Claim the day with a conditional update: two tabs opening at once, or the `/v1/me` check-in
+    // racing `GET /v1/streak`, and only one of them moves `streakLastAt` off its previous value.
+    const claim = await tx.user.updateMany({
+      where: { id: userId, streakLastAt: current.lastAt },
+      data: { streakDays: days, streakBestDays: best, streakLastAt: now },
+    });
+    if (claim.count === 0) return false;
     await tx.wallet.update({
       where: { id: wallet.id },
       data: {
@@ -105,34 +141,54 @@ export async function checkIn(prisma: PrismaClient, clock: Clock, userId: string
         gems: { increment: reward.gems },
       },
     });
-    const rows = [
-      // The energy row is always written even at +0: it is the streak's own state record.
-      { currency: "energy" as const, delta: energyGrant, always: true },
-      { currency: "coffee" as const, delta: reward.coffee, always: false },
-      { currency: "gems" as const, delta: reward.gems, always: false },
-    ].filter((r) => r.always || r.delta > 0);
-    for (const r of rows) {
-      await tx.ledgerEntry.create({
-        data: { walletId: wallet.id, currency: r.currency, delta: r.delta, source: "daily_refill", ref, createdAt: now },
-      });
-    }
+    await writeLedger(tx, wallet.id, ref, now, { energy: energyGrant, coffee: reward.coffee, gems: reward.gems });
+    return true;
   });
 
-  return { days, best, claimedToday: false, reward, ladder: ladderFor(days) };
+  if (!paid) {
+    // The other caller won the day; report what it wrote.
+    const after = await loadColumns(prisma, userId, wallet.id);
+    return stateFor(after.days, after.best, true, rewardForStreakDay(after.days));
+  }
+  return stateFor(days, best, false, reward);
+}
+
+/** The payment record. The energy row is written even at +0: it is the receipt for the day. */
+async function writeLedger(
+  tx: Tx,
+  walletId: string,
+  ref: string,
+  now: Date,
+  amounts: { energy: number; coffee: number; gems: number },
+): Promise<void> {
+  const rows = [
+    { currency: "energy" as const, delta: amounts.energy, always: true },
+    { currency: "coffee" as const, delta: amounts.coffee, always: false },
+    { currency: "gems" as const, delta: amounts.gems, always: false },
+  ].filter((r) => r.always || r.delta > 0);
+  for (const r of rows) {
+    await tx.ledgerEntry.create({
+      data: { walletId, currency: r.currency, delta: r.delta, source: "daily_refill", ref, createdAt: now },
+    });
+  }
 }
 
 /** Read-only view (no payout), for anything that must not mutate the wallet. */
-export async function readStreak(prisma: PrismaClient, clock: Clock, walletId: string): Promise<StreakState> {
-  const latest = await latestFor(prisma, walletId);
+export async function readStreak(prisma: PrismaClient, clock: Clock, userId: string): Promise<StreakState> {
+  const user = await prisma.user.findUniqueOrThrow({
+    where: { id: userId },
+    select: { streakDays: true, streakBestDays: true, streakLastAt: true },
+  });
   const today = utcDay(clock.now());
-  if (!latest) return { days: 0, best: 0, claimedToday: false, reward: null, ladder: ladderFor(0) };
-  const alive = latest.date === today || latest.date === dayBefore(today);
-  const days = alive ? latest.day : 0;
-  return {
-    days,
-    best: latest.best,
-    claimedToday: latest.date === today,
-    reward: latest.date === today ? rewardForStreakDay(latest.day) : null,
-    ladder: ladderFor(days),
-  };
+  if (!user.streakLastAt) return stateFor(0, user.streakBestDays, false, null);
+  const date = utcDay(user.streakLastAt);
+  // A streak stays "alive" through the day after its last check-in — that is the day you can
+  // still extend it. Older than that and the ladder is back to zero.
+  const alive = date === today || date === dayBefore(today);
+  return stateFor(
+    alive ? user.streakDays : 0,
+    user.streakBestDays,
+    date === today,
+    date === today ? rewardForStreakDay(user.streakDays) : null,
+  );
 }

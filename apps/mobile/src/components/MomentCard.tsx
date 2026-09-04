@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { Share, Text, View } from "react-native";
 import { T, colors, compactNumber, elevation, gradients, layout, radius, spacing } from "@rpgllm/shared";
 import type { Moment } from "../api/client";
-import { IS_WEB } from "../env";
+import { IS_WEB, APP_ORIGIN } from "../env";
 import { useT } from "../state/store";
 import { Avatar } from "./Avatar";
 import { Button, Wordmark } from "./ui";
@@ -55,6 +55,9 @@ const signed = (n: number): string => (n > 0 ? `+${n}` : String(n));
 
 export function shareUrlFor(slug: string): string {
   if (IS_WEB && typeof window !== "undefined" && window.location) return `${window.location.origin}/moment/${slug}`;
+  // Agent P: a bare path is not shareable off the device. `EXPO_PUBLIC_APP_URL` (mirrors the API's
+  // PUBLIC_APP_URL) is what makes a shared moment openable by the person who receives it.
+  if (APP_ORIGIN) return `${APP_ORIGIN}/moment/${slug}`;
   return `/moment/${slug}`;
 }
 

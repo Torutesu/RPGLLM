@@ -8,7 +8,8 @@ import {
 } from "../api/client";
 import { subscribe, type StreamEvent, type Subscription as StreamSub } from "../api/sse";
 import { getAds } from "../adapters/ads";
-import { getBilling } from "../adapters/billing";
+import { getBilling, isPurchaseCancelled } from "../adapters/billing";
+import { pushAfterFirstPost } from "../push";
 import { loadToken, saveToken } from "../auth/token";
 import type { GameEvent, Me, StatSnapshot, WorldDetail, WorldSummary } from "../api/types";
 
@@ -160,7 +161,8 @@ export type Actions = {
   closeStatCard: () => void;
   watchAd: () => Promise<{ ok: boolean; message?: string }>;
   useCoffee: () => Promise<{ ok: boolean; message?: string }>;
-  purchase: (plan: PlanId) => Promise<{ ok: boolean; message?: string }>;
+  /** `cancelled` distinguishes "the user closed the store sheet" from a real failure (Agent P). */
+  purchase: (plan: PlanId) => Promise<{ ok: boolean; cancelled?: boolean; message?: string }>;
   showToast: (kind: ToastKind, text: string) => void;
   clearToast: (kind?: ToastKind) => void;
   /* S1 store compliance (Agent G) */
@@ -262,6 +264,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       const before = ref.current.me?.persona ?? null;
       const me = await api.me();
       patch({ me, locale: me.user.locale, needsAgeGate: me.user.birthYear === null, analyticsConsent: me.user.analyticsConsent });
+      // Agent P: the store must know who is buying — the app-user id is the account id, which is
+      // what the RevenueCat webhook and POST /v1/billing/restore match on server-side.
+      void getBilling().identify(me.user.id).catch(() => undefined);
       // SCR-045 (Agent L): progression the player earned between two reads gets its moment.
       const after = me.persona;
       if (before && after) {
@@ -432,6 +437,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     };
 
     const signOut = async () => {
+      // Agent P: the store SDK keeps its own session — a shared device must not keep the old one.
+      await getBilling().identify(null).catch(() => undefined);
       await saveToken(null);
       patch({ ...initialState, booted: true, locale: ref.current.locale });
     };
@@ -532,6 +539,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         }));
         startStream(res.streamUrl, res.post.id);
         void refreshMe();
+        // Agent P: the app has now done something worth a notification — this is where the push
+        // permission prompt is unlocked (asking on launch is what gets an app permanently denied).
+        pushAfterFirstPost();
         return { status: "ok", post: res.post };
       } catch (e) {
         if (e instanceof ApiError && e.isEnergy) {
@@ -601,6 +611,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         await refreshMe();
         return { ok: true };
       } catch (e) {
+        // Agent P: backing out of the store sheet is not a failure — the paywall must not shout.
+        if (isPurchaseCancelled(e)) return { ok: false, cancelled: true };
         return { ok: false, message: e instanceof Error ? e.message : "purchase failed" };
       }
     };

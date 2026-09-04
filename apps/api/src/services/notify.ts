@@ -1,6 +1,7 @@
 import type { NotificationKind, Prisma, PrismaClient } from "@prisma/client";
 import { FOLLOWER_MILESTONES, compactNumber, t } from "@rpgllm/shared";
 import type { LocaleKey } from "./locale";
+import { pushClient, pushEnabled, pushForNotification } from "./push";
 import type { Tx } from "../types";
 
 /**
@@ -36,6 +37,25 @@ export async function notify(tx: Tx | PrismaClient, input: NotifyInput): Promise
       ...(input.createdAt ? { createdAt: input.createdAt } : {}),
     },
   });
+  /**
+   * Agent P: the same row is what a push says. Nothing happens while `PUSH_ENABLED != 1` — the flag
+   * is checked before anything is scheduled — and `pushForNotification` filters to the kinds worth
+   * waking a phone for. It uses the *base* client registered by `createApp`, never `tx`, and is
+   * deliberately not awaited: `notify()` runs inside the transaction of the thing that caused it,
+   * and a network round trip must not hold that open. A rolled-back transaction can therefore, in
+   * the worst case, cost one push — never a lost one.
+   */
+  const client = pushClient();
+  if (pushEnabled() && client) {
+    void pushForNotification(client, {
+      personaId: input.personaId,
+      kind: input.kind,
+      text: input.text,
+      target: input.target ?? null,
+    }).catch(() => {
+      /* a phone that cannot be reached must never fail the action that caused the notification */
+    });
+  }
 }
 
 /**

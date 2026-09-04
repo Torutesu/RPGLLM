@@ -9,7 +9,10 @@ import { achievementRoutes } from "./routes/achievements";
 import { authRoutes } from "./routes/auth";
 import { billingRoutes } from "./routes/billing";
 import { costRoutes } from "./routes/cost";
+import { banditRoutes } from "./routes/bandit";
+import { evalRoutes } from "./routes/evals";
 import { jobRoutes } from "./jobs";
+import { jobsRoutes } from "./routes/jobs";
 import { digestRoutes } from "./routes/digest";
 import { dmRoutes } from "./routes/dms";
 import { memoryRoutes } from "./routes/memory";
@@ -34,6 +37,7 @@ import { streakRoutes } from "./routes/streak";
 import { testHookRoutes } from "./routes/test-hooks";
 import { walletRoutes } from "./routes/wallet";
 import { worldRoutes } from "./routes/worlds";
+import { setPushClient } from "./services/push";
 import type { AppEnv, AppState, Deps } from "./types";
 
 /**
@@ -45,10 +49,11 @@ export function createApp(deps: Deps): Hono<AppEnv> {
     softenedPosts: new Map(),
     softenedThreads: new Map(),
     personaIdempotency: new Map(),
-    emailCodes: new Map(),
   };
   /** Rate-limit buckets live for the lifetime of one app instance (see middleware/rate-limit.ts). */
   const buckets: RateLimitStore = new Map();
+  // Agent P: the base client `services/notify.ts` pushes with (never a transaction handle).
+  setPushClient(deps.prisma);
 
   const app = new Hono<AppEnv>();
   app.use("*", requestLog);
@@ -88,6 +93,11 @@ export function createApp(deps: Deps): Hono<AppEnv> {
   v1.route("/generations", generationRoutes());
   v1.route("/experiments", experimentRoutes());
   v1.route("/cost", costRoutes());
+  // Agent N (cost engine): §6.3 bandit state + §6.2 offline eval gate. Same admin gate as /cost.
+  v1.route("/bandit", banditRoutes());
+  v1.route("/evals", evalRoutes());
+  // Agent O: the scheduler's read API + manual triggers (same admin gate as /v1/cost).
+  v1.route("/jobs", jobsRoutes());
   // Agent G (S1): account deletion/export/consent and report/block.
   v1.route("/account", accountRoutes());
   v1.route("/moderation", moderationRoutes());

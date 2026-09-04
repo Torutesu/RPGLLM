@@ -24,3 +24,20 @@ export function adsMode(): string {
 }
 
 export const BILLING_MODE = process.env.EXPO_PUBLIC_BILLING_MODE ?? "test";
+
+/**
+ * RevenueCat *public* SDK keys (safe to ship in a client bundle — the secret key lives on the API).
+ * Empty here: they are provided at build time by EAS, see `docs/billing.md`.
+ */
+export const RC_IOS_KEY = process.env.EXPO_PUBLIC_RC_IOS_KEY ?? "";
+export const RC_ANDROID_KEY = process.env.EXPO_PUBLIC_RC_ANDROID_KEY ?? "";
+
+/** Expo project id — `getExpoPushTokenAsync` needs it in a bare/EAS build. See `docs/push.md`. */
+export const EXPO_PROJECT_ID = process.env.EXPO_PUBLIC_EXPO_PROJECT_ID ?? "";
+
+/**
+ * Public origin of the web app, used to build share links. On web the page's own origin is always
+ * right; on a device there is no origin, so `EXPO_PUBLIC_APP_URL` is the only way a shared link can
+ * point at anything real. Keep it in step with the API's `PUBLIC_APP_URL`.
+ */
+export const APP_ORIGIN = (process.env.EXPO_PUBLIC_APP_URL ?? "").replace(/\/+$/, "");

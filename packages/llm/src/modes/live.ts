@@ -84,6 +84,11 @@ function client(): Anthropic {
   return cachedClient;
 }
 
+/** The same (injectable) client the batch path uses — one place constructs `new Anthropic()`. */
+export function anthropicClient(): Anthropic {
+  return client();
+}
+
 /** Test seam: inject a stub client (the real one throws without ANTHROPIC_API_KEY). */
 export function __setClient(c: Anthropic | null): void {
   cachedClient = c;

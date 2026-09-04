@@ -1,17 +1,26 @@
 import { defineConfig } from "vitest/config";
+import { resolveTestDatabase } from "./test-database";
 
-const testDbUrl = process.env.TEST_DATABASE_URL ?? "postgresql://postgres@127.0.0.1:5432/rpgllm_test";
+/**
+ * Each run owns its database (`rpgllm_test_v<pid>` by default), created and migrated in
+ * `vitest.global-setup.ts` and dropped afterwards — two suites running at once no longer truncate
+ * each other. `TEST_DATABASE_URL=…` opts out and uses your own database untouched;
+ * `TEST_DB_SUFFIX=<name>` picks a stable private name; `TEST_DB_KEEP=1` keeps it for a post-mortem.
+ * The recipe is written up in `docs/testing.md`.
+ */
+const db = resolveTestDatabase();
 
 export default defineConfig({
   test: {
     // One DB, one schema: never run API test files in parallel.
     fileParallelism: false,
     include: ["test/**/*.test.ts"],
+    globalSetup: ["./vitest.global-setup.ts"],
     hookTimeout: 60_000,
     testTimeout: 60_000,
     env: {
-      DATABASE_URL: testDbUrl,
-      TEST_DATABASE_URL: testDbUrl,
+      DATABASE_URL: db.url,
+      TEST_DATABASE_URL: db.url,
       JWT_SECRET: "test-secret",
       TEST_HOOKS: "1",
       BILLING_MODE: "test",

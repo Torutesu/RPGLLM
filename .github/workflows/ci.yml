@@ -44,7 +44,7 @@ jobs:
         env:
           POSTGRES_USER: postgres
           POSTGRES_HOST_AUTH_METHOD: trust
-          POSTGRES_DB: rpgllm_test
+          POSTGRES_DB: postgres
         ports: ["5432:5432"]
         options: >-
           --health-cmd="pg_isready -U postgres"
@@ -52,8 +52,11 @@ jobs:
           --health-timeout=5s
           --health-retries=20
     env:
-      DATABASE_URL: postgresql://postgres@127.0.0.1:5432/rpgllm_test
-      TEST_DATABASE_URL: postgresql://postgres@127.0.0.1:5432/rpgllm_test
+      # No DATABASE_URL / TEST_DATABASE_URL on purpose: `apps/api/vitest.config.ts` gives the run
+      # its own database (rpgllm_test_<suffix>), creates and migrates it in the global setup and
+      # drops it afterwards — so two jobs on one server cannot truncate each other (docs/testing.md).
+      TEST_DB_SUFFIX: ci_${{ github.run_id }}
+      TEST_DATABASE_BASE_URL: postgresql://postgres@127.0.0.1:5432
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -69,9 +72,20 @@ jobs:
       - name: shared tests (if present)
         run: pnpm --filter @rpgllm/shared --if-present test
       - run: pnpm --filter @rpgllm/llm test
-      - name: migrate the test database
-        run: pnpm --filter api exec prisma migrate deploy
+      # The suite creates + migrates + drops its own database; nothing to prepare here.
       - run: pnpm --filter api test
+
+      # The scheduler has to boot, run every job once against a real database, and exit 0.
+      - name: worker smoke test
+        env:
+          DATABASE_URL: postgresql://postgres@127.0.0.1:5432/rpgllm_worker_${{ github.run_id }}
+          JWT_SECRET: ci-secret-not-used-for-anything-real
+          LLM_MODE: replay
+        run: |
+          psql "postgresql://postgres@127.0.0.1:5432/postgres" -c "CREATE DATABASE rpgllm_worker_${{ github.run_id }}"
+          pnpm --filter api exec prisma migrate deploy
+          pnpm --filter api worker --once
+          psql "postgresql://postgres@127.0.0.1:5432/postgres" -c "DROP DATABASE rpgllm_worker_${{ github.run_id }} WITH (FORCE)"
 
   e2e:
     name: playwright e2e
@@ -83,7 +97,7 @@ jobs:
         env:
           POSTGRES_USER: postgres
           POSTGRES_HOST_AUTH_METHOD: trust
-          POSTGRES_DB: rpgllm_test
+          POSTGRES_DB: postgres
         ports: ["5432:5432"]
         options: >-
           --health-cmd="pg_isready -U postgres"
@@ -91,8 +105,10 @@ jobs:
           --health-timeout=5s
           --health-retries=20
     env:
-      E2E_DATABASE_URL: postgresql://postgres@127.0.0.1:5432/rpgllm_test
-      DATABASE_URL: postgresql://postgres@127.0.0.1:5432/rpgllm_test
+      # As above: the harness owns its database (created before the API webServer starts, dropped in
+      # the global teardown). See e2e/scripts/db.mjs and docs/testing.md.
+      E2E_DB_SUFFIX: ci_${{ github.run_id }}
+      E2E_DATABASE_BASE_URL: postgresql://postgres@127.0.0.1:5432
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4

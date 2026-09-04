@@ -27,7 +27,7 @@ export function meRoutes(): Hono<AppEnv> {
         birthYear: user.birthYear > 0 ? user.birthYear : null,
         email: user.email, analyticsConsent: user.analyticsConsent,
       },
-      wallet: toApiWallet(wallet, { dailyMax, adsEnabled: !adFreeFor(subscription), adPersonalized: !user.isMinor }),
+      wallet: toApiWallet(wallet, { dailyMax, adsEnabled: !adFreeFor(subscription, deps.clock.now()), adPersonalized: !user.isMinor }),
       subscription: toApiSubscription(subscription),
       persona: persona ? toApiPersona(persona, persona.world.slug) : null,
       // Additive: `MeResZ` strips it on the client, which reads `GET /v1/streak` instead.

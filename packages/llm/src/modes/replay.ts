@@ -16,6 +16,9 @@ import { classifyOffline } from "../generators/g8.js";
 import { foldNotes } from "../generators/g7.js";
 import { presetToOutput } from "../generators/g5.js";
 import { g1, replyCandidates } from "../generators/g1.js";
+import { ambientPoolFor, g2, type G2Input, type G2Output } from "../generators/g2.js";
+import { g10, type G10Input, type G10Output } from "../generators/g10.js";
+import { scoreCandidateOffline, type GJInput, type GJOutput } from "../generators/gj.js";
 import { clamp } from "../prompts/render.js";
 import { pick } from "../tokens.js";
 import { worldSeed } from "../worlds/index.js";
@@ -254,4 +257,78 @@ export function replayG7(input: G7Input): G7Output {
 
 export function replayG8(input: G8Input): G8Output {
   return classifyOffline(input);
+}
+
+/* ------------------------------------------------- batch-tier generators (§5.4) ---- */
+
+/**
+ * G2 — ambient chatter. Draws from the world seed's own `ambientPool`, deterministically ordered
+ * by `seed`, skipping anything already in the pool (`avoid`) so a refill never duplicates a row.
+ */
+export function replayG2(input: G2Input): G2Output {
+  const pool = ambientPoolFor(input.worldSlug, input.locale);
+  if (pool.length === 0) return g2.fallback(input);
+  const known = new Set(input.cast.map((c) => c.handle));
+  const avoid = new Set(input.avoid.map((t) => t.trim()));
+  const start = pick(pool.length, input.seed, input.worldSlug, input.locale, "g2");
+
+  const posts: G2Output["posts"] = [];
+  const used = new Set<string>();
+  for (let step = 0; step < pool.length && posts.length < input.n; step += 1) {
+    const item = pool[(start + step * 3 + 1) % pool.length];
+    if (item === undefined) continue;
+    const text = clamp(item.text, 280);
+    if (text.length === 0 || avoid.has(text) || used.has(text)) continue;
+    if (known.size > 0 && !known.has(item.handle)) continue;
+    used.add(text);
+    posts.push({ characterHandle: item.handle, text });
+  }
+  return posts.length === 0 ? g2.fallback(input) : { posts };
+}
+
+/**
+ * G10 — offline director. Posts come from the world's ambient pool (so they are in-world and
+ * in-voice), the DM from the strongest relationship's fixture bubbles, the digest from the world's
+ * narrative pool. Deterministic in (worldSlug, locale, seed, hoursAway).
+ */
+export function replayG10(input: G10Input): G10Output {
+  const fixture = worldFixture(input.worldSlug);
+  const pool = ambientPoolFor(input.worldSlug, input.locale);
+  if (fixture === undefined || pool.length === 0) return g10.fallback(input);
+
+  const known = new Set(input.cast.map((c) => c.handle));
+  const count = Math.max(3, Math.min(5, 3 + (input.hoursAway >= 24 ? 1 : 0) + (input.hoursAway >= 72 ? 1 : 0)));
+  const start = pick(pool.length, input.seed, "g10", input.hoursAway);
+  const posts: G10Output["posts"] = [];
+  const used = new Set<string>();
+  for (let step = 0; step < pool.length && posts.length < count; step += 1) {
+    const item = pool[(start + step * 5 + 2) % pool.length];
+    if (item === undefined) continue;
+    if (known.size > 0 && !known.has(item.handle)) continue;
+    const text = clamp(item.text, 280);
+    if (text.length === 0 || used.has(text)) continue;
+    used.add(text);
+    posts.push({ characterHandle: item.handle, text });
+  }
+  if (posts.length === 0) return g10.fallback(input);
+
+  const closest = [...input.relationships].sort((a, b) => b.affinity - a.affinity || a.handle.localeCompare(b.handle))[0];
+  const dmSets = closest === undefined ? [] : (characterFixture(input.worldSlug, closest.handle)?.dm[input.locale] ?? []);
+  const dmSet = dmSets[pick(Math.max(dmSets.length, 1), input.seed, "g10dm", closest?.handle ?? "")] ?? [];
+  const bubbles = dmSet.map((b) => clamp(b, 160)).filter((b) => b.length > 0).slice(0, 3);
+  const dm =
+    closest !== undefined && bubbles.length > 0 ? { characterHandle: closest.handle, bubbles } : null;
+
+  const narratives = fixture.narratives[input.locale];
+  const digest = narratives
+    .filter((_, i) => i % 2 === pick(2, input.seed, "g10digest"))
+    .slice(0, 2)
+    .join(" ");
+
+  return { posts, dm, digest: clamp(digest.length > 0 ? digest : (narratives[0] ?? ""), 400) };
+}
+
+/** GJ — the judge. In replay this is the deterministic heuristic scorer, not a model. */
+export function replayGJ(input: GJInput): GJOutput {
+  return scoreCandidateOffline(input);
 }

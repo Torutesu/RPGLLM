@@ -1637,3 +1637,463 @@ with `POST /v1/__test/reset → 500` until Prisma reconnects. Reset/migrate/seed
 API, then run with `E2E_SKIP_DB=1` for a deterministic run. Also: `expo export` **must** be given
 `--clear`, or `EXPO_PUBLIC_API_URL` is served from the stale Metro cache and the bundle silently
 talks to the previous port.
+
+## Agent P — monetization & notifications (RevenueCat, push) — 2026-09-04
+
+The app could not take money (RevenueCat was a stub, the webhook a `TODO(P1)` 200) and could not
+reach anyone (push had an interface and no transport). Both are now real, both are documented for
+the human who has to click through App Store Connect / Play / RevenueCat / Firebase:
+**`docs/billing.md`** and **`docs/push.md`** are part of the deliverable, not decoration.
+
+### API surface
+
+| endpoint | what changed |
+|---|---|
+| `POST /v1/billing/webhook` | was a 200 stub. Now: HMAC/shared-secret verification → parse → apply idempotently. 401 on a bad or missing signature, 400 on an unparseable body, **200 for everything else** (a non-2xx makes RevenueCat retry an event that can never apply) |
+| `POST /v1/billing/restore` | was a stub reading the local row. Now calls `GET /v1/subscribers/{id}` on the RevenueCat REST API and reconciles; without `REVENUECAT_SECRET_KEY` it returns the local row with `source:"local"` and a `note`, and never pretends it checked |
+| `POST /v1/billing/dev-purchase` | **unchanged** — E2E-008 depends on it byte for byte |
+| `GET /v1/billing/offerings` | unchanged |
+| `POST /v1/push/register` | unchanged (Agent H's) |
+
+New services: `services/billing.ts` (signature, event mapping, apply, restore),
+`services/entitlements.ts` (the single entitlement authority). `services/push.ts` rewritten.
+
+### Webhook event mapping
+
+`Purchase.rcEventId` is the idempotency key **for the whole effect**: the receipt row is created
+first, inside the same transaction as the subscription and wallet writes, so a redelivery hits the
+unique index and rolls everything back. Enforced by the database, not by a code path
+(`billing.test.ts` also runs two applications of one event concurrently).
+
+| event | Subscription | wallet |
+|---|---|---|
+| `INITIAL_PURCHASE` / `RENEWAL` / `PRODUCT_CHANGE` / `UNCANCELLATION` | plan (from `new_product_id ?? product_id`), `active=true`, `renewsAt`=expiration | energy topped up to the plan's daily max (never lowered) |
+| `CANCELLATION` / `SUBSCRIPTION_PAUSED` | untouched — access runs to `renewsAt` | — |
+| `BILLING_ISSUE` | `renewsAt` = grace end (else period end) — entitlements survive the retry | — |
+| `EXPIRATION` | `renewsAt` = expiration; `active=false` only when that is already past | — |
+| `REFUND` | `active=false`, `renewsAt=null` — the **only** immediate revocation | energy clawed back to `ENERGY.FREE_DAILY`; the `Purchase` amount is negative |
+| `TRANSFER` | entitlement copied to the receiving account, deactivated on the donor | — |
+| `SUBSCRIBER_ALIAS` | `rcSubscriberId` re-pointed, plan untouched | — |
+| `NON_RENEWING_PURCHASE` / unknown types | recorded as a `Purchase` only | — |
+
+Unknown `app_user_id` → 200 `applied:false reason:"unknown_user"`, nothing written.
+
+### Entitlement rules (`services/entitlements.ts`)
+
+`prisma/schema.prisma` was not mine to change, so the whole subscription lifecycle is expressed with
+the three columns that exist — `plan`, `active`, `renewsAt`:
+
+```
+active=false                  → nothing            (immediate revocation: REFUND)
+active=true,  renewsAt=null   → entitled
+active=true,  renewsAt > now  → entitled           (also: cancelled-not-yet-expired, grace, billing retry)
+active=true,  renewsAt <= now → nothing            (period ran out; no webhook needed)
+```
+
+That last line is why "an expiration drops entitlements at the period end" and "a user in billing
+retry keeps entitlements until `renewsAt`" are the *same* rule, and it fails safe: a lost
+`EXPIRATION` webhook still lapses on time. Capabilities: `dailyEnergyMax`, `adFree`,
+`proactiveDMs`, `relationshipVibes`; Plus grants all four, `adfree_monthly` grants only `adFree`.
+`wallet.ts`'s `dailyMaxFor` / `adFreeFor` are now thin wrappers over `entitlementsFor` — there is
+exactly one place that decides what a subscription is worth, and a vitest case asserts the three
+agree in every state.
+
+### Push policy
+
+Off unless `PUSH_ENABLED=1`; every send then logs and returns `{skipped:true, reason:"disabled"}`.
+With it on: chunks of **100**, tickets read, ticket ids checked against the receipts endpoint, and
+any token reported `DeviceNotRegistered` (ticket or receipt) is **deleted**.
+
+Fires on: the digest (from `jobs/offline-director.ts`, unchanged), a proactive DM, an event, and a
+follower milestone. `reply`/`like`/`follow`/`unlock` deliberately never push — they arrive in bursts
+right after the user's own action. Gates, all in `shouldSend()`:
+
+- **quiet hours** 23:00–08:00 local. **Assumption (documented in `docs/push.md`):** there is no
+  timezone column on `User`, so local time is inferred from the locale — `ja` → `Asia/Tokyo`,
+  everything else → `PUSH_DEFAULT_TZ` (UTC). `timezoneForLocale` is the only function to change when
+  a real timezone is recorded at registration.
+- **daily cap** `PUSH_DAILY_CAP` (4) per user per local day.
+- **quiet gap** `PUSH_MIN_GAP_MINUTES` (15) between notification-derived pushes; the digest push
+  bypasses the gap but still counts against the cap.
+- **away only** — a notification pushes only once the user's last own post/DM is older than
+  `PUSH_AWAY_MINUTES` (30). A `dm` notification is additionally suppressed while an unseen digest
+  younger than 5 minutes exists, so one director run cannot buzz the phone twice.
+
+Counters are in-process maps (same single-process assumption as `src/types.ts`); behind N instances
+the cap becomes N×. `resetPushPolicy()` is the test seam.
+
+Client: the permission prompt is **locked until the first successful post**
+(`store.tsx → submitPost → pushAfterFirstPost()`). Any earlier call (the feed's existing mount call)
+is a silent token refresh when permission already exists, and otherwise returns `too_early` — no
+dialog. Android channel created before the token is fetched; taps route by `target` exactly as
+SCR-042 does; a tap that cold-started the app is followed once.
+
+### Native SDKs — what did and did not install here
+
+Both installed cleanly and are **compiled and typechecked**, but **neither has been exercised
+against a real store or a real device** in this environment (no credentials, no simulator):
+
+- **`react-native-purchases@10.9.0`** — installed. `adapters/revenuecat.ts` is a full implementation:
+  `configure` from `EXPO_PUBLIC_RC_IOS_KEY`/`EXPO_PUBLIC_RC_ANDROID_KEY`, `logIn` with the account id
+  on every `/v1/me` refresh, `logOut` on sign-out, `getOfferings` → the paywall's price strings and
+  intro-offer trial, `purchasePackage`, and `restorePurchases`. A user cancelling the sheet becomes
+  `PurchaseCancelledError` and the paywall closes quietly. **Verified structurally only.**
+- **`expo-notifications@57.0.17`** — installed, added to `app.json` plugins.
+  `src/notifications-module.ts` is the native slice; there are no APNs/FCM credentials here, so the
+  transport is unproven.
+- **Web stays clean:** `revenuecat.web.ts` and `notifications-module.web.ts` sit beside the native
+  files, so Metro's platform resolution keeps both native SDKs **out of the web bundle** — verified
+  by grepping the export (`react-native-purchases` and `expo-notifications` appear zero times).
+  Web still uses `DevBilling`, so E2E is unaffected.
+
+### Files I touched outside my ownership (minimal, please keep)
+
+1. `apps/api/src/app.ts` — one import + `setPushClient(deps.prisma)`. `services/notify.ts` needs a
+   *non-transactional* client to push for a notification; plumbing one through every `notify()` call
+   site would have touched five other agents' files.
+2. `apps/api/src/services/notify.ts` — after the row is created, a fire-and-forget
+   `pushForNotification(...)`, guarded by `pushEnabled()` so it is a pure no-op today. Deliberately
+   **not** awaited: `notify()` runs inside the caller's transaction and a network round trip must not
+   hold one open. Worst case is one push for a rolled-back notification, never a lost one.
+3. `apps/api/src/services/wallet.ts` — `dailyMaxFor`/`adFreeFor` now delegate to `entitlementsFor`
+   and take an optional `now` (defaulting to the real clock, so no call site had to change).
+4. `apps/api/src/routes/{wallet,me}.ts` — 3 lines: pass `deps.clock.now()` to `adFreeFor`, so a
+   lapsing subscription lapses under `/__test/time-travel` too.
+5. `apps/mobile/src/state/store.tsx` — `pushAfterFirstPost()` after a successful post,
+   `getBilling().identify(...)` on `/v1/me` and on sign-out, and `cancelled` on the `purchase` result.
+6. `apps/mobile/app/settings.tsx` — subscription rows only: `t("freePlan")` instead of the literal
+   `"Free"` (the key exists now), the period end when there is one, and a restore notice that always
+   reports the current state.
+7. `apps/mobile/src/env.ts` — `RC_IOS_KEY`, `RC_ANDROID_KEY`, `EXPO_PROJECT_ID`, `APP_ORIGIN`.
+8. `apps/mobile/src/components/MomentCard.tsx` — 2 lines: `shareUrlFor` uses `APP_ORIGIN` on native
+   instead of returning a bare `/moment/<slug>` path that nobody could open.
+9. `apps/mobile/app.json` — `expo-notifications` added to `plugins`.
+10. `.env.example` — the RevenueCat and push blocks, plus **`PUBLIC_APP_URL`** (referral links were
+    falling back to the placeholder host `https://rpgllm.example`) and `EXPO_PUBLIC_APP_URL`.
+
+### Deviations / things worth knowing
+
+1. **No i18n key for a free trial.** The trial badge renders `` `${days} · ${t("freePlan")}` `` —
+   "7 · Free" / "7 · 無料プラン" — because inventing English copy would break CLAUDE.md rule 4.
+   Please add `freeTrial`/`trialDays` to `packages/shared/src/i18n/*` and the paywall is a one-line
+   change.
+2. **The webhook is rate-limited as a "default" route** (120/min per IP, `middleware/rate-limit.ts`
+   is Agent F's file). RevenueCat retries on a 429 and every event is idempotent, so this is safe,
+   but the webhook path deserves an `exempt` entry in `budgetFor()` next time that file is open.
+3. **`RestoreReqZ.rcAppUserId` is accepted and ignored.** Reconciling against a client-supplied app
+   user id would be a way to claim someone else's subscription; the response carries
+   `matchedRequestedUser:false` when the id the client sent is not one the server knows. A vitest
+   case ("never reconciles against an app-user id the caller made up") pins this.
+4. **Restore's response shape is additive** (`source`, `configured`, `note`, `matchedRequestedUser`,
+   `entitlements`). `packages/shared` has no schema for it and the client parses it loosely.
+5. **Store product ids** are matched exactly against `PLANS` keys first, then `RC_PRODUCT_MAP`, then
+   a keyword heuristic (`…plus.yearly` → `plus_yearly`). `docs/billing.md` tells the operator to
+   name the products after the `PLANS` keys and never rely on the heuristic.
+6. **Energy on a purchase is `max(current, dailyMax)`** — a renewal never *lowers* a tank. A refund
+   is the one clawback (`min(current, FREE_DAILY)`), so a refunded purchase cannot be farmed.
+7. **Receipts are read immediately after the send.** Expo fills them in asynchronously, so this
+   catches only the fast ones; a scheduled second pass over recent ticket ids is the obvious
+   follow-up once `jobs/**` has a scheduler owner.
+
+### Verification
+
+- `pnpm --filter api typecheck`, `pnpm --filter mobile typecheck`, `pnpm --filter e2e typecheck` — clean.
+- `pnpm --filter api test` — **229 passed / 24 files** on a private database, including my
+  **45 new cases** (`billing.test.ts` 30, `push.test.ts` 15). Nothing pre-existing was changed.
+- `expo export -p web` — succeeds; the bundle contains neither native SDK.
+- `pnpm e2e` — the full suite plus my 4 new `billing.spec.ts` cases (BILL-001 paywall renders the
+  offering and closes quietly, BILL-002 purchase → Plus → ads gone → settings names the plan,
+  BILL-003 restore reports free *and* subscribed, BILL-004 the webhook grants, replays as a no-op,
+  and a refund revokes immediately).
+- Ran on a private stack (`rpgllm_p` for vitest via `TEST_DATABASE_URL`, `rpgllm_p_e2e` + API :4300
+  + `dist-p` on :8302 for Playwright) because :4000/:8082/`rpgllm_test` were contended.
+  **One trap worth recording:** starting that private API with `pnpm --filter api dev` runs
+  `tsx watch` — another agent saving a file restarted it mid-suite and 30 cases failed with
+  `ECONNREFUSED`. Use `pnpm --filter api start` (no watch) for an E2E stack.
+
+### What a human must configure before the app can take money
+
+`docs/billing.md` §1–§6 in full, in short: create the four products in App Store Connect and Play
+Console **named after the `PLANS` keys**; upload the App Store In-App Purchase key and the Play
+service account to RevenueCat; wire App Store Server Notifications V2 and Play RTDN to RevenueCat;
+create the `plus` and `adfree` entitlements and one current offering; set
+`REVENUECAT_WEBHOOK_SECRET` (API) and the matching Authorization header value in the RevenueCat
+webhook pointing at `https://<host>/v1/billing/webhook`; set `REVENUECAT_SECRET_KEY` (API) and the
+two public keys (`EXPO_PUBLIC_RC_*`) in the client build; `BILLING_MODE=revenuecat`. Then run the
+13-row sandbox test plan. For push: `docs/push.md` — an Expo project id, an APNs key, an FCM V1
+service account, then `PUSH_ENABLED=1`.
+
+---
+
+## Agent N — the cost engine: Batch tier (§5.4), Thompson sampling (§6.3), offline eval gate (§6.2) — 2026-09-04
+
+Closes the three parts of `cost-architecture.md` that were never implemented — gap analysis
+"残課題 #1: Batch ティアが未対応 … **唯一の設計未達**" plus the §6.1/§6.2/§6.3 optimisation loop
+that sat on top of it.
+
+### What shipped
+
+| file | role |
+|---|---|
+| `packages/llm/src/modes/batch.ts` | Message Batches API: pure `buildBatchBody` + the one networked `runLiveBatch` (new) |
+| `packages/llm/src/gateway.ts` | `batch()` + `batchG1/G2/G4/G5/G7/G10/GJ`, `g2/g10/gj`, the `allocate` hook |
+| `packages/llm/src/generators/{g2,g10,gj}.ts` | G2 ambient, G10 offline director, GJ judge — schemas, prompts, fallbacks (new) |
+| `packages/llm/src/batch-jobs.ts` | `runAmbientRefillBatched` / `runMemoryConsolidationBatched` / `runOfflineDirectorBatched` / `runJudgeBatched` for the scheduler (new) |
+| `packages/llm/src/bandit.ts` | reward, Beta posteriors, seeded sampler, allocation, guardrails, promotion — all pure (new) |
+| `packages/llm/src/eval.ts`, `eval-cases.ts` | machine checks, judge scoring, `runEval`, `evaluateGate`, the frozen 50-case set (new) |
+| `packages/llm/src/cost.ts` | `priceOf(model, usage, {batch})` + the `batch:` stop-reason marker |
+| `packages/llm/src/experiments.ts` | registry entries for **G2 (light), G10 (mid), GJ (high/Opus 5)** |
+| `apps/api/src/services/bandit.ts` | SQL fold of `GenerationLog`+`Rating` into `BanditArm`, guardrails, promotion, `/v1/bandit` payload (new) |
+| `apps/api/src/services/evals.ts` | frozen set in Postgres, `EvalRun`/`EvalResult`, the comparison table (new) |
+| `apps/api/src/routes/{bandit,evals}.ts` | the two admin-gated routers (new) |
+| `apps/api/src/services/cost.ts` | **additive**: `batch` split on the report (`batchSplit`), `batch:`-aware fallback filter |
+| `apps/api/src/fake-gateway.ts` | **additive**: `g2/g10/gj` + the batch methods, so the injected fake honours the same contract |
+| `apps/api/src/app.ts` | two lines: `v1.route("/bandit", …)`, `v1.route("/evals", …)` |
+| `scripts/eval.mjs` | the §6.2 CLI (new) · `scripts/cost-report.mjs` gained a BATCH TIER panel |
+| tests | `packages/llm/src/{batch,bandit,eval}.test.ts` (55 new), `apps/api/test/{bandit,evals}.test.ts` (28 new) |
+
+### 1. The Batch tier (§5.4)
+
+`gateway.batch(items)` takes `{customId, generator, input, opts}[]` and returns a `Map` keyed by
+`customId`; `batchG1…batchGJ` are the typed per-generator entry points. Every entry always
+resolves — a per-entry failure yields that generator's deterministic fallback with
+`meta.fallback = true`, so a job never has to reconcile a missing id.
+
+- **live**: `messages.batches.create` → poll `retrieve` until `processing_status === "ended"` →
+  stream `results()`, dispatching on `succeeded | errored | canceled | expired` per entry. Results
+  are matched **through an id map keyed by `custom_id`, never by position** (the API returns them in
+  any order); entries the API never reports come back as `expired` rather than vanishing.
+  `custom_id` is sanitised to `[A-Za-z0-9_-]{1,64}` and de-duplicated, and the caller's original id
+  is what the result map uses. Batches carry **no `fallbacks`/`betas`** — the server-side refusal
+  fallback parameter is rejected on the Batches API — which is asserted in `batch.test.ts`.
+- **replay**: resolves immediately through the existing deterministic fixtures (no sleep: a batch
+  has no interactive latency budget), `ttftMs = null`.
+- **fail**: every entry returns the generator fallback, `status: "errored"`.
+- **cap + chunking**: `BATCH_MAX_REQUESTS = 500` per API batch (`LLM_BATCH_MAX_REQUESTS` overrides);
+  more than that is chunked. Polling is `LLM_BATCH_POLL_MS` (default 60s) with a
+  `LLM_BATCH_TIMEOUT_MS` deadline (default 24h, the API's own maximum).
+
+**The batch marker in `GenerationLog`.** There is no `batched` column and `packages/shared` is
+frozen, so a batched call is marked by **prefixing its stop reason**: `replay` → `batch:replay`,
+`end_turn` → `batch:end_turn`, `error` → `batch:error`. `variantId` was rejected for this because
+both the cost dashboard and the bandit join arms on `variantId` — a decorated id would split every
+arm in two. Consequences, all implemented:
+- `services/cost.ts` compares failure kinds through `regexp_replace("stopReason",'^batch:','')`, so
+  `totals.fallbacks` is unchanged, and selects the batched half with `"stopReason" LIKE 'batch:%'`;
+- `packages/llm` exports `batchStopReason` / `isBatchStopReason` / `baseStopReason`;
+- pricing: `priceOf(model, usage, { batch: true })` multiplies **every** token — input, output,
+  cache reads *and* cache writes — by `BATCH_DISCOUNT`.
+
+**For Agent O (scheduler).** `BATCHABLE_GENERATORS = ["G2","G7","G10","GJ"]` now all exist as real
+generators, and `packages/llm` exports one entry point per job:
+
+```ts
+import { runAmbientRefillBatched } from "@rpgllm/llm";
+const results = await runAmbientRefillBatched(gateway, worlds.flatMap((w) => LOCALES.map((l) => ({
+  customId: `${w.id}:${l}`, input: g2Input(w, l, n),
+}))));
+for (const [id, r] of results) if (!r.meta.fallback) writeAmbientPosts(id, r.output.posts);
+```
+
+Same shape for `runMemoryConsolidationBatched` (G7), `runOfflineDirectorBatched` (G10) and
+`runJudgeBatched` (GJ). `apps/api/src/jobs/**` is yours, so I did not rewire `ambient-refill.ts`
+(today one G1 call per world+locale) or `offline-director.ts` (G5+G1+G4) — switching them to
+`gateway.batchG2` / `gateway.batchG10` is a small, self-contained change that halves their cost and
+drops their synthetic prompts. `memory-consolidate.ts` is the easiest win: collect the personas
+first, then one `runMemoryConsolidationBatched` call instead of N `gateway.g7` calls.
+
+### 2. Thompson sampling (§6.3)
+
+Split on purpose: `packages/llm/src/bandit.ts` is **pure** (no clock, no DB, seeded RNG only) and
+owns every rule; `apps/api/src/services/bandit.ts` owns the SQL and the persistence. That is what
+lets the allocator run inside the gateway, which must not know about Prisma.
+
+**Reward.** `reward = quality − BANDIT_LAMBDA × (cost / championCost)`, clamped to `[0,1]`.
+`quality` comes from the signals that exist: 👍 = 1, 👎 = 0, regeneration = 0, fallback = 0, and an
+**unrated call = 0.6** (`UNRATED_QUALITY_PRIOR`) so silence does not read as failure. The champion
+at parity therefore scores `1 − λ`: the formula measures value for money, which is the point — a
+40% cheaper arm at equal quality wins. Posteriors are Beta: `alpha += r`, `beta += 1 − r`.
+
+**The fold** (`updateFromLogs(prisma, now)`) is one `GROUP BY` per window, joined to `Rating` by a
+lateral. Rewards are folded per quality class (good / bad / unrated counts × the arm's mean cost),
+which reproduces the per-call reward exactly because the cost ratio is constant inside a window.
+Two kinds of row are invisible to it: **escalations** (`escalatedFrom IS NOT NULL` — Agent I's note,
+they run one tier up under the user's arm) and **batched calls** (`stopReason LIKE 'batch:%'` —
+offline work with no user and no rating; otherwise a nightly eval run would move production
+traffic).
+
+**The watermark.** `updateFromLogs` is incremental and must be idempotent, but the schema is frozen
+and has no cursor column. The watermark is therefore a **singleton `PromotionEvent` row per
+generator with `reason = "watermark"`**, `toVariant = "-"`, `metrics = {at, folded}`, updated in
+place. Any reader of the audit trail must filter `reason <> 'watermark'`. Re-running the fold with
+the same window changes nothing (asserted).
+
+**Allocation.** `allocate({generator, arms, userId, day})` draws one Beta sample per enabled arm and
+takes the argmax, from a `mulberry32` seeded with `FNV1a("bandit|generator|userId|day")` — so it is
+**user-sticky for a whole UTC day** and deterministic in tests. Each non-winning arm keeps
+`BANDIT_FLOOR` of the traffic so exploration never stops. It returns `null` when there are no arms
+or no arm has ever been called, and the gateway then falls back to `experiments.ts`'s deterministic
+50/50 assignment — `assignments()` and `champion()` are untouched and still serve the client.
+
+**Guardrails.** `checkGuardrails` measures the last 24h per arm and disables any arm breaching
+`BANDIT_GUARDRAILS` (regenerate rate 8%, safety-flag rate 0.2%, fallback rate 5%), writing a
+`PromotionEvent{reason:"guardrail:<metric>"}`. An arm under 50 calls is never disabled, and the
+champion is never disabled (there would be nothing to fall back to). A disabled arm is skipped by
+`allocate`, so traffic reverts to the champion on the next snapshot refresh.
+
+**Promotion.** `maybePromote` requires **all** of: the challenger leads on posterior mean;
+`calls >= BANDIT_PROMOTION.MIN_CALLS` (500); `p(best) >= 0.95` from a 400-draw Monte Carlo; **and**
+the variant is in the §6.2 offline-gate pass set. It writes `PromotionEvent{reason:
+"auto:thompson+gate"}` with `{pBest, calls}`. `POST /v1/bandit/promote` is the manual override and
+is audited the same way (`reason: "manual:…"`); promoting an arm also clears a guardrail disable.
+
+**Endpoints** (admin gate reused verbatim from `/v1/cost` — `costAccessAllowed`, so `TEST_HOOKS=1`
+or a matching `x-admin-token`, everything else an indistinguishable 404):
+`GET /v1/bandit` → `BanditStateResZ` · `POST /v1/bandit/promote` → `PromoteResZ`.
+
+**⚠️ One line I did not write (whoever owns `apps/api/src/index.ts`).** The allocator is ready but
+not wired into the production gateway, because that file is not mine:
+
+```ts
+import { banditAllocate, refreshAllocatorSnapshot } from "./services/bandit";
+const { gateway } = await loadGateway({ allocate: (g, userId) => banditAllocate(g, userId) });
+await refreshAllocatorSnapshot(prisma);            // and again from the hourly bandit-update job
+```
+
+Until that lands the bandit is **observed but not acting**: arms, posteriors, guardrails and
+promotions all update, and allocation still comes from the deterministic 50/50 split. Nothing
+breaks either way — `banditAllocate` returns `null` with no snapshot.
+Agent O: `refreshBandit(prisma, now)` is the whole hourly `bandit-update` job in one call (fold →
+guardrails → promote); `refreshAllocatorSnapshot(prisma)` belongs at the end of it.
+
+### 3. The offline evaluation gate (§6.2)
+
+**The frozen set** is `EVAL_SET_SIZE = 50` `EvalCase` rows per generator: **15 hand-written hard
+cases** (leak drama EN/JA, break-up EN/JA, Japanese honorifics, casual JA register, abusive input
+EN/JA, borderline self-harm EN/JA, an empty post, an emoji wall, a 900-character wall of text, a
+news-requested case, a reply-to-parent case) plus real cases plus deterministic filler, trimmed
+back to 50 (filler is dropped first) so scores stay comparable between runs.
+
+> **Deviation from §6.2, recorded here.** §6.2 says "150 sampled from production logs".
+> `GenerationLog` stores a `promptHash`, never the input, so a logged call cannot be replayed.
+> Production cases are instead **reconstructed from the rows the action was made of** — the `Post`,
+> its persona, world, cast and relationships — through the same builders the live G1 path uses. On
+> an empty database the set is filled entirely from the frozen list, so an eval is always runnable.
+
+**Scoring** is `100 × (0.4 × machine + 0.6 × judge)`.
+- machine checks: schema validity, K satisfied, handle validity (cast only, never the press
+  account), banned words, lengths (280/240/200), emoji ≤ 2 per reply, diversity (distinct handles,
+  distinct texts, distinct openings), news respected. `schemaValid`, `notFallback` and
+  `noBannedWords` are **absolute** — failing one scores the machine half 0 and fails the case.
+- judge: **GJ, Opus 5, batched**, six axes (in-character 0.25, diversity 0.15, humour 0.15, emoji
+  0.10, safety 0.25, JP naturalness 0.10). Its cached prefix is the rubric plus a per-generator
+  criteria block, not a world bible.
+- a case passes at ≥ 70 with no absolute check broken and no judge `fail` verdict.
+
+**The gate** is §6.2 verbatim (`evaluateGate`): within `EVAL_GATE.MAX_SCORE_DROP` (2 pts) **and** at
+least `MIN_COST_SAVING` (20%) cheaper, **or** `MIN_SCORE_GAIN` (3 pts) better outright. The champion
+row is the baseline (`passesGate: true`, deltas 0).
+
+**Endpoints**: `GET /v1/evals?generator=` → `EvalRunsResZ` · `POST /v1/evals/run` (`StartEvalReqZ`,
+`limit` capped at 500) · `GET /v1/evals/compare?generator=` → `EvalCompareResZ` ·
+`POST /v1/evals/seed`. All admin-gated: a run spends money.
+
+**How to run one**
+
+```bash
+bash scripts/db.sh start
+# through the API (admin-gated):
+curl -XPOST localhost:4000/v1/evals/run -H 'content-type: application/json' \
+  -d '{"generator":"G1","variantId":"g1-haiku-v1","limit":50}'
+# or from the CLI, which runs every registered variant and prints the comparison table:
+DATABASE_URL=postgresql://postgres@127.0.0.1:5432/rpgllm node scripts/eval.mjs --generator G1
+node scripts/eval.mjs --generator G1 --variant g1-haiku-v1 --limit 20 --json
+node scripts/eval.mjs --generator G1 --no-run        # compare stored runs, spend nothing
+```
+
+Every eval call is written to `GenerationLog` (CLAUDE.md rule 5) with the `batch:` marker, so an
+eval run shows up in the §5.4 split of the cost dashboard rather than being invisible spend.
+
+### 4. Making the saving visible
+
+`costReport()` gained one additive block, `batch` (every existing field and every existing test is
+untouched): `batched` / `interactive` `CostRow`s, the call and cost shares, `listPriceUsd` (the
+batched tokens **re-priced at interactive list price from `PRICING`**), `savedUsd`,
+`realisedDiscount` and `expectedDiscount`, plus a per-generator table. `realisedDiscount` is a
+*measurement*, not an assertion: if a batched call were ever billed at full price it would move off
+50%. `scripts/cost-report.mjs` prints it as a `BATCH TIER (§5.4)` panel.
+
+### Registry additions
+
+`GENERATOR_EXPERIMENTS` gained `g2` (`g2-haiku-v1`, light), `g10` (`g10-sonnet-v1`, mid) and `gj`
+(`gj-opus-v1`, **high — §6.2 insists the judge is the strong model**; before this it fell through to
+the mid-tier pseudo-variant and would have judged on Sonnet). `assignments()` therefore returns ten
+keys instead of seven and `champion()` eight instead of five; the two `gateway.test.ts` assertions
+that pinned those exact sets were updated, not weakened (E2E only asserts the payload is non-empty,
+and `apps/api` reads by key).
+
+### What still needs a real API key
+
+Everything runs end to end in `LLM_MODE=replay`; live mode is verified **structurally**, the way
+Agent B did it for the messages path — `buildBatchBody` is pure and asserted on, and `runLiveBatch`
+is driven by a stub client (out-of-order results, a partial failure, polling to `ended`, chunking,
+a batch that never ends). Not exercised without a key: a real `messages.batches` round trip
+(submission limits, the 24h SLA, real `custom_id` echoes), whether the 50% discount lands exactly as
+`PRICING × BATCH_DISCOUNT` on a real invoice, and the **real Opus 5 judge** — in replay the judge is
+a deterministic heuristic (emoji budget, opening diversity, banned phrases, script mix, with the two
+axes no heuristic can measure seeded off the candidate). That is why the replay eval table shows
+both G1 variants at the same score: replay outputs do not depend on the model, so the comparison is
+honest about cost and blind about quality until a key exists.
+
+### Verification
+
+- `pnpm --filter @rpgllm/llm typecheck` / `pnpm --filter api typecheck` — clean.
+- `pnpm --filter @rpgllm/llm test` — **135 passed** (80 before; 55 new).
+- `pnpm --filter api test` — **26 files, 257 passed** (229 before; 28 new). Run it with
+  `TEST_DB_SUFFIX=<you>`; the private-database work in `vitest.config.ts` makes concurrent runs safe.
+- `node scripts/eval.mjs --generator G1` in replay, 50 frozen cases (16 rebuilt from real posts):
+
+```
+variant       status    cases  passed  mean score      gen $    judge $    total $
+g1-sonnet-v1  finished     50      50       86.00  $0.136278  $0.067469  $0.203746
+g1-haiku-v1   finished     50      50       86.00  $0.046172  $0.064829  $0.111002
+
+variant              runs  cases  pass rate  mean score       $/case  Δscore   Δcost  gate
+g1-haiku-v1             1     50     100.0%       86.00  $0.00222004   +0.00  -45.5%  PASS
+g1-sonnet-v1  champ     1     50     100.0%       86.00  $0.00407492   +0.00   +0.0%  baseline
+```
+
+- `node scripts/cost-report.mjs --days 7` after 15 real posts + one eval run:
+
+```
+BATCH TIER (§5.4) — batched vs interactive
+lane         calls       cost  share of calls  share of cost
+batched        200  $0.314740           85.8%          92.3%
+interactive     33  $0.026268           14.2%           7.7%
+
+batched tokens at list price               $0.629496
+actually billed (batch tier)               $0.314740
+saved by batching                          $0.314756
+realised discount             50.0% (expected 50.0%)
+```
+
+- Full loop on real data: fold → `g1-haiku-v1` leads (mean reward 0.62 vs 0.29, p(best) 0.95) →
+  `promotable: false` until the eval gate passes → after `scripts/eval.mjs`, `maybePromote` writes
+  `PromotionEvent{auto:thompson+gate}` and the champion moves.
+
+### Open issues / follow-ups
+
+1. **The allocator is not wired** into the production gateway (one line in `index.ts`, above).
+2. **Jobs still call the interactive path.** `ambient-refill.ts`, `memory-consolidate.ts` and
+   `offline-director.ts` are Agent O's; the batched entry points are ready and typed for them, and
+   G2/G10 now exist so the synthetic-G1 workarounds can go.
+3. `refreshBandit` / `refreshAllocatorSnapshot` need the hourly `bandit-update` cron
+   (`JOBS` already lists it).
+4. The eval judge is a heuristic in replay; the *scores* only become meaningful with a key. The
+   *costs* are real in both modes.
+5. `EvalCase` has no natural key column, so the frozen set is identified by `(generator, label)`.
+   Labels are unique by construction; a second generator's set must keep that property.
+6. `runEval` implements the machine checks for **G1** only. G4/G5/G7 run through the same batch and
+   judge path, but would score on the generic checks alone until their checkers are written.
+7. The watermark living in `PromotionEvent` is a schema-frozen compromise. If the schema ever opens
+   up, a two-column `BanditWatermark` (or `BanditArm.foldedThrough`) is the honest home for it.

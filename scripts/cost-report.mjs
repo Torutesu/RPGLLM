@@ -192,6 +192,43 @@ function renderText(report, source) {
     );
   }
 
+  if (report.batch) {
+    const b = report.batch;
+    out.push("");
+    out.push("BATCH TIER (§5.4) — batched vs interactive");
+    out.push(
+      table(
+        ["lane", "calls", "cost", "share of calls", "share of cost"],
+        [
+          ["batched", int(b.batched.calls), usd(b.batched.costUsd), pct(b.batchedCallShare), pct(b.batchedCostShare)],
+          ["interactive", int(b.interactive.calls), usd(b.interactive.costUsd), pct(1 - b.batchedCallShare), pct(1 - b.batchedCostShare)],
+        ],
+        ["l", "r", "r", "r", "r"],
+      ),
+    );
+    out.push(
+      table(
+        ["metric", "value"],
+        [
+          ["batched tokens at list price", usd(b.listPriceUsd)],
+          ["actually billed (batch tier)", usd(b.batched.costUsd)],
+          ["saved by batching", usd(b.savedUsd)],
+          ["realised discount", `${pct(b.realisedDiscount)} (expected ${pct(b.expectedDiscount)})`],
+        ],
+        ["l", "r"],
+      ),
+    );
+    if (b.byGenerator?.length) {
+      out.push(
+        table(
+          ["generator", "batched calls", "cost", "saved"],
+          b.byGenerator.map((g) => [g.generator, int(g.calls), usd(g.costUsd), usd(g.savedUsd)]),
+          ["l", "r", "r", "r"],
+        ),
+      );
+    }
+  }
+
   if (report.variants?.length) {
     out.push("");
     out.push("VARIANT ALLOCATION (§6.1 arms)");

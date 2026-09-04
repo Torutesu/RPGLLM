@@ -36,6 +36,13 @@ export const GENERATOR_EXPERIMENTS: readonly GeneratorExperiment[] = [
     ],
   },
   {
+    // §5.4 batch tier: nobody waits on these, so the light/mid tiers are the right default and
+    // the 50% discount does the rest. One variant each until there is traffic to split.
+    key: "g2",
+    generator: "G2",
+    variants: [{ id: "g2-haiku-v1", generator: "G2", tier: "light", maxTokens: 900 }],
+  },
+  {
     key: "g4",
     generator: "G4",
     variants: [{ id: "g4-sonnet-v1", generator: "G4", tier: "mid", maxTokens: 400 }],
@@ -54,6 +61,18 @@ export const GENERATOR_EXPERIMENTS: readonly GeneratorExperiment[] = [
     key: "g8",
     generator: "G8",
     variants: [{ id: "g8-haiku-v1", generator: "G8", tier: "light", maxTokens: 64 }],
+  },
+  {
+    key: "g10",
+    generator: "G10",
+    variants: [{ id: "g10-sonnet-v1", generator: "G10", tier: "mid", maxTokens: 1200 }],
+  },
+  {
+    // The judge is the one place cost-architecture §6.2 insists on the strongest model: a cheap
+    // judge silently re-scores every experiment.
+    key: "gj",
+    generator: "GJ",
+    variants: [{ id: "gj-opus-v1", generator: "GJ", tier: "high", maxTokens: 700 }],
   },
 ] as const;
 

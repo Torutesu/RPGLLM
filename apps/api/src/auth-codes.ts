@@ -1,16 +1,15 @@
 /**
- * One-time email login codes (Agent F, S0-1).
+ * Primitives for the one-time email login codes (Agent F, S0-1; persisted by Agent O).
  *
- * Before this, `POST /auth/email/verify` accepted the constant `DEV_EMAIL_CODE` for ANY email,
- * which is a full authentication bypass in production. A code is now generated per request,
- * only its **salted sha256 hash** is stored, it expires after 10 minutes, survives at most 5
- * verify attempts and is single-use.
+ * `POST /auth/email/verify` used to accept the constant `DEV_EMAIL_CODE` for ANY email, which is a
+ * full authentication bypass. A code is now generated per request, only its **salted sha256 hash**
+ * is stored, it expires after 10 minutes, survives at most 5 verify attempts and is single-use.
  *
- * TODO(P1): move the store to Redis/Postgres. It currently lives in an in-memory `Map` on
- * `AppState` because `prisma/schema.prisma` is owned by the orchestrator (see build-notes,
- * "Agent F"). Consequences of the in-memory store: codes do not survive a restart and do not
- * work across more than one API instance. A `LoginCode` table (email, salt, hash, expiresAt,
- * attempts, consumedAt) is the fix.
+ * This file owns the cryptography and the mail transport. The **store** is
+ * `services/login-codes.ts` (the `LoginCode` table) — the in-process `Map` that used to hang off
+ * `AppState.emailCodes` is gone, because it only ever worked for one API process. The Map
+ * implementation is kept below as the dependency-free reference used by `test/security.test.ts`
+ * (and usable in a database-less dev harness); nothing in the request path calls it.
  */
 import { createHash, randomBytes, randomInt, timingSafeEqual } from "node:crypto";
 
@@ -50,6 +49,9 @@ export const generateCode = (): string => String(randomInt(0, 1_000_000)).padSta
 export const hashCode = (code: string, salt: string): string =>
   createHash("sha256").update(`${salt}:${code}`, "utf8").digest("hex");
 
+/** Per-code salt: two accounts with the same digits never share a digest. */
+export const newSalt = (): string => randomBytes(16).toString("hex");
+
 /** Length-safe constant-time comparison (both arguments here are fixed-length hex digests). */
 export function constantTimeEqual(a: string, b: string): boolean {
   const ab = Buffer.from(a, "utf8");
@@ -66,18 +68,22 @@ function prune(store: EmailCodeStore, nowMs: number): void {
   for (const [key, rec] of store) if (rec.expiresAt <= nowMs) store.delete(key);
 }
 
-/** Generates a code, stores its hash, and returns the plaintext for the mail sender only. */
+/**
+ * In-memory reference store — **not** the request path (that is `services/login-codes.ts`).
+ * Kept because it is the dependency-free way to unit-test the lifecycle rules.
+ * Generates a code, stores its hash, and returns the plaintext for the mail sender only.
+ */
 export function issueCode(store: EmailCodeStore, email: string, nowMs: number, ttlMs: number): string {
   prune(store, nowMs);
   const code = generateCode();
-  const salt = randomBytes(16).toString("hex");
+  const salt = newSalt();
   store.set(normalizeEmail(email), { salt, hash: hashCode(code, salt), expiresAt: nowMs + ttlMs, attempts: 0 });
   return code;
 }
 
 export type VerifyResult = "ok" | "no_code" | "expired" | "too_many_attempts" | "mismatch";
 
-/** Single-use: a correct code is deleted; a wrong one burns one of `maxAttempts`. */
+/** In-memory counterpart of `consumeLoginCode`. Single-use: a correct code is deleted; a wrong one burns an attempt. */
 export function consumeCode(
   store: EmailCodeStore,
   email: string,

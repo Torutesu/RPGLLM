@@ -16,7 +16,7 @@ export function walletRoutes(): Hono<AppEnv> {
     const deps = c.get("deps");
     const user = c.get("user");
     const { wallet, subscription, dailyMax } = await ensureWallet(deps.prisma, deps.clock, user.id);
-    return ok(toApiWallet(wallet, { dailyMax, adsEnabled: !adFreeFor(subscription), adPersonalized: !user.isMinor }));
+    return ok(toApiWallet(wallet, { dailyMax, adsEnabled: !adFreeFor(subscription, deps.clock.now()), adPersonalized: !user.isMinor }));
   });
 
   /** SCR-032. With ADS_MODE=test only the mock SSV token is accepted. Daily cap → 429 AD_LIMIT. */
@@ -35,7 +35,7 @@ export function walletRoutes(): Hono<AppEnv> {
     }
 
     const { wallet, subscription } = await ensureWallet(deps.prisma, deps.clock, user.id);
-    if (adFreeFor(subscription)) return fail("VALIDATION", "Ads are disabled for this account", 400);
+    if (adFreeFor(subscription, deps.clock.now())) return fail("VALIDATION", "Ads are disabled for this account", 400);
     if (wallet.adRewardsToday >= ENERGY.AD_DAILY_MAX) return fail("AD_LIMIT", "Daily ad reward limit reached", 429);
 
     const updated = await deps.prisma.$transaction(async (tx) => {

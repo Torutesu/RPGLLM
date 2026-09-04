@@ -1,1 +1,1 @@
-{ "extends": "../../tsconfig.base.json", "compilerOptions": { "noEmit": true, "types": ["node"] }, "include": ["src", "prisma", "test", "vitest.config.ts"] }
+{ "extends": "../../tsconfig.base.json", "compilerOptions": { "noEmit": true, "types": ["node"] }, "include": ["src", "prisma", "test", "vitest.config.ts", "vitest.global-setup.ts", "test-database.ts"] }

@@ -47,4 +47,12 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
 
 # Migrations are NOT run here — run `pnpm --filter api exec prisma migrate deploy` as a
 # release/init step (docs/deploy.md) so N replicas do not migrate concurrently.
-CMD ["pnpm", "--filter", "api", "start"]
+#
+# The API runs as **PID 1** (node directly, not `pnpm run …`): a pnpm/sh wrapper does not forward
+# SIGTERM, and the graceful drain in src/index.ts would never run. The scheduler is the same image
+# with a different command — see docs/deploy.md §5:
+#
+#   docker run … rpgllm-api:<tag> node --import tsx src/worker.ts
+#
+WORKDIR /repo/apps/api
+CMD ["node", "--import", "tsx", "src/index.ts"]

@@ -3,7 +3,7 @@ import { Pressable, ScrollView, Text, View } from "react-native";
 import { router } from "expo-router";
 import { PLANS, T, colors, font, radius, spacing, tList, type PlanId } from "@rpgllm/shared";
 import { api } from "../src/api/client";
-import { getBilling } from "../src/adapters/billing";
+import { getBilling, type StoreOffering } from "../src/adapters/billing";
 import { useActions, useAppState, useT } from "../src/state/store";
 import { Button, Screen } from "../src/components/ui";
 import { SkeletonList } from "../src/components/Skeleton";
@@ -14,10 +14,12 @@ const PERIOD_KEY: Record<string, "weekly" | "monthly" | "yearly"> = { week: "wee
 /** SCR-030 — soft paywall (modal). */
 export default function Paywall() {
   const { locale } = useAppState();
-  const { purchase, refreshMe } = useActions();
+  const { purchase, restorePurchases } = useActions();
   const { t } = useT();
 
   const [offerings, setOfferings] = useState<Offerings | null>(null);
+  /** What the *store* says, when there is a store to ask (native + RevenueCat). Keyed by plan id. */
+  const [store, setStore] = useState<Record<string, StoreOffering>>({});
   const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
   const [selected, setSelected] = useState<PlanId | null>(null);
   const [busy, setBusy] = useState(false);
@@ -25,15 +27,34 @@ export default function Paywall() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    let alive = true;
     void api
       .offerings()
       .then((o) => {
+        if (!alive) return;
         setOfferings(o);
         setStatus("ready");
         const highlighted = o.plans.find((p) => p.highlighted) ?? o.plans[0];
         if (highlighted) setSelected(highlighted.id);
       })
-      .catch(() => setStatus("error"));
+      .catch(() => alive && setStatus("error"));
+
+    /**
+     * The store is the authority on price: `$14.99` from our catalogue is a guess, `¥2,300` from
+     * the App Store is what the payment sheet will actually charge. Asked in parallel and merged
+     * when it answers, so an unreachable store never delays or breaks the paywall.
+     */
+    void getBilling()
+      .offerings()
+      .then((list) => {
+        if (!alive || !list) return;
+        setStore(Object.fromEntries(list.map((o) => [o.planId, o])));
+      })
+      .catch(() => undefined);
+
+    return () => {
+      alive = false;
+    };
   }, []);
 
   const close = () => {
@@ -47,6 +68,8 @@ export default function Paywall() {
     setBusy(true);
     const res = await purchase(selected);
     setBusy(false);
+    // Backing out of the store sheet is a decision, not a failure: no toast, no red text.
+    if (!res.ok && res.cancelled) return;
     if (!res.ok) {
       setError(t("notSent"));
       return;
@@ -114,6 +137,10 @@ export default function Paywall() {
                   const active = selected === p.id;
                   const periodKey = PERIOD_KEY[p.period] ?? "monthly";
                   const adFree = PLANS[p.id]?.energyDaily === PLANS.adfree_monthly.energyDaily && p.id === "adfree_monthly";
+                  // Store price when the store gave us one, catalogue price otherwise.
+                  const price = store[p.id]?.priceString ?? `$${p.usd.toFixed(2)}`;
+                  // The store's own intro offer wins over the server-side experiment.
+                  const trialDays = Math.max(store[p.id]?.trialDays ?? 0, offerings?.experiments.trialDays ?? 0);
                   return (
                     <Pressable
                       key={p.id}
@@ -121,7 +148,7 @@ export default function Paywall() {
                       // one-of-many choice: "radio" makes the selected state audible
                       accessibilityRole="radio"
                       accessibilityState={{ selected: active, checked: active }}
-                      accessibilityLabel={`${adFree ? t("adFreeOnly") : t(periodKey)} $${p.usd.toFixed(2)}${p.highlighted ? ` ${t("mostPopular")}` : ""}`}
+                      accessibilityLabel={`${adFree ? t("adFreeOnly") : t(periodKey)} ${price}${trialDays > 0 ? ` ${trialDays} ${t("freePlan")}` : ""}${p.highlighted ? ` ${t("mostPopular")}` : ""}`}
                       onPress={() => setSelected(p.id)}
                       style={{
                         flexDirection: "row",
@@ -134,11 +161,20 @@ export default function Paywall() {
                         backgroundColor: colors.bgElevated,
                       }}
                     >
-                      <Text style={{ color: colors.text, fontSize: font.md, fontWeight: "700" }}>
-                        {adFree ? t("adFreeOnly") : t(periodKey)}
-                      </Text>
+                      <View style={{ gap: 2 }}>
+                        <Text style={{ color: colors.text, fontSize: font.md, fontWeight: "700" }}>
+                          {adFree ? t("adFreeOnly") : t(periodKey)}
+                        </Text>
+                        {trialDays > 0 ? (
+                          // No i18n key for a free trial exists yet — `freePlan` is the closest
+                          // localized word for "free" in both locales (see build-notes, Agent P).
+                          <Text style={{ color: colors.positive, fontSize: font.xs }}>
+                            {`${trialDays} · ${t("freePlan")}`}
+                          </Text>
+                        ) : null}
+                      </View>
                       <View style={{ alignItems: "flex-end" }}>
-                        <Text style={{ color: colors.text, fontSize: font.md }}>{`$${p.usd.toFixed(2)}`}</Text>
+                        <Text style={{ color: colors.text, fontSize: font.md }}>{price}</Text>
                         {p.highlighted ? (
                           <Text style={{ color: colors.accent, fontSize: font.xs }}>{t("mostPopular")}</Text>
                         ) : null}
@@ -169,9 +205,15 @@ export default function Paywall() {
                 accessibilityRole="button"
                 accessibilityLabel={t("restore")}
                 onPress={() => {
+                  // Ask the store first (native), then let the server reconcile and report back.
                   void getBilling()
                     .restore()
-                    .then(() => refreshMe())
+                    .catch(() => undefined)
+                    .then(() => restorePurchases())
+                    .then((res) => {
+                      if (!res.ok) setError(t("notSent"));
+                      else if (res.plan) setSuccess(true);
+                    })
                     .catch(() => setError(t("notSent")));
                 }}
                 style={{ alignSelf: "center" }}

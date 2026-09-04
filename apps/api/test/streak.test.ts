@@ -1,6 +1,6 @@
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { ENERGY, STREAK_LADDER, rewardForStreakDay } from "@rpgllm/shared";
-import { call, getWallet, makeHarness, resetDatabase, setEnergy, signup, type Harness } from "./helpers";
+import { call, getWallet, makeHarness, prisma, resetDatabase, setEnergy, signup, type Harness } from "./helpers";
 
 let h: Harness;
 
@@ -100,5 +100,86 @@ describe("daily streak (SCR-010 check-in)", () => {
 
   it("requires a session", async () => {
     expect((await call(h, "GET", "/v1/streak")).status).toBe(401);
+  });
+});
+
+/**
+ * Agent O: the streak now lives on `User.streakDays` / `streakBestDays` / `streakLastAt`. These
+ * cases pin the storage itself — the columns are written, and an account whose streak was only ever
+ * recorded in the ledger (every account created before the columns landed) keeps its days.
+ */
+const utcDay = (d: Date): string => d.toISOString().slice(0, 10);
+const dayOffset = (from: Date, days: number): Date => new Date(from.getTime() + days * 24 * 60 * 60 * 1000);
+
+/** Rewinds an account to look exactly like a pre-columns one: ledger row only, no columns. */
+async function makeLegacyAccount(userId: string, day: Date, days: number, best: number): Promise<void> {
+  const wallet = await prisma.wallet.findUniqueOrThrow({ where: { userId } });
+  await prisma.ledgerEntry.create({
+    data: {
+      walletId: wallet.id, currency: "energy", delta: 0, source: "daily_refill",
+      ref: `streak:${utcDay(day)}:${days}:${best}`, createdAt: day,
+    },
+  });
+  await prisma.user.update({ where: { id: userId }, data: { streakDays: 0, streakBestDays: 0, streakLastAt: null } });
+}
+
+describe("streak storage (User columns, with a migration from the ledger)", () => {
+  it("writes the columns on check-in, and keeps the ledger as the receipt", async () => {
+    const { token, userId } = await signup(h);
+    await setEnergy(h, token, 0);
+    const res = await streak(token);
+    expect(res.data.days).toBe(1);
+
+    const user = await prisma.user.findUniqueOrThrow({ where: { id: userId } });
+    expect(user.streakDays).toBe(1);
+    expect(user.streakBestDays).toBe(1);
+    expect(user.streakLastAt).not.toBeNull();
+    expect(utcDay(user.streakLastAt!)).toBe(utcDay(h.clock.now()));
+
+    const wallet = await prisma.wallet.findUniqueOrThrow({ where: { userId } });
+    const entries = await prisma.ledgerEntry.findMany({ where: { walletId: wallet.id, ref: { startsWith: "streak:" } } });
+    expect(entries.length).toBeGreaterThan(0);
+  });
+
+  it("migrates a legacy ledger-derived streak without losing a day", async () => {
+    const { token, userId } = await signup(h);
+    await makeLegacyAccount(userId, dayOffset(h.clock.now(), -1), 3, 5);
+    await setEnergy(h, token, 0);
+
+    const res = await streak(token);
+    // yesterday's day-3 becomes today's day-4; the best it ever reached survives
+    expect(res.data.days).toBe(4);
+    expect(res.data.best).toBe(5);
+    expect(res.data.reward).toEqual(rewardForStreakDay(4));
+
+    const user = await prisma.user.findUniqueOrThrow({ where: { id: userId } });
+    expect(user.streakDays).toBe(4);
+    expect(user.streakBestDays).toBe(5);
+  });
+
+  it("migrates a lapsed legacy streak to day 1 and still keeps the best", async () => {
+    const { token, userId } = await signup(h);
+    await makeLegacyAccount(userId, dayOffset(h.clock.now(), -4), 6, 6);
+
+    const res = await streak(token);
+    expect(res.data.days).toBe(1);
+    expect(res.data.best).toBe(6);
+    const user = await prisma.user.findUniqueOrThrow({ where: { id: userId } });
+    expect(user.streakBestDays).toBe(6);
+  });
+
+  it("pays once when two check-ins race the same day", async () => {
+    const { token, userId } = await signup(h);
+    await setEnergy(h, token, 0);
+    const [a, b] = await Promise.all([streak(token), streak(token)]);
+    expect(a.data.days).toBe(1);
+    expect(b.data.days).toBe(1);
+
+    const wallet = await prisma.wallet.findUniqueOrThrow({ where: { userId } });
+    expect(wallet.energy).toBe(rewardForStreakDay(1).energy);
+    const energyRows = await prisma.ledgerEntry.findMany({
+      where: { walletId: wallet.id, currency: "energy", ref: { startsWith: "streak:" } },
+    });
+    expect(energyRows).toHaveLength(1);
   });
 });

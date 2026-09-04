@@ -1,20 +1,19 @@
 import type { PrismaClient, Subscription, Wallet } from "@prisma/client";
-import { ENERGY, PLANS, type PlanId } from "@rpgllm/shared";
+import { ENERGY } from "@rpgllm/shared";
 import type { Clock } from "../clock";
 import { nextMidnight } from "../clock";
+import { entitlementsFor } from "./entitlements";
 import type { Tx } from "../types";
 
-export const dailyMaxFor = (sub: Subscription | null): number => {
-  if (!sub || !sub.active) return ENERGY.FREE_DAILY;
-  const plan = PLANS[sub.plan as PlanId];
-  return plan ? plan.energyDaily : ENERGY.FREE_DAILY;
-};
+/**
+ * Both of these are wrappers over `services/entitlements.ts` — the single place that decides what a
+ * subscription is worth. `now` is optional so the existing call sites (routes/me, routes/wallet)
+ * keep working; pass the clock's time wherever one is in hand so time-travel moves entitlements too.
+ */
+export const dailyMaxFor = (sub: Subscription | null, now?: Date): number =>
+  entitlementsFor(sub, now).dailyEnergyMax;
 
-export const adFreeFor = (sub: Subscription | null): boolean => {
-  if (!sub || !sub.active) return false;
-  const plan = PLANS[sub.plan as PlanId];
-  return plan ? plan.adFree : false;
-};
+export const adFreeFor = (sub: Subscription | null, now?: Date): boolean => entitlementsFor(sub, now).adFree;
 
 /**
  * Lazy daily refill (job `wallet.dailyRefill` runs on read).
@@ -34,7 +33,7 @@ export async function ensureWallet(
   const wallet = existing ?? (await prisma.wallet.create({
     data: { userId, energy: ENERGY.FREE_DAILY, coffee: ENERGY.STARTING_COFFEE, dailyRefillAt: nextMidnight(now) },
   }));
-  const dailyMax = dailyMaxFor(subscription);
+  const dailyMax = dailyMaxFor(subscription, now);
   if (now < wallet.dailyRefillAt) return { wallet, subscription, dailyMax };
 
   const target = Math.max(wallet.energy, dailyMax);

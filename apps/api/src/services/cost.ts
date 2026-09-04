@@ -19,7 +19,7 @@
  */
 import { Prisma, type PrismaClient } from "@prisma/client";
 import { championVariants } from "@rpgllm/llm";
-import { COST_DASHBOARD, type CostSummaryResZ } from "@rpgllm/shared";
+import { BATCH_DISCOUNT, COST_DASHBOARD, PRICING, type CostSummaryResZ } from "@rpgllm/shared";
 import type { z } from "zod";
 
 export type CostRow = z.infer<typeof CostSummaryResZ>["totals"];
@@ -37,6 +37,16 @@ export const COST_ALARMS = {
 
 /** `meta.fallback === true` is persisted only through `stopReason` (packages/llm/src/errors.ts). */
 export const FALLBACK_STOP_REASONS = ["error", "refusal", "invalid_json"] as const;
+
+/**
+ * Batch tier marker (cost-architecture §5.4, Agent N). `GenerationLog` has no `batched` column, so
+ * a batched call is written with its stop reason prefixed: `batch:replay`, `batch:end_turn`,
+ * `batch:error`. Two SQL fragments follow from that: `REASON_EXPR` strips the prefix so failure
+ * kinds keep matching, and `IS_BATCH` selects the batched half of the window.
+ */
+export const BATCH_STOP_PREFIX = "batch:";
+const REASON_EXPR = Prisma.sql`regexp_replace("stopReason", '^batch:', '')`;
+const IS_BATCH = Prisma.sql`"stopReason" LIKE 'batch:%'`;
 
 export interface VariantArm {
   generator: string;
@@ -70,6 +80,24 @@ export interface DailyPerAction {
   ttftP95Ms: number;
 }
 
+/**
+ * §5.4 made visible: what the Batch tier is actually saving. `listPriceUsd` re-prices the batched
+ * tokens at interactive list price from `PRICING`, so `realisedDiscount` is a *measurement* (it
+ * should sit at 1 - BATCH_DISCOUNT) rather than an assertion — if a batched call is ever billed at
+ * full price, this number moves.
+ */
+export interface BatchSplit {
+  batched: CostRow;
+  interactive: CostRow;
+  batchedCallShare: number;
+  batchedCostShare: number;
+  listPriceUsd: number;
+  savedUsd: number;
+  realisedDiscount: number;
+  expectedDiscount: number;
+  byGenerator: Array<{ generator: string; calls: number; costUsd: number; savedUsd: number }>;
+}
+
 export interface CostAlarms {
   cacheHitRateLow: boolean;
   costPerActionOverChampion: boolean;
@@ -84,6 +112,8 @@ export interface CostReport extends CostSummary {
   ttft: { p50Ms: number; p95Ms: number; samples: number };
   /** §6.4 "$/action and $/DAU over time" — one point per UTC day in the window */
   perDay: DailyPerAction[];
+  /** cost-architecture §5.4 — batched vs interactive spend and the discount actually realised */
+  batch: BatchSplit;
   variants: VariantArm[];
   alarms: CostAlarms;
   thresholds: typeof COST_ALARMS;
@@ -115,7 +145,7 @@ interface RawGroupRow {
 
 const num = (v: bigint | number | null | undefined): number => (v === null || v === undefined ? 0 : Number(v));
 
-const FALLBACK_FILTER = Prisma.sql`"stopReason" IN (${Prisma.join(FALLBACK_STOP_REASONS.map((s) => Prisma.sql`${s}`))})`;
+const FALLBACK_FILTER = Prisma.sql`${REASON_EXPR} IN (${Prisma.join(FALLBACK_STOP_REASONS.map((s) => Prisma.sql`${s}`))})`;
 
 /**
  * One grouped scan of the window. `keyExpr` must be server-authored SQL (never user input) —
@@ -240,6 +270,95 @@ async function perDaySeries(prisma: PrismaClient, w: CostWindow): Promise<DailyP
   });
 }
 
+interface RawBatchModelRow {
+  model: string;
+  batched: bigint;
+  input: bigint | null;
+  cacheWrite: bigint | null;
+  cacheRead: bigint | null;
+  output: bigint | null;
+  cost: number | null;
+}
+
+interface RawBatchGeneratorRow { generator: string; calls: bigint; cost: number | null }
+
+/**
+ * The batch split. Two grouped scans: one per model (to re-price the batched tokens at list price)
+ * and one per generator. Both are tiny result sets — no row is ever loaded.
+ */
+export async function batchSplit(prisma: PrismaClient, w: CostWindow): Promise<BatchSplit> {
+  const [halves, byModel, byGenerator] = await Promise.all([
+    groupBy(
+      prisma,
+      Prisma.sql`CASE WHEN ${IS_BATCH} THEN 'batched' ELSE 'interactive' END`,
+      w,
+      Prisma.sql`1 ASC`,
+    ),
+    prisma.$queryRaw<RawBatchModelRow[]>`
+      SELECT "model",
+             count(*) AS "batched",
+             sum("inputTokens") AS "input",
+             sum("cacheWriteTokens") AS "cacheWrite",
+             sum("cacheReadTokens") AS "cacheRead",
+             sum("outputTokens") AS "output",
+             sum("costUsd")::double precision AS "cost"
+      FROM "GenerationLog"
+      WHERE "createdAt" >= ${w.since} AND "createdAt" <= ${w.until} AND ${IS_BATCH}
+      GROUP BY 1
+      ORDER BY 1
+    `,
+    prisma.$queryRaw<RawBatchGeneratorRow[]>`
+      SELECT "generator"::text AS "generator",
+             count(*) AS "calls",
+             sum("costUsd")::double precision AS "cost"
+      FROM "GenerationLog"
+      WHERE "createdAt" >= ${w.since} AND "createdAt" <= ${w.until} AND ${IS_BATCH}
+      GROUP BY 1
+      ORDER BY 1
+    `,
+  ]);
+
+  const batched = halves.find((r) => r.key === "batched") ?? EMPTY_ROW("batched");
+  const interactive = halves.find((r) => r.key === "interactive") ?? EMPTY_ROW("interactive");
+  const calls = batched.calls + interactive.calls;
+  const cost = batched.costUsd + interactive.costUsd;
+
+  let listPriceUsd = 0;
+  for (const row of byModel) {
+    const p = PRICING[row.model];
+    if (p === undefined) continue;
+    listPriceUsd +=
+      (num(row.input) * p.input +
+        num(row.output) * p.output +
+        num(row.cacheRead) * p.cacheRead +
+        num(row.cacheWrite) * p.cacheWrite) /
+      1_000_000;
+  }
+  listPriceUsd = round6(listPriceUsd);
+  const savedUsd = round6(Math.max(0, listPriceUsd - batched.costUsd));
+
+  return {
+    batched,
+    interactive,
+    batchedCallShare: Math.round(ratio(batched.calls, calls) * 1e4) / 1e4,
+    batchedCostShare: Math.round(ratio(batched.costUsd, cost) * 1e4) / 1e4,
+    listPriceUsd,
+    savedUsd,
+    realisedDiscount: Math.round(ratio(savedUsd, listPriceUsd) * 1e4) / 1e4,
+    expectedDiscount: 1 - BATCH_DISCOUNT,
+    byGenerator: byGenerator.map((g) => {
+      const generatorCost = round6(num(g.cost));
+      return {
+        generator: g.generator,
+        calls: num(g.calls),
+        costUsd: generatorCost,
+        // at BATCH_DISCOUNT, what was paid is the discounted half: the saving is the same amount
+        savedUsd: round6(BATCH_DISCOUNT > 0 ? generatorCost / BATCH_DISCOUNT - generatorCost : 0),
+      };
+    }),
+  };
+}
+
 /** The full §6.4 dashboard for one window. Six grouped queries + four scalars, no row loading. */
 export async function costReport(prisma: PrismaClient, w: CostWindow): Promise<CostReport> {
   const [totalsRows, byDay, byGenerator, byVariant, byModel] = await Promise.all([
@@ -251,7 +370,7 @@ export async function costReport(prisma: PrismaClient, w: CostWindow): Promise<C
   ]);
   const totals = totalsRows[0] ?? EMPTY_ROW("all");
 
-  const [arms, armRatings, ttftRows, perDay, actions, activeUsers, ratings, regenerations] = await Promise.all([
+  const [arms, armRatings, ttftRows, perDay, batch, actions, activeUsers, ratings, regenerations] = await Promise.all([
     prisma.$queryRaw<RawArmRow[]>`
       SELECT "generator"::text AS "generator",
              "variantId",
@@ -280,6 +399,7 @@ export async function costReport(prisma: PrismaClient, w: CostWindow): Promise<C
       WHERE "createdAt" >= ${w.since} AND "createdAt" <= ${w.until} AND "ttftMs" IS NOT NULL
     `,
     perDaySeries(prisma, w),
+    batchSplit(prisma, w),
     prisma.ledgerEntry.count({ where: { source: "spend", createdAt: { gte: w.since, lte: w.until } } }),
     prisma.generationLog.findMany({
       where: { createdAt: { gte: w.since, lte: w.until }, userId: { not: null } },
@@ -323,6 +443,7 @@ export async function costReport(prisma: PrismaClient, w: CostWindow): Promise<C
     ...summary,
     ttft,
     perDay,
+    batch,
     variants,
     alarms: {
       // an empty window is not an alarm — nothing has been sampled yet

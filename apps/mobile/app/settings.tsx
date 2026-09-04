@@ -12,8 +12,6 @@ const STORE_SUBSCRIPTIONS: Record<string, string> = {
   android: "https://play.google.com/store/account/subscriptions",
 };
 
-/** No i18n key exists for the free tier — it is a plan name, like "status plus". */
-const FREE_PLAN = "Free";
 const EXPORT_FILENAME = "rpgllm-export.json";
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
@@ -96,7 +94,15 @@ export default function SettingsScreen() {
   const isMinor = me?.user.isMinor ?? true;
   const consentLocked = isMinor;
   const subscription = me?.subscription;
-  const planLabel = subscription?.active ? subscription.plan : FREE_PLAN;
+  /**
+   * Agent P: the plan, and — when there is one — the period end, so "cancelled but still Plus until
+   * the 12th" is legible. No i18n key exists for "renews on", so the date is appended to the plan
+   * value rather than given a misleading label of its own.
+   */
+  const renewsAt = subscription?.active && subscription.renewsAt ? subscription.renewsAt.slice(0, 10) : null;
+  const planLabel = subscription?.active
+    ? `${subscription.plan}${renewsAt ? ` · ${renewsAt}` : ""}`
+    : t("freePlan");
 
   const back = useCallback(() => {
     if (router.canGoBack()) router.back();
@@ -127,7 +133,8 @@ export default function SettingsScreen() {
       setError(t("loadFailed"));
       return;
     }
-    setNotice(res.plan ? `${t("plusTitle")} — ${res.plan}` : t("restorePurchases"));
+    // Restore always reports where the account actually stands, including "nothing to restore".
+    setNotice(res.plan ? `${t("plusTitle")} — ${res.plan}` : `${t("subscription")} — ${t("freePlan")}`);
   };
 
   const onConsent = async () => {

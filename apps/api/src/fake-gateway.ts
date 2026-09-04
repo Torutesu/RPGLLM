@@ -15,7 +15,12 @@ import {
   type G7Input, type G7Output, type G8Input, type G8Output,
   type GenerationMeta, type GenerationResult, type GeneratorId, type ModelTier,
 } from "@rpgllm/shared";
-import type { Gateway, LlmMode, RunOptions } from "@rpgllm/llm";
+import type {
+  AnyBatchItem, AnyBatchOutcome, BatchItem, BatchResults, Gateway, LlmMode, RunOptions,
+  G2Input, G2Output, G10Input, G10Output, GJInput, GJOutput,
+} from "@rpgllm/llm";
+import { batchStopReason, scoreCandidateOffline } from "@rpgllm/llm";
+import { BATCH_DISCOUNT } from "@rpgllm/shared";
 import { hashString, seededRandom } from "./services/rng";
 import { modelForTier } from "./env";
 
@@ -254,6 +259,108 @@ export function createFakeGateway(initialMode: LlmMode = "replay"): FakeGateway 
     return { output, meta: meta("G8", tier, `safety:${input.text}`, false, opts, 8) };
   };
 
+
+  /* ---------------------------------------------------------------- batch tier ---- */
+
+  const g2 = async (input: G2Input, opts?: RunOptions): Promise<GenerationResult<G2Output>> => {
+    const tier = tierFor("G2", opts);
+    record("G2", tier, opts, input);
+    const failed = shouldFail();
+    const ja = input.locale === "ja";
+    const handles = input.cast.map((c) => c.handle);
+    const lines = ja
+      ? ["リハ延びた。", "スタジオの自販機が壊れてる。", "誰か傘持ってない?", "今日の空、無料。"]
+      : ["rehearsal ran long.", "the studio vending machine is broken again.", "does anyone own an umbrella", "sky's free today."];
+    const n = Math.max(1, Math.min(input.n, 12));
+    const posts = Array.from({ length: failed ? 1 : n }, (_v, i) => ({
+      characterHandle: handles[i % Math.max(1, handles.length)] ?? "unknown",
+      text: `${lines[i % lines.length] ?? "..."}${failed ? "" : ` #${i + 1}`}`,
+    }));
+    return { output: { posts }, meta: meta("G2", tier, `${input.worldSlug}:${input.locale}:g2:${input.seed}`, failed, opts, 20 * posts.length) };
+  };
+
+  const g10 = async (input: G10Input, opts?: RunOptions): Promise<GenerationResult<G10Output>> => {
+    const tier = tierFor("G10", opts);
+    record("G10", tier, opts, input);
+    const failed = shouldFail();
+    const ja = input.locale === "ja";
+    const handles = input.cast.map((c) => c.handle);
+    const posts = Array.from({ length: failed ? 1 : 3 }, (_v, i) => ({
+      characterHandle: handles[i % Math.max(1, handles.length)] ?? "unknown",
+      text: ja ? `不在中の出来事 ${i + 1}` : `something happened while you were out (${i + 1})`,
+    }));
+    const closest = input.relationships[0];
+    const output: G10Output = {
+      posts,
+      dm: failed || closest === undefined ? null : { characterHandle: closest.handle, bubbles: [ja ? "戻ってきた?" : "you back?"] },
+      digest: ja ? "世界は静かに動いた。" : "The world moved while you were away.",
+    };
+    return { output, meta: meta("G10", tier, `${input.worldSlug}:${input.locale}:g10:${input.seed}`, failed, opts, 80) };
+  };
+
+  const gj = async (input: GJInput, opts?: RunOptions): Promise<GenerationResult<GJOutput>> => {
+    const tier = tierFor("GJ", opts);
+    record("GJ", tier, opts, input);
+    const failed = shouldFail();
+    const output: GJOutput = failed
+      ? { scores: { inCharacter: 0, diversity: 0, humour: 0, emoji: 0, safety: 0, jpNaturalness: 0 }, verdict: "fail", notes: "judge unavailable" }
+      : scoreCandidateOffline(input);
+    return { output, meta: meta("GJ", tier, `gj:${input.caseLabel}:${input.candidate.length}`, failed, opts, 40) };
+  };
+
+  /**
+   * The batch tier, faked: run each entry through the single-call fake, then apply the two things
+   * that make a batched call a batched call — half price and the `batch:` stop-reason marker
+   * (packages/llm/src/cost.ts). Results are keyed by `customId`, never by position.
+   */
+  async function fakeBatch<TIn, TOut>(
+    items: ReadonlyArray<BatchItem<TIn>>,
+    one: (input: TIn, opts?: RunOptions) => Promise<GenerationResult<TOut>>,
+  ): Promise<BatchResults<TOut>> {
+    const out: BatchResults<TOut> = new Map();
+    for (const item of items) {
+      const res = await one(item.input, item.opts);
+      const batched: GenerationMeta = {
+        ...res.meta,
+        costUsd: res.meta.costUsd * BATCH_DISCOUNT,
+        ttftMs: null,
+        stopReason: batchStopReason(res.meta.stopReason),
+      };
+      out.set(item.customId, {
+        customId: item.customId,
+        status: res.meta.fallback ? "errored" : "succeeded",
+        output: res.output,
+        meta: batched,
+      });
+    }
+    return out;
+  }
+
+  const batchG1 = (items: ReadonlyArray<BatchItem<G1Input>>) => fakeBatch(items, g1);
+  const batchG2 = (items: ReadonlyArray<BatchItem<G2Input>>) => fakeBatch(items, g2);
+  const batchG4 = (items: ReadonlyArray<BatchItem<G4Input>>) => fakeBatch(items, g4);
+  const batchG5 = (items: ReadonlyArray<BatchItem<G5Input>>) => fakeBatch(items, g5);
+  const batchG7 = (items: ReadonlyArray<BatchItem<G7Input>>) => fakeBatch(items, g7);
+  const batchG10 = (items: ReadonlyArray<BatchItem<G10Input>>) => fakeBatch(items, g10);
+  const batchGJ = (items: ReadonlyArray<BatchItem<GJInput>>) => fakeBatch(items, gj);
+
+  const batch = async (items: readonly AnyBatchItem[]): Promise<Map<string, AnyBatchOutcome>> => {
+    const merged = new Map<string, AnyBatchOutcome>();
+    for (const item of items) {
+      switch (item.generator) {
+        case "G1": for (const [id, o] of await batchG1([item])) merged.set(id, { generator: "G1", ...o }); break;
+        case "G2": for (const [id, o] of await batchG2([item])) merged.set(id, { generator: "G2", ...o }); break;
+        case "G4": for (const [id, o] of await batchG4([item])) merged.set(id, { generator: "G4", ...o }); break;
+        case "G5": for (const [id, o] of await batchG5([item])) merged.set(id, { generator: "G5", ...o }); break;
+        case "G7": for (const [id, o] of await batchG7([item])) merged.set(id, { generator: "G7", ...o }); break;
+        case "G8": { const r = await g8(item.input, item.opts); merged.set(item.customId, { generator: "G8", customId: item.customId, status: r.meta.fallback ? "errored" : "succeeded", output: r.output, meta: { ...r.meta, costUsd: r.meta.costUsd * BATCH_DISCOUNT, ttftMs: null, stopReason: batchStopReason(r.meta.stopReason) } }); break; }
+        case "G10": for (const [id, o] of await batchG10([item])) merged.set(id, { generator: "G10", ...o }); break;
+        case "GJ": for (const [id, o] of await batchGJ([item])) merged.set(id, { generator: "GJ", ...o }); break;
+      }
+    }
+    return merged;
+  };
+
   const assignments = (userId: string): Record<string, string> => {
     const h = hashString(userId || "anon");
     return {
@@ -266,7 +373,8 @@ export function createFakeGateway(initialMode: LlmMode = "replay"): FakeGateway 
   return {
     mode: () => mode,
     setMode: (m: LlmMode) => { mode = m; },
-    g1, g4, g5, g7, g8,
+    g1, g2, g4, g5, g7, g8, g10, gj,
+    batch, batchG1, batchG2, batchG4, batchG5, batchG7, batchG10, batchGJ,
     assignments,
     champion: () => ({ G1: "g1_mid_v1", G4: "g4_mid_v1", G5: "g5_high_v1", G8: "g8_light_v1" }),
     calls,
