@@ -57,6 +57,8 @@ export default defineConfig({
   ],
   outputDir: "test-results",
   use: {
+    // Chromium preinstalled in this environment (build revision differs from Playwright 1.62; never run `playwright install`)
+    launchOptions: { executablePath: process.env.PW_CHROMIUM_PATH ?? "/opt/pw-browsers/chromium" },
     baseURL: WEB_URL,
     trace: "on-first-retry",
     screenshot: "only-on-failure",
