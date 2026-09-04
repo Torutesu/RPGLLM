@@ -3,7 +3,7 @@ import { ENERGY, PLANS, T } from "@rpgllm/shared";
 import {
   apiSignup, badgeEnergy, dismissStatCard, energyModalValue, enterWorld, expectWalletEnergy, gotoApp,
   loginInBrowser, me, openComposer, openEnergyModal, resetDb, ROUTES, setEnergy, submitComposer,
-  timeTravel, typeInComposer, userPostCell, wallet, watchAd,
+  timeTravel, typeInComposer, userPostCell, wallet, watchAd, syncWallet
 } from "../fixtures";
 
 test.beforeEach(async ({ request }) => {
@@ -16,6 +16,8 @@ test("E2E-007: energy 0 → watch an ad → the post goes through", async ({ pag
   await enterWorld(page);
 
   await setEnergy(request, account.jwt, 0);
+
+  await syncWallet(page);
   await gotoApp(page, ROUTES.feed);
   await expect.poll(() => badgeEnergy(page), { timeout: 15_000 }).toBe(0);
 
@@ -46,6 +48,8 @@ test("E2E-008: buying Plus grants 50 energy and hides ads", async ({ page, reque
   await enterWorld(page);
 
   await setEnergy(request, account.jwt, 0);
+
+  await syncWallet(page);
   await gotoApp(page, ROUTES.feed);
   await expect.poll(() => badgeEnergy(page), { timeout: 15_000 }).toBe(0);
   expect((await me(request, account.jwt)).subscription?.active ?? false, "not subscribed yet").toBe(false);
@@ -80,6 +84,8 @@ test("E2E-015: the daily refill tops a free tank back up", async ({ page, reques
   await enterWorld(page);
 
   await setEnergy(request, account.jwt, 0);
+
+  await syncWallet(page);
   await expect
     .poll(async () => (await wallet(request, account.jwt)).energy, { timeout: 15_000 })
     .toBe(0);

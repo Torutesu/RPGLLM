@@ -4,7 +4,7 @@ import {
   apiEmailAuth, apiSignup, apiUrl, badgeEnergy, bearer, browserToken, cellsOfKind, dismissStatCard,
   enterWorld, errorOf, expectBadgeEnergy, FIRST_FOLLOWER, firstPostFlow, lastAdRequest, loginInBrowser,
   openComposer, openEnergyModal, randomEmail, reactionCount, resetDb, setAdsMode, setEnergy,
-  submitComposer, typeInComposer, uiAgeGate, uiEmailLogin, wallet, yearsAgo,
+  submitComposer, typeInComposer, uiAgeGate, uiEmailLogin, wallet, yearsAgo, syncWallet
 } from "../fixtures";
 
 /** CJK range — enough to prove a reply is Japanese and not the English fixture. */
@@ -119,6 +119,7 @@ test("E2E-016: minors get non-personalized ads", async ({ page, request }) => {
   await loginInBrowser(page, account.jwt);
   await enterWorld(page);
   await setEnergy(request, account.jwt, 0);
+  await syncWallet(page);
   await expect.poll(() => badgeEnergy(page), { timeout: 15_000 }).toBe(0);
 
   await openEnergyModal(page);

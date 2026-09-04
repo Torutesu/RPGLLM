@@ -133,6 +133,12 @@ export async function setEnergy(request: APIRequestContext, jwt: string, energy:
   expect(res.status(), `POST /v1/__test/set-energy {energy:${energy}}`).toBeLessThan(400);
 }
 
+/** After changing the wallet through the API, reload the app so SCR-010 shows the server value (the client has no wallet polling). */
+export async function syncWallet(page: Page): Promise<void> {
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await expect(page.getByTestId(T.feedList), "feed must come back after reload").toBeVisible({ timeout: 15_000 });
+}
+
 export async function timeTravel(request: APIRequestContext, days: number, jwt?: string): Promise<void> {
   const res = await request.post(apiUrl("/v1/__test/time-travel"), {
     headers: jwt ? bearer(jwt) : undefined, data: { days }, failOnStatusCode: false,

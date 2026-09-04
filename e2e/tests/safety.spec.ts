@@ -3,7 +3,7 @@ import { SAFETY_BLOCK_TEST_PHRASES, strings, T } from "@rpgllm/shared";
 import {
   apiSignup, badgeEnergy, cellsOfKind, enterWorld, generations, loginInBrowser, openComposer,
   reactionCount, resetDb, setEnergy, setLlmMode, submitComposer, typeInComposer, userPostCell,
-  wallet,
+  wallet, syncWallet
 } from "../fixtures";
 
 test.beforeEach(async ({ request }) => {
@@ -21,6 +21,7 @@ test("E2E-009: blocked input is refused and costs no energy", async ({ page, req
   await loginInBrowser(page, account.jwt);
   await enterWorld(page);
   await setEnergy(request, account.jwt, 5);
+  await syncWallet(page);
   await expect.poll(() => badgeEnergy(page), { timeout: 15_000 }).toBe(5);
 
   await openComposer(page);
