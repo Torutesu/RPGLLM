@@ -2,6 +2,7 @@ import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { JOBS } from "@rpgllm/shared";
 import { cronMatches, nextCronRun, nextRunAtFor, parseCron } from "../src/jobs/cron";
 import { findJob, resolveJobName, runDefinitionOnce, runJobOnce, type JobDeps } from "../src/jobs/registry";
+import { ensurePushTicketTable, recordPushTickets, sweepPushReceipts } from "../src/jobs/push-receipts";
 import { ensureJobRunTable, lockKeyFor, recentRuns, withJobLock } from "../src/jobs/runs";
 import { call, makeHarness, prisma, resetDatabase, signupWithPersona, type Harness } from "./helpers";
 
@@ -12,6 +13,7 @@ beforeAll(async () => {
   h = makeHarness();
   deps = { prisma: h.prisma, gateway: h.gateway, clock: h.clock };
   await ensureJobRunTable(prisma);
+  await ensurePushTicketTable(prisma);
 });
 beforeEach(async () => {
   await resetDatabase();
@@ -216,5 +218,81 @@ describe("GET /v1/jobs and POST /v1/jobs/run", () => {
     const res = await call<{ ran: string[] }>(h, "POST", "/v1/__test/run-job", { body: { job: "ambient" } });
     expect(res.status).toBe(200);
     expect(res.data.ran).toContain("ambient");
+  });
+});
+
+
+describe("the Expo receipt second pass", () => {
+  const HOUR = 3_600_000;
+  const now = new Date("2026-09-04T12:00:00.000Z");
+
+  beforeEach(async () => {
+    await prisma.$executeRawUnsafe(`DELETE FROM "PushTicket"`);
+    delete process.env.PUSH_ENABLED;
+  });
+
+  /** One receipt map, shaped the way Expo answers `getReceipts`. */
+  const receiptsFetch = (body: Record<string, unknown>): typeof fetch =>
+    ((): Promise<Response> => Promise.resolve(new Response(JSON.stringify({ data: body }), {
+      status: 200, headers: { "content-type": "application/json" },
+    }))) as unknown as typeof fetch;
+
+  async function tokenFor(userId: string, token: string): Promise<void> {
+    await prisma.pushToken.create({ data: { userId, token, platform: "ios" } });
+  }
+
+  it("deletes the tokens Expo reports as DeviceNotRegistered, and keeps the healthy ones", async () => {
+    const p = await signupWithPersona(h);
+    await tokenFor(p.userId, "ExponentPushToken[dead]");
+    await tokenFor(p.userId, "ExponentPushToken[alive]");
+    await recordPushTickets(prisma, [
+      { ticketId: "ticket-dead", token: "ExponentPushToken[dead]" },
+      { ticketId: "ticket-alive", token: "ExponentPushToken[alive]" },
+    ], new Date(now.getTime() - HOUR));
+
+    process.env.PUSH_ENABLED = "1";
+    const result = await sweepPushReceipts(prisma, now, {
+      fetchImpl: receiptsFetch({
+        "ticket-dead": { status: "error", details: { error: "DeviceNotRegistered" } },
+        "ticket-alive": { status: "ok" },
+      }),
+    });
+
+    expect(result.checked).toBe(2);
+    expect(result.pruned).toBe(1);
+    const left = await prisma.pushToken.findMany({ where: { userId: p.userId } });
+    expect(left.map((t) => t.token)).toEqual(["ExponentPushToken[alive]"]);
+    // Both tickets were answered, so neither is asked about again.
+    expect(await sweepPushReceipts(prisma, now, { fetchImpl: receiptsFetch({}) })).toMatchObject({ checked: 0 });
+  });
+
+  it("leaves a ticket alone until it has had time to settle", async () => {
+    const p = await signupWithPersona(h);
+    await tokenFor(p.userId, "ExponentPushToken[fresh]");
+    await recordPushTickets(prisma, [{ ticketId: "ticket-fresh", token: "ExponentPushToken[fresh]" }], now);
+
+    process.env.PUSH_ENABLED = "1";
+    const result = await sweepPushReceipts(prisma, now, { fetchImpl: receiptsFetch({}) });
+    expect(result.checked, "a ticket seconds old is not worth asking about").toBe(0);
+    expect(await prisma.pushToken.count({ where: { userId: p.userId } })).toBe(1);
+  });
+
+  it("forgets tickets past Expo's retention, and does nothing at all while push is off", async () => {
+    const p = await signupWithPersona(h);
+    await tokenFor(p.userId, "ExponentPushToken[old]");
+    await recordPushTickets(prisma, [{ ticketId: "ticket-old", token: "ExponentPushToken[old]" }],
+      new Date(now.getTime() - 48 * HOUR));
+
+    const result = await sweepPushReceipts(prisma, now);   // PUSH_ENABLED unset: no network at all
+    expect(result.dropped).toBe(1);
+    expect(result.checked).toBe(0);
+    expect(await prisma.pushToken.count({ where: { userId: p.userId } })).toBe(1);
+  });
+
+  it("runs as part of the 15-minute housekeeping job", async () => {
+    const record = await runJobOnce(deps, "purge-login-codes", { trigger: "test" });
+    expect(record.ok).toBe(true);
+    expect(record.detail).toHaveProperty("receiptsChecked");
+    expect(record.detail).toHaveProperty("tokensPruned");
   });
 });

@@ -24,6 +24,7 @@ import { runAmbientRefill, runAmbientRefillBatchedJob } from "./ambient-refill";
 import { runBanditUpdate } from "./bandit-update";
 import { runMemoryConsolidation, runMemoryConsolidationBatchedJob } from "./memory-consolidate";
 import { runOfflineDirector, runOfflineDirectorBatchedJob } from "./offline-director";
+import { sweepPushReceipts } from "./push-receipts";
 import { finishRun, pruneRuns, shortError, startRun, withJobLock, type JobRunRow } from "./runs";
 
 export type ScheduledJobName = (typeof JOBS)[number]["name"];
@@ -99,12 +100,23 @@ const RUNNERS: Record<ScheduledJobName, (deps: JobDeps, opts: JobOptions) => Pro
       detail: { users: r.users, personas: r.personas, posts: r.posts, messages: r.messages, generations: r.generations },
     };
   },
+  /**
+   * The housekeeping broom, every 15 minutes. Three passes with the same cadence and no reason to
+   * hold three locks: expired login codes, the run log's own retention, and the **second pass over
+   * Expo delivery receipts** (Agent P: receipts arrive minutes after the send, so the read inside
+   * `sendPush` almost always comes back empty and dead devices are never pruned). A dedicated
+   * `push-receipts` row in `JOBS` would read better — `packages/shared` is read-only for me, so it
+   * is folded in here and noted in build-notes for the orchestrator.
+   */
   "purge-login-codes": async (deps) => {
     const now = deps.clock.now();
     const codes = await purgeLoginCodes(deps.prisma, now);
-    // Same broom, same schedule: keep the run log itself bounded.
     const runs = await pruneRuns(deps.prisma, new Date(now.getTime() - runRetentionDays() * DAY_MS));
-    return { processed: codes, detail: { codes, runs } };
+    const receipts = await sweepPushReceipts(deps.prisma, now);
+    return {
+      processed: codes,
+      detail: { codes, runs, receiptsChecked: receipts.checked, tokensPruned: receipts.pruned, ticketsDropped: receipts.dropped },
+    };
   },
   "bandit-update": async (deps) => await runBanditUpdate(deps),
 };

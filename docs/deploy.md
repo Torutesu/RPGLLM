@@ -85,6 +85,9 @@ Optional, with safe defaults:
 | `JOB_TIMEOUT_MS` | `600000` | worker: how long one job may hold its advisory lock |
 | `JOBS_DISABLED` | empty | comma-separated job names the worker skips (still runnable by hand) |
 | `JOB_RUN_RETENTION_DAYS` | `14` | how long `JobRun` rows are kept |
+| `JOBS_BATCH` | `1` | `0` runs the generative jobs interactively instead of on the Batch tier |
+| `PUSH_RECEIPT_DELAY_MS` | `900000` | how long a push ticket settles before its receipt is read |
+| `PUSH_RECEIPT_TTL_MS` | `86400000` | Expo's receipt retention; older tickets are forgotten |
 | `WORKER_SHUTDOWN_GRACE_MS` | `30000` | worker: how long SIGTERM waits for the in-flight job |
 
 ## 4. Operating notes
@@ -121,14 +124,31 @@ JOBS_DISABLED=bandit-update pnpm --filter api worker
 
 The schedule is `JOBS` in `packages/shared/src/constants.ts` — the worker has no table of its own:
 
-| job | cron (UTC) | what it does |
-|---|---|---|
-| `offline-director` | `0 * * * *` | While-you-were-away digests for players who have been away (AIF-001) |
-| `memory-consolidate` | `*/30 * * * *` | folds memory notes into summaries with G7 (AIF-002) |
-| `ambient-refill` | `0 3 * * *` | tops the ambient post pool back up |
-| `purge-deleted` | `30 3 * * *` | hard-deletes accounts past the 30-day grace window (S1-1) |
-| `purge-login-codes` | `*/15 * * * *` | drops expired/consumed login codes, prunes old `JobRun` rows |
-| `bandit-update` | `15 * * * *` | refreshes arm posteriors and checks the guardrails |
+| job | cron (UTC) | what it does | tier |
+|---|---|---|---|
+| `offline-director` | `0 * * * *` | While-you-were-away digests for absent players (AIF-001) | **batch** (G10) |
+| `memory-consolidate` | `*/30 * * * *` | folds memory notes into summaries (AIF-002) | **batch** (G7) |
+| `ambient-refill` | `0 3 * * *` | tops the ambient post pool back up | **batch** (G2) |
+| `purge-deleted` | `30 3 * * *` | hard-deletes accounts past the 30-day grace window (S1-1) | — |
+| `purge-login-codes` | `*/15 * * * *` | expired login codes + old `JobRun` rows + the **Expo receipt second pass** | — |
+| `bandit-update` | `15 * * * *` | `refreshBandit`: fold posteriors, guardrails, promotion, then refresh the allocator snapshot | — |
+
+**The Batch tier (cost-architecture §5.4).** The three generative jobs run their batched variants —
+half price, because nobody is waiting on them. `JOBS_BATCH=0` reverts all three to the interactive
+composition; use it if a batch ever stalls (a batch may take up to 24 hours in live mode). The
+interactive paths are still what serves `GET /v1/digest`, `GET /v1/memory/:characterId` and the E2E
+hook `POST /v1/__test/run-job`, which cannot wait on a queue.
+
+**Thompson sampling.** The API passes `banditAllocate` into the gateway at boot and warms the arm
+snapshot; `bandit-update` refreshes it in whichever process runs the job. A snapshot is per-process
+memory, so an API instance picks up promotions at its next restart (or the next time it runs the job
+itself) — the arms move slowly by design (500 calls minimum before a promotion), so that is fine.
+
+**Push receipts.** Expo fills delivery receipts in asynchronously, so the read inside `sendPush`
+almost always comes back empty. The 15-minute pass re-reads settled ticket ids and deletes every
+token reported `DeviceNotRegistered`. **It needs one line in `services/push.ts`** to record the
+ticket ids it reads — see `apps/api/src/jobs/push-receipts.ts` and build-notes "Agent O"; until that
+lands the sweep is a no-op over an empty table.
 
 **Only one instance of a job runs at a time.** Each run takes a Postgres *advisory* lock keyed on
 the job name (`pg_try_advisory_xact_lock`, `apps/api/src/jobs/runs.ts`), so a second worker, an
@@ -165,8 +185,12 @@ The run log has to be readable from a different process than the one that wrote 
 table with no foreign keys and no Prisma model. Nothing breaks — but `prisma migrate dev` will want
 to drop it, because the schema does not mention it.
 
-**The fix, next time the schema is touched:** add the model, generate the migration, then delete
-`ensureJobRunTable()` and replace the raw queries with `prisma.jobRun`.
+`apps/api/src/jobs/push-receipts.ts` creates a second one, `PushTicket`, the same way and for the
+same reason.
+
+**The fix, next time the schema is touched:** add the models, generate the migration, then delete
+`ensureJobRunTable()` / `ensurePushTicketTable()` and replace the raw queries with `prisma.jobRun` /
+`prisma.pushTicket`.
 
 ```prisma
 /// スケジューラの実行履歴 (docs/deploy.md §6)
@@ -182,6 +206,17 @@ model JobRun {
   host       String?
 
   @@index([job, startedAt])
+}
+
+/// Expo のチケット→レシート照合 (docs/deploy.md §6)
+model PushTicket {
+  id        String    @id @default(cuid())
+  ticketId  String    @unique
+  token     String
+  sentAt    DateTime
+  checkedAt DateTime?
+
+  @@index([checkedAt, sentAt])
 }
 ```
 

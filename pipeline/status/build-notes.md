@@ -2103,3 +2103,196 @@ realised discount             50.0% (expected 50.0%)
    judge path, but would score on the generic checks alone until their checkers are written.
 7. The watermark living in `PromotionEvent` is a schema-frozen compromise. If the schema ever opens
    up, a two-column `BanditWatermark` (or `BanditArm.foldedThrough`) is the honest home for it.
+
+---
+
+## Agent O — runtime & ops: the scheduler, persisted login codes, the streak's columns, test isolation — 2026-09-04
+
+Four things that stood between this build and something you could actually deploy: nothing ran the
+background work, login codes lived in one process's memory, the streak was only as durable as a
+ledger row, and the two test harnesses shared one database. Plus the ops debt behind them.
+
+### 1. The scheduler — `pnpm --filter api worker`
+
+`apps/api/src/worker.ts` is a second long-lived process that runs the `JOBS` table from
+`@rpgllm/shared` on its cron schedules. Until now those functions had no caller but a read-path
+fallback and the E2E hook (build-notes "Agent H": *"There is no scheduler in this build"*).
+
+```bash
+pnpm --filter api worker                        # the schedule, forever
+pnpm --filter api worker --once                 # every job once, then exit (0 = all clean)
+pnpm --filter api worker --once=ambient-refill  # one job
+pnpm --filter api worker --jobs=offline-director,purge-login-codes
+JOBS_DISABLED=bandit-update pnpm --filter api worker
+```
+
+| job | cron (UTC) | runs | tier |
+|---|---|---|---|
+| `offline-director` | `0 * * * *` | `runOfflineDirectorBatchedJob` (G10) | batch |
+| `memory-consolidate` | `*/30 * * * *` | `runMemoryConsolidationBatchedJob` (G7) | batch |
+| `ambient-refill` | `0 3 * * *` | `runAmbientRefillBatchedJob` (G2) | batch |
+| `purge-deleted` | `30 3 * * *` | `purgeDeletedAccounts` | — |
+| `purge-login-codes` | `*/15 * * * *` | login codes + `JobRun` retention + the Expo receipt pass | — |
+| `bandit-update` | `15 * * * *` | `refreshBandit` + `refreshAllocatorSnapshot` | — |
+
+- **Cron** is `jobs/cron.ts`: a 5-field UTC evaluator (`*`, `a`, `a-b`, lists, `/n` steps, dow 0-7,
+  the Vixie dom/dow-or rule) plus `nextCronRun`. No dependency — the whole thing is smaller than the
+  argument for picking a library's cron dialect, and it is unit-tested against the real `JOBS` rows.
+- **The lock.** Every run takes a Postgres **advisory lock keyed on the job name**
+  (`pg_try_advisory_xact_lock(20260904, fnv1a(job))`, `jobs/runs.ts`): a second worker, an
+  overlapping redeploy, or an admin's manual trigger **skips** instead of double-running. It is a
+  *transaction-scoped* lock held by an interactive transaction that does nothing else — Prisma pools
+  connections, so a session-scoped lock could be released on a connection nobody sees again. The job
+  itself runs on other connections; the transaction's `timeout` (`JOB_TIMEOUT_MS`, 10 min) bounds how
+  long a wedged job can hold the lock.
+- **Failure isolation.** `runJobOnce` never throws: a failing job is recorded with its error and the
+  loop carries on. `SIGTERM` stops the loop, drains the in-flight job (`WORKER_SHUTDOWN_GRACE_MS`,
+  30s), disconnects Prisma and exits 0.
+- **Visibility.** `GET /v1/jobs` → `JobsResZ` (schedule, enabled, last run, next run; `?job=` adds
+  the last 20 runs) and `POST /v1/jobs/run` → `RunJobReqZ`, both behind the **same admin gate as
+  `/v1/cost`** (`costAccessAllowed`: `TEST_HOOKS=1` or a matching `x-admin-token`, otherwise an
+  indistinguishable 404). Manual runs take the same lock as the schedule.
+- `POST /v1/__test/run-job` (Agent H's hook, and the E2E suite's) is **untouched** and still runs the
+  interactive compositions; `jobs/index.ts` only gained a comment pointing at the worker.
+
+**The `JobRun` table is schema debt, deliberately taken.** The run log has to be readable from a
+different process than the one that wrote it, and `prisma/schema.prisma` is not mine this pass, so
+`jobs/runs.ts` creates it with `CREATE TABLE IF NOT EXISTS` and reads it with parameterised raw SQL
+(`DISTINCT ON (job)` for the last run — aggregation in SQL, not in Node). `jobs/push-receipts.ts`
+does the same for `PushTicket`. **Orchestrator: the two Prisma models to paste are in
+`docs/deploy.md` §6**; after that, delete `ensureJobRunTable` / `ensurePushTicketTable` and use
+`prisma.jobRun` / `prisma.pushTicket`. `prisma migrate dev` will otherwise want to drop both.
+
+### 2. Login codes are in Postgres now
+
+`services/login-codes.ts` replaces the in-process `Map` on `AppState.emailCodes` (which is gone,
+along with its `types.ts` field and its line in `app.ts`). Same guarantees, now instance-independent:
+salted sha256 only, 10-minute TTL, ≤5 attempts, single use through a conditional `consumedAt` update
+(two racing verifies cannot both win), constant-time compare, and **one active code per address** —
+issuing a new one consumes every older pending row, so an attacker cannot keep an old code alive by
+asking for a new one. Every time read comes from the injected clock, so `/__test/time-travel` expires
+codes exactly like wall-clock time.
+
+`auth-codes.ts` keeps the crypto, the `MailSender` and — deliberately — the in-memory implementation,
+because `test/security.test.ts` (Agent F's) unit-tests the lifecycle rules through it without a
+database. Nothing in the request path calls it. `purge-login-codes` sweeps expired and consumed rows
+every 15 minutes; **without the worker deployed that table grows forever** (`POST /v1/jobs/run` is the
+manual equivalent).
+
+This is what makes the API safe behind more than one instance. The two things still in process
+memory are the rate-limit buckets (Agent F's TODO) and the push daily-cap counters (Agent P's) —
+both become N× too permissive at N instances. Neither is mine, and both want the same fix: a small
+counter table or Redis, keyed by user and local day.
+
+### 3. The streak lives on its columns
+
+`services/streak.ts` now reads and writes `User.streakDays` / `streakBestDays` / `streakLastAt`
+(the orchestrator's follow-up note). The ledger is still written on every payout — it stays the
+payment record, same `ref = "streak:<date>:<day>:<best>"` shape — but nothing derives state from it
+any more, so pruning `LedgerEntry` can no longer silently reset everyone's streak.
+
+Behaviour is preserved exactly: idempotent per UTC day, advance on consecutive days, reset after a
+gap, `streakBestDays` tracking, and **the energy cap at the wallet's daily maximum** (Agent L's
+deliberate rule — without it the day-1 bonus breaks four vitest files and E2E-003/007/008/015).
+Two-tab races are settled by a conditional update on `streakLastAt`, so exactly one caller pays.
+
+**Migration is opportunistic and needs no backfill**: an account with `streakLastAt = null` and a
+`streak:` ledger row has its columns written from that row on the first read (`migrateLegacyStreak`),
+keeping days *and* best. An account that never checked in is untouched. Covered by
+`streak.test.ts` — a legacy day-3 streak from yesterday becomes day 4 today, and a lapsed one resets
+to day 1 while keeping its best.
+
+### 4. Test isolation — both harnesses own their database
+
+The recipe is `docs/testing.md`. Short version:
+
+- **vitest**: `vitest.config.ts` asks `test-database.ts` for this run's database
+  (`rpgllm_test_v<pid>`, or `TEST_DB_SUFFIX`), `vitest.global-setup.ts` creates and migrates it and
+  drops it afterwards. `TEST_DATABASE_URL=…` still works and now means "use mine, don't drop it";
+  `TEST_DB_KEEP=1` keeps a private one for a post-mortem.
+- **Playwright**: `rpgllm_test_e2e_p<pid>` (or `E2E_DB_SUFFIX`), created + migrated + seeded **inside
+  the API webServer command** (`e2e/scripts/api.mjs` → `e2e/scripts/db.mjs`), i.e. *before the API
+  process starts*, and dropped in the new `global-teardown.ts`. `global-setup.ts` runs the same
+  preparation idempotently (marker file + lock file) for the case where the webServer was reused.
+  This is the fix for the failure that cost several agents hours: Playwright starts webServers before
+  `globalSetup`, so the old drop-and-recreate landed *after* the API had connected and
+  `POST /__test/reset` answered 500.
+- Two more harness fixes: the webServers now spawn **node directly** instead of through
+  `pnpm → sh → tsx`, which swallowed Playwright's SIGTERM and left an orphaned API holding the port
+  for the next run; and a server is only reused when you pass `E2E_SKIP_DB=1` (reusing a foreign API
+  now means testing against a different database). `E2E_WEB_DIST=dist-me` gives a run its own web
+  export — the bundle bakes `EXPO_PUBLIC_API_URL` in, so private ports need a private bundle — and
+  `API_PORT`/`WEB_PORT` alone are enough now: the config writes `API_URL`/`WEB_URL` back into the
+  environment for `fixtures.ts`.
+- `e2e/tests/**` and `e2e/fixtures.ts` were **not touched**. Nothing in either harness uses
+  `scripts/db.sh reset` or the shared `rpgllm_test` any more.
+
+### 5. Wiring Agent N and Agent P (asked for by the orchestrator)
+
+- **Thompson sampling is on.** `index.ts` passes `loadGateway({ allocate: banditAllocate })` and
+  warms the arm snapshot at boot (failing softly: a cold or unreachable database logs a warning and
+  the gateway falls back to `experiments.ts`'s deterministic split). `bandit-update` is now
+  `refreshBandit(prisma, now)` + `refreshAllocatorSnapshot` — the lazy-import no-op guard is gone.
+- **The Batch tier is scheduled.** The three generative jobs got batched variants beside their
+  interactive ones — `runAmbientRefillBatchedJob` (G2, one batch for every pool that is short, pool
+  sizes counted in one `GROUP BY`), `runMemoryConsolidationBatchedJob` (G7, one batch for every
+  persona with notes to fold) and `runOfflineDirectorBatchedJob` (G10, one batch for every away
+  player; G10 answers posts + DM + digest together, so one batched call replaces G5+G1+G4). The
+  registry runs the batched ones; `JOBS_BATCH=0` reverts.
+  **The interactive compositions stay** and are still what `GET /v1/digest`,
+  `GET /v1/memory/:characterId` and `POST /v1/__test/run-job` use — a batch has a 24-hour SLA in live
+  mode, and `digest.test.ts` pins the G5/G1/G4 composition of the on-demand path.
+- **Push receipts** (Agent P): `jobs/push-receipts.ts` re-reads settled ticket ids every 15 minutes
+  and deletes every token Expo reports `DeviceNotRegistered`, forgetting tickets past Expo's 24-hour
+  retention. It is folded into `purge-login-codes` because `JOBS` is read-only for me —
+  **orchestrator: a dedicated row `{ name: "push-receipts", schedule: "*/15 * * * *" }` would read
+  better, and I will move it the moment it exists.**
+  **⚠ It needs one line in `services/push.ts` (Agent P's file), which nobody else can write:** the
+  ticket ids only exist inside `sendPush`'s local map, so nothing populates `PushTicket` yet. At the
+  end of `sendPush`, where `ticketToToken` is still in scope:
+  ```ts
+  import { recordPushTickets } from "../jobs/push-receipts";
+  if (opts.prisma && ticketToToken.size > 0) {
+    await recordPushTickets(opts.prisma, [...ticketToToken].map(([ticketId, token]) => ({ ticketId, token })), new Date());
+  }
+  ```
+  Until then the sweep is a tested no-op over an empty table; afterwards it prunes dead devices with
+  no further change.
+
+### 6. Ops
+
+- `docs/deploy.md` rewritten for **two processes**: the API and the worker, the same image with a
+  different command. Both entrypoints are now `node --import tsx …` so the app is **PID 1** and
+  actually receives `SIGTERM` (`pnpm run` swallowed it, and the graceful drain never ran). Env table,
+  the production config guard, migrations as a release step, health checks, the release checklist and
+  the schema-debt models are all there. `docs/testing.md` is new.
+- `docker build` **still unverified**: no Docker daemon in this sandbox (`docker info` fails, no
+  `/var/run/docker.sock`).
+- **CI**: no more shared `rpgllm_test` — both jobs use per-run databases (`TEST_DB_SUFFIX` /
+  `E2E_DB_SUFFIX` from `github.run_id`), the "migrate the test database" step is gone (the suite does
+  it), and there is a new **worker smoke test**: create a database, migrate, `worker --once`
+  (every job against real Postgres), drop.
+- **Lint**: `apps/mobile` is linted for the first time (its own noise is warnings; the bug-shaped
+  rules apply), and eight rules were **promoted from warning to error** now that the tree is clean of
+  them: `no-unsafe-member-access` / `-call` / `-argument` / `-return`, `only-throw-error`,
+  `prefer-promise-reject-errors`, `unbound-method`, `consistent-indexed-object-style`. A stub
+  `react-hooks` plugin makes the client's existing disable directives resolvable without adding a
+  dependency to the lockfile mid-flight — install `eslint-plugin-react-hooks` and delete that block
+  to get the real checks.
+  **One error remains and it is not mine to fix**: `e2e/tests/firstrun.spec.ts:63` has
+  `await expect(await introSeen(page)).toBe("1")` — the outer `await` is on a non-Promise
+  (`@typescript-eslint/await-thenable`). Deleting that one `await` changes no behaviour, but
+  `e2e/tests/**` is off-limits for me, so `pnpm lint` reports 1 error until its owner takes it.
+
+### Verification
+
+- `pnpm --filter api typecheck` clean · `pnpm --filter e2e typecheck` clean.
+- `pnpm --filter api test` — **262 passed / 26 files** (the 257 baseline after Agents N and P, plus
+  my jobs/login-code/streak/receipt cases; nothing weakened).
+- `pnpm e2e` — **47 passed / 4 skipped / 0 failed**, on private ports and a private database
+  (`API_PORT=4400 WEB_PORT=8490 E2E_DB_SUFFIX=o E2E_WEB_DIST=dist-o pnpm e2e`), with the database
+  created before the API started and dropped in the teardown, and no server left holding a port.
+- `pnpm --filter api worker` starts, runs each of the six jobs on demand (`--once`), logs
+  `job.start`/`job.done` per run, and exits 0 on `SIGTERM` after draining.
+- Two concurrent runs no longer interfere: each `pnpm --filter api test` creates and drops
+  `rpgllm_test_v<pid>`, and each `pnpm e2e` creates and drops `rpgllm_test_e2e_p<pid>`.
