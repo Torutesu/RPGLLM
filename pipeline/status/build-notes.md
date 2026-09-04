@@ -1508,3 +1508,15 @@ all in use), `npx expo export -p web --output-dir dist-<you>` with `EXPO_PUBLIC_
 it, serve that dir with `apps/mobile/scripts/serve-web.mjs dist-<you>`, then run Playwright with
 `E2E_SKIP_DB=1 E2E_SKIP_EXPORT=1 API_URL=… WEB_URL=…` so it reuses your servers instead of resetting
 the shared database out from under someone else.
+
+## Orchestrator — streak storage (follow-up on Agent L)
+
+The `User.streakDays` / `streakBestDays` / `streakLastAt` columns I intended to add in the
+engagement migration **did not land** — the string replacement missed after `prisma format`
+reflowed the model, and I did not catch it before Agent L started. They correctly worked around it
+by deriving the streak from the `LedgerEntry` row each check-in writes
+(`ref = "streak:<date>:<day>:<best>"`), which is idempotent and covered by tests.
+
+Known limitation: the streak is only as durable as the ledger. If a retention policy ever prunes
+`LedgerEntry`, streaks silently reset. Before that happens, add the three columns and switch
+`services/streak.ts` to read them — it is the only file that needs to change.
