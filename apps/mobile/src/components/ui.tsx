@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useId, useState } from "react";
 import {
   ActivityIndicator,
   Platform,
@@ -21,6 +21,10 @@ import { Gradient, Icon, typo, useFontsLoaded, useHaptic, type IconName } from "
 /**
  * Every screen sits on the same near-black ground with one soft violet wash at the top, which is
  * what stops a dark app reading as a flat void. The wash is decorative and never intercepts taps.
+ *
+ * The last quarter of the ramp is fully transparent on purpose: with the fade ending exactly at the
+ * box edge, the off-vertical angle made one corner reach zero before the other and left a visible
+ * horizontal seam across the screen.
  */
 export function Screen({
   children,
@@ -42,11 +46,12 @@ export function Screen({
             "rgba(124,92,255,0.07)",
             "rgba(255,61,139,0.03)",
             "rgba(124,92,255,0)",
+            "rgba(124,92,255,0)",
           ]}
-          locations={[0, 0.4, 0.72, 1]}
-          angle={168}
+          locations={[0, 0.32, 0.58, 0.78, 1]}
+          angle={176}
           pointerEvents="none"
-          style={{ position: "absolute", left: 0, right: 0, top: 0, height: 460 }}
+          style={{ position: "absolute", left: 0, right: 0, top: 0, height: 520 }}
         />
       ) : null}
       {children}
@@ -339,13 +344,17 @@ export function HeaderBar({
  */
 export function Wordmark({ size = font.xl }: { size?: number }) {
   const label = "status";
+  // SVG gradient ids are document-global. A hardcoded id meant a second Wordmark mounted anywhere
+  // in the tree (or left behind by an Expo Router transition) rendered with an empty fill, so the
+  // brand simply vanished. Each instance gets its own id.
+  const gradientId = useId().replace(/:/g, "");
   const width = Math.ceil(size * 0.6 * label.length + size * 0.3);
   const height = Math.ceil(size * 1.25);
   return (
     <View accessibilityRole="header" accessibilityLabel={label} style={{ width, height, justifyContent: "center" }}>
       <Svg width={width} height={height} viewBox={`0 0 ${width} ${height}`}>
         <Defs>
-          <LinearGradient id="wordmark" x1="0" y1="0" x2="1" y2="0.6">
+          <LinearGradient id={gradientId} x1="0" y1="0" x2="1" y2="0.6">
             <Stop offset="0" stopColor={gradients.brand[0]} />
             <Stop offset="1" stopColor={gradients.brand[1]} />
           </LinearGradient>
@@ -353,7 +362,7 @@ export function Wordmark({ size = font.xl }: { size?: number }) {
         <SvgText
           x={0}
           y={height * 0.76}
-          fill="url(#wordmark)"
+          fill={`url(#${gradientId})`}
           fontSize={size}
           fontWeight="700"
           fontFamily="SpaceGrotesk_700Bold"
