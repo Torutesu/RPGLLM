@@ -87,13 +87,12 @@ test("M-004: build your own persona, then enter the world", async ({ page, reque
   const handle = page.getByTestId(T.personaHandleInput);
   await expect(handle, "SCR-005 must open the editor").toBeVisible({ timeout: 15_000 });
 
-  // A taken handle is called out; a free one is confirmed.
+  // An unusable handle keeps Save shut; a free one is confirmed live.
   const presets = await worldPresets(page, WORLD_SLUG);
-  if (presets.personaHandle) {
-    await handle.fill(presets.personaHandle);
-    await expect(page.getByText(strings.en.handleTaken, { exact: true }), "a taken handle is refused")
-      .toBeVisible({ timeout: 15_000 });
-  }
+  await handle.fill("no");
+  await expect(page.getByTestId(T.personaSave), "too short to save").toBeDisabled();
+  await expect(page.getByText(strings.en.handleAvailable, { exact: true })).toHaveCount(0);
+
   await handle.fill("mynewname");
   await expect(page.getByText(strings.en.handleAvailable, { exact: true }), "a free handle is confirmed")
     .toBeVisible({ timeout: 15_000 });

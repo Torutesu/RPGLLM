@@ -1,5 +1,6 @@
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { CharacterProfileResZ } from "@rpgllm/shared";
+import { bioFrom } from "../src/routes/characters";
 import { call, makeHarness, readSSE, resetDatabase, signupWithPersona, type Harness } from "./helpers";
 
 let h: Harness;
@@ -16,6 +17,16 @@ async function postAndSettle(token: string, personaId: string, text: string): Pr
   const res = await call<{ streamUrl: string }>(h, "POST", "/v1/posts", { token, body: { personaId, text, parentId: null } });
   await readSSE(h, res.data.streamUrl, token);
 }
+
+describe("Agent K — bio extraction", () => {
+  it("drops the generator's steering and keeps the person", () => {
+    expect(bioFrom("Voice: all-caps hype, crowns and bees. Values loyalty. NG: never insults the user."))
+      .toBe("All-caps hype, crowns and bees. Values loyalty.");
+    expect(bioFrom("Role: the press account of this world. NG: never fabricates crimes."))
+      .toBe("The press account of this world.");
+    expect(bioFrom("")).toBe("");
+  });
+});
 
 describe("GET /v1/characters/:handle (SCR-047)", () => {
   it("returns the character, their read on you and their posts", async () => {

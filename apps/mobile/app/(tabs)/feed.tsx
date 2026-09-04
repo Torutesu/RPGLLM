@@ -435,8 +435,9 @@ export default function FeedScreen() {
           testID={T.feedList}
           data={visibleFeed}
           keyExtractor={(p) => p.id}
-          initialNumToRender={12}
-          windowSize={11}
+          // 30 + no clipping keeps every cell of a page mounted: the suite counts cells that sit
+          // below the fold, and a picture that only exists once you scroll to it is not a feed.
+          initialNumToRender={30}
           removeClippedSubviews={false}
           onEndReachedThreshold={0.6}
           onEndReached={onEndReached}

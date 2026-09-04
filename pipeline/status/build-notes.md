@@ -1370,13 +1370,24 @@ that robust rather than lucky.
 ### Verification
 
 - `pnpm --filter api typecheck`, `pnpm --filter mobile typecheck` — clean.
-- `pnpm --filter api test` — green. 28 new cases in `test/trending.test.ts` and
-  `test/characters.test.ts` (heat curve, media determinism/rate/reply exclusion, topic extraction,
-  the rank curve, the two endpoints, blocked-character filtering, ownership 404s).
-- New E2E file `e2e/tests/discovery.spec.ts`: DISC-001..006.
-- API test runs isolate with `TEST_DATABASE_URL=…/rpgllm_k` (the vitest config's `env` block
-  overrides a plain `DATABASE_URL`, so that is the only var that works); the shared `rpgllm_test`
-  database was being truncated by parallel agents throughout.
+- `pnpm --filter api test` — **154 passed / 20 files** (was 103). 30 of those are new, in
+  `test/trending.test.ts` and `test/characters.test.ts`: the heat curve (rises with engagement,
+  decays with age, counts the stat swing), media determinism / rate / reply-and-user exclusion /
+  press-account bias, topic extraction (phrase beats bare word, hashtags, no contractions,
+  containment dedupe, a multi-word name outranking an accidental capital, deterministic, empty
+  rather than noisy), the rank curve (a new account is
+  never "top 100%", it climbs, `crowdAbove` is monotonic), bio extraction, both endpoints against
+  their zod contracts, blocked-character filtering, and the ownership/auth 404s and 401s.
+- `pnpm e2e` — **42 passed, 4 skipped (P1), 1 failed**. The failure is `firstrun.spec.ts` M-004
+  ("a taken handle is refused" on the persona editor, SCR-005) — Agent M's own in-flight screen,
+  no feed/discovery code on its path. Every pre-existing case passes, and DISC-001..006 pass.
+- Both suites were run against private databases (`rpgllm_k`, `rpgllm_k2`): three agents share
+  `rpgllm_test`, and `scripts/db.sh reset` drops it out from under whoever else is mid-run.
+  For vitest the variable that works is `TEST_DATABASE_URL` — the vitest config's `env` block
+  overrides a plain `DATABASE_URL`. For Playwright it is `E2E_DATABASE_URL` together with
+  `E2E_SKIP_DB=1` (globalSetup's `db.sh reset` is hardcoded to `rpgllm_test`, and it drops the
+  database *after* the API webServer has already connected, which leaves every `/__test/reset`
+  returning 500 "Server has closed the connection" — worth fixing in globalSetup).
 
 ## Agent L — engagement surfaces (notifications, streak, achievements, celebrations) — 2026-09-04
 

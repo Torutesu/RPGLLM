@@ -108,7 +108,7 @@ function TopicCard({
           backgroundColor: colors.card,
         })}
       >
-        <View style={{ flexDirection: "row", alignItems: "center", padding: spacing.lg, gap: spacing.md }}>
+        <View style={{ flexDirection: "row", alignItems: "center", paddingHorizontal: spacing.lg, paddingVertical: spacing.md, gap: spacing.md }}>
           <Text style={[typo.number, { color: colors.textMuted, width: 26 }]}>{index + 1}</Text>
           <View style={{ flex: 1, gap: spacing.xxs }}>
             <Text numberOfLines={1} style={[typo.h2, { color: colors.text }]}>
@@ -215,7 +215,8 @@ export default function ExploreScreen() {
 
         <SectionHeader title={t("trendingNow")} />
         <View testID={T.trendingList}>
-          {(trending?.topics ?? []).map((topic, i) => (
+          {/* Six is enough to say what the world is about and still leave the rising rail on screen. */}
+          {(trending?.topics ?? []).slice(0, 6).map((topic, i) => (
             <TopicCard
               key={topic.label}
               topic={topic}

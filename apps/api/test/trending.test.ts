@@ -120,6 +120,18 @@ describe("Agent K — topic extraction", () => {
     expect(chorus.postId).toBe("a");
   });
 
+  it("ranks a multi-word name above an accidental mid-sentence capital", () => {
+    const topics = extractTopics([
+      row("a", "the Ledger Awards seating chart is a File nobody wanted", 60),
+      row("b", "everyone at the Ledger Awards saw that File", 50),
+    ]).map((t) => t.label);
+    expect(topics).toContain("Ledger Awards");
+    // "File" is only ever a repeated word, never a name — so it can never outrank one.
+    expect(topics.indexOf("Ledger Awards")).toBeLessThan(
+      topics.indexOf("File") === -1 ? topics.length : topics.indexOf("File"),
+    );
+  });
+
   it("takes a hashtag from a single post", () => {
     const topics = extractTopics([row("a", "studio all night #EraTour", 90)]);
     expect(topics.map((t) => t.label)).toContain("#EraTour");

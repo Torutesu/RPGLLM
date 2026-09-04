@@ -100,7 +100,9 @@ export function extractTopics(rows: HotRow[], limit = MAX_TOPICS): ApiTopic[] {
       const capitalised = /^\p{Lu}/u.test(w) && !isStop(w);
       if (capitalised && i > 0) run.push(w);
       else {
-        if (run.length >= 1) bump(phrases, run.slice(0, 3).join(" "), row);
+        // Only multi-word runs count as a name or a title. A lone capitalised word mid-sentence is
+        // usually an accident ("File", "Sunday"); if it matters it still surfaces as a bare word.
+        if (run.length >= 2) bump(phrases, run.slice(0, 3).join(" "), row);
         run = [];
       }
 
@@ -110,7 +112,7 @@ export function extractTopics(rows: HotRow[], limit = MAX_TOPICS): ApiTopic[] {
       }
       if (!isStop(w) && !w.startsWith("#")) bump(singles, w, row);
     }
-    if (run.length >= 1) bump(phrases, run.slice(0, 3).join(" "), row);
+    if (run.length >= 2) bump(phrases, run.slice(0, 3).join(" "), row);
   }
 
   // Tiers, most informative first: a hashtag beats a name, a name beats a word pair, a word pair
