@@ -10,7 +10,7 @@ import Svg, {
   Rect,
   Stop,
 } from "react-native-svg";
-import { T, colors, identityFor, radius, spacing, type MediaKind } from "@rpgllm/shared";
+import { T, colors, hashString, identityFor, radius, spacing, type MediaKind } from "@rpgllm/shared";
 import { seeded, seededIn, seededOf } from "../lib/derive";
 
 /**
@@ -55,18 +55,18 @@ function Grain({ seed, height, count = 90 }: { seed: string; height: number; cou
   );
 }
 
-function Art({ seed, from, to, height }: { seed: string; from: string; to: string; height: number }) {
+function Art({ uid, seed, from, to, height }: { uid: string; seed: string; from: string; to: string; height: number }) {
   const blobs = 4 + Math.floor(seeded(seed, 3) * 3);
   const tilt = seededIn(seed, 4, -28, 28);
   return (
     <>
       <Defs>
-        <LinearGradient id="artbg" x1="0" y1="0" x2="1" y2="1">
+        <LinearGradient id={`${uid}bg`} x1="0" y1="0" x2="1" y2="1">
           <Stop offset="0" stopColor={from} />
           <Stop offset="1" stopColor={to} />
         </LinearGradient>
       </Defs>
-      <Rect x={0} y={0} width={VW} height={height} fill="url(#artbg)" />
+      <Rect x={0} y={0} width={VW} height={height} fill={`url(#${uid}bg)`} />
       {/* A darkened corner gives the composition a light source. */}
       <Ellipse cx={VW * 0.85} cy={height * 0.92} rx={VW * 0.8} ry={height * 0.7} fill="#06060C" opacity={0.42} />
       <G transform={`rotate(${tilt} ${VW / 2} ${height / 2})`}>
@@ -109,7 +109,7 @@ function Art({ seed, from, to, height }: { seed: string; from: string; to: strin
   );
 }
 
-function Chart({ seed, from, to, height }: { seed: string; from: string; to: string; height: number }) {
+function Chart({ uid, seed, from, to, height }: { uid: string; seed: string; from: string; to: string; height: number }) {
   const bars = 12;
   const rising = seeded(seed, 5) > 0.32;
   const pad = 18;
@@ -126,7 +126,7 @@ function Chart({ seed, from, to, height }: { seed: string; from: string; to: str
   return (
     <>
       <Defs>
-        <LinearGradient id="chartfill" x1="0" y1="0" x2="0" y2="1">
+        <LinearGradient id={`${uid}fill`} x1="0" y1="0" x2="0" y2="1">
           <Stop offset="0" stopColor={tone} stopOpacity={0.42} />
           <Stop offset="1" stopColor={tone} stopOpacity={0} />
         </LinearGradient>
@@ -148,7 +148,7 @@ function Chart({ seed, from, to, height }: { seed: string; from: string; to: str
           opacity={0.28 + (i / bars) * 0.35}
         />
       ))}
-      <Path d={`${line} L ${VW - pad} ${floor} L ${pad} ${floor} Z`} fill="url(#chartfill)" />
+      <Path d={`${line} L ${VW - pad} ${floor} L ${pad} ${floor} Z`} fill={`url(#${uid}fill)`} />
       <Path d={line} stroke={tone} strokeWidth={2.6} fill="none" strokeLinecap="round" strokeLinejoin="round" />
       <Circle cx={pad + w * (bars - 1) + w / 2} cy={y(values[bars - 1]!)} r={4.5} fill={tone} />
       {/* The axis line and a caption bar — deliberately wordless, so it needs no translation. */}
@@ -235,6 +235,9 @@ function aspectFor(kind: MediaKind, seed: string): number {
  */
 export function PostMedia({ postId, handle, kind, seed, compact = false }: PostMediaProps) {
   const identity = identityFor(handle);
+  // SVG gradient ids are document-global: two `art` posts sharing an id would both paint with the
+  // first one's colours. One id per post keeps every picture in its own author's palette.
+  const uid = `pm${hashString(`${postId}:${seed}`).toString(36)}`;
   const aspect = aspectFor(kind, seed);
   const height = Math.round(VW / aspect);
   const label = kind === "leak" ? "screenshot" : kind === "chart" ? "chart" : "image";
@@ -257,8 +260,8 @@ export function PostMedia({ postId, handle, kind, seed, compact = false }: PostM
       }}
     >
       <Svg width="100%" height="100%" viewBox={`0 0 ${VW} ${height}`} preserveAspectRatio="xMidYMid slice">
-        {kind === "art" ? <Art seed={seed} from={identity.from} to={identity.to} height={height} /> : null}
-        {kind === "chart" ? <Chart seed={seed} from={identity.from} to={identity.to} height={height} /> : null}
+        {kind === "art" ? <Art uid={uid} seed={seed} from={identity.from} to={identity.to} height={height} /> : null}
+        {kind === "chart" ? <Chart uid={uid} seed={seed} from={identity.from} to={identity.to} height={height} /> : null}
         {kind === "leak" ? <Leak seed={seed} from={identity.from} height={height} /> : null}
       </Svg>
     </View>

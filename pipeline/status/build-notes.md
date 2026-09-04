@@ -1377,3 +1377,134 @@ that robust rather than lucky.
 - API test runs isolate with `TEST_DATABASE_URL=…/rpgllm_k` (the vitest config's `env` block
   overrides a plain `DATABASE_URL`, so that is the only var that works); the shared `rpgllm_test`
   database was being truncated by parallel agents throughout.
+
+## Agent L — engagement surfaces (notifications, streak, achievements, celebrations) — 2026-09-04
+
+The teardown's §0 number is 96 minutes a day, and §8 says the reason is the dopamine surfaces, not
+the feed. The MVP had none of them: no notifications tab, no streak, no achievements, no celebration
+moment. This section adds all four end to end.
+
+### API
+
+| Endpoint | What it does |
+|---|---|
+| `GET /v1/notifications?personaId=&cursor=` | `NotificationsResZ` — newest first, `unread` count, id-cursored paging (30/page), actor joined |
+| `POST /v1/notifications/read?personaId=` | `{ids: null}` = all → `MarkNotificationsReadResZ` |
+| `GET /v1/streak` | `StreakResZ` — runs the daily check-in (idempotent), returns days/best/ladder/reward |
+| `GET /v1/achievements?personaId=` | `AchievementsResZ` — re-evaluates, then the whole catalogue with `progress` on locked rows and `pending` for unlocked-but-unseen |
+| `POST /v1/achievements/seen?personaId=` | marks the given keys seen |
+
+New services: `services/notify.ts`, `services/streak.ts`, `services/achievements.ts`.
+New routes: `routes/notifications.ts`, `routes/streak.ts`, `routes/achievements.ts` (three `v1.route`
+lines in `app.ts`).
+
+#### What writes which notification — and where
+
+Every `notify()` call takes a transaction client and runs **inside the transaction of the thing that
+caused it**, so a notification can never survive a rolled-back reply/event/digest.
+
+| kind | written by | target |
+|---|---|---|
+| `reply` | `services/post-stream.ts` → `materializeReplies`, one per character reply to *your* post | `post:<id>` |
+| `like` | same place, one per reacting character, **capped at 3 per post** (`LIKES_PER_POST`; the cap counts existing rows, so `more-replies` cannot push it over) | `post:<id>` |
+| `follow` | `services/story.ts` → `applyRelationshipDeltas` and `services/dm-stream.ts`, when affinity crosses `FOLLOW_AT` (10) for the first time | `profile` |
+| `dm` | `services/dm-stream.ts` (one per character turn) and `jobs/offline-director.ts` (the proactive DM) | `dm:<threadId>` |
+| `event` | `services/events.ts` → `generateEvent` | `event:<id>` |
+| `digest` | `jobs/offline-director.ts` → `generateDigestFor` | `digest:<id>` |
+| `milestone` | `notifyFollowerMilestones()` from the post stream's stat transaction and from `POST /v1/events/:id/choose` | `profile` |
+| `unlock` | `services/achievements.ts` → `evaluate` | `achievement:<key>` |
+
+`text` is rendered **server-side in the persona's locale** when the row is written (`Notification.text`),
+so SCR-042 is one indexed query plus the actor join and needs no post/event/achievement lookups. The
+i18n verbs (`repliedToYou`, `likedYourPost`, …) are written as suffixes, so `actorLine()` joins with a
+space in EN and without one in JA.
+
+#### Achievements
+
+`evaluate(prisma, personaId, locale)` computes all ten metrics with **aggregate queries in one
+`Promise.all`** — `post.count`, `event.count`, `dMMessage.count`, `memoryEntry.count`,
+`relationshipState.aggregate({_max: affinity})`, `statSnapshot.count` — never by loading rows.
+`cancels` is defined as **resolved events whose stat snapshot had a negative follower delta**
+(`cause LIKE 'event:%' AND followersDelta < 0`). It is called after every energy-spending action
+(`POST /v1/posts`, `POST /v1/dms/:id/messages`, `POST /v1/events/:id/choose`) through
+`evaluateQuietly`, which swallows its own errors so the collection drive can never fail an action.
+`AchievementUnlock` is unique on `(personaId, key)`, and the P2002 branch makes a race a no-op, so an
+achievement unlocks and notifies exactly once.
+
+### Deviations (please read)
+
+1. **The streak has no columns.** The brief specifies `User.streakDays` / `User.streakBestDays`, but
+   `prisma/schema.prisma` has neither and is not mine to edit this pass. The streak is therefore
+   **derived from the ledger it pays into**: each check-in writes an energy `LedgerEntry` with
+   `source: daily_refill` and `ref = "streak:<YYYY-MM-DD>:<day>:<best>"`. One `findFirst` on the newest
+   such row is the whole read; the payout and the history cannot disagree; the wallet screen already
+   renders the entries. If someone adds the columns later, `services/streak.ts` is the only file to
+   change. **The energy row is written even at +0** because it is the state record.
+2. **The streak's energy is capped at the wallet's daily maximum.** Coffee and gems are paid in full,
+   energy only tops the tank back up (`min(reward.energy, dailyMax - energy)`). Two reasons: it is the
+   coherent economy rule (`ensureWallet` already refills to that ceiling), and without it the day-1
+   check-in would hand every brand-new account +2 energy and break the exact-energy assertions in
+   `posts/dms/wallet/auth` vitest and in E2E-003/007/008/015. `StreakResZ.reward` reports the **nominal
+   ladder value** for the day so the card can show what the day is worth; the ledger records what was
+   actually credited.
+3. **`GET /v1/me` gained a `streak` field.** Additive; `MeResZ` strips it on the client, which reads
+   `GET /v1/streak`. The check-in runs on the first `/v1/me` of a UTC day as specified, and
+   `GET /v1/streak` re-runs it idempotently so whichever call lands first pays.
+4. **`T.streakChip` is not in the feed header.** `app/(tabs)/feed.tsx` is Agent K's. `StreakChip` is
+   exported from `src/components/StreakCard.tsx` and currently sits in the notifications and
+   achievements headers. **Agent K: one line — `import { StreakChip } from "../../src/components/StreakCard"`
+   and drop `<StreakChip />` into the feed header — and it is where the spec wants it.**
+5. **The streak card over the feed is gated to `days >= 2`.** `EngagementOverlay` (mounted once in
+   `app/_layout.tsx`) shows it only on `/feed`, only for a streak the player actually built, only once
+   per UTC day, `pointerEvents="box-none"`, auto-retiring after 6s. Day 1 is still onboarding, and an
+   overlay that appeared for every fresh E2E account would have intercepted the composer. The full card
+   is always reachable at the top of SCR-042.
+6. **Celebrations never auto-fire over the feed for achievements.** A level up and a follower
+   milestone are detected by comparing `me.persona` across two `/v1/me` reads and celebrate
+   immediately; achievement unlocks celebrate when SCR-044 loads their `pending` list. The overlay is
+   suppressed while SCR-013's stat card is up, its backdrop is `box-none` so a stray tap falls through,
+   and it auto-dismisses after 2.6s. That is what keeps it from ever standing between the player (or a
+   Playwright click) and the screen underneath.
+
+### Client
+
+- `app/notifications.tsx` (SCR-042) — grouped by day, unread rows tinted with a left accent rail in
+  the kind's colour, actor avatar with a kind pip, `timeAgo`, tap routes by `target`
+  (`post:` → `/post/[id]`, `dm:` → the thread, `event:`, `achievement:` → SCR-044, else the feed),
+  `T.notifMarkAll`, infinite scroll on the cursor, and an illustrated empty state with `notifEmpty`.
+- `app/achievements.tsx` (SCR-044) — a grid by tier with its own treatment per tier (bronze shield →
+  legendary crown + hot/violet gradient), locked tiles dimmed with a progress bar, unlocked ones in
+  full colour with the date, plus an `unlocked / total` header. Reached from the profile
+  (`T.achievementsOpen`).
+- `src/components/StreakCard.tsx` — `StreakChip` (flame + day count, pulsing from day 3) and
+  `StreakCard` (the seven-rung ladder, today's payout counting up with `AnimatedNumber`, `T.streakClaim`).
+- `src/components/AchievementCard.tsx`, `src/components/Celebration.tsx` (+ `EngagementOverlay`).
+- `app/(tabs)/_layout.tsx` — the Notifications tab and its unread badge (`T.notifBadge`). The count
+  refreshes when a persona exists and again whenever a stream finishes, so the badge appears the
+  moment a reply lands, with no reload.
+- `src/api/client.ts` / `src/state/store.tsx` — the five endpoints, `notifications`/`notifUnread`/
+  `streak`/`achievements`/`celebration` state and their actions. Mark-all-read is optimistic.
+
+All of it is built on Agent J's `src/ui` (`Icon`, `Avatar`, `Gradient`, `AnimatedNumber`, `Burst`,
+`Pulse`, `FadeSlideIn`, `typo`) — no colour, spacing or motion outside the tokens, no copy outside
+i18n, every interactive element has its `testids.ts` id plus `accessibilityRole`/`accessibilityLabel`.
+There is no `Empty` component in `src/ui` yet, so SCR-042's empty state is local; it is three elements
+and would move cleanly if one lands.
+
+### Verification
+
+- `pnpm --filter api typecheck`, `pnpm --filter mobile typecheck`, `pnpm --filter e2e typecheck` — clean.
+- `pnpm --filter api test` — **20 files, 146 passed** (21 of them new across
+  `notifications.test.ts`, `streak.test.ts`, `achievements.test.ts`).
+- `pnpm e2e` — **40 passed, 4 skipped, 3 failed**. All 27 pre-existing cases pass, and so do the five
+  new `engagement.spec.ts` cases (ENG-001…005). The three failures are `discovery.spec.ts` DISC-002 /
+  DISC-004 and `firstrun.spec.ts` M-004 — other agents' in-flight files, untouched by this work.
+
+**On running the suites while four agents share one box:** `rpgllm_test`, port 4000 and port 8082 are
+all contended, and a concurrent run makes `POST /v1/__test/reset` return 500 and `expo export` serve a
+stale `dist`. The reliable recipe is a private stack: create your own database, `prisma migrate deploy`
++ `pnpm --filter api seed` into it, start the API on a port nobody else has taken (4000/4100/4200 were
+all in use), `npx expo export -p web --output-dir dist-<you>` with `EXPO_PUBLIC_API_URL` pointing at
+it, serve that dir with `apps/mobile/scripts/serve-web.mjs dist-<you>`, then run Playwright with
+`E2E_SKIP_DB=1 E2E_SKIP_EXPORT=1 API_URL=… WEB_URL=…` so it reuses your servers instead of resetting
+the shared database out from under someone else.

@@ -68,8 +68,8 @@ test("DISC-001: the feed says which world you are in and what is loud in it", as
   // The trending strip is built from the world's own text.
   const trending = await trendingFor(page);
   expect(trending.topics.length, "posting about one thing twice must produce a topic").toBeGreaterThan(0);
-  await expect(page.getByTestId(T.trendingList)).toBeVisible({ timeout: 15_000 });
-  await expect(page.getByTestId(T.trendingTopic(trending.topics[0]!.label))).toBeVisible();
+  await expect(feedHeader(page).getByTestId(T.trendingList)).toBeVisible({ timeout: 15_000 });
+  await expect(feedHeader(page).getByTestId(T.trendingTopic(trending.topics[0]!.label))).toBeVisible();
 });
 
 test("DISC-002: posts carry procedural media, and it is the same picture on every render", async ({ page, request }) => {
@@ -109,7 +109,7 @@ test("DISC-003: tapping a trending topic filters the feed, and tapping it again 
   const before = await cells.count();
   expect(before).toBeGreaterThan(0);
 
-  const chip = page.getByTestId(T.trendingTopic(topic!.label));
+  const chip = feedHeader(page).getByTestId(T.trendingTopic(topic!.label));
   await chip.click();
   await expect.poll(() => cells.count(), {
     timeout: 10_000, message: "a topic filter must narrow the feed",
@@ -138,8 +138,10 @@ test("DISC-004: Explore ranks you in the world and shows who is rising with you"
 
   const trending = await trendingFor(page);
   expect(trending.risingCharacters.length, "the cast must have opinions about you by now").toBeGreaterThan(0);
-  await expect(page.getByTestId(T.trendingList)).toBeVisible();
-  await expect(page.getByTestId(T.trendingTopic(trending.topics[0]!.label))).toBeVisible();
+  // Explore is pushed over the feed, which stays mounted underneath — so the strip's ids appear
+  // twice in the DOM and the Explore copy is the later one.
+  await expect(page.getByTestId(T.trendingList).last()).toBeVisible();
+  await expect(page.getByTestId(T.trendingTopic(trending.topics[0]!.label)).last()).toBeVisible();
 
   // The rising rail is the way into a character's page.
   const rising = trending.risingCharacters[0]!;
