@@ -789,24 +789,31 @@ settings legal links + consent toggle; in-app deletion → back to SCR-002 + the
 6. `apps/mobile/src/components/PostCell.tsx` — `CellOverflow`, rendered as an absolutely positioned **sibling**
    of the cell's `Pressable` (never nested inside it, so tapping "…" cannot also open the post detail).
 7. `apps/mobile/src/api/client.ts` — additive endpoint methods + a local `ReportTarget` alias.
-8. `apps/mobile/src/state/store.tsx` — additive state (`blocked`, `analyticsConsent`) and actions
+8. `apps/api/src/auth.ts` — the 4-line `deletedAt` check described in the next section (nothing else).
+9. `apps/mobile/src/state/store.tsx` — additive state (`blocked`, `analyticsConsent`) and actions
    (`loadBlocked`, `blockByHandle`, `unblockCharacter`, `reportContent`, `setConsent`, `exportMyData`,
    `deleteAccount`, `restorePurchases`).
 
-### Request to Agent F (apps/api/src/auth.ts) — soft-deleted users must be locked out globally
+### Global lock-out for soft-deleted accounts — `apps/api/src/auth.ts` (done here, was a request to Agent F)
 
-`requireActiveAccount` (services/account.ts) only guards the two routers I own, so a deleted account can
-still call `/v1/feed`, `/v1/posts`, … until its purge. Please add to `requireAuth`, after the user lookup:
+`requireActiveAccount` (services/account.ts) only guards the two routers I own, so a deleted account could
+still call `/v1/feed`, `/v1/posts`, … until its purge. Agent F finished before picking this up, so the
+orchestrator asked me to land it myself. `requireAuth` now has exactly one added check, right after
+`isBlockedAge`:
 
 ```ts
-// S1-1: the account is scheduled for deletion. `/v1/account/restore` is the one way back.
-if (user.deletedAt && c.req.path !== "/v1/account/restore") {
+// S1-1 (Agent G): a soft-deleted account keeps its row through the 30-day grace window but loses
+// every door except `POST /v1/account/restore`, which is how the user cancels the deletion.
+if (user.deletedAt && !c.req.path.endsWith("/account/restore")) {
   return fail("ACCOUNT_DELETED", "This account is scheduled for deletion", 410);
 }
 ```
 
-The `restore` exemption is required: the caller of `POST /v1/account/restore` is by definition soft-deleted.
-`e2e/tests/compliance.spec.ts` asserts 410 on `GET /v1/account/export`, so it keeps passing either way.
+The `restore` exemption is required: the caller of `POST /v1/account/restore` is by definition
+soft-deleted. `requireActiveAccount` stays on my routers as defence in depth (and as the thing that keeps
+working if this check is ever refactored). Covered by
+`test/account.test.ts` → "locks a soft-deleted user out of the rest of the API but leaves
+/account/restore reachable" (asserts 410 on `/v1/me`, `/v1/feed`, `/v1/wallet`, then a successful restore).
 
 ### Deviations / open items
 
@@ -830,3 +837,15 @@ The `restore` exemption is required: the caller of `POST /v1/account/restore` is
 6. **Blocking hides, it does not delete.** Rows stay in the database (so an unblock restores the history);
    only reads are filtered. `GET /v1/dms/:threadId` for a blocked character still works if deep-linked.
 7. Agent H: `/settings` exists — feel free to link it from SCR-026 (I did not touch `app/profile.tsx`).
+
+### Verification (final, 2026-09-04)
+
+- `pnpm --filter api typecheck`, `pnpm --filter mobile typecheck`, `pnpm --filter e2e typecheck` — clean.
+- `pnpm --filter api test` — **103 passed / 15 files**, including my 19 (`account.test.ts` 11, `moderation.test.ts` 8).
+  (A first run showed 24 failures across 12 files; it was a *concurrent* vitest run from another agent
+  truncating `rpgllm_test` mid-flight. Re-running alone: all green. Do not run two vitest sessions at once.)
+- `pnpm e2e` — **27 passed, 4 skipped, 0 failed** (1.8m): the 16 P0 cases, my 4 compliance cases, and the
+  other agents' new cases.
+- Housekeeping: `apps/mobile/dist-g/` had been committed by accident (it was my throw-away web export, used
+  to run the suite on isolated ports while other agents held :4000/:8082). It is deleted in the working
+  tree — please commit the removal, and consider widening the `dist` ignore rule.

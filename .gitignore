@@ -1,5 +1,7 @@
 node_modules/
 dist/
+# Throw-away web exports used to run the suite on isolated ports
+apps/mobile/dist-*/
 .expo/
 web-build/
 *.log

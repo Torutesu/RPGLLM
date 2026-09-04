@@ -119,7 +119,8 @@ test("S2-3: the affinity hearts open the memory ledger, with receipts", async ({
   await enterWorld(page);
 
   const personaId = await personaIdOf(request, account.jwt);
-  await openDmWithFollower(page, await followerHandle(page, account.jwt, personaId));
+  const follower = await followerHandle(page, account.jwt, personaId);
+  await openDmWithFollower(page, follower);
 
   // One exchange leaves a memory note whose source is the message that caused it.
   const said = "the album is done and i cannot sleep";
@@ -128,6 +129,19 @@ test("S2-3: the affinity hearts open the memory ledger, with receipts", async ({
   await expect
     .poll(() => page.getByTestId(T.dmBubble).count(), { timeout: 20_000, message: "the character must answer" })
     .toBeGreaterThanOrEqual(2);
+  await expect(page.getByTestId(T.dmTyping), "the answer must finish streaming").toBeHidden({ timeout: 20_000 });
+
+  // The note is written when the G4 turn completes; open the ledger once it exists so the
+  // assertion below is about the screen, not about the stream still being in flight.
+  await expect
+    .poll(async () => {
+      const res = await page.request.get(apiUrl(`/v1/memory/${follower}?personaId=${personaId}`), {
+        headers: bearer(account.jwt), failOnStatusCode: false,
+      });
+      const body = await unwrap<{ memories: unknown[] }>(res, "GET /v1/memory");
+      return body.memories.length;
+    }, { timeout: 20_000, message: "the exchange must leave a memory note" })
+    .toBeGreaterThanOrEqual(1);
 
   await page.getByTestId(T.memoryOpen).click();
 
