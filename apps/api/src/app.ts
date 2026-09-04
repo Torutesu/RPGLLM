@@ -1,7 +1,9 @@
 import { Hono } from "hono";
 import { cors } from "hono/cors";
-import { testHooksEnabled } from "./env";
+import { corsAllowAll, corsOrigins, testHooksEnabled } from "./env";
 import { fail } from "./http";
+import { rateLimit, type RateLimitStore } from "./middleware/rate-limit";
+import { logError, requestLog } from "./middleware/request-log";
 import { authRoutes } from "./routes/auth";
 import { billingRoutes } from "./routes/billing";
 import { dmRoutes } from "./routes/dms";
@@ -28,15 +30,33 @@ export function createApp(deps: Deps): Hono<AppEnv> {
     softenedPosts: new Map(),
     softenedThreads: new Map(),
     personaIdempotency: new Map(),
+    emailCodes: new Map(),
   };
+  /** Rate-limit buckets live for the lifetime of one app instance (see middleware/rate-limit.ts). */
+  const buckets: RateLimitStore = new Map();
 
   const app = new Hono<AppEnv>();
-  app.use("*", cors({ origin: "*", allowHeaders: ["authorization", "content-type"], allowMethods: ["GET", "POST", "OPTIONS"] }));
+  app.use("*", requestLog);
+  /**
+   * CORS allow-list (S0-5). This API is cookie-less but bearer-authenticated, so `*` was not a
+   * catastrophe on its own — it did however let any origin read authenticated JSON from a browser
+   * that had the token in `localStorage` and a script that leaked it. `TEST_HOOKS=1` keeps `*`
+   * so the E2E harness can serve the web export from any port.
+   */
+  app.use("*", cors({
+    // Evaluated per request so the flags stay late-bound (tests flip them between app instances).
+    origin: (origin: string) => (corsAllowAll() ? (origin || "*") : (corsOrigins().includes(origin) ? origin : null)),
+    allowHeaders: ["authorization", "content-type", "x-request-id", "accept", "last-event-id"],
+    allowMethods: ["GET", "POST", "OPTIONS"],
+    exposeHeaders: ["x-request-id", "retry-after"],
+    maxAge: 600,
+  }));
   app.use("*", async (c, next) => {
     c.set("deps", deps);
     c.set("state", state);
     await next();
   });
+  app.use("*", rateLimit(buckets, () => deps.clock.now().getTime()));
 
   const v1 = new Hono<AppEnv>();
   v1.route("/auth", authRoutes());
@@ -61,8 +81,8 @@ export function createApp(deps: Deps): Hono<AppEnv> {
   if (testHooksEnabled()) app.route("/__test", testHookRoutes());
 
   app.notFound(() => fail("NOT_FOUND", "No such route", 404));
-  app.onError((err) => {
-    console.error("[api] unhandled error", err);
+  app.onError((err, c) => {
+    logError(c, err);
     return fail("INTERNAL", "Something went wrong", 500);
   });
 

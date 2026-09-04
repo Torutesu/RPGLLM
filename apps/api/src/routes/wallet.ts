@@ -2,6 +2,8 @@ import { Hono } from "hono";
 import { AdRewardReqZ, CoffeeReqZ, ENERGY, TEST_AD_TOKEN } from "@rpgllm/shared";
 import { adsMode } from "../env";
 import { requireAuth } from "../auth";
+import { constantTimeEqual } from "../auth-codes";
+import { verifyAdMobSSV } from "../services/ad-verify";
 import { fail, ok, parseBody } from "../http";
 import { toApiWallet } from "../services/serialize";
 import { adFreeFor, ensureWallet } from "../services/wallet";
@@ -23,7 +25,14 @@ export function walletRoutes(): Hono<AppEnv> {
     if (!body.ok) return body.res;
     const deps = c.get("deps");
     const user = c.get("user");
-    if (adsMode() === "test" && body.value.adToken !== TEST_AD_TOKEN) return fail("VALIDATION", "Invalid ad token", 400);
+    // S0-6: the constant mock token is ONLY valid in ADS_MODE=test; anything else must carry a
+    // real AdMob server-side-verification callback (services/ad-verify.ts).
+    if (adsMode() === "test") {
+      if (!constantTimeEqual(body.value.adToken, TEST_AD_TOKEN)) return fail("VALIDATION", "Invalid ad token", 400);
+    } else {
+      const verdict = await verifyAdMobSSV(body.value.adToken, { expectedUserId: user.id, nowMs: deps.clock.now().getTime() });
+      if (!verdict.ok) return fail("VALIDATION", `Ad reward could not be verified (${verdict.reason})`, 400);
+    }
 
     const { wallet, subscription } = await ensureWallet(deps.prisma, deps.clock, user.id);
     if (adFreeFor(subscription)) return fail("VALIDATION", "Ads are disabled for this account", 400);
