@@ -39,7 +39,7 @@
 - steps:
   1. Given 7 アクション済み(投稿/返信の組合せ)
   2. When 8 回目の投稿を送る
-  3. Then フィード上部に Event バナーが出る。開くと 3 択があり、「Drop receipts」を押すと 1 秒以内に Stat card(結果文+差分)が出て、閉じるとフィード先頭に @gmz のニュース投稿がある。energy が 1 減る
+  3. Then フィード上部に Event バナーが出る。開くと 3 択があり、「Drop receipts」を押すと 1 秒以内に Stat card(結果文+差分)が出て、閉じるとフィード先頭にプレスアカウント(ワールド別: thescoop / thequill / stagewire)のニュース投稿がある。energy が 1 減る
 - priority: P0
 
 ## E2E-006: DM を送るとキャラが返す
