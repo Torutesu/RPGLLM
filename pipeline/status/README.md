@@ -14,8 +14,14 @@
 
 | `build-plan.md` / `build-notes.md` | Stage 3: 実装計画、各エージェントの記録、統合時の判断 |
 
+## ギャップ監査と対応(2026-09-04)
+`gap-analysis.md` を参照。S0 セキュリティ 7 件と S1 ストア審査 6 件は全件解消、S2 差別化は 6/7 実装、S3 運用は 8/9 解消。
+`pnpm --filter api test` 103/103、`pnpm e2e` 27 passed / 4 skipped / 0 failed。
+コスト実測は $0.0057〜0.0082/アクション、キャッシュヒット率 88〜90%。
+
 ## Stage 3 の状態(2026-09-04)
-- `pnpm e2e` → **P0 16/16 passed, P1 4 skipped**(Chromium、`LLM_MODE=replay`)
-- 単体: API 29、LLM 80、typecheck 全パッケージ緑
+- `pnpm e2e` → **27 passed / 4 skipped / 0 failed**(Chromium、`LLM_MODE=replay`)
+- 単体: API 103、LLM 80、typecheck 全パッケージ緑
+- コスト計測: `node scripts/cost-report.mjs --days 7 [--html out.html]`
 - 実行: `scripts/db.sh start` → `pnpm e2e`(API :4000 と Web :8082 を自動起動)
 - 未検証: `LLM_MODE=live`(この環境に API キーなし)、iOS/Android 実機(コードは同一、`expo run:ios|android`)
