@@ -1,0 +1,271 @@
+/**
+ * Deterministic in-process Gateway.
+ *
+ * Two jobs:
+ *  1. vitest injects it into `createApp()` so API tests never depend on `@rpgllm/llm`.
+ *  2. `index.ts` falls back to it when `@rpgllm/llm` has not shipped `createGateway` yet, so the API
+ *     still boots for Agents C/D.
+ *
+ * Outputs conform to the zod schemas in `@rpgllm/shared`. In `fail` mode every generator returns a
+ * fallback output with `meta.fallback = true` (the gateway contract: generators never throw).
+ */
+import {
+  PRICING, SAFETY_BLOCK_TEST_PHRASES,
+  type G1Input, type G1Output, type G4Input, type G4Output, type G5Input, type G5Output,
+  type G7Input, type G7Output, type G8Input, type G8Output,
+  type GenerationMeta, type GenerationResult, type GeneratorId, type ModelTier,
+} from "@rpgllm/shared";
+import type { Gateway, LlmMode, RunOptions } from "@rpgllm/llm";
+import { hashString, seededRandom } from "./services/rng";
+import { modelForTier } from "./env";
+
+export interface FakeCall { generator: GeneratorId; tier: ModelTier; escalatedFrom: string | null; input: unknown }
+
+const CHAMPION_TIER: Record<GeneratorId, ModelTier> = {
+  G1: "mid", G2: "light", G3: "light", G4: "mid", G5: "high", G7: "light", G8: "light", G9: "high", G10: "mid", GJ: "high",
+};
+
+const price = (model: string) => PRICING[model] ?? { input: 1, output: 5, cacheRead: 0.1, cacheWrite: 1.25 };
+
+export interface FakeGateway extends Gateway {
+  calls: FakeCall[];
+  /** force the next N generator calls to behave as if the model failed */
+  failNext(n: number): void;
+}
+
+export function createFakeGateway(initialMode: LlmMode = "replay"): FakeGateway {
+  let mode: LlmMode = initialMode;
+  let forcedFailures = 0;
+  const calls: FakeCall[] = [];
+
+  const meta = (
+    generator: GeneratorId,
+    tier: ModelTier,
+    promptSeed: string,
+    fallback: boolean,
+    opts: RunOptions | undefined,
+    outSize: number,
+  ): GenerationMeta => {
+    const model = modelForTier(tier);
+    const p = price(model);
+    const inputTokens = 400 + (hashString(promptSeed) % 200);
+    const cacheReadTokens = 4096;
+    const cacheWriteTokens = 0;
+    const outputTokens = Math.max(20, outSize);
+    const costUsd =
+      (inputTokens * p.input + outputTokens * p.output + cacheReadTokens * p.cacheRead + cacheWriteTokens * p.cacheWrite) / 1_000_000;
+    return {
+      generator,
+      variantId: opts?.variantId ?? `${generator.toLowerCase()}_${tier}_v1`,
+      model,
+      tier,
+      promptHash: `h${hashString(promptSeed).toString(16)}`,
+      usage: { inputTokens, cacheWriteTokens, cacheReadTokens, outputTokens },
+      costUsd: Math.max(costUsd, 0.000001),
+      ttftMs: fallback ? null : 120,
+      latencyMs: fallback ? 5 : 400,
+      stopReason: fallback ? "error" : "replay",
+      fallback,
+      escalatedFrom: opts?.escalatedFrom ?? null,
+    };
+  };
+
+  const shouldFail = (): boolean => {
+    if (mode === "fail") return true;
+    if (forcedFailures > 0) { forcedFailures -= 1; return true; }
+    return false;
+  };
+
+  const tierFor = (g: GeneratorId, opts?: RunOptions): ModelTier => opts?.tier ?? CHAMPION_TIER[g];
+
+  const record = (generator: GeneratorId, tier: ModelTier, opts: RunOptions | undefined, input: unknown) => {
+    calls.push({ generator, tier, escalatedFrom: opts?.escalatedFrom ?? null, input });
+  };
+
+  const g1 = async (input: G1Input, opts?: RunOptions): Promise<GenerationResult<G1Output>> => {
+    // Keep variantId consistent with GET /experiments/assignments (E2E-013 compares the two).
+    const assignedVariant = opts?.variantId ?? assignments(input.userId ?? "").g1_model ?? "g1_mid_v1";
+    const tier = opts?.tier ?? (assignedVariant.includes("light") ? "light" : "mid");
+    const runOpts: RunOptions = { ...opts, tier, variantId: assignedVariant };
+    record("G1", tier, opts, input);
+    const pool = (input.involved.length > 0 ? input.involved.map((r) => r.handle) : input.cast.map((c) => c.handle));
+    const handles = pool.length > 0 ? pool : ["@unknown"];
+    const failed = shouldFail();
+    const seedKey = `${input.worldSlug}:${input.locale}:${input.seed}:${input.k}`;
+    const rnd = seededRandom(input.seed || hashString(seedKey));
+    const ja = input.locale === "ja";
+
+    if (failed) {
+      const line = ja ? "👀" : "👀";
+      const replies = Array.from({ length: Math.max(1, Math.min(input.k, handles.length)) }, (_v, i) => ({
+        characterHandle: handles[i % handles.length] ?? "@unknown",
+        text: line,
+      }));
+      const output: G1Output = {
+        replies,
+        stat_deltas: { followers: 0, aura: 0, humor: 0 },
+        narrative: ja ? "世界はまだ反応を決めかねている。" : "The world hasn't made up its mind yet.",
+        relationship_deltas: {},
+        memory_notes: [],
+        news: null,
+        safety_flag: false,
+      };
+      return { output, meta: meta("G1", tier, seedKey, true, runOpts, 24) };
+    }
+
+    const bodyEn = [
+      "iconic timing 👑", "hm. bold.", "SOURCES SAY: this changes the week.",
+      "screaming, respectfully", "we'll see friday", "noted. loudly.",
+    ];
+    const bodyJa = [
+      "神タイミング 👑", "ふーん、強気だな。", "関係者:これで今週の流れが変わる。",
+      "叫んでる、敬意を込めて", "金曜に見せてもらう", "記録した。大声で。",
+    ];
+    const body = ja ? bodyJa : bodyEn;
+    const k = Math.max(1, Math.min(4, input.k));
+    const replies = Array.from({ length: k }, (_v, i) => ({
+      characterHandle: handles[i % handles.length] ?? "@unknown",
+      text: `${body[(Math.floor(rnd() * body.length) + i) % body.length] ?? "ok"}${tier === "high" ? (ja ? "(再考)" : " (reconsidered)") : ""}`,
+    }));
+    const relationship_deltas: Record<string, -1 | 0 | 1> = {};
+    for (const h of handles.slice(0, 3)) relationship_deltas[h] = 1;
+    const output: G1Output = {
+      replies,
+      stat_deltas: { followers: 3 + Math.floor(rnd() * 5), aura: 2, humor: 1 },
+      narrative: ja
+        ? "投稿はタイムラインに小さな波紋を残し、朝には誰もが引用していた。"
+        : "The post left a ripple across the timeline; by morning everyone was quoting it.",
+      relationship_deltas,
+      memory_notes: [{ handle: handles[0] ?? "@unknown", note: input.post.text.slice(0, 60) }],
+      news: input.includeNews ? { text: ja ? "速報:タイムラインが一斉に振り向いた。" : "BREAKING: the timeline turned its head all at once." } : null,
+      safety_flag: input.softened,
+    };
+    return { output, meta: meta("G1", tier, seedKey, false, runOpts, 60 + k * 20) };
+  };
+
+  const g4 = async (input: G4Input, opts?: RunOptions): Promise<GenerationResult<G4Output>> => {
+    const tier = tierFor("G4", opts);
+    record("G4", tier, opts, input);
+    const failed = shouldFail();
+    const seedKey = `${input.worldSlug}:${input.locale}:${input.seed}:dm`;
+    const ja = input.locale === "ja";
+    if (failed) {
+      const output: G4Output = { bubbles: [ja ? "既読 ✓✓" : "seen ✓✓"], affinity_delta: 0, memory_note: null, safety_flag: false };
+      return { output, meta: meta("G4", tier, seedKey, true, opts, 12) };
+    }
+    const bubbles = ja
+      ? ["見た。", "というか全部見た。", "落ち着いて、こっちで対応する。"]
+      : ["saw it.", "saw all of it actually.", "breathe — i'm handling it."];
+    const n = 1 + (hashString(seedKey) % 3);
+    const output: G4Output = {
+      bubbles: bubbles.slice(0, n),
+      affinity_delta: 1,
+      memory_note: input.message.slice(0, 60),
+      safety_flag: input.softened,
+    };
+    return { output, meta: meta("G4", tier, seedKey, false, opts, 40) };
+  };
+
+  const g5 = async (input: G5Input, opts?: RunOptions): Promise<GenerationResult<G5Output>> => {
+    const tier = tierFor("G5", opts);
+    record("G5", tier, opts, input);
+    const failed = shouldFail();
+    const seedKey = `${input.worldSlug}:${input.locale}:${input.seed}:event`;
+    const ja = input.locale === "ja";
+    if (failed) {
+      // gateway contract: still return a valid shape, marked as fallback
+      const output: G5Output = {
+        title: ja ? "静かな一日" : "A quiet day",
+        prompt: ja ? "何も起きていない。何をする?" : "Nothing is happening. What do you do?",
+        choices: [0, 1, 2].map((i) => ({
+          id: `c${i + 1}`,
+          label: ja ? `選択肢 ${i + 1}` : `Option ${i + 1}`,
+          outcomeText: ja ? "特に何も変わらなかった。" : "Nothing much changed.",
+          statDeltas: { followers: 0, aura: 0, humor: 0 },
+          relationshipDeltas: {},
+          newsText: null,
+        })) as G5Output["choices"],
+      };
+      return { output, meta: meta("G5", tier, seedKey, true, opts, 40) };
+    }
+    const handles = input.relationships.map((r) => r.handle);
+    const output: G5Output = {
+      title: ja ? "捏造スクショ" : "Fabricated screenshots",
+      prompt: ja
+        ? "匿名の「関係者」が捏造スクショを流している。どう応じる?"
+        : "Anonymous 'sources' are flooding the timeline with fabricated screenshots. How do you respond?",
+      choices: [
+        {
+          id: "burn", label: ja ? "焼き払う" : "Burn it down",
+          outcomeText: ja ? "朝にはタイムラインはクレーターだった。" : "By morning the timeline is a crater.",
+          statDeltas: { followers: 8, aura: 4, humor: -1 },
+          relationshipDeltas: handles[0] ? { [handles[0]]: 1 } : {},
+          newsText: ja ? "速報:深夜の一撃でタイムラインが停止。" : "BREAKING: a midnight strike stops the timeline cold.",
+        },
+        {
+          id: "receipts", label: ja ? "証拠を出す" : "Drop receipts",
+          outcomeText: ja ? "証拠は地味で、日付入りで、致命的だった。" : "The receipts are boring, dated and devastating.",
+          statDeltas: { followers: 5, aura: 6, humor: 0 },
+          relationshipDeltas: handles[1] ? { [handles[1]]: 1 } : {},
+          newsText: ja ? "独占:日付入りのメモが全てを覆した。" : "EXCLUSIVE: dated studio memos flip the story.",
+        },
+        {
+          id: "silence", label: ja ? "沈黙する" : "Stay silent",
+          outcomeText: ja ? "十一時間の沈黙が仕事をした。" : "Eleven hours of silence does the work.",
+          statDeltas: { followers: 2, aura: 3, humor: 1 },
+          relationshipDeltas: {},
+          newsText: null,
+        },
+      ],
+    };
+    return { output, meta: meta("G5", tier, seedKey, false, opts, 120) };
+  };
+
+  const g7 = async (input: G7Input, opts?: RunOptions): Promise<GenerationResult<G7Output>> => {
+    const tier = tierFor("G7", opts);
+    record("G7", tier, opts, input);
+    const failed = shouldFail();
+    const seedKey = `${input.worldSlug}:${input.locale}:memory`;
+    const output: G7Output = {
+      relationships: input.relationships.map((r) => ({
+        handle: r.handle,
+        summary: failed ? r.oldSummary : [r.oldSummary, ...r.notes].filter(Boolean).join(" ").slice(0, 600),
+      })),
+      worldSummary: failed ? input.persona.worldSummary : `${input.persona.handle}: ${input.persona.worldSummary}`.slice(0, 1600),
+    };
+    return { output, meta: meta("G7", tier, seedKey, failed, opts, 60) };
+  };
+
+  const g8 = async (input: G8Input, opts?: RunOptions): Promise<GenerationResult<G8Output>> => {
+    const tier = tierFor("G8", opts);
+    record("G8", tier, opts, input);
+    const lowered = input.text.toLowerCase();
+    const blocked = SAFETY_BLOCK_TEST_PHRASES.some((p) => lowered.includes(p.toLowerCase()));
+    const soften = !blocked && (lowered.includes("[soften]") || lowered.includes("soften-me"));
+    const output: G8Output = blocked
+      ? { verdict: "block", category: "policy" }
+      : soften
+        ? { verdict: "soften", category: "edgy" }
+        : { verdict: "allow", category: null };
+    return { output, meta: meta("G8", tier, `safety:${input.text}`, false, opts, 8) };
+  };
+
+  const assignments = (userId: string): Record<string, string> => {
+    const h = hashString(userId || "anon");
+    return {
+      g1_model: h % 2 === 0 ? "g1_mid_v1" : "g1_light_v1",
+      paywall_trial: h % 2 === 0 ? "trial_7" : "trial_0",
+      paywall_adfree: h % 2 === 0 ? "adfree_on" : "adfree_off",
+    };
+  };
+
+  return {
+    mode: () => mode,
+    setMode: (m: LlmMode) => { mode = m; },
+    g1, g4, g5, g7, g8,
+    assignments,
+    champion: () => ({ G1: "g1_mid_v1", G4: "g4_mid_v1", G5: "g5_high_v1", G8: "g8_light_v1" }),
+    calls,
+    failNext: (n: number) => { forcedFailures = n; },
+  };
+}
