@@ -849,3 +849,119 @@ working if this check is ever refactored). Covered by
 - Housekeeping: `apps/mobile/dist-g/` had been committed by accident (it was my throw-away web export, used
   to run the suite on isolated ports while other agents held :4000/:8082). It is deleted in the working
   tree — please commit the removal, and consider widening the `dist` ignore rule.
+
+## Agent H — retention & growth (S2) — 2026-09-04
+
+Scope: every **S2** row of `gap-analysis.md` — the "beat Status" list from `teardown.md` §7
+(AIF-001/002/005) plus push, referral and the profile screen.
+
+### What shipped
+
+| Gap | Surface | Endpoints | Screens |
+|---|---|---|---|
+| S2-1 | Offline World Director (AIF-001) | `GET /v1/digest?personaId=`, `POST /v1/digest/:id/seen` | `DigestCard` pinned above SCR-010 |
+| S2-2 | Push | `POST /v1/push/register` | `src/push.ts` (web = no-op) |
+| S2-3 | Memory ledger (AIF-002) + **G7 finally called** | `GET /v1/memory/:characterId?personaId=` | `app/memory/[handle].tsx` (SCR-039), opened from the DM hearts |
+| S2-4 | Shareable Moment (AIF-005) | `GET /v1/moments?personaId=`, `GET /v1/moments/:slug` (**public**) | `MomentCard` (9:16, tokens only), `app/moment/[slug].tsx` |
+| S2-5 | Referral | `GET /v1/referral`, `POST /v1/referral/redeem` | `app/invite.tsx` (SCR-041) |
+| S2-6 | Profile | `GET /v1/profile?personaId=` | `app/profile.tsx` (SCR-026), third tab |
+| S2-7 | Ambient refill | — (job only) | — |
+
+### The jobs, and how to run them without a scheduler
+
+**There is no scheduler in this build** — no cron, no worker, no queue. Each job is therefore a
+plain function that a scheduler *would* call, and each also has an opportunistic trigger on a read
+so the product works without one. `apps/api/src/jobs/index.ts` carries the same table:
+
+| job | function (`apps/api/src/jobs/`) | opportunistic trigger | manual |
+|---|---|---|---|
+| digest | `runOfflineDirector(prisma, gateway, clock, {personaId?, force?, limit?})` | `GET /v1/digest` generates on demand when the away window is met and nothing unseen is waiting | `POST /v1/__test/run-job {"job":"digest","personaId":…,"force":true}` |
+| memory | `runMemoryConsolidation(prisma, gateway, clock, {personaId?, minNotes?})` | end of `GET /v1/memory/:characterId` | `…{"job":"memory"}` |
+| ambient | `runAmbientRefill(prisma, gateway, clock, {worldId?, locale?, force?})` | none (pool is per world+locale, not per read) | `…{"job":"ambient"}` |
+
+`POST /v1/__test/run-job` is **guarded by `testHooksEnabled()` inside `jobs/index.ts`**, not in
+`routes/test-hooks.ts` (Agent F's file), so `app.ts` mounts `jobRoutes()` unconditionally and the
+route 404s when `TEST_HOOKS != 1`. `job: "all"` runs all three.
+
+What the offline director does per persona (only when the last *user* action — own posts, own DMs,
+persona creation, or the previous digest — is older than `DIGEST.MIN_AWAY_HOURS`, and no unseen
+digest exists): a **G5** director beat → `DIGEST.POSTS_PER_DIGEST` character posts + an optional
+press line via **G1** → one DM from the highest-affinity follower via **G4** → a `Digest` row with
+the created `postIds` → a push. It **costs no energy** (the user did not act) and never touches the
+wallet; `digest.test.ts` asserts zero `LedgerEntry(source: spend)` rows across a run.
+
+### Deviations
+
+1. **g5 + g1 instead of g10 / g2.** `cost-architecture.md` §3 assigns the digest to **G10** and the
+   ambient pool to **G2**, both on the Batch tier. `packages/llm`'s gateway exposes only
+   `g1/g4/g5/g7/g8` — there is no `g10` and no `g2`, and adding them is Agent B's file. So:
+   - digest = **G5** (the director beat: title + first outcome as headline/body) + **G1** (the
+     character posts, `includeNews` on the first call) + **G4** (the one DM);
+   - ambient refill = **G1** with a synthetic `[ambient]` prompt — no persona, no reply target,
+     just the world bible + cast asking for `k` lines of chatter.
+   Every call goes through `deps.gateway` and is written to `GenerationLog` like any other, so the
+   cost dashboard sees them. **Neither runs on the Batch tier** (the gateway has no batch path):
+   this is the one place where the cost model is not yet met, and it is why the per-run budget is
+   deliberately tiny (ambient: one G1 call per world+locale, k ≤ 4, target
+   `PACING.AMBIENT_SEED_COUNT × 4 = 20` rows — `PACING` has no pool-target constant).
+2. **`LedgerEntry.source: "referral"` exists** in the schema enum after all (the brief expected it
+   to be missing), so both referral grants use it — no compromise was needed.
+3. **Redemption window.** "New account" = *no persona yet*, or *within `REDEEM_WINDOW_HOURS = 24`
+   of signup*. Self-referral → 400, second redemption → 409 (`Referral.inviteeId` is unique),
+   stale account → 400. Tested in `referral.test.ts`.
+4. **Invite link base** reads `process.env.PUBLIC_APP_URL` directly in `services/referral.ts`
+   (fallback `https://rpgllm.example`) because `env.ts` is Agent F's file. Same for
+   `PUSH_ENABLED` in `services/push.ts`. Both want an `env.ts` accessor when someone owns it again.
+5. **Moment creation is read-driven.** `StatSnapshot` is written in `services/post-stream.ts` and
+   `routes/events.ts`, which I do not own, so `ensureMomentsFor()` scans the 20 most recent
+   snapshots on `GET /v1/moments` and mints a card for every qualifying one that has none
+   (`Moment.cause = "snapshot:<id>"` keeps it idempotent). Thresholds:
+   |followersDelta| ≥ 25% of the count *before*, |auraDelta| ≥ 5, or `cause` starts with `event:`.
+   The client re-checks the same rule (`isBigSwing` in `feed.tsx`) before it asks.
+6. **`GET /v1/moments/:slug` is unauthenticated** — it is the share target, the whole point of the
+   growth loop. It exposes only what the card draws (headline, narrative, deltas, ≤3 reactions,
+   persona handle/level): no user id, no email, no post ids.
+7. **The moment card renders in the feed list header, not as an overlay.** A scrim would sit on the
+   compose FAB and the feed cells; E2E-005 posts eight times and then resolves an event, so an
+   overlay would have broken P0 cases. Inline keeps `postCells(page).first()` honest.
+8. **Profile is a stack route** (`app/profile.tsx`), because the brief named that path while
+   `app/(tabs)/` holds only feed and dms. The Profile tab therefore *pushes* it (feed/dms still
+   `replace`), and its header's back button returns to the tab you came from.
+9. **Push registration fires on the first feed mount** with a persona, not on the last onboarding
+   screen (`app/onboarding/*` is Agent C's). Effectively "after onboarding".
+10. **`expo-notifications` is NOT installed.** Adding it would rewrite the workspace lockfile while
+    three other agents were building, and there are no APNs/FCM credentials here to test against.
+    `apps/mobile/src/push.ts` therefore owns the interface and takes the native module by
+    injection (`setNotificationsModule`); web is a hard no-op so the E2E web export cannot hang on
+    a permission prompt. Wiring it up later is a three-line change documented at the top of that
+    file — no call site moves.
+11. `apps/api/test/moments.test.ts` also holds the **profile** (SCR-026) tests; the brief named four
+    test files, and profile + moments are the same "progression you can see" surface.
+
+### Still missing (needs an owner / a credential)
+
+- **A real scheduler.** The digest should run nightly per away-user and the ambient refill hourly
+  per world+locale; today they only run on a read or the test hook. A cron/worker calling the three
+  exported functions is all that is needed — no code changes.
+- **Batch tier** for digest + ambient (50% off, cost-architecture §3): needs a batch path in
+  `packages/llm`.
+- **Push credentials**: an Expo project with APNs/FCM keys, then `PUSH_ENABLED=1` and the
+  `expo-notifications` wiring above. Until then `sendPush` logs and returns `{skipped: true}`.
+- **`PUBLIC_APP_URL`** must be set in production or invite links point at `rpgllm.example`.
+- Digest **postIds are not visually highlighted** in the feed yet (the contract carries them).
+
+### Verification
+
+- `pnpm --filter api typecheck`, `pnpm --filter mobile typecheck` — clean.
+- `pnpm --filter api test` — **103 passed** (the pre-existing 29 plus the other agents' and my 15:
+  `digest` 4, `memory` 4, `moments` 4 incl. profile, `referral` 3).
+- `pnpm e2e` — **27 passed, 4 skipped, 0 failed**: the 16 original P0 cases plus my 4 new
+  `retention.spec.ts` cases (digest appears/dismisses, profile level+XP+posts, memory ledger with a
+  quoted receipt opened from the DM hearts, referral code read and copied) and the other agents'.
+- While :4000/:8082 were held by another agent's run I verified on isolated ports (:4100/:8102) and
+  a scratch database; the numbers above are from the canonical `pnpm e2e` on :4000/:8082 with
+  `rpgllm_test`. The API vitest suite must be run with **`TEST_DATABASE_URL`** (not `DATABASE_URL`)
+  — `apps/api/vitest.config.ts` overrides `DATABASE_URL` from it, which silently sends every
+  "isolated" run back to `rpgllm_test`. Worth knowing when two agents test at once.
+- Housekeeping: `apps/mobile/dist-h/` (my throw-away web export for the isolated-port run) was
+  picked up by a commit; it is deleted in the working tree — please commit the removal.
