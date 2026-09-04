@@ -14,6 +14,11 @@
 
 | `build-plan.md` / `build-notes.md` | Stage 3: 実装計画、各エージェントの記録、統合時の判断 |
 
+## 残課題の解消(2026-09-04 後半)
+Batch ティア(**実測 50.0% 割引**)、Thompson sampling、オフライン評価、ワーカー+cron、
+認証コードの Postgres 化、連続ログインのカラム化、RevenueCat 本実装、プッシュ配信、テスト分離。
+詳細は `gap-analysis.md` 末尾。`pnpm --filter api test` 263/263、`pnpm e2e` 47 passed / 0 failed。
+
 ## UI・プロダクトの作り直し(2026-09-04)
 「見た目も機能も 30 点」という評価を受けて全面的に作り直した。デザイントークンを刷新(紫を帯びた黒地、
 ブランドグラデーション、**ハンドルから決定的に導かれるキャラ固有カラー**、書体スケール、モーション)し、
@@ -28,8 +33,9 @@
 コスト実測は $0.0057〜0.0082/アクション、キャッシュヒット率 88〜90%。
 
 ## Stage 3 の状態(2026-09-04)
-- `pnpm e2e` → **43 passed / 4 skipped / 0 failed**(Chromium、`LLM_MODE=replay`)
-- 単体: API 154、LLM 80、typecheck 全パッケージ緑
+- `pnpm e2e` → **47 passed / 4 skipped / 0 failed**(Chromium、`LLM_MODE=replay`)
+- 単体: API 263、LLM 135、typecheck 全パッケージ緑
+- 実行: API と `pnpm --filter api worker`(cron 7 ジョブ)の 2 プロセス
 - コスト計測: `node scripts/cost-report.mjs --days 7 [--html out.html]`
 - 実行: `scripts/db.sh start` → `pnpm e2e`(API :4000 と Web :8082 を自動起動)
 - 未検証: `LLM_MODE=live`(この環境に API キーなし)、iOS/Android 実機(コードは同一、`expo run:ios|android`)
