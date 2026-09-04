@@ -174,3 +174,23 @@
 - screens: [SCR-002]
 - steps: Given 開発用コードが有効な環境 / When メール認証を通す / Then セッションが発行され、誤ったコード・期限切れ・再利用は 401 になる
 - priority: P0
+
+## E2E-025: 不在ダイジェストが出て既読化できる
+- screens: [SCR-010, SCR-038]
+- steps: Given 最終アクションから `DIGEST.MIN_AWAY_HOURS` 以上経過 / When フィードを開く / Then `digestCard` が見出しと本文つきで出る。閉じると消え、エネルギーは減っていない
+- priority: P0
+
+## E2E-026: プロフィールに進行が見える
+- screens: [SCR-026]
+- steps: Given 数回アクション済み / When プロフィールタブを開く / Then レベルと XP バーが `xpForNextLevel` と整合し、自分の投稿とキャストの好感度が並ぶ
+- priority: P0
+
+## E2E-027: 記憶台帳に引用つきの記憶が並ぶ
+- screens: [SCR-021, SCR-039]
+- steps: Given 特定の内容を投稿済み / When DM の好感度ハートから台帳を開く / Then 記憶が 1 件以上あり、元投稿の引用が添えられている
+- priority: P0
+
+## E2E-028: 招待コードを取得できる
+- screens: [SCR-041]
+- steps: Given ログイン済み / When 招待画面を開く / Then コードとリンクが表示され、コピーできる。自己招待は拒否される
+- priority: P0

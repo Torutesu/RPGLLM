@@ -67,3 +67,24 @@
 - **`GET /health`**: `db:"ok"|"down"` を追加。DB 断で 503。
 - **広告報酬**: 固定トークンは `ADS_MODE=test` のときのみ。それ以外は AdMob の SSV 署名検証(失敗時は拒否)。
 - **リクエスト ID**: `x-request-id` を尊重/生成し、レスポンスヘッダと全エラー本文に載せる。
+
+## S2 追加分(リテンション/グロース, 2026-09-04)
+
+| Method | Path | Auth | Request | Response | Screen |
+|---|---|---|---|---|---|
+| GET | /digest | authenticated | ?personaId | DigestRes(未読が無ければ null。不在条件を満たせばオンデマンド生成) | SCR-038 |
+| POST | /digest/:id/seen | authenticated | - | {seenAt} | SCR-038 |
+| GET | /memory/:characterId | authenticated | ?personaId(id でも handle でも可) | MemoryLedgerRes | SCR-039 |
+| GET | /moments | authenticated | ?personaId | MomentListRes | SCR-040 |
+| GET | /moments/:slug | **public** | - | MomentRes | SCR-040 |
+| GET | /referral | authenticated | - | ReferralRes | SCR-041 |
+| POST | /referral/redeem | authenticated | {code} | {coffee, energy} | SCR-041 |
+| GET | /profile | authenticated | ?personaId | ProfileRes | SCR-026 |
+| POST | /push/register | authenticated | {token, platform} | {registered} | - |
+| POST | /__test/run-job | TEST_HOOKS | {job} | ジョブを同期実行(スケジューラ代替) | - |
+
+### 実装上の注意
+- **G10/G2 はゲートウェイに存在しない**。ダイジェストは **G5 + G1(+DM は G4)**、雑談プール補充は **G1 に合成プロンプト**で代替している。全て `GenerationLog` に記録される。
+- **Batch ティアは未対応**。`cost-architecture.md` §5.4 が想定する 50% 割引はまだ効いていない(唯一の未達項目)。
+- ダイジェストは**エネルギーを消費しない**。
+- **スケジューラが無い**。`runOfflineDirector` / `runMemoryConsolidation` / `runAmbientRefill` を cron から呼ぶこと。
