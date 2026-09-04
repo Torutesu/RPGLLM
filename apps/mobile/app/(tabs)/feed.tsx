@@ -12,7 +12,7 @@ import { Toast } from "../../src/components/Toast";
 
 /** SCR-010 — home feed. */
 export default function FeedScreen() {
-  const { me, feed, feedStatus, feedCursor, liveReplies, pendingEvent, toast, lastSnapshot } = useAppState();
+  const { me, feed, feedStatus, feedCursor, liveReplies, pendingEvent, toasts, lastSnapshot } = useAppState();
   const { loadFeed, loadMoreFeed, openStatCard, clearToast } = useActions();
   const { t } = useT();
 
@@ -66,6 +66,21 @@ export default function FeedScreen() {
   return (
     <Screen>
       {header}
+
+      {toasts.fallback ? (
+        <Toast testID={T.fallbackToast} text={toasts.fallback} tone="warn" onPress={() => clearToast("fallback")} />
+      ) : null}
+      {toasts.stat ? (
+        <Toast
+          testID={T.statToast}
+          text={toasts.stat}
+          onPress={() => {
+            if (lastSnapshot) openStatCard(lastSnapshot);
+            clearToast("stat");
+          }}
+        />
+      ) : null}
+      {toasts.error ? <Toast text={toasts.error} tone="error" onPress={() => clearToast("error")} /> : null}
 
       {pendingEvent ? (
         <Pressable
@@ -140,18 +155,6 @@ export default function FeedScreen() {
         <Text style={{ color: colors.bg, fontSize: font.lg, fontWeight: "800" }}>+</Text>
       </Pressable>
 
-      {toast?.kind === "stat" ? (
-        <Toast
-          testID={T.statToast}
-          text={toast.text}
-          onPress={() => {
-            if (lastSnapshot) openStatCard(lastSnapshot);
-            clearToast();
-          }}
-        />
-      ) : null}
-      {toast?.kind === "fallback" ? <Toast testID={T.fallbackToast} text={toast.text} tone="warn" onPress={clearToast} /> : null}
-      {toast?.kind === "error" ? <Toast text={toast.text} tone="error" onPress={clearToast} /> : null}
     </Screen>
   );
 }

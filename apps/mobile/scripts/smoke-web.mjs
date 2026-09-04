@@ -1,3 +1,11 @@
+/**
+ * Client web smoke: the happy path of E2E-002..010 against scripts/mock-api.mjs.
+ *
+ * Manual verification only (Agent D owns e2e/). Run:
+ *   node scripts/mock-api.mjs &
+ *   node scripts/serve-web.mjs &
+ *   PW_CHROME=/opt/pw-browsers/chromium-1194/chrome-linux/chrome node scripts/smoke-web.mjs
+ */
 import { chromium } from "playwright-core";
 
 const WEB = "http://localhost:8082";
@@ -56,9 +64,20 @@ try {
     const energy = (await tid("energy-badge").innerText()).trim();
     if (energy !== "9") throw new Error(`energy after post=${energy}`);
   });
+  await step("stat toast visible", async () => {
+    if (!(await tid("stat-toast").count())) throw new Error("stat-toast missing");
+  });
   await step("stat continue closes card", async () => {
     await tid("stat-continue").click();
     await tid("stat-card").waitFor({ state: "detached", timeout: 4000 });
+  });
+  await step("fallback toast (E2E-010)", async () => {
+    await tid("compose-fab").click();
+    await tid("compose-input").fill("FALLBACK please");
+    await tid("compose-submit").click();
+    await tid("fallback-toast").waitFor({ timeout: 6000 });
+    await page.waitForTimeout(1200);
+    if (await tid("stat-continue").count()) await tid("stat-continue").click();
   });
   await step("open post detail + rate down", async () => {
     const first = page.getByTestId(/^post-/).first();

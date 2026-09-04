@@ -246,3 +246,97 @@ skeleton in memory** and holds a port; anything probing it sees the stale `/v1/h
 (`champion:{}`) and 404s elsewhere. It needs a restart to pick up this build. I did not kill it because
 Agent C's `scripts/mock-api.mjs` is also contending for :4000 — please arbitrate. I verified on :4187
 and left no processes of my own running.
+
+## Agent C — client (apps/mobile) — delivery notes
+
+### Route map (Expo Router, web export = SPA)
+| Route | File | Screen |
+|---|---|---|
+| `/` | `app/index.tsx` | redirect: no token → `/auth`; `me.user.birthYear === null` → `/auth` (age gate); no persona → `/onboarding/scenario`; else `/feed` |
+| `/auth` | `app/auth.tsx` | SCR-002 (email + code, age gate step, locale toggle, blocked view) |
+| `/onboarding/scenario` | `app/onboarding/scenario.tsx` | SCR-003 |
+| `/onboarding/persona?worldId=` | `app/onboarding/persona.tsx` | SCR-004 |
+| `/onboarding/persona-edit` | `app/onboarding/persona-edit.tsx` | SCR-005 (spec says `/onboarding/persona/edit`; flat file avoids clashing with the `persona` route) |
+| `/onboarding/first-follower` | `app/onboarding/first-follower.tsx` | SCR-006 (+ `world-loading` overlay) |
+| `/feed` | `app/(tabs)/feed.tsx` | SCR-010 (+ SCR-013 card, toasts) |
+| `/dms` | `app/(tabs)/dms.tsx` | SCR-020 (+ new-message picker) |
+| `/compose?parentId=` | `app/compose.tsx` | SCR-011 (modal) |
+| `/post/[id]` | `app/post/[id].tsx` | SCR-012 |
+| `/dms/[threadId]` | `app/dms/[threadId].tsx` | SCR-021 |
+| `/event/[id]` | `app/event/[id].tsx` | SCR-014 (modal) |
+| `/paywall` | `app/paywall.tsx` | SCR-030 (modal) |
+| `/energy` | `app/energy.tsx` | SCR-032 (modal) |
+
+Supporting modules: `src/api/{client,sse,types}.ts`, `src/auth/token.ts`, `src/adapters/{ads,admob,billing,revenuecat}.ts`,
+`src/state/store.tsx` (context + synchronous state ref), `src/nav.ts`, `src/components/*`, `src/env.ts`.
+`useT()` / `useMe()` are exported from `src/state/store.tsx` (re-exported at `src/i18n/useT.ts`).
+
+### Decisions worth knowing for E2E (Agent D)
+1. **Ads visibility is switchable at runtime.** `E2E-007` needs the web ad button, `E2E-012` needs it hidden — the same
+   web bundle serves both. `src/env.ts#adsMode()` reads `globalThis.__ADS_MODE` first, then build-time
+   `EXPO_PUBLIC_ADS_MODE`, else `"off"`. So: default export → **no** `watch-ad` on web (E2E-012 passes);
+   for E2E-007 do `await page.addInitScript(() => { window.__ADS_MODE = "test"; })` before `goto`.
+   On native the button shows whenever `wallet.adsEnabled` is true. `watch-ad` is also hidden when the wallet says
+   `adsEnabled:false` (Plus), which is what E2E-008 asserts.
+2. **`__lastAdRequest`** is set by `MockAds` at request time: `window.__lastAdRequest = { npa: !personalized, at }`.
+   `personalized = wallet.adPersonalized && !user.isMinor` → a minor yields `npa === true` (E2E-016).
+3. **Numbers are bare inside their testid.** `energy-badge` and `energy-value` contain only the number
+   (e.g. `"9"`); the ⚡ glyph and `/ dailyMax` are siblings, so exact-text assertions work.
+4. **Stat card** (`stat-card`) is a bottom sheet with **no blocking backdrop**, opened automatically on the `stat`
+   stream event and after an event choice. The compose FAB is drawn above it (higher z-index) so the feed stays
+   usable while it is open. `stat-continue` closes it. `stat-aura` / `stat-followers` / `stat-humor` each read
+   `"<signed delta> → <after value>"` (e.g. `"+5 → 25"`).
+5. **Toasts are inline banners**, one slot per kind (`stat-toast`, `fallback-toast`, error), rendered between the
+   header and the event banner — never absolutely positioned, so they cannot intercept a click on
+   `event-banner` / `feed-list`. A stat toast no longer replaces a fallback toast (they coexist).
+6. **`reply-btn` is unique per screen.** On SCR-012 it is the single bottom bar button. Its target is the root post
+   by default; tapping a reply row (`reply-<id>`) selects that reply as the parent first. Each reply row is
+   `reply-<postId>`, and `rate-up-<postId>` / `rate-down-<postId>` use the **post id** (not the generation id);
+   the client looks up `post.generationId` internally for `POST /generations/:id/rate`.
+7. **`post-text` / `post-author` / `post-kind-<kind>` repeat per cell** — scope them under
+   `getByTestId(\`post-${id}\`)`. Inline feed replies are also wrapped in `reply-<id>`.
+8. **Navigating back to the feed from a modal uses dismiss, not `replace`** (`src/nav.ts#resetToFeed`).
+   `router.replace("/feed")` from a modal stacked on the tabs mounts a **second** tab navigator and duplicates every
+   data-testid; if you see strict-mode "resolved to 2 elements", that is the cause.
+9. **Auth screen keeps the email/code fields mounted** while the age gate is showing, so either interaction order
+   works: fill email + code then `auth-submit`, or submit and then fill. The code field is pre-filled with
+   `DEV_EMAIL_CODE`. `auth-submit` is a no-op once authenticated.
+10. **Locale**: device locale by default, `locale-toggle` on the auth screen, then `me.user.locale` after login
+    (the value chosen on the auth screen is sent with `POST /auth/age-gate`).
+
+### Contract / integration notes
+- Agent A already accepts `?token=` on SSE routes and returns `streamUrl` as `/v1/...` — matches the client.
+  The SSE parser accepts both `event: <type>` named frames and payloads that carry `type` themselves.
+- `POST /posts` and `POST /dms/:id/messages` returning **201** is fine (the client treats any 2xx as success).
+- The client calls `POST /auth/email/start` first and **ignores failures**, then `POST /auth/email`.
+- Every response is `zod`-parsed with the shared schema; a mismatch throws `ApiError("VALIDATION")`, logs
+  `[api] contract mismatch on <path>` and records `globalThis.__lastParseError` — check that first if a screen is blank.
+- `402` anywhere pops `/energy` globally (typed client side effect); `422` is surfaced inline by the caller;
+  network/5xx raise an error toast.
+
+### Missing i18n keys (please add to `packages/shared/src/i18n/*` — additive only)
+The following copy had no key, so the closest existing key is used today. Replacements once the keys exist:
+| Needed | Used instead | Where |
+|---|---|---|
+| `retry` ("Retry") | `continue` | SCR-003/010 error states |
+| `loadFailed` ("Couldn't load worlds" / generic load error) | `notSent` | SCR-003/006/030 error states |
+| `signInFailed` ("Sign-in failed. Try again.") | `notSent` | SCR-002 |
+| `noReactions` ("No reactions yet") | `wakingUp` | SCR-012 empty thread |
+| `showMore` | `loadMore` | feed inline replies |
+| `handleTaken` ("Taken") / `handleAvailable` | `safetyBlocked` / bare ✓ | SCR-005 |
+| `voiceNotes` ("How do you talk?") | `save` (as the field label) | SCR-005 |
+| `notAvailableRegion` | — (offerings error uses `notSent`) | SCR-030 |
+| `continueWithApple` / `continueWithGoogle` | — (buttons omitted; adapters are P1) | SCR-002 |
+| `adsToday` ("3/5 today") / `youHave` / `inviteFriend` | bare counters | SCR-032 |
+The wordmark "status" is rendered as a brand literal (`components/ui.tsx#Wordmark`), not via i18n.
+
+### Local verification (this agent)
+- `pnpm --filter mobile typecheck` — pass. `pnpm --filter mobile export:web` — pass (single-file web bundle).
+- `apps/mobile/scripts/mock-api.mjs` implements the contracts in memory for client-only checks
+  (plus `/v1/__test/{reset,set-energy,plus-off}`); `scripts/smoke-web.mjs` and `scripts/smoke-web-cases.mjs`
+  drive the exported web build in Chromium (`/opt/pw-browsers`) and all steps pass:
+  auth → age gate → world → persona → first follower → feed(energy 10) → post(stream replies + stat card + stat toast)
+  → fallback toast → post detail(👎 replace, load more, reply) → DMs(typing → bubbles → affinity) → energy(watch ad,
+  `__lastAdRequest`) → paywall(success) → Plus hides watch-ad → 8th-action event → choice → stat card → news at top
+  → energy-0 post → ad → automatic re-submit → safety 422 inline with energy unchanged; plus under-13 blocked,
+  JA locale UI, and `npa=1` for a minor. **Not yet run against the real `apps/api`** — that is the integration step.

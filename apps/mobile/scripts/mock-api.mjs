@@ -133,6 +133,10 @@ const server = http.createServer(async (req, res) => {
     const rootId = streamMatch[1];
     setTimeout(() => write("reply", { post: mkPost("character", "hivequeenbea", "iconic timing 👑", { parentId: rootId }) }), 200);
     setTimeout(() => write("reply", { post: mkPost("character", "the6ixdrey", "the song better not be about me", { parentId: rootId }) }), 500);
+    if (/FALLBACK/i.test(db.posts.find((x) => x.id === rootId)?.text ?? "")) {
+      setTimeout(() => write("fallback", { message: "signal lost" }), 300);
+      db.wallet.energy += 1; // refunded
+    }
     setTimeout(() => write("stat", { snapshot: (db.lastSnapshot = snapshot("post")) }), 700);
     if (db.actionCount % 8 === 0) setTimeout(() => write("event", { event: (db.pendingEvent = mkEvent()) }), 800);
     setTimeout(() => { write("done", { energy: db.wallet.energy }); res.end(); }, 1000);

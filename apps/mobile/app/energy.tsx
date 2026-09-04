@@ -3,7 +3,7 @@ import { Pressable, ScrollView, Text, View } from "react-native";
 import { router } from "expo-router";
 import { ENERGY, T, colors, font, radius, spacing } from "@rpgllm/shared";
 import { canShowWatchAd } from "../src/adapters/ads";
-import { useActions, useAppState, useT } from "../src/state/store";
+import { useActions, useAppState, useMe, useT } from "../src/state/store";
 import { Button, Screen } from "../src/components/ui";
 import { resetToFeed } from "../src/nav";
 
@@ -19,8 +19,9 @@ function countdown(iso: string | undefined, now: number): string {
 
 /** SCR-032 — get energy (modal). */
 export default function EnergyModal() {
-  const { me, pendingPost } = useAppState();
-  const { watchAd, useCoffee, flushPendingPost, refreshMe } = useActions();
+  const { pendingPost } = useAppState();
+  const { me, refresh: refreshMe } = useMe();
+  const { watchAd, useCoffee, flushPendingPost } = useActions();
   const { t } = useT();
 
   const [busy, setBusy] = useState<"ad" | "coffee" | null>(null);

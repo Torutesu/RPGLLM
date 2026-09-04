@@ -3,6 +3,7 @@ import { Pressable, ScrollView, Text, View } from "react-native";
 import { router } from "expo-router";
 import { PLANS, T, colors, font, radius, spacing, tList, type PlanId } from "@rpgllm/shared";
 import { api } from "../src/api/client";
+import { getBilling } from "../src/adapters/billing";
 import { useActions, useAppState, useT } from "../src/state/store";
 import { Button, Screen } from "../src/components/ui";
 import { SkeletonList } from "../src/components/Skeleton";
@@ -13,7 +14,7 @@ const PERIOD_KEY: Record<string, "weekly" | "monthly" | "yearly"> = { week: "wee
 /** SCR-030 — soft paywall (modal). */
 export default function Paywall() {
   const { locale } = useAppState();
-  const { purchase } = useActions();
+  const { purchase, refreshMe } = useActions();
   const { t } = useT();
 
   const [offerings, setOfferings] = useState<Offerings | null>(null);
@@ -138,7 +139,16 @@ export default function Paywall() {
                 disabled={!selected || busy}
                 loading={busy}
               />
-              <Pressable accessibilityRole="button" onPress={() => undefined} style={{ alignSelf: "center" }}>
+              <Pressable
+                accessibilityRole="button"
+                onPress={() => {
+                  void getBilling()
+                    .restore()
+                    .then(() => refreshMe())
+                    .catch(() => setError(t("notSent")));
+                }}
+                style={{ alignSelf: "center" }}
+              >
                 <Text style={{ color: colors.textMuted, fontSize: font.xs }}>{t("restore")}</Text>
               </Pressable>
             </>

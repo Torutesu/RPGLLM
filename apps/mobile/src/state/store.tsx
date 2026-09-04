@@ -20,7 +20,8 @@ export type PersonaDraft = {
 };
 
 export type ToastKind = "stat" | "fallback" | "error";
-export type ToastState = { kind: ToastKind; text: string } | null;
+/** One slot per kind so a stat toast never replaces a fallback notice (E2E-010). */
+export type ToastState = Partial<Record<ToastKind, string>>;
 export type LoadStatus = "idle" | "loading" | "ready" | "error";
 
 export type AppState = {
@@ -45,7 +46,7 @@ export type AppState = {
   statCardOpen: boolean;
   /** A post that hit 402; re-submitted once energy is topped up (E2E-007). */
   pendingPost: { text: string; parentId: string | null } | null;
-  toast: ToastState;
+  toasts: ToastState;
   streaming: boolean;
 };
 
@@ -82,7 +83,7 @@ const initialState: AppState = {
   lastSnapshot: null,
   statCardOpen: false,
   pendingPost: null,
-  toast: null,
+  toasts: {},
   streaming: false,
 };
 
@@ -119,7 +120,7 @@ export type Actions = {
   useCoffee: () => Promise<{ ok: boolean; message?: string }>;
   purchase: (plan: PlanId) => Promise<{ ok: boolean; message?: string }>;
   showToast: (kind: ToastKind, text: string) => void;
-  clearToast: () => void;
+  clearToast: (kind?: ToastKind) => void;
 };
 
 const StateCtx = createContext<AppState>(initialState);
@@ -151,7 +152,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   // awaits apart from React's render cycle and must never read a stale wallet/session.
   const ref = useRef(state);
   const streamRef = useRef<StreamSub | null>(null);
-  const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const toastTimers = useRef<Partial<Record<ToastKind, ReturnType<typeof setTimeout>>>>({});
 
   const patch = useCallback((p: Partial<AppState> | ((s: AppState) => Partial<AppState>)) => {
     const partial = typeof p === "function" ? p(ref.current) : p;
@@ -159,17 +160,36 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setState(ref.current);
   }, []);
 
-  const clearToast = useCallback(() => {
-    if (toastTimer.current) clearTimeout(toastTimer.current);
-    toastTimer.current = null;
-    patch({ toast: null });
-  }, [patch]);
+  const clearToast = useCallback(
+    (kind?: ToastKind) => {
+      const kinds: ToastKind[] = kind ? [kind] : ["stat", "fallback", "error"];
+      for (const k of kinds) {
+        const timer = toastTimers.current[k];
+        if (timer) clearTimeout(timer);
+        delete toastTimers.current[k];
+      }
+      patch((s) => {
+        const next = { ...s.toasts };
+        for (const k of kinds) delete next[k];
+        return { toasts: next };
+      });
+    },
+    [patch],
+  );
 
   const showToast = useCallback(
     (kind: ToastKind, text: string) => {
-      if (toastTimer.current) clearTimeout(toastTimer.current);
-      patch({ toast: { kind, text } });
-      toastTimer.current = setTimeout(() => patch({ toast: null }), kind === "stat" ? 3000 : 4000);
+      const existing = toastTimers.current[kind];
+      if (existing) clearTimeout(existing);
+      patch((s) => ({ toasts: { ...s.toasts, [kind]: text } }));
+      toastTimers.current[kind] = setTimeout(() => {
+        delete toastTimers.current[kind];
+        patch((s) => {
+          const next = { ...s.toasts };
+          delete next[kind];
+          return { toasts: next };
+        });
+      }, kind === "stat" ? 3000 : 6000);
     },
     [patch],
   );

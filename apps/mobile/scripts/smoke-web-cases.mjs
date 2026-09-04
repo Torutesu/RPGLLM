@@ -1,3 +1,11 @@
+/**
+ * Client web smoke: age gate, locale, ads-visibility cases (E2E-001/011/012/016).
+ *
+ * Manual verification only (Agent D owns e2e/). Run:
+ *   node scripts/mock-api.mjs &
+ *   node scripts/serve-web.mjs &
+ *   PW_CHROME=/opt/pw-browsers/chromium-1194/chrome-linux/chrome node scripts/smoke-web-cases.mjs
+ */
 import { chromium } from "playwright-core";
 const WEB = "http://localhost:8082";
 const API = "http://localhost:4000/v1";

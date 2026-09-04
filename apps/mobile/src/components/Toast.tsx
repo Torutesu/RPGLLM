@@ -2,6 +2,7 @@ import React from "react";
 import { Pressable, Text, View } from "react-native";
 import { colors, radius, spacing, font } from "@rpgllm/shared";
 
+/** Inline banner (never overlays the feed, so it can't intercept taps in E2E). */
 export function Toast({
   text,
   testID,
@@ -19,16 +20,13 @@ export function Toast({
       testID={testID}
       onPress={onPress}
       style={{
-        position: "absolute",
-        left: spacing.lg,
-        right: spacing.lg,
-        top: spacing.xxl * 2,
+        marginHorizontal: spacing.lg,
+        marginTop: spacing.md,
         backgroundColor: colors.card,
         borderColor: border,
         borderWidth: 1,
         borderRadius: radius.md,
         padding: spacing.md,
-        zIndex: 40,
       }}
     >
       <Text style={{ color: colors.text, fontSize: font.sm }} numberOfLines={3}>
