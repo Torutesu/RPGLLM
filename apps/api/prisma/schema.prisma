@@ -1,15 +1,10 @@
-# 02 — Data Schema
-- version: 1
-- source: ../teardown.md §5(推定 ER)を MVP 用に確定。各 model のコメントに teardown 由来エンティティを記す。
-- DB: PostgreSQL / Prisma。演出用の数値(いいね数など)は LLM に生成させず `Post.metrics` にサーバが書く。
-
-## Prisma schema
-
-```prisma
 generator client {
   provider = "prisma-client-js"
 }
-datasource db { provider = "postgresql"; url = env("DATABASE_URL") }
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
 
 enum Locale {
   en
@@ -349,38 +344,3 @@ model Rating {
   regenerate   Boolean  @default(false)
   createdAt    DateTime @default(now())
 }
-```
-
-## ER 図
-
-```mermaid
-erDiagram
-  User ||--o{ Persona : plays
-  User ||--|| Wallet : owns
-  User ||--o| Subscription : has
-  User ||--o{ Purchase : buys
-  User ||--o{ ExperimentAssignment : assigned
-  User ||--o{ Rating : rates
-  World ||--o{ Persona : hosts
-  World ||--o{ WorldCharacter : casts
-  World ||--o{ AmbientPost : pool
-  Persona ||--o{ Post : feed
-  Persona ||--o{ Event : faces
-  Persona ||--o{ StatSnapshot : records
-  Persona ||--o{ RelationshipState : with
-  Persona ||--o{ DMThread : chats
-  WorldCharacter ||--o{ Post : authors
-  WorldCharacter ||--o{ DMThread : chats
-  WorldCharacter ||--o{ RelationshipState : with
-  RelationshipState ||--o{ MemoryEntry : remembers
-  Post ||--o{ Post : replies
-  DMThread ||--o{ DMMessage : contains
-  Wallet ||--o{ LedgerEntry : ledger
-  GenerationLog ||--o{ Post : produced
-  GenerationLog ||--o{ Rating : rated
-```
-
-## 不変条件
-- 1アクション(投稿/返信/DM/イベント選択)= `Wallet.energy -1` の LedgerEntry(source=spend)を**同一トランザクション**で記録。energy=0 なら 402 を返し画面は SCR-032 へ。
-- `World.bible[locale]` は G9 出力文字列をそのまま保存し、以後変更しない(プロンプトキャッシュのバイト一致条件)。
-- `GenerationLog` は失敗・拒否(stop_reason=refusal)も含め全件記録。
