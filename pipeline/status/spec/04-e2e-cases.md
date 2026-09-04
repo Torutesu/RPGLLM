@@ -149,3 +149,28 @@
 - screens: [SCR-010]
 - steps: Given AmbientPost 200 件 / When スクロール 50 件 / Then GenerationLog に G2 のオンライン呼び出しが 0 件
 - priority: P1
+
+## E2E-021: 通報が受け付けられる
+- screens: [SCR-010, SCR-037]
+- steps: Given フィードにキャラ返信がある / When 「…」→ 理由を選び送信 / Then `reportDone` が出て、通報行に**サーバ側で解決した本文スナップショット**が保存されている
+- priority: P0
+
+## E2E-022: ブロックしたキャラが実際に消える
+- screens: [SCR-010, SCR-037, SCR-020, SCR-033, SCR-034]
+- steps: Given キャラ A の投稿がフィードにある / When A をブロック / Then A の投稿がフィードから消え、DM の新規作成候補からも消え、以後の生成でも返信しない。設定→ブロック一覧から解除すると復帰する
+- priority: P0
+
+## E2E-023: 設定の同意トグルと法務リンク
+- screens: [SCR-033]
+- steps: Given 成人アカウント / When 設定を開く / Then 同意トグルが `/v1/me` の値で初期化され、切り替えるとサーバに反映される。未成年アカウントでは操作不可。規約・プライバシー・ガイドラインのリンクが表示される
+- priority: P0
+
+## E2E-024: アカウント削除
+- screens: [SCR-033, SCR-036, SCR-002]
+- steps: Given ログイン済み / When 設定→アカウント削除→DELETE と入力して確定 / Then 認証画面に戻り、以前のトークンでの API 呼び出しが 410 になる
+- priority: P0
+
+## SEC-001: ワンタイムコード認証が成立する
+- screens: [SCR-002]
+- steps: Given 開発用コードが有効な環境 / When メール認証を通す / Then セッションが発行され、誤ったコード・期限切れ・再利用は 401 になる
+- priority: P0

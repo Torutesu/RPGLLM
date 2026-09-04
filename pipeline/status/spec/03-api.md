@@ -42,3 +42,28 @@
 | `ambient.refill` | 夜間 | G2(AIF-015, Batch)で AmbientPost を locale 別に 200 件維持 |
 | `wallet.dailyRefill` | 日次 | free: energy=max(energy,10)、plus: 50 |
 | `eval.nightly` | 夜間 | GJ(AIF-006, Batch)で champion/challenger を採点 |
+
+## S0/S1 追加分(gap-analysis 対応, 2026-09-04)
+
+認証は**ワンタイムコード**に変更。`POST /auth/email/start` が 6 桁コードを発行(保存はソルト付きハッシュのみ、10 分・5 回・使い捨て)、`/auth/email/verify` が検証する。固定コード `000000` は `AUTH_DEV_CODE=1`(`TEST_HOOKS=1` が含意)のときだけ通り、本番では起動ガードが弾く。
+
+| Method | Path | Auth | Request | Response | Screen |
+|---|---|---|---|---|---|
+| POST | /account/delete | authenticated | {confirm:"DELETE"} | {deletedAt, purgeAt} | SCR-036 |
+| POST | /account/restore | authenticated | - | {restored} / 410 期限切れ | SCR-036 |
+| GET | /account/export | authenticated | - | ExportDataRes(1,000 件で truncated) | SCR-033 |
+| POST | /account/consent | authenticated | {analytics} | {analytics, locked} — 未成年は強制 false | SCR-033 |
+| POST | /moderation/report | authenticated | {target, targetId, reason, note} | {id, status} / 409 重複 | SCR-037 |
+| POST | /moderation/block | authenticated | {personaId, characterId} | {blocked} / 409 BLOCKED | SCR-037 |
+| POST | /moderation/unblock | authenticated | {personaId, characterId} | {unblocked} / 404 | SCR-034 |
+| GET | /moderation/blocked | authenticated | ?personaId | BlockedListRes | SCR-034, SCR-033 |
+| GET | /moderation/reports | admin | ?status=open | 通報キュー(TEST_HOOKS か ADMIN_TOKEN) | - |
+
+### 横断的な変更
+- **レート制限**: 認証 5/分(IP+メール)、書き込み 20/分、広告報酬 10/分、その他 120/分。超過は 429 + `Retry-After`、コードは `RATE_LIMITED`。`TEST_HOOKS=1` で無効。
+- **CORS**: `CORS_ORIGINS` の許可リスト。`*` は `TEST_HOOKS=1` のときのみ。
+- **`?token=`**: `GET .../stream` の 2 本だけで受理。更新系では無視される。
+- **削除済みアカウント**: `requireAuth` が 410 `ACCOUNT_DELETED` を返す(`/account/restore` のみ例外)。
+- **`GET /health`**: `db:"ok"|"down"` を追加。DB 断で 503。
+- **広告報酬**: 固定トークンは `ADS_MODE=test` のときのみ。それ以外は AdMob の SSV 署名検証(失敗時は拒否)。
+- **リクエスト ID**: `x-request-id` を尊重/生成し、レスポンスヘッダと全エラー本文に載せる。
