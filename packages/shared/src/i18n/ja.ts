@@ -73,6 +73,7 @@ export const ja: Strings = {
   more: "その他",
   // Notifications
   notifications: "通知",
+  news: "ニュース",
   notifEmpty: "まだ何もありません — 投稿して反応を見てみよう",
   markAllRead: "すべて既読にする",
   likedYourPost: "があなたの投稿にいいねしました",

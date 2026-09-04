@@ -344,7 +344,8 @@ export async function signupAndEnter(
  * `post-author`, `post-kind-*`) share the prefix, so they are excluded explicitly.
  */
 export const POST_CELL =
-  '[data-testid^="post-"]:not([data-testid^="post-kind-"]):not([data-testid="post-text"]):not([data-testid="post-author"])';
+  '[data-testid^="post-"]:not([data-testid^="post-kind-"]):not([data-testid="post-text"])' +
+  ':not([data-testid="post-author"]):not([data-testid="post-time"]):not([data-testid^="post-media-"])';
 
 /** Any character reaction rendered either as a feed cell of kind `character` or a thread reply. */
 export const REACTION =

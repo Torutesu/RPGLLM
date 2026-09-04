@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Animated, PanResponder, Pressable, Text, View, type ViewStyle } from "react-native";
-import { colors, compactNumber, font, gradients, identityPalette, layout, radius, spacing, tList } from "@rpgllm/shared";
+import { colors, compactNumber, font, gradients, identityFor, identityPalette, layout, radius, spacing, tList } from "@rpgllm/shared";
 import type { StringKey } from "@rpgllm/shared";
 import { useT } from "../state/store";
 import { AnimatedNumber, Avatar, FadeSlideIn, Gradient, Icon, duration, ease, timing, typo, useAnimatedValue, useReduceMotion } from "../ui";
@@ -18,6 +18,12 @@ import { Round, SoftOrb } from "./Brand";
  */
 
 const SLIDE_MS = 4200;
+
+/**
+ * Seeds for the morphing portrait. They are never shown — `Avatar` hashes them into an identity
+ * gradient and a motif, so the disc becomes a different person every beat.
+ */
+const FACES = ["aurora", "nova", "kite", "ember", "lyric", "onyx"] as const;
 
 /** `plusFeature1` is the one line that lives in i18n's only array string. */
 type SubKey = StringKey | "plusFeature1";
@@ -64,8 +70,8 @@ function MorphArt({ active }: { active: boolean }) {
     return () => loop.stop();
   }, [active, reduce, spin]);
 
-  const a = identityPalette[step % identityPalette.length] ?? identityPalette[0]!;
-  const b = identityPalette[(step + 1) % identityPalette.length] ?? identityPalette[0]!;
+  const a = FACES[step % FACES.length] ?? FACES[0]!;
+  const b = FACES[(step + 1) % FACES.length] ?? FACES[0]!;
   const satellites = [0, 1, 2, 3, 4, 5];
 
   return (
@@ -95,12 +101,10 @@ function MorphArt({ active }: { active: boolean }) {
 
       <View style={{ width: 128, height: 128, alignItems: "center", justifyContent: "center" }}>
         <View style={{ position: "absolute", opacity: 0.7 }}>
-          <SoftOrb from={a[0]} to={a[1]} size={230} />
+          <SoftOrb from={identityFor(a).from} to={identityFor(a).to} size={230} />
         </View>
         <Animated.View style={{ position: "absolute", opacity: reduce ? 1 : cross.interpolate({ inputRange: [0, 1], outputRange: [1, 0] }) }}>
-          <Round size={128}>
-            <Gradient colors={[a[0], a[1]]} angle={130} style={{ flex: 1 }} />
-          </Round>
+          <Avatar handle={a} size={128} />
         </Animated.View>
         <Animated.View
           style={{
@@ -109,11 +113,9 @@ function MorphArt({ active }: { active: boolean }) {
             transform: [{ scale: reduce ? 1 : cross.interpolate({ inputRange: [0, 1], outputRange: [0.86, 1] }) }],
           }}
         >
-          <Round size={128}>
-            <Gradient colors={[b[0], b[1]]} angle={130} style={{ flex: 1 }} />
-          </Round>
+          <Avatar handle={b} size={128} />
         </Animated.View>
-        <View style={{ position: "absolute", width: 128, height: 128, borderRadius: radius.pill, borderWidth: 2, borderColor: "rgba(255,255,255,0.18)" }} />
+        <View style={{ position: "absolute", width: 138, height: 138, borderRadius: radius.pill, borderWidth: 2, borderColor: "rgba(255,255,255,0.2)" }} />
       </View>
     </View>
   );

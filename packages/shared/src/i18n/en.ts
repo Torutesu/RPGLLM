@@ -72,6 +72,7 @@ export const en = {
   more: "More",
   // Notifications
   notifications: "Notifications",
+  news: "News",
   notifEmpty: "Nothing yet — post something and watch them react",
   markAllRead: "Mark all read",
   likedYourPost: "liked your post",
