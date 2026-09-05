@@ -145,6 +145,23 @@ export const canPlay = (world: World, userId: string): boolean =>
   || world.createdBy === userId
   || (world.status === "published" && world.visibility !== "private");
 
+/**
+ * `canPlay`, plus the one exception post-publication moderation creates: **a world pulled off the
+ * shelf by reports is not deleted**. Its creator keeps it (that is already `canPlay`), and so does
+ * anyone who was mid-game when it was pulled — they have a persona, a feed and a relationship cast
+ * in it, and taking a world out of Explore must not evict them from a story they are playing.
+ *
+ * Deliberately narrow: only a *pulled* world (`review` + `pulledAt`), and only for someone who
+ * already has a persona in it. A world a human then rejects goes private and this stops applying —
+ * a person decided that one, and nobody joins a pulled world who was not already there.
+ */
+export async function canStillPlay(prisma: PrismaClient, world: World, userId: string): Promise<boolean> {
+  if (canPlay(world, userId)) return true;
+  if (world.status !== "review" || world.pulledAt === null) return false;
+  const persona = await prisma.persona.findFirst({ where: { worldId: world.id, userId }, select: { id: true } });
+  return persona !== null;
+}
+
 /* ------------------------------------------------------------ serialising ---- */
 
 export function toApiWorldFull(
@@ -172,6 +189,9 @@ export function toApiWorldFull(
     reason: world.status === "rejected"
       ? (world.rejectedReason || null)
       : (world.failureReason || null),
+    // "Taken down for another look" is a different thing to say than "not looked at yet", and the
+    // status is `review` for both — so the difference lives here (WORLD_MODERATION).
+    pulled: world.pulledAt !== null,
   };
 }
 

@@ -2544,3 +2544,75 @@ write and ten cache reads.
   weakened or skipped).
 - `pnpm --filter llm typecheck` clean · `npx tsc --noEmit -p apps/api/tsconfig.json` clean (the
   API's feature-detected `g9Of` / `premiseScreenFrom` bind to the real exports unchanged).
+
+## Agent MOD-API — what happens to a world after it is approved (WORLD_MODERATION)
+
+Scope: `apps/api/**` only. Endpoints touched: `POST /v1/moderation/report`,
+`GET /v1/admin/worlds/review`, `POST /v1/admin/worlds/:id/review`, `POST /v1/worlds/:id/publish`,
+`GET /v1/worlds/:id`, `GET /v1/cost/summary`, `GET /v1/cost/live`; job: `world-build`.
+
+### Deviations and cross-cutting needs
+
+1. **No new row in `@rpgllm/shared`'s `JOBS` table.** The backlog sweep wanted to be its own
+   scheduled job (`world-moderation`, `*/15`), but `JOBS` lives in `packages/shared` (frozen this
+   pass) and `test/jobs.test.ts` asserts `GET /v1/jobs` equals that table exactly — adding a name
+   here would have meant editing an existing test. The sweep therefore rides the **`world-build`**
+   job: same `pg_try_advisory_xact_lock`, same `JobRun` row, same minute cadence, and it is the
+   world-lifecycle job already. Its `detail` gained `inReview` / `overdueReviews` / `pulledWorlds`.
+   *If shared reopens:* add `{ name: "world-moderation", schedule: "*/15 * * * *", description:
+   "log the world review backlog" }`, move `sweepWorldModeration` to its own runner, and extend the
+   `GET /v1/jobs` assertion to the shared table plus that row.
+2. **`WorldReviewQueueResZ` has no paging field.** The queue can grow, so `GET /v1/admin/worlds/review`
+   accepts `?limit=` and `?cursor=` (an offset — the order is a ranking, not a keyset) and answers
+   with additive `total` / `nextCursor` keys that `WorldReviewQueueResZ.parse()` strips. If shared
+   reopens, they belong in the contract.
+3. **`GET /v1/cost` gained a `moderation` block** (`CostReport` + `CostLive`), additive in the same
+   way `alarms` / `thresholds` already are. It is deliberately **not** a fourth `alarms` key:
+   `test/cost.test.ts` asserts `alarms` by exact shape and that test was not to be weakened.
+4. **`apps/api/src/fake-gateway.ts` gained `g9Screen`.** `packages/llm` added it to the `Gateway`
+   interface mid-pass, which broke the API typecheck (`FakeGateway extends Gateway`). The stand-in
+   agrees with layer 1 on `SAFETY_BLOCK_TEST_PHRASES` and allows otherwise; replay mode never calls
+   it. Not a design decision, just keeping the owned directory compiling.
+
+### Schema delta (`apps/api/prisma/migrations/20260905020000_world_post_publication_moderation`)
+
+`World` gains `pulledAt DateTime?` (set only by an automatic takedown; cleared by any review
+decision, so `pulled` distinguishes "taken down for another look" from "not looked at yet") and
+`reviewRequestedAt DateTime?` (when the world joined the queue, so the SLA measures the wait and not
+the world's age), plus `@@index([status, reviewRequestedAt])`. Existing `review` rows are
+backfilled to `createdAt`. `Report` is unchanged — `status` + `reviewedAt` already carried the
+resolution, and `@@index([target, targetId])` already serves the distinct-reporter count.
+
+### Where the pull happens, and why it is safe
+
+`services/world-moderation.ts::pullWorldIfBrigaded`, called inside the `POST /report` transaction,
+so the report and the takedown commit together. It takes the `World` row's own
+`SELECT … FOR UPDATE` **before** counting distinct reporters. That lock closes both concurrency
+hazards a brigade creates: under-counting (three simultaneous reporters each seeing only their own
+row, nobody pulling) is impossible because each waiter re-reads after the holder commits under READ
+COMMITTED; double-pulling is impossible because the takedown is a conditional
+`updateMany(where: status='published' ∧ visibility='public' ∧ ¬isPreset)`, so the loser of the race
+writes nothing. Re-running it is a no-op and `pulledAt` keeps the timestamp of the pull that
+actually happened. The lock is one row held for two statements and is taken only by the report
+path, so it cannot deadlock against the build job or the review decision.
+
+### Other decisions worth knowing
+
+- A pulled world keeps `visibility: "public"` — what changed is "has a person looked at it lately",
+  not "may it be listed" — so approving puts it straight back on the shelf.
+- `canStillPlay` (in `world-studio.ts`) is `canPlay` plus one narrow exception: a **pulled** world
+  stays open to anyone who already has a persona in it. Pulling from Explore is not eviction. New
+  joins (`POST /v1/personas`) still go through plain `canPlay`.
+- `loadReportedContent` now takes the viewer: reporting a world you cannot see 404s, so
+  `POST /report` is not an oracle that turns a guessed id into "that world exists".
+- `POST /v1/moderation/report` is on the **write** rate-limit budget. Brigading is the obvious
+  attack on a threshold of three.
+- A creator taking a pulled world private clears `pulledAt` (it is no longer waiting on anyone) but
+  **leaves its reports open**, so the complaint history survives.
+
+### Verification
+
+- `pnpm --filter api test` — **311 passed / 28 files** (297 baseline, all still green, plus 14 in
+  the new `test/world-moderation.test.ts`).
+- `pnpm --filter api typecheck` clean. `prisma migrate diff` reports no drift between the
+  migrations and `schema.prisma`; the migration is applied to the dev database.

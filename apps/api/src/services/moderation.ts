@@ -6,6 +6,8 @@
  */
 import type { Prisma, PrismaClient, Report, ReportTarget } from "@prisma/client";
 import { envStr } from "../env";
+import { canStillPlay } from "./world-studio";
+import type { Tx } from "../types";
 
 /** Ids of the characters this persona has blocked. */
 export async function blockedCharacterIds(prisma: PrismaClient, personaId: string): Promise<string[]> {
@@ -47,6 +49,7 @@ export async function loadReportedContent(
   prisma: PrismaClient,
   target: ReportTarget,
   targetId: string,
+  viewerId: string,
 ): Promise<ReportedContent | null> {
   switch (target) {
     case "post": {
@@ -75,6 +78,13 @@ export async function loadReportedContent(
     case "world": {
       const world = await prisma.world.findUnique({ where: { id: targetId } });
       if (!world) return null;
+      /**
+       * A report is not a lookup. Somebody else's private world must answer exactly what it answers
+       * everywhere else — 404 — or `POST /report` becomes an oracle that turns a guessed id into
+       * "yes, that world exists". You may only report what you could already open, which includes a
+       * world you are mid-game in after it was pulled off the shelf.
+       */
+      if (!(await canStillPlay(prisma, world, viewerId))) return null;
       return { snapshot: `world:${world.slug}`, generationId: null };
     }
     default:
@@ -92,7 +102,8 @@ export function findOpenReport(
   return prisma.report.findFirst({ where: { userId, target, targetId, status: "open" } });
 }
 
-export function createReport(prisma: PrismaClient, data: Prisma.ReportUncheckedCreateInput): Promise<Report> {
+/** Takes a transaction client: filing a report and its consequences are one write (`world-moderation`). */
+export function createReport(prisma: PrismaClient | Tx, data: Prisma.ReportUncheckedCreateInput): Promise<Report> {
   return prisma.report.create({ data });
 }
 

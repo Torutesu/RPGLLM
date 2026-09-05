@@ -26,6 +26,7 @@ import { runMemoryConsolidation, runMemoryConsolidationBatchedJob } from "./memo
 import { runOfflineDirector, runOfflineDirectorBatchedJob } from "./offline-director";
 import { sweepPushReceipts } from "./push-receipts";
 import { runWorldBuild } from "./world-build";
+import { sweepWorldModeration } from "../services/world-moderation";
 import { finishRun, pruneRuns, shortError, startRun, withJobLock, type JobRunRow } from "./runs";
 
 export type ScheduledJobName = (typeof JOBS)[number]["name"];
@@ -127,10 +128,22 @@ const RUNNERS: Record<ScheduledJobName, (deps: JobDeps, opts: JobOptions) => Pro
   /**
    * World Studio (AIF-003). Every minute: fail anything stuck in `generating` past the timeout,
    * then build what is waiting. A player is watching a progress bar for each of these.
+   *
+   * Then the *other* end of a world's life (WORLD_MODERATION): read the review backlog and log it
+   * when there is one, so an overdue queue or a world the players pulled off the shelf shows up in
+   * the run history without anyone remembering to look. It shares this job's advisory lock and
+   * `JobRun` row deliberately — same cadence, same subject, no second mechanism.
    */
   "world-build": async (deps) => {
     const r = await runWorldBuild(deps.prisma, deps.gateway, deps.clock, {});
-    return { processed: r.built, detail: { considered: r.considered, built: r.built, failed: r.failed, swept: r.swept } };
+    const backlog = await sweepWorldModeration(deps.prisma, deps.clock.now());
+    return {
+      processed: r.built,
+      detail: {
+        considered: r.considered, built: r.built, failed: r.failed, swept: r.swept,
+        inReview: backlog.inReview, overdueReviews: backlog.overdueReviews, pulledWorlds: backlog.pulledWorlds,
+      },
+    };
   },
 };
 

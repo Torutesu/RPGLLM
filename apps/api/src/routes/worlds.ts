@@ -15,9 +15,10 @@ import { toApiCharacter, toApiWorld } from "../services/serialize";
 import { ensureWallet } from "../services/wallet";
 import { getWorldSeed } from "../services/world-seeds";
 import {
-  GemsRequiredError, buildProgress, canPlay, castCounts, creatorHandles, dailyWorldLimit, decorate,
+  GemsRequiredError, buildProgress, canStillPlay, castCounts, creatorHandles, dailyWorldLimit, decorate,
   pickerWhere, slugifyPremise, spendGems, toApiWorldFull, uniqueSlug, worldsCreatedToday,
 } from "../services/world-studio";
+import { resubmitCooldownHours } from "../services/world-moderation";
 import { tamePremise } from "../fake-world-seed";
 import type { AppEnv, Deps } from "../types";
 
@@ -264,11 +265,31 @@ export function worldRoutes(): Hono<AppEnv> {
       return fail("VALIDATION", "That world hasn't finished building yet", 409);
     }
 
+    /**
+     * Rejection is not forever, but it is not instant either. Without a cooldown a creator bounces
+     * the same turned-down world off the review queue continuously and a reviewer's decision costs
+     * them nothing — so a rejected world waits `WORLD_MODERATION.RESUBMIT_COOLDOWN_HOURS` before it
+     * can be offered to anyone else again, and is told exactly how long. Checked before the safety
+     * gate, so a refused resubmit costs no tokens.
+     */
+    if (body.value.visibility !== "private") {
+      const wait = resubmitCooldownHours(world, deps.clock.now());
+      if (wait !== null) {
+        return fail(
+          "VALIDATION",
+          `That world was turned down. You can submit it again in ${wait} ${wait === 1 ? "hour" : "hours"}.`,
+          409,
+        );
+      }
+    }
+
     if (body.value.visibility === "private") {
       const updated = await deps.prisma.world.update({
         where: { id: world.id },
-        // Pulling a world back also withdraws it from the queue, or from Explore.
-        data: { visibility: "private", status: "ready" },
+        // Pulling a world back also withdraws it from the queue, or from Explore — including a
+        // world reports took off the shelf: it is no longer waiting on anyone. Its reports stay
+        // open, so the complaint history survives the creator making it private.
+        data: { visibility: "private", status: "ready", pulledAt: null, reviewRequestedAt: null },
       });
       return ok({ world: await oneFull(deps, updated, locale, user.id), needsReview: false });
     }
@@ -300,6 +321,10 @@ export function worldRoutes(): Hono<AppEnv> {
         status: unlisted ? "published" : "review",
         safety: gate.verdict,
         safetyNote: gate.verdict === "soften" ? "flagged for a closer read" : "",
+        // The review clock starts when the world joins the queue, not when it was created — and a
+        // fresh submission is never a takedown, whatever this world's history is.
+        ...(unlisted ? { reviewRequestedAt: null } : { reviewRequestedAt: deps.clock.now() }),
+        pulledAt: null,
       },
     });
     return ok({ world: await oneFull(deps, updated, locale, user.id), needsReview: !unlisted }, unlisted ? 200 : 202);
@@ -311,8 +336,9 @@ export function worldRoutes(): Hono<AppEnv> {
     const locale = user.locale as LocaleKey;
     const world = await findWorld(deps, c.req.param("id"));
     if (!world) return notFound("World");
-    // Someone else's unpublished world does not exist as far as this caller is concerned.
-    if (!canPlay(world, user.id)) return notFound("World");
+    // Someone else's unpublished world does not exist as far as this caller is concerned — with one
+    // exception: a world reports pulled off the shelf stays open to whoever was already playing it.
+    if (!(await canStillPlay(deps.prisma, world, user.id))) return notFound("World");
     const characters = await deps.prisma.worldCharacter.findMany({ where: { worldId: world.id }, orderBy: { handle: "asc" } });
     const seed = await getWorldSeed(world.slug, deps.prisma);
     return ok({

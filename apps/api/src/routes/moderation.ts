@@ -6,6 +6,9 @@ import { testHooksEnabled } from "../env";
 import { fail, notFound, ok, parseBody } from "../http";
 import { requireActiveAccount } from "../services/account";
 import { adminTokenMatches, blockedCharacterIds, createReport, findOpenReport, loadReportedContent } from "../services/moderation";
+import { pullWorldIfBrigaded, tellCreatorPulled } from "../services/world-moderation";
+import { logLine } from "../middleware/request-log";
+import type { LocaleKey } from "../services/locale";
 import type { AppEnv, Deps } from "../types";
 
 const bareHandle = (handle: string): string => handle.replace(/^@+/, "");
@@ -22,7 +25,15 @@ async function ownPersona(deps: Deps, userId: string, personaId?: string): Promi
 export function moderationRoutes(): Hono<AppEnv> {
   const app = new Hono<AppEnv>();
 
-  /** SCR-037. The snapshot and the originating generation are resolved server-side. */
+  /**
+   * SCR-037. The snapshot and the originating generation are resolved server-side.
+   *
+   * A report against a **world** has a consequence, not just a row: once
+   * `WORLD_MODERATION.REPORTS_TO_PULL` distinct people have an open report against a world that is
+   * live in Explore, it comes off the shelf and goes back to a human — in *this* transaction, at
+   * the moment the threshold is crossed. See `services/world-moderation.ts` for why counting and
+   * pulling under the world row's own lock is safe when the reports arrive at once.
+   */
   app.post("/report", requireAuth, requireActiveAccount, async (c) => {
     const body = await parseBody(c.req, ReportReqZ);
     if (!body.ok) return body.res;
@@ -30,23 +41,40 @@ export function moderationRoutes(): Hono<AppEnv> {
     const user = c.get("user");
     const { target, targetId, reason, note } = body.value;
 
-    const content = await loadReportedContent(deps.prisma, target, targetId);
+    const content = await loadReportedContent(deps.prisma, target, targetId, user.id);
     if (!content) return notFound("Reported content");
 
     const duplicate = await findOpenReport(deps.prisma, user.id, target, targetId);
     if (duplicate) return fail("ALREADY_DONE", "You have already reported this", 409);
 
-    const report = await createReport(deps.prisma, {
-      userId: user.id,
-      target,
-      targetId,
-      reason,
-      note,
-      snapshot: content.snapshot,
-      generationId: content.generationId,
-      createdAt: deps.clock.now(),
+    const now = deps.clock.now();
+    const filed = await deps.prisma.$transaction(async (tx) => {
+      const report = await createReport(tx, {
+        userId: user.id,
+        target,
+        targetId,
+        reason,
+        note,
+        snapshot: content.snapshot,
+        generationId: content.generationId,
+        createdAt: now,
+      });
+      if (target !== "world") return { report, pulled: false, reporters: 0 };
+
+      const outcome = await pullWorldIfBrigaded(tx, targetId, now);
+      if (outcome.pulled) {
+        const world = await tx.world.findUniqueOrThrow({ where: { id: targetId } });
+        await tellCreatorPulled(tx, world, (world.genLocale ?? "en") as LocaleKey);
+      }
+      return { report, ...outcome };
     });
-    return ok({ id: report.id, status: report.status }, 201);
+
+    if (filed.pulled) {
+      logLine({
+        level: "warn", msg: "world.pulled", worldId: targetId, reporters: filed.reporters, reason,
+      });
+    }
+    return ok({ id: filed.report.id, status: filed.report.status }, 201);
   });
 
   /** Blocking is what makes the report meaningful: the character leaves feed, DMs and the cast. */

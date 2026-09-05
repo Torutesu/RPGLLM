@@ -22,7 +22,7 @@ import {
 } from "@rpgllm/shared";
 import type {
   AnyBatchItem, AnyBatchOutcome, BatchItem, BatchResults, Gateway, LlmMode, RunOptions,
-  G2Input, G2Output, G10Input, G10Output, GJInput, GJOutput,
+  G2Input, G2Output, G9ScreenInput, G9ScreenOutput, G10Input, G10Output, GJInput, GJOutput,
 } from "@rpgllm/llm";
 import { batchStopReason, scoreCandidateOffline } from "@rpgllm/llm";
 import { BATCH_DISCOUNT } from "@rpgllm/shared";
@@ -367,6 +367,20 @@ export function createFakeGateway(initialMode: LlmMode = "replay"): FakeGateway 
     return out;
   }
 
+  /**
+   * AIF-003 premise screen, layer 2. The real one is a light-tier classifier that only runs in live
+   * mode, behind `screenPremiseDeep`; in replay this stands in for it and agrees with layer 1 on the
+   * phrases the suite plants, so a test that reaches it deliberately sees the same verdict.
+   */
+  const g9Screen = async (input: G9ScreenInput, opts?: RunOptions): Promise<GenerationResult<G9ScreenOutput>> => {
+    const tier = tierFor("G9", opts);
+    record("G9", tier, opts, input);
+    const lowered = input.premise.toLowerCase();
+    const blocked = SAFETY_BLOCK_TEST_PHRASES.some((p) => lowered.includes(p.toLowerCase()));
+    const output: G9ScreenOutput = blocked ? { verdict: "block", category: "policy" } : { verdict: "allow", category: null };
+    return { output, meta: meta("G9", tier, `screen:${input.premise}`, false, opts, 8) };
+  };
+
   const batchG1 = (items: ReadonlyArray<BatchItem<G1Input>>) => fakeBatch(items, g1);
   const batchG2 = (items: ReadonlyArray<BatchItem<G2Input>>) => fakeBatch(items, g2);
   const batchG4 = (items: ReadonlyArray<BatchItem<G4Input>>) => fakeBatch(items, g4);
@@ -404,7 +418,7 @@ export function createFakeGateway(initialMode: LlmMode = "replay"): FakeGateway 
   return {
     mode: () => mode,
     setMode: (m: LlmMode) => { mode = m; },
-    g1, g2, g4, g5, g7, g8, g9, g10, gj,
+    g1, g2, g4, g5, g7, g8, g9, g9Screen, g10, gj,
     batch, batchG1, batchG2, batchG4, batchG5, batchG7, batchG10, batchGJ,
     assignments,
     champion: () => ({ G1: "fake:g1-mid", G4: "fake:g4-mid", G5: "fake:g5-high", G8: "fake:g8-light" }),

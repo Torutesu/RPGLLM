@@ -18,6 +18,7 @@
  * for, so it still belongs in the denominator of $/action.
  */
 import { Prisma, type PrismaClient } from "@prisma/client";
+import { worldModerationOps, type WorldModerationOps } from "./world-moderation";
 import { championVariants } from "@rpgllm/llm";
 import { BATCH_DISCOUNT, COST_DASHBOARD, PRICING, type CostSummaryResZ } from "@rpgllm/shared";
 import type { z } from "zod";
@@ -109,6 +110,12 @@ export interface CostAlarms {
  * `alarms` and `thresholds` are additive extras (a `CostSummaryResZ.parse()` strips them).
  */
 export interface CostReport extends CostSummary {
+  /**
+   * The post-publication moderation backlog (WORLD_MODERATION). Nobody should have to remember to
+   * look: overdue reviews and worlds the players pulled off the shelf show up on the surface an
+   * operator already reads, next to the spend.
+   */
+  moderation: WorldModerationOps;
   ttft: { p50Ms: number; p95Ms: number; samples: number };
   /** §6.4 "$/action and $/DAU over time" — one point per UTC day in the window */
   perDay: DailyPerAction[];
@@ -370,7 +377,7 @@ export async function costReport(prisma: PrismaClient, w: CostWindow): Promise<C
   ]);
   const totals = totalsRows[0] ?? EMPTY_ROW("all");
 
-  const [arms, armRatings, ttftRows, perDay, batch, actions, activeUsers, ratings, regenerations] = await Promise.all([
+  const [arms, armRatings, ttftRows, perDay, batch, actions, activeUsers, ratings, regenerations, moderation] = await Promise.all([
     prisma.$queryRaw<RawArmRow[]>`
       SELECT "generator"::text AS "generator",
              "variantId",
@@ -412,6 +419,8 @@ export async function costReport(prisma: PrismaClient, w: CostWindow): Promise<C
       _count: { _all: true },
     }),
     prisma.generationLog.count({ where: { createdAt: { gte: w.since, lte: w.until }, escalatedFrom: { not: null } } }),
+    // Not a windowed number: "how many worlds are waiting for a human right now" has no `since`.
+    worldModerationOps(prisma, w.until),
   ]);
 
   const up = ratings.filter((r) => r.value > 0).reduce((s, r) => s + r._count._all, 0);
@@ -441,6 +450,7 @@ export async function costReport(prisma: PrismaClient, w: CostWindow): Promise<C
 
   return {
     ...summary,
+    moderation,
     ttft,
     perDay,
     batch,
@@ -506,6 +516,8 @@ export interface CostLive {
   p95LatencyMs: number;
   ttftP95Ms: number;
   alarms: CostAlarms;
+  /** the review backlog right now — a probe that reads this one payload sees it too */
+  moderation: WorldModerationOps;
   thresholds: typeof COST_ALARMS;
 }
 
@@ -522,6 +534,7 @@ export async function costLive(prisma: PrismaClient, now: Date, windowMs = 3_600
     p95LatencyMs: report.totals.p95LatencyMs,
     ttftP95Ms: report.ttft.p95Ms,
     alarms: report.alarms,
+    moderation: report.moderation,
     thresholds: report.thresholds,
   };
 }

@@ -189,12 +189,20 @@ model World {
   /// 返金は一度きり。ここが埋まっている行は二度と返金されない
   refundedAt     DateTime?
 
+  /// 公開後モデレーション(WORLD_MODERATION)。
+  /// 通報が閾値(distinct 通報者)に達して自動で棚から下ろした時刻。null = まだ人の目に触れていないだけ。
+  /// 審査で結論が出た時点でクリアされる(= review でも pulled でない状態に戻る)
+  pulledAt          DateTime?
+  /// 審査待ち行列に入った時刻(公開申請、または自動取り下げ)。待ち時間と SLA はここから測る
+  reviewRequestedAt DateTime?
+
   characters  WorldCharacter[]
   personas    Persona[]
   ambientPool AmbientPost[]
 
   @@index([status, visibility, createdAt])
   @@index([createdBy, createdAt])
+  @@index([status, reviewRequestedAt])
 }
 
 /// ユーザー生成ワールドのライフサイクル。

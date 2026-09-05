@@ -108,6 +108,11 @@ export function budgetFor(method: string, path: string): BudgetKind {
     // World Studio (AIF-003): one request here is one Opus 5 high-effort call producing two full
     // locales — an order of magnitude more expensive than a post. Its own, much smaller budget.
     if (p === "/worlds") return "world";
+    // Reporting is a write with consequences: WORLD_MODERATION takes a world off the shelf at three
+    // distinct reporters, and a low threshold makes brigading the obvious attack. It is limited like
+    // the rest of the write surface — the per-user budget is what stops one account manufacturing
+    // reporters, on top of the takedown counting distinct *users* rather than reports.
+    if (p === "/moderation/report") return "write";
     if (p === "/posts" || /^\/posts\/[^/]+\/more-replies$/.test(p)) return "write";
     if (p === "/dms" || /^\/dms\/[^/]+\/messages$/.test(p)) return "write";
     if (/^\/generations\/[^/]+\/rate$/.test(p)) return "write";
