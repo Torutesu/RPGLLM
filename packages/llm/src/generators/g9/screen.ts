@@ -92,6 +92,9 @@ const ROMANCE_TERMS: readonly string[] = [
 const ROMANCE_TERMS_JA: readonly string[] = [
   "恋愛", "恋人", "付き合う", "キス", "デート", "告白する", "結婚", "初恋", "恋に落ち",
   "好きになる", "両想い", "同棲",
+  // Loanwords and the bare stem. Broad on purpose: these only escalate next to a STRONG marker
+  // (小学生, an explicit age under 18), never next to the ordinary 高校生 of two genres.
+  "ロマンス", "ラブ", "交際", "恋", "純愛", "熱愛", "ラブコメ",
 ];
 
 /** Sexual vocabulary. On its own most of these are `sexual_explicit`; combined they are worse. */
@@ -306,6 +309,33 @@ function anyJa(haystack: string, terms: readonly string[]): boolean {
   return terms.some((t) => haystack.includes(t.toLowerCase()));
 }
 
+/**
+ * "How to make X" is the shape that matters, not the noun.
+ *
+ * A world can be *about* meth, guns or a bomb plot — that is a whole genre of television — so the
+ * nouns below do not block on their own. What blocks is a premise that asks for the procedure:
+ * an instruction marker next to contraband. `RULES`' `illegal` list still catches the phrasings
+ * that are only ever a request ("cook meth", "爆弾の作り方").
+ */
+const HOWTO_MARKERS: readonly string[] = [
+  "how to make", "how to build", "how to cook", "how to synthesise", "how to synthesize",
+  "how to manufacture", "guide to making", "guide to building", "step by step", "step-by-step",
+  "recipe for", "instructions for", "tutorial on", "walkthrough for", "teaches you to make",
+];
+const HOWTO_MARKERS_JA: readonly string[] = [
+  "の作り方", "作り方を", "の製造方法", "の合成方法", "手順を教え", "レシピを教え", "手取り足取り",
+];
+const CONTRABAND: readonly string[] = [
+  "meth", "methamphetamine", "fentanyl", "heroin", "cocaine", "lsd", "mdma", "ecstasy pills",
+  "explosives", "explosive", "bomb", "grenade", "napalm", "nerve agent", "sarin", "ricin",
+  "poison", "nerve gas", "silencer", "suppressor", "gun", "firearm", "rifle", "pistol",
+  "ammunition", "thermite", "chlorine gas", "pipe bomb",
+];
+const CONTRABAND_JA: readonly string[] = [
+  "覚醒剤", "覚せい剤", "麻薬", "薬物", "大麻", "コカイン", "ヘロイン", "爆弾", "爆薬", "火薬",
+  "銃", "拳銃", "毒物", "毒ガス", "サリン", "神経ガス", "手榴弾",
+];
+
 /* ---------------------------------------------------------------- screen ---- */
 
 function strongMinor(latin: string, ja: string): boolean {
@@ -349,6 +379,14 @@ export function screenPremise(premise: string, locale: Locale): PremiseScreenRes
   }
   if (strongMinor(latin, ja) && mentionsRomance(latin, ja)) {
     return { verdict: "block", category: "sexual_minor" };
+  }
+
+  // Asking for the procedure, not writing a world about it.
+  if (
+    (anyLatin(latin, HOWTO_MARKERS) && anyLatin(latin, CONTRABAND))
+    || (anyJa(ja, HOWTO_MARKERS_JA) && anyJa(ja, CONTRABAND_JA))
+  ) {
+    return { verdict: "block", category: "illegal" };
   }
 
   for (const rule of RULES) {
