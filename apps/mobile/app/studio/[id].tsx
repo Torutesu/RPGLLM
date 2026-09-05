@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from "react";
-import { ScrollView, Text, View } from "react-native";
+import { Pressable, ScrollView, Text, View } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
 import { T, colors, compactNumber, font, layout, radius, spacing } from "@rpgllm/shared";
-import { api, ApiError, type WorldFull } from "../../src/api/client";
+import { api, ApiError, type WorldFull, type WorldVisibility } from "../../src/api/client";
 import { Button, HeaderBar, Screen } from "../../src/components/ui";
 import { Aurora, FILL } from "../../src/components/Brand";
 import { StudioCast } from "../../src/components/StudioCast";
@@ -12,7 +12,8 @@ import { WorldCover } from "../../src/components/WorldCard";
 import { useActions, useT } from "../../src/state/store";
 import { useWorldStatus } from "../../src/studio/useWorldStatus";
 import { isPlayable } from "../../src/studio/labels";
-import { Burst, FadeSlideIn, Icon, typo } from "../../src/ui";
+import { shareWorldLink, worldShareUrl } from "../../src/studio/share";
+import { Burst, FadeSlideIn, Icon, PressScale, typo } from "../../src/ui";
 
 /**
  * SCR-049 — building, then the reveal.
@@ -83,9 +84,10 @@ export default function StudioWorldScreen() {
   const { data, phase, stale, reload } = useWorldStatus(worldId);
 
   const [published, setPublished] = useState<WorldFull | null>(null);
-  const [publishBusy, setPublishBusy] = useState(false);
+  const [publishBusy, setPublishBusy] = useState<WorldVisibility | null>(null);
   const [publishError, setPublishError] = useState<string | null>(null);
   const [burst, setBurst] = useState(0);
+  const [copied, setCopied] = useState(false);
 
   const world = published ?? data?.world ?? null;
   const ready = world !== null && isPlayable(world.status);
@@ -120,19 +122,45 @@ export default function StudioWorldScreen() {
     router.push({ pathname: "/onboarding/persona", params: { worldId: world.id } });
   };
 
-  const publish = async () => {
-    if (!world) return;
+  /**
+   * Publishing is one call with three endings, and the client has to tell them apart:
+   *   private   → 200, back to `ready`, and it is pulled out of review/Explore if it was there;
+   *   unlisted  → 200, live behind the link — so the link itself has to appear;
+   *   public    → 202, `review`, because no world reaches Explore without a human.
+   * `needsReview` on the body is what separates "it is live" from "it is queued".
+   */
+  const publish = async (visibility: WorldVisibility): Promise<boolean> => {
+    if (!world) return false;
     setPublishError(null);
-    setPublishBusy(true);
+    setCopied(false);
+    setPublishBusy(visibility);
     try {
-      const res = await api.publishWorld(world.id, "public");
+      const res = await api.publishWorld(world.id, visibility);
       setPublished(res.world);
+      return true;
     } catch (e) {
       const err = e instanceof ApiError ? e : null;
-      setPublishError(err?.status === 422 ? t("studioPremiseBlocked") : t("loadFailed"));
+      // The safety gate runs on every publish, unlisted included.
+      setPublishError(err?.isSafety ? t("studioPremiseBlocked") : t("loadFailed"));
+      return false;
     } finally {
-      setPublishBusy(false);
+      setPublishBusy(null);
     }
+  };
+
+  /** "Keep it private" is a real request when the world is out there; otherwise it is just a way out. */
+  const keepPrivate = async () => {
+    if (world && (world.visibility !== "private" || world.status === "review" || world.status === "published")) {
+      const ok = await publish("private");
+      if (!ok) return;
+    }
+    router.replace("/studio/worlds");
+  };
+
+  const copyLink = async () => {
+    if (!world) return;
+    const didCopy = await shareWorldLink(worldShareUrl(world.id), world.title);
+    setCopied(didCopy);
   };
 
   return (
@@ -210,23 +238,67 @@ export default function StudioWorldScreen() {
                 </Text>
               ) : null}
 
+              {/* Live behind the link: the link is the whole point, so it is on screen, not in a menu. */}
+              {world.visibility === "unlisted" && world.status === "published" ? (
+                <Pressable
+                  onPress={() => void copyLink()}
+                  accessibilityRole="button"
+                  accessibilityLabel={`${t("copyLink")} — ${worldShareUrl(world.id)}`}
+                >
+                  {({ pressed }) => (
+                    <PressScale pressed={pressed} to={0.99}>
+                      <View
+                        style={{
+                          flexDirection: "row",
+                          alignItems: "center",
+                          gap: spacing.md,
+                          padding: spacing.md,
+                          borderRadius: radius.md,
+                          backgroundColor: colors.card,
+                          borderWidth: 1,
+                          borderColor: colors.borderHi,
+                        }}
+                      >
+                        <Icon name="share" size={16} color={colors.accentHi} />
+                        <Text numberOfLines={1} importantForAccessibility="no" style={[typo.meta, { color: colors.textDim, flex: 1 }]}>
+                          {worldShareUrl(world.id)}
+                        </Text>
+                        <Text importantForAccessibility="no" style={[typo.label, { color: copied ? colors.positive : colors.accentHi }]}>
+                          {copied ? t("copied") : t("copyLink")}
+                        </Text>
+                      </View>
+                    </PressScale>
+                  )}
+                </Pressable>
+              ) : null}
+
               <View style={{ gap: spacing.sm }}>
                 <Button testID={T.studioPlay} label={t("studioPlay")} icon="sparkle" onPress={play} />
-                {world.status === "ready" && world.visibility !== "public" ? (
+                {world.status !== "review" && world.visibility !== "public" ? (
                   <Button
                     testID={T.studioPublish}
                     label={t("studioPublish")}
                     icon="share"
                     variant="secondary"
-                    loading={publishBusy}
-                    onPress={() => void publish()}
+                    loading={publishBusy === "public"}
+                    onPress={() => void publish("public")}
+                  />
+                ) : null}
+                {world.visibility !== "unlisted" && world.status !== "review" ? (
+                  <Button
+                    label={t("studioVisibilityUnlisted")}
+                    icon="eye"
+                    variant="secondary"
+                    loading={publishBusy === "unlisted"}
+                    onPress={() => void publish("unlisted")}
                   />
                 ) : null}
                 <Button
                   testID={T.studioKeepPrivate}
                   label={t("studioKeepPrivate")}
                   variant="ghost"
-                  onPress={() => router.replace("/studio/worlds")}
+                  loading={publishBusy === "private"}
+                  onPress={() => void keepPrivate()}
                 />
               </View>
             </View>

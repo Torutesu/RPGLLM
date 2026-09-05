@@ -251,13 +251,24 @@ export default function StudioCreate() {
       router.replace({ pathname: "/studio/[id]", params: { id: res.world.id } });
     } catch (e) {
       if (!mounted.current) return;
+      /*
+       * The create route has its own codes, and two of them are 429s that mean opposite things:
+       * WORLD_LIMIT is "come back tomorrow" (the day's builds are spent), RATE_LIMITED is "slow
+       * down". Codes are checked before status so the copy can never be the wrong one of the two.
+       */
       const err = e instanceof ApiError ? e : null;
+      const code = err?.code;
       setError(
-        err?.status === 422 ? t("studioPremiseBlocked")
+        code === "GEMS_REQUIRED" ? t("studioNotEnoughGems")
+          : code === "WORLD_LIMIT" ? t("studioLimitReached")
+          : code === "SAFETY_BLOCKED" ? t("studioPremiseBlocked")
+          : code === "RATE_LIMITED" ? t("rateLimited")
+          : err?.status === 422 ? t("studioPremiseBlocked")
           : err?.status === 402 ? t("studioNotEnoughGems")
           : err?.status === 429 ? t("studioLimitReached")
           : t("loadFailed"),
       );
+      // Either 429 changes what the allowance chip should say — ask the server rather than guess.
       if (err?.status === 429) void loadRemaining();
     } finally {
       if (mounted.current) setBusy(false);

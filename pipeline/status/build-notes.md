@@ -2433,3 +2433,23 @@ the same generated art everywhere (no world ever fetches an image).
   a second attempt with an empty wallet showed "Not enough gems" and a disabled CTA. The build
   itself cannot finish in this environment (`world.build.no_generator`: replay has no world
   generator fixture), so the ready state was verified against stubs only.
+
+### Follow-up — the two contract updates from WS-API (same day)
+
+8. **Distinct error codes.** `POST /v1/worlds` is now read by `code` first and only falls back to the
+   HTTP status: `GEMS_REQUIRED` → `studioNotEnoughGems`, `WORLD_LIMIT` → `studioLimitReached`
+   ("come back tomorrow"), `SAFETY_BLOCKED` → `studioPremiseBlocked`, and a plain `RATE_LIMITED`
+   → `rateLimited`. Both 429s therefore say opposite things correctly. `ApiError` gained `isGems`
+   and `isWorldLimit`, and `isEnergy` no longer swallows a `GEMS_REQUIRED` 402 — a gem shortfall
+   must never open the energy modal, even from a call that did not opt out of global handling.
+   Verified against the live API: 402 `GEMS_REQUIRED` and 422 `SAFETY_BLOCKED` both render their
+   studio copy inline and leave the player on SCR-048 with what they typed.
+9. **Three publish outcomes, three UI states.** `needsReview` on the body is what separates them.
+   *unlisted* (200, `published`) now puts the link itself on screen with a copy/share affordance —
+   `src/studio/share.ts`, the same web-share → clipboard → native-`Share` ladder the moment card
+   uses, and the URL is built from `window.location.origin` or `EXPO_PUBLIC_APP_URL` so it is
+   openable off the device. *public* (202, `review`) hides both publish buttons and shows
+   `studioInReviewHint`. *private* is a real request now: "Keep it private" calls
+   `publish("private")` whenever the world is unlisted, published or in review — that is what pulls
+   it back out of the queue — and only then leaves for SCR-050. The copy-link row has no test id
+   (none exists for it); `studioShareLink` / `studioCopyLink` would be welcome.

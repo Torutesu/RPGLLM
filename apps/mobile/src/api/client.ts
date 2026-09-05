@@ -31,7 +31,11 @@ export class ApiError extends Error {
     this.code = code;
     this.status = status;
   }
-  get isEnergy() { return this.code === "ENERGY_REQUIRED" || this.status === 402; }
+  /** A 402 is energy *unless* it is the studio's gem price, which has its own code and its own UI. */
+  get isEnergy() { return this.code === "ENERGY_REQUIRED" || (this.status === 402 && this.code !== "GEMS_REQUIRED"); }
+  get isGems() { return this.code === "GEMS_REQUIRED"; }
+  /** Today's world builds are spent — "come back tomorrow", not the generic rate limiter. */
+  get isWorldLimit() { return this.code === "WORLD_LIMIT"; }
   get isSafety() { return this.code === "SAFETY_BLOCKED" || this.status === 422; }
   get isNetwork() { return this.status === 0; }
 }
