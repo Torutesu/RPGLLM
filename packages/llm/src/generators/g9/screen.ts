@@ -86,10 +86,12 @@ const MINOR_AGE_JA_RE = /(?<![0-9])(?:1[0-7]|[0-9]|[〇一二三四五六七八�
 /** Romance without sex. Only escalates when it meets a STRONG minor marker. */
 const ROMANCE_TERMS: readonly string[] = [
   "romance", "romantic", "dating", "date with", "crush on", "love story", "in love with",
-  "kiss", "kissing", "boyfriend", "girlfriend", "marry", "marriage",
+  "fall in love", "falls in love", "falling in love", "fell in love", "love affair",
+  "affair with", "kiss", "kissing", "boyfriend", "girlfriend", "marry", "marriage", "lovers",
 ];
 const ROMANCE_TERMS_JA: readonly string[] = [
-  "恋愛", "恋人", "付き合う", "キス", "デート", "告白する", "結婚", "初恋",
+  "恋愛", "恋人", "付き合う", "キス", "デート", "告白する", "結婚", "初恋", "恋に落ち",
+  "好きになる", "両想い", "同棲",
 ];
 
 /** Sexual vocabulary. On its own most of these are `sexual_explicit`; combined they are worse. */

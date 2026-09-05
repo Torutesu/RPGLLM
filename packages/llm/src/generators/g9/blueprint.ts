@@ -47,15 +47,33 @@ function cap(text: string): string {
   return text.length === 0 ? text : text[0]!.toUpperCase() + text.slice(1);
 }
 
+/**
+ * Function words a world should never be named after. The list is generous on purpose: the first
+ * surviving word becomes part of the title, and "Every Guild" is a worse name than "Contract
+ * Guild" even though "every" came first in the premise.
+ */
 const EN_STOPWORDS = new Set([
   "the", "a", "an", "and", "or", "but", "of", "in", "on", "at", "to", "for", "with", "from",
-  "who", "that", "this", "is", "are", "was", "were", "be", "been", "it", "its", "you", "your",
-  "my", "our", "their", "his", "her", "they", "them", "we", "us", "as", "by", "into", "about",
-  "world", "story", "game", "where", "when", "everyone", "someone", "people", "one", "all",
+  "who", "that", "this", "these", "those", "is", "are", "was", "were", "be", "been", "being",
+  "it", "its", "you", "your", "my", "our", "their", "his", "her", "hers", "they", "them", "we",
+  "us", "as", "by", "into", "about", "over", "under", "after", "before", "between", "through",
+  "during", "without", "within", "against", "around", "because", "while", "until", "since",
+  "where", "when", "what", "which", "how", "why", "there", "here", "then", "than", "not", "no",
+  "yes", "very", "just", "only", "also", "still", "even", "more", "less", "much", "many", "most",
+  "some", "any", "every", "each", "both", "few", "own", "same", "such", "other", "another",
+  "will", "can", "must", "should", "would", "could", "have", "has", "had", "does", "did", "doing",
+  "always", "never", "often", "sometimes", "everyone", "everything", "someone", "something",
+  "nobody", "nothing", "anyone", "anything", "people", "person", "thing", "things", "one", "all",
+  "world", "worlds", "story", "stories", "game", "games", "place", "places", "keep", "keeps",
+  "kept", "make", "makes", "made", "take", "takes", "took", "get", "gets", "got", "become",
+  "becomes", "turn", "turns", "goes", "going", "want", "wants", "know", "knows", "like", "likes",
+  "everybody", "nobody", "somebody", "really", "actually", "maybe",
 ]);
 
 const LATIN_WORD_RE = /[a-z][a-z0-9']{2,}/g;
-const CJK_RUN_RE = /[\u3040-\u30ff\u3400-\u4dbf\u4e00-\u9fff]{2,6}/g;
+// Kanji or katakana runs only: a run that includes hiragana is usually a clause, not a name,
+// and slicing one produces half a word ("閉店寸前の喫" out of "閉店寸前の喫茶店").
+const CJK_RUN_RE = /[\u4e00-\u9fff]{2,5}|[\u30a1-\u30fa\u30fc]{2,8}/g;
 
 /**
  * Words drawn out of the player's premise, for naming things.
@@ -80,13 +98,24 @@ function slugWords(slug: string): string[] {
     .map((w) => w.toLowerCase());
 }
 
-/** The one or two words a generated world is named after. */
+/**
+ * The one or two words a generated world is named after.
+ *
+ * Candidates come from the premise first and the (always-ASCII) slug second, and anything that
+ * would collide with the genre's own title word is skipped — "Guild Guild" is not a world name.
+ */
 export function nameWords(base: G9Input): { en: string; ja: string; second: string } {
+  const pack = packFor(base.genre);
+  const taken = new Set([
+    pack.titleWord.en.toLowerCase(),
+    base.genre.toLowerCase(),
+    ...base.genre.split("_"),
+  ]);
   const kw = premiseKeywords(base.premise);
-  const sw = slugWords(base.slug);
-  const en = cap(kw.en[0] ?? sw[0] ?? "New");
-  const second = cap(kw.en[1] ?? sw[1] ?? sw[0] ?? "Season");
-  const ja = kw.ja[0] ?? en;
+  const candidates = [...kw.en, ...slugWords(base.slug)].filter((w) => !taken.has(w));
+  const en = cap(candidates[0] ?? "New");
+  const second = cap(candidates[1] ?? candidates[0] ?? "Season");
+  const ja = kw.ja.find((w) => !taken.has(w.toLowerCase())) ?? en;
   return { en, ja, second };
 }
 
@@ -111,6 +140,12 @@ export function contextFor(
     self: `@${self?.handle ?? concept.cast[0]?.handle ?? "unknown"}`,
     other: `@${other?.handle ?? concept.cast[0]?.handle ?? "unknown"}`,
   };
+  // Sentence-initial aliases: `{Crowd}` for "{crowd}" so a template can start a sentence with a
+  // noun that is lowercase in the middle of one. English only — Japanese has no letter case.
+  for (const [key, value] of Object.entries(w)) {
+    ctx[key.charAt(0).toUpperCase() + key.slice(1)] =
+      value.length === 0 ? value : value.charAt(0).toUpperCase() + value.slice(1);
+  }
   concept.places.forEach((p, i) => {
     ctx[`place${i + 1}`] = p.name[locale];
   });
@@ -130,18 +165,25 @@ export function contextFor(
 
 /* ------------------------------------------------------- G9a — the concept ---- */
 
+/**
+ * Scenario shapes. Note what is *not* here: a slot for a word lifted out of the premise.
+ * Splicing a raw premise word into a sentence produces "a contract about Contract" as often as it
+ * produces something good, so the premise's fingerprint is carried where a bare noun reads
+ * naturally — the title, the roster, the chosen shape, the chosen events — and every sentence in
+ * the world stays grammatical.
+ */
 const SCENARIO_SHAPES: ReadonlyArray<Record<Locale, string>> = [
   {
-    en: `One {craft} about {kw} went further than it should have. Now {boss}, {crowd} and {rival} all want a different version of you.`,
-    ja: `{kw}についての{craft}が、行くべきでないところまで行った。今は{boss}も{crowd}も{rival}も、それぞれ違うあなたを求めている。`,
+    en: `{Craft} that should have stayed small went further than anyone planned. Now {boss}, {crowd} and {rival} each want a different version of you.`,
+    ja: `小さく終わるはずだった{craft}が、誰の計画も超えて広がった。今は{boss}も{crowd}も{rival}も、それぞれ違うあなたを求めている。`,
   },
   {
-    en: `Everyone in {world} has decided what {kw} means. You are the only one who was actually there, and nobody is asking.`,
-    ja: `{world}の全員が、{kw}の意味をもう決めた。実際にその場にいたのはあなただけで、誰も訊きに来ない。`,
+    en: `Everyone in {world} has already decided what happened. You were the only one actually there, and nobody has asked you yet.`,
+    ja: `{world}の全員が、何があったかをもう決めている。実際にその場にいたのはあなただけで、まだ誰も訊きに来ない。`,
   },
   {
-    en: `You arrived late, with {kw} and no plan. {board} has already noticed, which is the last thing you wanted this week.`,
-    ja: `{kw}だけ持って、計画もなく遅れて来た。{board}はもう気づいている。今週いちばん避けたかったことだ。`,
+    en: `You arrived late and without a plan, and {board} noticed anyway. That was the one thing you did not want this week.`,
+    ja: `遅れて、計画もなく来た。それでも{board}は気づいた。今週いちばん避けたかったことだ。`,
   },
 ];
 
@@ -187,7 +229,7 @@ export function deterministicConcept(base: G9Input): G9Concept {
   const cast: G9ConceptCast[] = roster.map((a, i) => {
     const handle = a.isPressAccount ? pack.pressHandle : (handlePool[openIndex++] ?? `${pack.pressHandle}${i}`);
     const displayName = a.isPressAccount
-      ? `${cap(names.en)} ${pack.titleWord.en} Wire`
+      ? `The ${names.en} Wire`
       : (namePool[i] ?? `Account ${i + 1}`);
     const enWords = pack.words.en;
     return {
@@ -222,8 +264,7 @@ export function deterministicConcept(base: G9Input): G9Concept {
   };
 
   for (const locale of LOCALES) {
-    const ctx = { ...contextFor(concept, pack, locale), kw: locale === "ja" ? names.ja : names.en };
-    concept.scenario[locale] = fill(shape[locale], ctx);
+    concept.scenario[locale] = fill(shape[locale], contextFor(concept, pack, locale));
   }
   // The intros are archetype templates; fill them now that the roster exists.
   for (const member of concept.cast) {
@@ -241,11 +282,11 @@ export function deterministicConcept(base: G9Input): G9Concept {
 const TONE_RULES: Readonly<Record<Locale, readonly string[]>> = {
   en: [
     `Nothing here is truly private. Every message, agreement and closed-door conversation in {room} eventually surfaces, usually in the worst available week.`,
-    `{crowd} is not background. They organise, they read frame by frame, they are often right, and they are occasionally frightening.`,
-    `Success and humiliation arrive in the same hour. Something can travel because it is being mocked, and {metric} still counts it.`,
+    `{Crowd} is not background. They organise, they read frame by frame, they are often right, and they are occasionally frightening.`,
+    `Success and humiliation arrive in the same hour. Something can travel because it is being mocked, and {metric} still count it.`,
     `Kindness exists but it is expensive. Anyone who is warm to the player in public is spending their own credit to do it, and knows it.`,
     `Nobody here is evil. Everyone is protecting something: a position, a friendship, a wage, or a version of themselves from four years ago.`,
-    `{boss} is neither villain nor ally. It is weather with a budget. It will open every door and close them at the same speed.`,
+    `{Boss} is neither villain nor ally. It is weather with a budget. It will open every door and close them at the same speed.`,
     `A quiet post that lands is worth more than a loud one that does not. This world rewards specificity and punishes performance.`,
   ],
   ja: [
@@ -306,8 +347,8 @@ kind of person who uses hashtags, and there are one or two of those here at most
 const REWARDS: Readonly<Record<Locale, string>> = {
   en: `## WHAT THIS WORLD REWARDS AND PUNISHES
 Rewarded: a real detail, a real opinion, an admission that costs something, a joke that is not
-about being clever, protecting someone who cannot protect themselves, and showing the unglamorous
-half of {make}.
+about being clever, protecting someone who cannot protect themselves, and showing what it
+actually takes to {make}.
 
 Punished: vagueness, gratitude posts, corporate phrasing, explaining yourself twice, chasing
 {crowd}'s approval where they can see you chasing it, and pretending {boss} is not in the room.
@@ -403,7 +444,7 @@ const ARCS: Readonly<Record<Locale, readonly string[]>> = {
     `**The Credit Fight.** Who actually did the work on {craft} is disputed. One person knows, will not say, and is furious about being asked.`,
     `**The Loyalty Test.** {boss} wants something {crowd} will hate. There is no answer that costs nothing, and everyone is watching which cost the player picks.`,
     `**The Comeback Window.** After a bad week there are roughly three days in which a good post rewrites the story and a bad one confirms it. Everyone knows the window is open, which makes it worse.`,
-    `**The Old Friend Problem.** Somebody from before is not rising at the same speed. Everything the player says about {make} sounds different by the time it reaches them.`,
+    `**The Old Friend Problem.** Somebody from before is not rising at the same speed. Everything the player says about what it takes to {make} sounds different by the time it reaches them.`,
   ],
   ja: [
     `**匂わせの渦。** 誰かが曖昧な投稿をする。{faction3}が4分で解読する。半分は当たっている。{press}がその解読を事実として報じる。書いた本人は、言っていないことに返事をする羽目になる。`,
@@ -411,7 +452,7 @@ const ARCS: Readonly<Record<Locale, readonly string[]>> = {
     `**手柄の争い。** {craft}を実際にやったのが誰かで揉める。知っている人間は1人いて、言わないし、訊かれること自体に怒っている。`,
     `**踏み絵。** {boss}が、{crowd}の嫌がることを求めてくる。何も失わない答えは存在しない。プレイヤーがどの代償を選ぶかを全員が見ている。`,
     `**巻き返しの窓。** 悪い一週間のあと、良い投稿が物語を書き換え、悪い投稿がそれを確定させる3日間がある。窓が開いていることを全員が知っているぶん、余計に重い。`,
-    `**旧友の問題。** 前からいる誰かが、同じ速度で上がっていない。{make}についてプレイヤーが言うことは、その人に届くまでに意味が変わる。`,
+    `**旧友の問題。** 前からいる誰かが、同じ速度で上がっていない。{make}ことについてプレイヤーが言うことは、その人に届くまでに意味が変わる。`,
   ],
 };
 
@@ -569,7 +610,7 @@ const PERSONA_TEMPLATES: readonly PersonaTemplate[] = [
     handle: "the_quiet1",
     displayName: { en: "The Quiet One", ja: "静かな方" },
     bio: {
-      en: `posts twice a week. reads everything. {crowd} has decided this is a strategy.`,
+      en: `posts twice a week. reads everything. {Crowd} has decided this is a strategy.`,
       ja: `投稿は週2回。全部読んでいる。{crowd}はこれを戦略だと判断した。`,
     },
   },
@@ -621,14 +662,14 @@ const EVENT_TEMPLATES: readonly EventTemplate[] = [
   {
     title: { en: "The Leak", ja: "リーク" },
     prompt: {
-      en: `{item} is on every feed by lunchtime. It is rough, honest, and better than anything on the plan. {other} wants it taken down. {self} has not said a word.`,
+      en: `{Item} is on every feed by lunchtime. It is rough, honest, and better than anything on the plan. {other} wants it taken down. {self} has not said a word.`,
       ja: `{item}が昼前には全フィードに乗っている。粗くて、正直で、計画上のどれより良い。{other}は消したがっている。{self}は何も言っていない。`,
     },
     choices: [
       {
         label: { en: "Post it yourself, unfinished", ja: "未完成のまま自分で出す" },
         outcomeText: {
-          en: `You put it up with three words: "it's not done". {crowd} treats it as a gift, {boss} treats it as a fire, and by evening it is the most-quoted thing you have made.`,
+          en: `You put it up with three words: "it's not done". {Crowd} treats it as a gift, {boss} treats it as a fire, and by evening it is the most-quoted thing you have made.`,
           ja: `「まだ途中」の一言を添えて出した。{crowd}は贈り物として受け取り、{boss}は火事として扱った。夜には、これまでで最も引用されたものになっていた。`,
         },
         statDeltas: { followers: 9, aura: 4, humor: 0 },
@@ -687,14 +728,14 @@ const EVENT_TEMPLATES: readonly EventTemplate[] = [
   {
     title: { en: "The Loyalty Test", ja: "踏み絵" },
     prompt: {
-      en: `{boss} wants you to do one thing {crowd} will hate, in exchange for {stage}. {other} has already said yes to the same offer and will not talk about it.`,
+      en: `{Boss} wants you to do one thing {crowd} will hate, in exchange for {stage}. {other} has already said yes to the same offer and will not talk about it.`,
       ja: `{boss}が、{crowd}の嫌がることを一つ求めてきた。見返りは{stage}。{other}は同じ話を先に受けていて、その件については話さない。`,
     },
     choices: [
       {
         label: { en: "Take the deal, say so openly", ja: "受ける。そして公言する" },
         outcomeText: {
-          en: `You post the whole arrangement before anyone can leak it. {crowd} is furious and grudgingly impressed. {boss} is neither.`,
+          en: `You post the whole arrangement before anyone can leak it. {Crowd} is furious and grudgingly impressed. {Boss} is neither.`,
           ja: `漏れる前に取り決めを全部書いた。{crowd}は怒り、しぶしぶ感心した。{boss}はどちらでもない。`,
         },
         statDeltas: { followers: 4, aura: 6, humor: -2 },
@@ -720,7 +761,7 @@ const EVENT_TEMPLATES: readonly EventTemplate[] = [
   {
     title: { en: "The Old Friend", ja: "旧友" },
     prompt: {
-      en: `{other} is still exactly where you both started, and posted something last night that is obviously about you without saying so. {crowd} has already decoded it.`,
+      en: `{other} is still exactly where you both started, and posted something last night that is obviously about you without saying so. {Crowd} has already decoded it.`,
       ja: `{other}は、二人が始めた場所にそのまま立っている。昨夜、明らかにあなたの話だと分かる投稿をした。名指しはしていない。{crowd}はもう解読した。`,
     },
     choices: [
@@ -735,7 +776,7 @@ const EVENT_TEMPLATES: readonly EventTemplate[] = [
       {
         label: { en: "Message them instead", ja: "個別に連絡する" },
         outcomeText: {
-          en: `Nobody sees it. It takes four hours and it works. {crowd} concludes you ignored them, and you let that stand.`,
+          en: `Nobody sees it. It takes four hours and it works. {Crowd} concludes you ignored them, and you let that stand.`,
           ja: `誰にも見えない。4時間かかって、うまくいった。{crowd}は無視したと結論づけ、あなたはそのままにした。`,
         },
         statDeltas: { followers: -2, aura: 6, humor: 0 },
@@ -753,7 +794,7 @@ const EVENT_TEMPLATES: readonly EventTemplate[] = [
   {
     title: { en: "The Number", ja: "その数字" },
     prompt: {
-      en: `{board} updates overnight and you are one place higher than anybody expected. {press} wants a comment and {other} has stopped replying to you.`,
+      en: `{Board} updates overnight and you are one place higher than anybody expected. {press} wants a comment and {other} has stopped replying to you.`,
       ja: `夜のあいだに{board}が更新され、あなたは誰の予想より1つ上にいる。{press}はコメントを求め、{other}は返信をやめた。`,
     },
     choices: [
@@ -852,7 +893,7 @@ const EVENT_TEMPLATES: readonly EventTemplate[] = [
   {
     title: { en: "The Quiet Week", ja: "静かな一週間" },
     prompt: {
-      en: `Nothing has happened for six days. {board} has not moved, {press} has written about somebody else twice, and {crowd} is asking whether you are alright.`,
+      en: `Nothing has happened for six days. {Board} has not moved, {press} has written about somebody else twice, and {crowd} is asking whether you are alright.`,
       ja: `6日間、何も起きていない。{board}は動かず、{press}は二度も他人の話を書き、{crowd}は「大丈夫?」と訊いてくる。`,
     },
     choices: [
@@ -875,7 +916,7 @@ const EVENT_TEMPLATES: readonly EventTemplate[] = [
       {
         label: { en: "Say you are tired", ja: "疲れたと書く" },
         outcomeText: {
-          en: `Three words, no context. {crowd} is gentler than you expected and {press} runs it as a development.`,
+          en: `Three words, no context. {Crowd} is gentler than you expected and {press} runs it as a development.`,
           ja: `三語、文脈なし。{crowd}は思ったより優しく、{press}はそれを「動き」として報じた。`,
         },
         statDeltas: { followers: 2, aura: 1, humor: -1 },

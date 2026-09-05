@@ -171,7 +171,7 @@ const RIVAL: Archetype = {
     ja: `密かに、水準。{world}の大半は怠けていると思っていて、それを口に出すのは親切だと思っている。敬うのは仕事だけ。`,
   },
   catchphrases: {
-    en: `"cute.", "interesting choice", "sure.", "we'll see", "i've seen the {item}", "that's a start"`,
+    en: `"cute.", "interesting choice", "sure.", "we'll see", "i've seen {item}", "that's a start"`,
     ja: `「かわいいね。」「面白い選択」「そう。」「見てましょ」「{item}は見た」「まあ出発点ではある」`,
   },
   ng: {
@@ -223,8 +223,8 @@ const MENTOR: Archetype = {
     ja: `ゆっくり。小文字基調、句読点少なめ。感情の話をせずに技術の話をして、意味しているのは感情の方。投稿の間隔が長い。`,
   },
   values: {
-    en: `The work over the story about the work. Believes {make} is a craft problem and that everything else is weather. Suspicious of anyone in a hurry.`,
-    ja: `仕事そのもの。仕事についての物語ではなく。{make}のは技術の問題で、それ以外は天気だと思っている。急いでいる人間を信用しない。`,
+    en: `The work over the story about the work. Believes that learning to {make} is a craft problem and everything else is weather. Suspicious of anyone in a hurry.`,
+    ja: `仕事そのもの。仕事についての物語ではなく。{make}ことは技術の問題で、それ以外は天気だと思っている。急いでいる人間を信用しない。`,
   },
   catchphrases: {
     en: `"leave it in", "come by {room}", "that's the take", "honestly? fine", "do it again tomorrow", "it's not ready and that's ok"`,
@@ -395,7 +395,7 @@ const CHAOS: Archetype = {
     ja: `特になし。それを大声で言う。そのあと突然の忠誠。退屈な一週間に耐えられない。何が起きるか見たいから火をつけて、そのあと上着を持ってくれる。`,
   },
   catchphrases: {
-    en: `"BYE", "hello???", "we're so back", "stop being weird", "i'm counting out loud", "not the {item}"`,
+    en: `"BYE", "hello???", "we're so back", "stop being weird", "i'm counting out loud", "not {item}"`,
     ja: `「は?」「え待って???」「復活じゃん」「変なことしないで」「声出して数えてる」「{item}はやめて」`,
   },
   ng: {
@@ -428,7 +428,7 @@ const CHAOS: Archetype = {
     { en: `we're so back. i don't know from what. we're back`, ja: `復活じゃん。何からかは知らない。復活` },
   ],
   lines: {
-    en: ["BYE", "hello???", "we're so back", "stop being weird", "i'm counting out loud", "not the {item}"],
+    en: ["BYE", "hello???", "we're so back", "stop being weird", "i'm counting out loud", "not {item}"],
     ja: ["は?", "え待って???", "復活じゃん", "変なことしないで", "声出して数えてる", "{item}はやめて"],
   },
 };
@@ -439,7 +439,7 @@ const OLDFRIEND: Archetype = {
   isPressAccount: false,
   canBeFirstFollower: true,
   roleLine: {
-    en: `Started at the same time as the player, in the same {room}, and is still exactly where they both were. Has not said a word about it and everyone can hear it anyway.`,
+    en: `Started at the same time as the player, in {room}, and is still exactly where they both were. Has not said a word about it and everyone can hear it anyway.`,
     ja: `プレイヤーと同時期に、同じ{room}で始めた人。今も二人がいた場所にそのまま立っている。その件について一言も言っていないのに、全員に聞こえている。`,
   },
   voice: {
@@ -471,7 +471,7 @@ const OLDFRIEND: Archetype = {
     ja: `理不尽なほど長くプレイヤーを庇い、そのあと静かに本当のことを一つ言う。攻撃より効く。`,
   },
   intro: {
-    en: `Started when you did, in the same {room}. Still there. Still glad for you, mostly.`,
+    en: `Started when you did, in {room}. Still there. Still glad for you, mostly.`,
     ja: `同じ時期に、同じ{room}で始めた人。今もそこにいる。今も、だいたいは喜んでいる。`,
   },
   welcome: {
@@ -479,7 +479,7 @@ const OLDFRIEND: Archetype = {
     ja: `新しい人が多いから言っておくと、この人とは{room}の頃からの付き合いで、あの頃からこうだった。推薦文はそれで全部。`,
   },
   ambient: [
-    { en: `same {room}, same tuesday, same broken heater. i'm not complaining, i'm just saying it's the same`, ja: `同じ{room}、同じ火曜、同じ壊れたヒーター。文句じゃなくて、同じだなって話` },
+    { en: `back in {room} on a tuesday, same broken heater. i'm not complaining, i'm just saying it's the same`, ja: `同じ{room}、同じ火曜、同じ壊れたヒーター。文句じゃなくて、同じだなって話` },
     { en: `someone asked me today if i was still doing this. yes. that was the whole conversation`, ja: `今日、まだやってるのって訊かれた。やってる。会話はそれで終わり` },
     { en: `people leave and then the good ones come back to say hello. i'm keeping count`, ja: `みんな出ていく。良いやつは挨拶しに戻ってくる。数えてる` },
   ],
@@ -563,7 +563,7 @@ const VETERAN: Archetype = {
     ja: `視野。そしてこれが新しい事態であるふりを断ること。{world}の出来事はほぼ全部一度は起きたと思っていて、それが役に立ち、同時に腹立たしい。`,
   },
   catchphrases: {
-    en: `"i've seen this one", "it was worse in the old {board}", "give it a week", "somebody always says that", "you'll be fine, mostly"`,
+    en: `"i've seen this one", "it was worse before {board} existed", "give it a week", "somebody always says that", "you'll be fine, mostly"`,
     ja: `「これ見たことある」「昔の{board}はもっとひどかった」「一週間待ちなよ」「毎回誰かがそう言う」「だいたい大丈夫だよ」`,
   },
   ng: {
@@ -591,12 +591,12 @@ const VETERAN: Archetype = {
     ja: `新しいアカウント。この手の始まりを40くらい見てきた。これは間の取り方が良い方。悪くない。`,
   },
   ambient: [
-    { en: `everyone panicking about {item} should know this exact thing happened in the old {board} and nobody remembers who it was about`, ja: `{item}で騒いでる全員に言うけど、昔の{board}で全く同じことが起きて、今は誰の話だったかも誰も覚えてない` },
+    { en: `everyone panicking about {item} should know this exact thing happened back when {board} was new, and nobody remembers who it was about`, ja: `{item}で騒いでる全員に言うけど、昔の{board}で全く同じことが起きて、今は誰の話だったかも誰も覚えてない` },
     { en: `give it a week. it's always a week`, ja: `一週間待ちなよ。毎回一週間なんだよ` },
     { en: `i still have the old sign from before they redid {stage}. nobody wants it. i'm keeping it`, ja: `{stage}が改装される前の看板、まだ持ってる。誰もいらないって言う。持っとく` },
   ],
   lines: {
-    en: ["i've seen this one", "it was worse in the old {board}", "give it a week", "somebody always says that", "you'll be fine, mostly", "that's not new"],
+    en: ["i've seen this one", "it was worse before {board} existed", "give it a week", "somebody always says that", "you'll be fine, mostly", "that's not new"],
     ja: ["これ見たことある", "昔の{board}はもっとひどかった", "一週間待ちなよ", "毎回誰かがそう言う", "だいたい大丈夫だよ", "それ新しくないよ"],
   },
 };
