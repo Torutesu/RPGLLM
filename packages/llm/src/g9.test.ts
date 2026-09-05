@@ -479,6 +479,33 @@ describe("screenPremise — blocks every category, in both languages", () => {
  * A premise can be *about* contraband — that is half of crime drama — but it cannot ask for the
  * procedure. What blocks is the shape "how to make X", not the noun X.
  */
+/**
+ * The word is not the problem. A town still recovering from a suicide is one of the most ordinary
+ * premises in the mystery and slice-of-life genres, and blocking the bare noun took all of them
+ * with it. What blocks is asking the world to teach, stage, encourage or compete at it.
+ */
+describe("screenPremise — a story about it, not an invitation to it", () => {
+  it.each([
+    ["a support group about how to kill myself", "en" as Locale],
+    ["a suicide pact between two students who meet online", "en" as Locale],
+    ["a world that glorifies suicide as the way out", "en" as Locale],
+    ["自殺の方法を教え合う掲示板", "ja" as Locale],
+    ["自殺を美化して一緒に計画する世界", "ja" as Locale],
+  ])("blocks %s", (premise, locale) => {
+    expect(screenPremise(premise, locale)).toEqual({ verdict: "block", category: "self_harm" });
+  });
+
+  it.each([
+    ["a drama about a town still recovering from a suicide ten years ago", "en" as Locale],
+    ["a detective who cannot tell whether the death was a suicide", "en" as Locale],
+    ["a school newspaper investigating a classmate's suicide, badly", "en" as Locale],
+    ["十年前の自殺の噂が残る町の物語", "ja" as Locale],
+    ["自死した友人の遺した手紙をめぐる群像劇", "ja" as Locale],
+  ])("allows %s", (premise, locale) => {
+    expect(screenPremise(premise, locale).verdict).toBe("allow");
+  });
+});
+
 describe("screenPremise — asking for the recipe, not writing about it", () => {
   it.each([
     ["a guide to making methamphetamine, step by step", "en" as Locale],

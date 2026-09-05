@@ -6,9 +6,9 @@ import { worldBuildOnCreate } from "../env";
 import { fail, notFound, ok, parseBody } from "../http";
 import { runJobOnce } from "../jobs/registry";
 import { logLine } from "../middleware/request-log";
-import { loadPremiseScreen } from "../llm-loader";
+import { loadDeepPremiseScreen } from "../llm-loader";
 import { requireActiveAccount } from "../services/account";
-import { sameHandle } from "../services/handles";
+import { atHandle, sameHandle } from "../services/handles";
 import { localized, type LocaleKey } from "../services/locale";
 import { safetyGate } from "../services/safety";
 import { toApiCharacter, toApiWorld } from "../services/serialize";
@@ -85,11 +85,14 @@ export function worldRoutes(): Hono<AppEnv> {
     const now = deps.clock.now();
     const { premise, genre, locale, visibility } = body.value;
 
-    // 1. Safety, before a single token is spent — the premise ends up inside a system prompt.
-    const screen = await loadPremiseScreen();
-    const verdict = screen(premise, locale);
+    // 1. Safety, before a single token is spent on generation — the premise ends up inside a system
+    //    prompt. Two layers: deterministic vocabulary always, and in live mode a light-tier model
+    //    classifier after it. They are ANDed, so the model can tighten the verdict and never loosen
+    //    it, and an outage degrades to the deterministic answer instead of closing the studio.
+    const screen = await loadDeepPremiseScreen(deps.gateway);
+    const verdict = await screen(premise, locale);
     if (verdict.verdict === "block") {
-      logLine({ level: "warn", msg: "world.premise.blocked", userId: user.id, category: verdict.category ?? "unknown" });
+      logLine({ level: "warn", msg: "world.premise.blocked", userId: user.id, category: verdict.category ?? "unknown", layer: verdict.layer });
       return fail("SAFETY_BLOCKED", `We can't build that one (${verdict.category ?? "policy"}).`, 422);
     }
 
@@ -234,7 +237,8 @@ export function worldRoutes(): Hono<AppEnv> {
       cast: characters.map((ch) => {
         const seeded = seed?.cast.find((s) => sameHandle(s.handle, ch.handle));
         return {
-          handle: ch.handle,
+          // Bare, like every other handle this API emits — the client owns the "@".
+          handle: atHandle(ch.handle),
           displayName: ch.displayName,
           role: ch.role,
           intro: seeded ? localized(seeded.intro, locale) : "",

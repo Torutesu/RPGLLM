@@ -2762,3 +2762,67 @@ category we recognise), so the 422 copy needs a generic fallback; and the call a
   plus 66 premise-screen and 48 G9-eval tests).
 - `pnpm --filter llm typecheck` clean · `npx tsc --noEmit -p apps/api/tsconfig.json` clean ·
   `pnpm --filter api test` — 311 passed / 28 files, unchanged.
+
+## Agent MOD-CLIENT — reporting a world, a pulled world's own words, and the resubmit cooldown
+
+Scope: `apps/mobile/**` only. Screens touched: SCR-010 feed header, SCR-046 Explore, SCR-037
+report, SCR-049 build/reveal, SCR-050 my worlds. No contract, string or test id was added — MOD-API
+had already frozen `WorldSummaryFullZ.pulled`, `T.reportWorld` and
+`reportWorld` / `reportWorldTitle` / `studioPulled` / `studioPulledHint` / `studioResubmitWait`.
+
+### Where the two report entry points are, and why there
+
+1. **Playing it** — the "…" sits on the world's own chip in the feed header (`(tabs)/feed.tsx`),
+   immediately right of `WorldChip`. A player who decides a world is wrong decides it while reading
+   its feed, and the chip is the only thing on that screen that *is* the world. Same glyph, same
+   `Overflow` component, same destination as every other reportable cell.
+2. **Looking at it in Explore** — the "…" on each community `StudioWorldCard`, pinned top-right,
+   rendered as a **sibling** of the card's `Pressable` (the PostCell rule: nested pressables let one
+   tap both report the world and walk into it).
+
+Both refuse to appear on a preset or on your own world. Explore has `isMine` / `isPreset` on the
+row; the feed does not, so `isSomeoneElsesWorld()` (`src/studio/report.ts`) infers it from the
+picker — `GET /v1/worlds` is "every preset plus the worlds you made", so a slug missing from it
+belongs to somebody else. A `null` picker (not loaded, or failed) offers nothing.
+
+### Deviations and things worth knowing
+
+1. **`T.reportWorld` is a bare constant, not a per-item id**, and Expo Router keeps the screen
+   underneath mounted — so the feed's copy would have matched a second time under a stacked
+   `/explore`. The feed therefore renders it **only while the feed is the focused screen**
+   (`useFocusEffect` → a `focused` flag). Verified in Chromium: `[data-testid="report-world"]`
+   matches exactly **1** on the feed, **1** on Explore (one community world), and **1** on
+   `/report` — the Explore card beneath it; the report screen adds none of its own.
+2. **`StudioWorldCard`'s `testID` moved from its `Pressable` to a wrapper `View`.** That is what
+   lets the "…" be a sibling and still be reachable as
+   `getByTestId(T.communityWorldCard(slug)).getByTestId(T.reportWorld)`. Clicking the card by its
+   test id is unaffected (the click lands on the inner pressable), and `studio.spec.ts`'s
+   `toBeVisible` on `communityWorldCard` still holds.
+3. **`WorldChip` now shrinks.** The feed header was *already* overflowing at 390 px with a long
+   world title plus streak + energy + coffee + settings (the streak pill overlapped the chip before
+   this pass); the chip had `maxWidth: 210` but no `flexShrink`, so nothing could give. It now
+   shrinks and ellipsises instead of pushing the controls off screen.
+4. **The pulled world does not say the same thing twice.** On SCR-049 the headline becomes
+   `studioPulled` in `colors.danger` (and the reveal burst does **not** fire over a takedown), the
+   state pill stays factual — `studioInReview`, which is what the world's status is — and a
+   shield-marked panel carries `studioPulledHint`. On the SCR-050 card there is no room for a panel,
+   so there the **pill** carries `studioPulled` in danger with the hint underneath. A pulled world
+   keeps its Play button and its "Keep it private" way out; nothing is hidden or greyed.
+5. **The resubmit cooldown is read off the refusal, not computed.** `WorldSummaryFullZ` carries no
+   `reviewedAt` / `resubmitAvailableAt`, so the client cannot pre-empt the wait — it offers
+   "Share it with everyone" on a rejected world, and on the server's refusal replaces it with
+   `studioResubmitWait` and a clock. `isResubmitCooldown()` accepts **409** (what
+   `POST /v1/worlds/:id/publish` returns from `resubmitCooldownHours`, before the safety gate) and
+   429, and only when the world is actually `rejected` — 409 also means "it hasn't finished
+   building". *If the contract reopens:* a `resubmitAvailableAt` timestamp would let the button say
+   the wait before it is pressed instead of after.
+6. **Nothing was stubbed.** MOD-API landed mid-pass, so the walkthrough below drives real endpoints:
+   three distinct accounts reporting one approved world really pulls it
+   (`status=review pulled=true`), and the resubmit refusal is the server's own 409.
+
+### Verification
+
+- `pnpm --filter mobile typecheck` clean; `pnpm --filter mobile export:web` succeeds.
+- Driven in Chromium at 390×844 against a live API + web export, EN and JA: feed → Explore →
+  report → `reportDone`; three reporters → pulled → the creator's SCR-049 and SCR-050; reviewer
+  rejects → resubmit → `studioResubmitWait` and the button withdrawn (`studio-publish` count 0).

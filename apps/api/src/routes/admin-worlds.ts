@@ -1,4 +1,5 @@
 import { Hono } from "hono";
+import { atHandle } from "../services/handles";
 import { ReviewWorldReqZ } from "@rpgllm/shared";
 import { testHooksEnabled } from "../env";
 import { fail, notFound, ok, parseBody } from "../http";
@@ -76,7 +77,8 @@ export function adminWorldRoutes(): Hono<AppEnv> {
           bibleExcerpt: localized(w.bible, locale).slice(0, REVIEW_EXCERPT_CHARS),
           cast: cast
             .filter((ch) => ch.worldId === w.id)
-            .map((ch) => ({ handle: ch.handle, displayName: ch.displayName, role: ch.role })),
+            // Bare, like every other handle this API emits — the reviewer's client owns the "@".
+            .map((ch) => ({ handle: atHandle(ch.handle), displayName: ch.displayName, role: ch.role })),
           safety: w.safety,
           safetyNote: w.safetyNote,
           reportCount: entry.reporters,

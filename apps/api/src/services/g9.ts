@@ -71,6 +71,46 @@ export function localPremiseScreen(premise: string, _locale: Locale): PremiseVer
   return { verdict: "allow", category: null };
 }
 
+/**
+ * The deep screen: the deterministic verdict, then — in live mode only — a model classifier, ANDed.
+ *
+ * `packages/llm`'s `screenPremiseDeep` already owns the policy (it never calls the model when the
+ * deterministic layer blocks, never lets a model turn a block into an allow, and degrades to the
+ * deterministic verdict on an infrastructure failure rather than taking the studio offline). All
+ * this adds is the local floor, which stays ANDed on top, and a guarantee that the call cannot
+ * throw into the route.
+ */
+export type DeepPremiseScreen = (premise: string, locale: Locale) => Promise<PremiseVerdict & { layer: string }>;
+
+type DeepFn = (
+  gateway: unknown,
+  premise: string,
+  locale: Locale,
+) => Promise<{ verdict: "allow" | "block"; category: string | null; layer?: string }>;
+
+export function deepPremiseScreenFrom(mod: unknown, gateway: Gateway, sync: PremiseScreen): DeepPremiseScreen {
+  const deep = (mod as { screenPremiseDeep?: unknown } | null | undefined)?.screenPremiseDeep;
+  const hasG9Screen = typeof (gateway as unknown as { g9Screen?: unknown }).g9Screen === "function";
+  if (typeof deep !== "function" || !hasG9Screen) {
+    return async (premise, locale) => ({ ...sync(premise, locale), layer: "deterministic" });
+  }
+  const run = deep as DeepFn;
+  return async (premise, locale) => {
+    // The local floor first: it is free, and nothing downstream may unblock it.
+    const local = localPremiseScreen(premise, locale);
+    if (local.verdict === "block") return { ...local, layer: "local" };
+    try {
+      const out = await run(gateway, premise, locale);
+      if (out && (out.verdict === "allow" || out.verdict === "block")) {
+        return { verdict: out.verdict, category: out.category ?? null, layer: out.layer ?? "deep" };
+      }
+    } catch {
+      /* a screen that throws must not take the studio down — fall back to the sync verdict */
+    }
+    return { ...sync(premise, locale), layer: "deterministic" };
+  };
+}
+
 /** `screenPremise` from `@rpgllm/llm` when it exists, else the local floor. Never throws. */
 export function premiseScreenFrom(mod: unknown): PremiseScreen {
   const fn = (mod as { screenPremise?: unknown } | null | undefined)?.screenPremise;

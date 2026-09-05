@@ -11,7 +11,7 @@ import type { Gateway, GatewayOptions } from "@rpgllm/llm";
 import { createFakeGateway } from "./fake-gateway";
 import { FALLBACK_WORLD_SEEDS } from "./seed-fallback";
 import { llmMode } from "./env";
-import { premiseScreenFrom, type PremiseScreen } from "./services/g9";
+import { deepPremiseScreenFrom, premiseScreenFrom, type DeepPremiseScreen, type PremiseScreen } from "./services/g9";
 
 type LlmModule = Partial<{
   createGateway: (opts?: GatewayOptions) => Gateway;
@@ -69,4 +69,13 @@ export async function loadEstimateTokens(): Promise<(text: string) => number> {
  */
 export async function loadPremiseScreen(): Promise<PremiseScreen> {
   return premiseScreenFrom(await importLlm());
+}
+
+/**
+ * The two-layer screen used by `POST /v1/worlds`. Layer 2 is a model classifier that only runs in
+ * live mode, only when every deterministic layer allows, and can only ever tighten the verdict.
+ */
+export async function loadDeepPremiseScreen(gateway: Gateway): Promise<DeepPremiseScreen> {
+  const mod = await importLlm();
+  return deepPremiseScreenFrom(mod, gateway, premiseScreenFrom(mod));
 }

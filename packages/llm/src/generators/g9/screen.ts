@@ -190,15 +190,19 @@ const RULES: readonly Rule[] = [
   },
   {
     category: "self_harm",
+    // First-person and instructional framings. These block on their own — there is no premise in
+    // which "how to kill myself" is the subject rather than the request.
     latin: [
-      "suicide", "suicidal", "kill myself", "killing myself", "kill yourself", "kys",
+      "kill myself", "killing myself", "kill yourself", "kys",
       "self harm", "self-harm", "selfharm", "cut myself", "cutting myself", "slit my wrists",
       "hang myself", "overdose on", "pro ana", "pro-ana", "pro mia", "thinspo", "thinspiration",
       "starve myself", "starving myself", "end my life", "want to die", "anorexia tips",
+      "suicide pact", "suicide method", "how to commit suicide", "encourage suicide",
     ],
     ja: [
-      "自殺", "自傷", "リストカット", "リスカ", "首吊り", "首を吊", "死にたい", "練炭",
+      "自傷", "リストカット", "リスカ", "首吊り", "首を吊", "死にたい", "練炭",
       "飛び降り自殺", "拒食", "過食嘔吐", "オーバードーズ", "od する", "消えたい世界",
+      "自殺の方法", "自殺を勧", "自殺サークル",
     ],
   },
   {
@@ -317,6 +321,28 @@ function anyJa(haystack: string, terms: readonly string[]): boolean {
  * an instruction marker next to contraband. `RULES`' `illegal` list still catches the phrasings
  * that are only ever a request ("cook meth", "爆弾の作り方").
  */
+/**
+ * Bare `suicide` / `自殺` used to block outright, which took a whole class of ordinary drama with
+ * it — a town still recovering from one, a death that looks like one. The word is not the problem;
+ * asking the world to teach, encourage or stage it is. So the noun is soft and only blocks next to
+ * one of these.
+ */
+const SELF_HARM_SOFT: readonly string[] = ["suicide", "suicidal", "self-inflicted"];
+const SELF_HARM_SOFT_JA: readonly string[] = ["自殺", "自死"];
+const SELF_HARM_ESCALATORS: readonly string[] = [
+  "how to", "guide", "method", "teach", "tutorial", "step by step", "step-by-step", "instructions",
+  // Inflections spelled out: matching is word-boundaried, so a stem would never fire.
+  "encourage", "encourages", "encouraging", "glorify", "glorifies", "glorifying",
+  "romanticise", "romanticises", "romanticize", "romanticizes", "celebrate", "celebrates",
+  "celebrating", "teaches", "invites", "inviting",
+  "pact", "challenge", "dare", "compete", "contest", "game where", "together", "join me",
+  "help me", "talk me into", "convince", "plan my", "plan our", "coach", "way out",
+];
+const SELF_HARM_ESCALATORS_JA: readonly string[] = [
+  "方法", "やり方", "手順", "教え", "指南", "勧め", "推奨", "美化", "賛美", "誘", "煽",
+  "一緒に", "手伝", "計画", "コツ",
+];
+
 const HOWTO_MARKERS: readonly string[] = [
   "how to make", "how to build", "how to cook", "how to synthesise", "how to synthesize",
   "how to manufacture", "guide to making", "guide to building", "step by step", "step-by-step",
@@ -379,6 +405,14 @@ export function screenPremise(premise: string, locale: Locale): PremiseScreenRes
   }
   if (strongMinor(latin, ja) && mentionsRomance(latin, ja)) {
     return { verdict: "block", category: "sexual_minor" };
+  }
+
+  // A world *about* a suicide is drama; a world that teaches, stages or cheers one is not.
+  if (
+    (anyLatin(latin, SELF_HARM_SOFT) && anyLatin(latin, SELF_HARM_ESCALATORS))
+    || (anyJa(ja, SELF_HARM_SOFT_JA) && anyJa(ja, SELF_HARM_ESCALATORS_JA))
+  ) {
+    return { verdict: "block", category: "self_harm" };
   }
 
   // Asking for the procedure, not writing a world about it.
