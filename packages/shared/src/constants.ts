@@ -221,7 +221,22 @@ export const WORLD_STUDIO = {
   PRESET_PERSONAS: 7,
   PRESET_EVENTS: 5,
   AMBIENT_PER_LOCALE: 22,
+  /**
+   * Granted once, when the wallet is created. A new player can build exactly one world on day
+   * one — the studio has to be reachable without a purchase or a four-week streak, or nobody
+   * ever sees it — and the second one is earned or bought.
+   */
+  STARTER_GEMS: 120,
 } as const;
+
+/** Consumable gem packs (RevenueCat product ids; the dev-purchase route uses the same ids). */
+export const GEM_PACKS = {
+  gems_small: { id: "gems_small", usd: 2.99, gems: 120 },
+  gems_medium: { id: "gems_medium", usd: 9.99, gems: 480 },
+  gems_large: { id: "gems_large", usd: 24.99, gems: 1400 },
+} as const;
+export type GemPackId = keyof typeof GEM_PACKS;
+export const isGemPack = (id: string): id is GemPackId => Object.hasOwn(GEM_PACKS, id);
 
 export const WORLD_GENRES = ["fame", "academy", "idol", "office", "sports", "fantasy", "mystery", "slice_of_life"] as const;
 export type WorldGenre = (typeof WORLD_GENRES)[number];
