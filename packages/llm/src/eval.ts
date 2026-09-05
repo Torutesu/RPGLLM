@@ -10,6 +10,33 @@ import {
 import type { GenerationMeta } from "@rpgllm/shared";
 import type { Gateway, BatchItem } from "./gateway.js";
 import { judgeScore01, type GJInput, type GJOutput } from "./generators/gj.js";
+import {
+  blendedScore,
+  round,
+  machineScoreOf,
+  G1_ABSOLUTE_CHECKS,
+  JUDGE_UNAVAILABLE,
+  EVAL_PASS_SCORE,
+  JUDGE_WEIGHT,
+  MACHINE_WEIGHT,
+  type EvalCaseRun,
+  type EvalCaseScore,
+  type EvalRunResult,
+  type MachineChecks,
+} from "./eval-core.js";
+import { runEvalG9 } from "./eval-g9.js";
+
+/* The shared pieces live in `eval-core.ts`; re-exported here so every existing import still works. */
+export {
+  machineScoreOf,
+  EVAL_PASS_SCORE,
+  JUDGE_WEIGHT,
+  MACHINE_WEIGHT,
+  type EvalCaseRun,
+  type EvalCaseScore,
+  type EvalRunResult,
+  type MachineChecks,
+};
 
 /**
  * The offline evaluation gate (cost-architecture §6.2).
@@ -28,69 +55,7 @@ import { judgeScore01, type GJInput, type GJOutput } from "./generators/gj.js";
  * at least `MIN_COST_SAVING` cheaper, or `MIN_SCORE_GAIN` points better outright.
  */
 
-export const MACHINE_WEIGHT = 0.4;
-export const JUDGE_WEIGHT = 0.6;
-/** A case passes on its own when it clears this score and breaks no absolute check. */
-export const EVAL_PASS_SCORE = 70;
-
-export interface EvalCaseRun {
-  key: string;
-  label: string;
-  locale: Locale;
-  worldSlug: string;
-  /** the generator input, as stored in `EvalCase.input` */
-  input: unknown;
-}
-
-export type MachineChecks = Record<string, boolean>;
-
-export interface EvalCaseScore {
-  key: string;
-  label: string;
-  machine: MachineChecks;
-  machineScore: number;
-  judge: GJOutput["scores"];
-  judgeVerdict: GJOutput["verdict"];
-  judgeScore: number;
-  score: number;
-  passed: boolean;
-  fallback: boolean;
-  costUsd: number;
-  latencyMs: number;
-  /**
-   * The generation metas this case produced (the candidate, then the judgement). CLAUDE.md rule 5:
-   * every LLM call is logged to `GenerationLog`, evaluation runs included — which is also what
-   * makes an eval run show up in the §5.4 batch split of the cost dashboard.
-   */
-  metas: GenerationMeta[];
-}
-
-export interface EvalRunResult {
-  generator: string;
-  variantId: string;
-  cases: number;
-  passed: number;
-  meanScore: number;
-  /** generator + judge, both at batch prices */
-  costUsd: number;
-  generatorCostUsd: number;
-  judgeCostUsd: number;
-  results: EvalCaseScore[];
-}
-
 const EMOJI_RE = /\p{Extended_Pictographic}/gu;
-
-/** What a case scores when the judge itself could not run. */
-const JUDGE_UNAVAILABLE: GJOutput = {
-  scores: { inCharacter: 0, diversity: 0, humour: 0, emoji: 0, safety: 0, jpNaturalness: 0 },
-  verdict: "fail",
-  notes: "judge unavailable",
-};
-
-const round = (n: number, places = 4): number => {
-  const f = 10 ** places;
-  return Math.round(n * f) / f;
-};
 
 function countEmoji(text: string): number {
   return (text.match(EMOJI_RE) ?? []).length;
@@ -134,14 +99,7 @@ export function machineChecksG1(input: G1Input, output: G1Output, fallback: bool
   };
 }
 
-const ABSOLUTE_CHECKS = ["schemaValid", "notFallback", "noBannedWords"] as const;
-
-export function machineScoreOf(checks: MachineChecks): number {
-  const values = Object.values(checks);
-  if (values.length === 0) return 0;
-  for (const key of ABSOLUTE_CHECKS) if (checks[key] === false) return 0;
-  return round(values.filter(Boolean).length / values.length);
-}
+const ABSOLUTE_CHECKS = G1_ABSOLUTE_CHECKS;
 
 /** The brief the judge sees next to the candidate — never the whole world bible (that is the point). */
 export function judgeContext(input: G1Input): string {
@@ -168,6 +126,11 @@ export async function runEval(
   gateway: Gateway,
   args: { generator: string; variantId: string; cases: readonly EvalCaseRun[] },
 ): Promise<EvalRunResult> {
+  // The World Studio is fourteen dependent calls with a different output shape and a different
+  // set of machine checks, so it has its own runner. Everything else about the run — the weights,
+  // the pass bar, the result rows and the gate below — is shared.
+  if (args.generator === "G9") return runEvalG9(gateway, args);
+
   const parsed: Array<{ run: EvalCaseRun; input: G1Input }> = [];
   const invalid: EvalCaseRun[] = [];
   for (const c of args.cases) {
@@ -220,7 +183,7 @@ export async function runEval(
     const machineScore = machineScoreOf(checks);
     const judgeOut = judgeOutcome?.output ?? JUDGE_UNAVAILABLE;
     const judgeScore = judgeScore01(judgeOut);
-    const score = round(100 * (MACHINE_WEIGHT * machineScore + JUDGE_WEIGHT * judgeScore), 2);
+    const score = blendedScore(machineScore, judgeScore);
     const passed =
       score >= EVAL_PASS_SCORE && ABSOLUTE_CHECKS.every((k) => checks[k] === true) && judgeOut.verdict !== "fail";
 

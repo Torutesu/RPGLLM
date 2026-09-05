@@ -76,7 +76,8 @@ export default function ReportScreen() {
 
   return (
     <Screen>
-      <HeaderBar title={t("reportTitle")} onBack={close} />
+      {/* A world is a place, not a piece of content — the screen it lands on says which it is. */}
+      <HeaderBar title={t(target === "world" ? "reportWorldTitle" : "reportTitle")} onBack={close} />
       <ScrollView contentContainerStyle={{ padding: spacing.lg, gap: spacing.lg }}>
         {done ? (
           <View style={{ gap: spacing.lg }}>

@@ -12,6 +12,7 @@ import { WorldCover } from "../../src/components/WorldCard";
 import { useActions, useT } from "../../src/state/store";
 import { useWorldStatus } from "../../src/studio/useWorldStatus";
 import { isFailedBuild, isPlayable } from "../../src/studio/labels";
+import { isResubmitCooldown } from "../../src/studio/report";
 import { shareWorldLink, worldShareUrl } from "../../src/studio/share";
 import { Burst, FadeSlideIn, Icon, PressScale, typo } from "../../src/ui";
 
@@ -65,6 +66,7 @@ function Meta({ world }: { world: WorldFull }) {
   const { t } = useT();
   return (
     <View style={{ flexDirection: "row", alignItems: "center", gap: spacing.md, flexWrap: "wrap" }}>
+      {/* The pill stays factual — `review` — and the headline above it says which kind of review. */}
       <StudioStatusBadge status={world.status} visibility={world.visibility} testID={T.studioStatusBadge} />
       <View style={{ flexDirection: "row", alignItems: "center", gap: 3 }}>
         <Icon name="person" size={12} color={colors.textMuted} />
@@ -88,6 +90,8 @@ export default function StudioWorldScreen() {
   const [publishError, setPublishError] = useState<string | null>(null);
   const [burst, setBurst] = useState(0);
   const [copied, setCopied] = useState(false);
+  /** Set once the server has refused a resubmit, so the button that cannot work stops being offered. */
+  const [resubmitWait, setResubmitWait] = useState(false);
 
   const world = published ?? data?.world ?? null;
   const ready = world !== null && isPlayable(world.status);
@@ -104,6 +108,12 @@ export default function StudioWorldScreen() {
    */
   const buildFailed = world ? isFailedBuild(world.status) : false;
   const reviewRejected = world?.status === "rejected";
+  /**
+   * `review` has two causes and only one of them is good news. A world nobody has read yet is
+   * queued; a world that enough players reported was *taken off the shelf*. The creator is owed
+   * the difference, so `pulled` says the second one out loud instead of hiding inside "In review".
+   */
+  const pulled = world?.status === "review" && world.pulled;
 
   /** No world yet and the poll gave up: the screen shows the failure, not a bar that never moves. */
   const showBuilding = world ? !ready && !buildFailed && !reviewRejected : phase !== "error";
@@ -140,6 +150,15 @@ export default function StudioWorldScreen() {
       return true;
     } catch (e) {
       const err = e instanceof ApiError ? e : null;
+      /*
+       * A rejected world may be sent back, but not immediately
+       * (`WORLD_MODERATION.RESUBMIT_COOLDOWN_HOURS`). That refusal is a rule, not a fault, so it
+       * gets its own sentence — and the button it refuses stops being offered.
+       */
+      if (world.status === "rejected" && isResubmitCooldown(e)) {
+        setResubmitWait(true);
+        return false;
+      }
       // The safety gate runs on every publish, unlisted included.
       setPublishError(err?.isSafety ? t("studioPremiseBlocked") : t("loadFailed"));
       return false;
@@ -212,16 +231,37 @@ export default function StudioWorldScreen() {
             <View testID={T.studioReady} style={{ gap: spacing.xl }}>
               <View style={{ gap: spacing.sm }}>
                 <View style={{ alignSelf: "flex-start" }}>
-                  <Burst trigger={burst} color={colors.accentHi} size={60} />
-                  <Text accessibilityRole="header" accessibilityLiveRegion="polite" style={[typo.title, { color: colors.text }]}>
-                    {t("studioReady")}
+                  {/* No confetti over a takedown: the burst belongs to the reveal, not to this. */}
+                  {pulled ? null : <Burst trigger={burst} color={colors.accentHi} size={60} />}
+                  <Text
+                    accessibilityRole="header"
+                    accessibilityLiveRegion="polite"
+                    style={[typo.title, { color: pulled ? colors.danger : colors.text }]}
+                  >
+                    {t(pulled ? "studioPulled" : "studioReady")}
                   </Text>
                 </View>
                 <Text style={[typo.body, { color: colors.textDim }]}>{world.scenario}</Text>
                 <Meta world={world} />
               </View>
 
-              {world.status === "review" ? (
+              {pulled ? (
+                <View
+                  style={{
+                    flexDirection: "row",
+                    alignItems: "flex-start",
+                    gap: spacing.sm,
+                    padding: spacing.md,
+                    borderRadius: radius.md,
+                    borderWidth: 1,
+                    borderColor: `${colors.danger}59`,
+                    backgroundColor: `${colors.danger}14`,
+                  }}
+                >
+                  <Icon name="shield" size={16} color={colors.danger} />
+                  <Text style={[typo.meta, { color: colors.textDim, flex: 1 }]}>{t("studioPulledHint")}</Text>
+                </View>
+              ) : world.status === "review" ? (
                 <Text style={[typo.meta, { color: colors.warning }]}>{t("studioInReviewHint")}</Text>
               ) : null}
 
@@ -313,6 +353,42 @@ export default function StudioWorldScreen() {
               <Text style={[typo.meta, { color: colors.textDim }]}>{t("studioRejectedHint")}</Text>
               {world.reason ? <Text style={[typo.meta, { color: colors.danger }]}>{world.reason}</Text> : null}
               <Button testID={T.studioPlay} label={t("studioPlay")} onPress={play} />
+              {/*
+                Turned down is not forever: the world can go back to the queue once the cooldown is
+                up. Until the server says no, the offer stands; the moment it does, the offer is
+                withdrawn and replaced by the reason — a button that can only fail is worse than
+                no button.
+              */}
+              {resubmitWait ? (
+                <View
+                  style={{ flexDirection: "row", alignItems: "center", gap: spacing.sm, paddingTop: spacing.xxs }}
+                >
+                  <Icon name="clock" size={15} color={colors.warning} />
+                  <Text
+                    accessibilityRole="alert"
+                    accessibilityLiveRegion="polite"
+                    style={[typo.meta, { color: colors.warning, flex: 1 }]}
+                  >
+                    {t("studioResubmitWait")}
+                  </Text>
+                </View>
+              ) : (
+                <>
+                  {publishError ? (
+                    <Text accessibilityRole="alert" accessibilityLiveRegion="polite" style={[typo.meta, { color: colors.danger }]}>
+                      {publishError}
+                    </Text>
+                  ) : null}
+                  <Button
+                    testID={T.studioPublish}
+                    label={t("studioPublish")}
+                    icon="share"
+                    variant="secondary"
+                    loading={publishBusy === "public"}
+                    onPress={() => void publish("public")}
+                  />
+                </>
+              )}
               <Button
                 testID={T.studioKeepPrivate}
                 label={t("studioMyWorlds")}

@@ -30,6 +30,13 @@ import { g7 } from "./generators/g7.js";
 import { g8 } from "./generators/g8.js";
 import { g10, type G10Input, type G10Output } from "./generators/g10.js";
 import { runG9, type G9Input } from "./generators/g9/index.js";
+import {
+  g9Screen,
+  replayG9Screen,
+  G9_SCREEN_VARIANT_ID,
+  type G9ScreenInput,
+  type G9ScreenOutput,
+} from "./generators/g9/screen-model.js";
 import { gj, type GJInput, type GJOutput } from "./generators/gj.js";
 import { batchMaxRequests, chunkRequests, runLiveBatch, type BatchEntryStatus } from "./modes/batch.js";
 import { runFail } from "./modes/fail.js";
@@ -130,6 +137,12 @@ export interface Gateway {
    * the deterministic world for `(slug, premise, genre, seed)` with `meta.fallback = true`.
    */
   g9(input: G9Input, opts?: RunOptions): Promise<GenerationResult<WorldSeed>>;
+  /**
+   * AIF-003 premise screen, layer 2. A ~250-token classifier on the light tier that runs only
+   * after the deterministic `screenPremise` has allowed. Callers should use `screenPremiseDeep`,
+   * which owns the AND, the timeout and the failure policy; this is the raw call it makes.
+   */
+  g9Screen(input: G9ScreenInput, opts?: RunOptions): Promise<GenerationResult<G9ScreenOutput>>;
   g10(input: G10Input, opts?: RunOptions): Promise<GenerationResult<G10Output>>;
   gj(input: GJInput, opts?: RunOptions): Promise<GenerationResult<GJOutput>>;
   /** Batch tier (§5.4): 50% off, keyed by `customId`, never by position. */
@@ -561,6 +574,15 @@ export function createGateway(opts: GatewayOptions = {}): Gateway {
     // G8's context carries no userId (it runs before a post exists) -> champion variant.
     g8: (input, runOpts) => run(g8, input, runOpts, null, replayG8, () => 0),
     g9,
+    // The premise screen runs before a world, a persona or a wallet exists -> null userId, and its
+    // own variant id so `GenerationLog` splits it out from the five studio stages.
+    g9Screen: (input, runOpts) =>
+      run(g9Screen, input, runOpts, null, replayG9Screen, () => 0, {
+        id: G9_SCREEN_VARIANT_ID,
+        generator: "G9",
+        tier: runOpts?.tier ?? g9Screen.defaultTier,
+        maxTokens: g9Screen.maxTokens,
+      }),
     g10: (input, runOpts) => run(g10, input, runOpts, input.userId, replayG10, (i) => i.seed),
     gj: (input, runOpts) => run(gj, input, runOpts, null, replayGJ, () => 0),
 

@@ -290,6 +290,12 @@ export default function ExploreScreen() {
               key={w.id}
               world={w}
               showCreator
+              /*
+               * A world someone else made, on the surface where a player meets it. Reporting is
+               * offered here and not on the three presets or on your own world — those are not
+               * complaints, they are settings.
+               */
+              canReport
               testID={T.communityWorldCard(w.slug)}
               onPress={() => enterCommunityWorld(w)}
             />

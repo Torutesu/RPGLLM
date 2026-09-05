@@ -5,6 +5,25 @@
  * is exported for apps/api (`screenPremise`) and for the tests that hold the shape.
  */
 export { screenPremise, sanitizePremise, type PremiseScreenResult, type PremiseVerdict } from "./screen.js";
+export {
+  g9Screen,
+  replayG9Screen,
+  coerceCategory,
+  G9ScreenZ,
+  G9_SCREEN_VARIANT_ID,
+  PREMISE_POLICY,
+  PREMISE_CATEGORIES,
+  type G9ScreenInput,
+  type G9ScreenOutput,
+} from "./screen-model.js";
+export {
+  screenPremiseDeep,
+  type PremiseScreenDeepResult,
+  type PremiseScreenDeepOptions,
+  type PremiseScreenGateway,
+  type PremiseScreenLayer,
+  type PremiseModelStatus,
+} from "./screen-deep.js";
 export { runG9, aggregateMeta, type G9StageRunner } from "./orchestrator.js";
 export { assembleWorld, deterministicWorld, type G9Parts } from "./assemble.js";
 export {

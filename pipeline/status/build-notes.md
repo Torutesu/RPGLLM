@@ -2616,3 +2616,149 @@ path, so it cannot deadlock against the build job or the review decision.
   the new `test/world-moderation.test.ts`).
 - `pnpm --filter api typecheck` clean. `prisma migrate diff` reports no drift between the
   migrations and `schema.prisma`; the migration is applied to the dev database.
+
+---
+
+## Agent SAFETY-EVAL — the premise screen's second layer, and G9 inside the eval gate
+
+Two gaps the G9 pass recorded honestly rather than closed: `screenPremise` was one deterministic
+layer, and G9 had no eval coverage at all. Both are `packages/llm` only; nothing outside it was
+edited.
+
+### 1. The premise screen is now two layers
+
+`packages/llm/src/generators/g9/screen-model.ts` — `g9Screen`, a **classifier** stage.
+`packages/llm/src/generators/g9/screen-deep.ts` — `screenPremiseDeep(gateway, premise, locale)`,
+which owns the AND, the timeout and the failure policy.
+
+- **Layer 1 keeps the first and final word on a block.** `screenPremiseDeep` returns before the
+  gateway is touched when `screenPremise` blocks, so no model response can loosen a deterministic
+  block, and the refused premises (the majority of abuse) cost nothing at all.
+- **Live only.** In `replay` and `fail` the second layer is a no-op (`model: "skipped"`), so the
+  E2E suite, the API tests and every offline run behave exactly as before, with no key.
+- **Cheap.** Light tier, `max_tokens: 64`, a two-block cached prefix of ~430 tokens (policy +
+  taxonomy) — G8's shape, deliberately not the world bible. `variantId` `G9-screen@v1`, so
+  `GenerationLog` splits screen spend from the five studio stages.
+- **It classifies.** The premise never enters a system block: it sits in a `<<<PREMISE … PREMISE>>>`
+  fence in the *user* block, through `sanitizePremise`, and the prompt says to judge the request,
+  not answer or continue it — a premise that reads as an instruction is itself `prompt_injection`.
+  The taxonomy block also names what must *not* be blocked ("student", "trainee", "高校生",
+  "同級生"), because two of the eight genres are made of those words.
+- **Result shape is unchanged** — `{verdict, category}` over `WORLD_PREMISE_BLOCKED` — plus `layer`
+  (`deterministic` | `model`), `model` (`skipped`/`allow`/`block`/`refused`/`error`) and the model
+  call's `meta`, so the caller can log which layer decided and what it cost.
+
+Failure policy, and the one judgement call in it:
+
+| what happened | verdict |
+| --- | --- |
+| layer 1 blocked | block, model never called |
+| replay / fail mode, or an empty premise | layer 1's verdict, no call |
+| model said block | **block**, category coerced onto the taxonomy (unmappable → `null`) |
+| model **refused** | **block** — a refusal is a judgement about this text, not about the network |
+| timeout / transport error / junk after the gateway's retry | layer 1's verdict, flagged `error` |
+
+Blocking on an *infrastructure* failure would turn a provider outage into "nobody can create a
+world"; the premise has still passed layer 1, still meets the fleet-wide safety block in every
+studio prompt, still faces G8 on every in-game action and still needs human review before publish.
+So the default degrades to exactly today's behaviour and says so in the result. Operators who want
+the other trade-off set `LLM_PREMISE_SCREEN_ON_ERROR=block` (or pass `failClosed: true`);
+`LLM_PREMISE_SCREEN_TIMEOUT_MS` (default 4000) caps the added latency.
+
+**Probe table** (`packages/llm/src/premise-screen.test.ts`): 32 realistic premises that the
+deterministic layer allows — 16 that a 13+ product must still refuse (paraphrased minors with no
+age word, "fourteen" spelled out, 高校の先生と生徒, franchises and real people by periphrasis,
+injection dressed as world-building) and 16 ordinary academy/idol/sports/office/mystery premises in
+both locales. Layer 1 alone scores **16/32** (it blocks none of the paraphrases and over-blocks
+none of the ordinary ones). With a correct second layer the combined screen scores **32/32**; with
+a rubber-stamp model it is never worse than layer 1; with a block-everything model no allow slips
+through. Layer 2's real-world accuracy cannot be measured here — there is no key — so what the
+suite proves is the wiring and every failure mode.
+
+### 2. G9 in the offline gate (§6.2)
+
+- `packages/llm/src/eval-core.ts` — the shared pieces (weights, pass bar, `machineScoreOf`, result
+  rows) so G1 and G9 produce comparable runs. `eval.ts` re-exports all of them; every existing
+  import path is unchanged.
+- `packages/llm/src/eval-g9.ts` — `g9Metrics`, `machineChecksG9`, `distinctnessOf`,
+  `judgeContextG9`, `judgeCandidateG9`, `runEvalG9`.
+- `packages/llm/src/eval-cases-g9.ts` — 18 frozen cases: two premises per genre (one EN, one JA)
+  plus `hard:echo-bait` and `hard:at-the-limit` (271 chars).
+- `runEval(gateway, {generator: "G9", …})` dispatches to the studio runner; `evaluateGate` needed
+  no change. `GJ_CRITERIA.G9` was added to `generators/gj.ts`.
+
+17 machine checks in five families. What they measure on the 18 replay worlds today:
+
+| family | measured | replay range |
+| --- | --- | --- |
+| structural | bible tokens en / ja (floor 4,096) | 4770–4884 / 4433–4574 |
+| structural | 8 cast · 7 personas · 5 events × 3 choices · ambient/locale · min fallback lines · welcome posts | 8 · 7 · 5/5 · 22 · 5 · 8 |
+| integrity | unknown `@handle` references · illegal handles · duplicate handles / names · press accounts | 0 · 0 · 0/0 · 1 |
+| locale parity | locale gaps · JA CJK character ratio · fraction of JA fields identical to their EN twin | 0 · 0.809–0.819 · 0.00 |
+| containment | verbatim premise echoes (whole sentence + 8-word / 16-char windows of both the raw and the sanitised premise) · scaffolding leaks · unfilled `{slots}` | 0 · 0 · 0 |
+| distinctness | handle / display-name / bible-line / cast-card overlap against a same-genre sibling | see below |
+
+`schemaValid`, `notFallback`, `premiseContained` and `noScaffoldLeak` are absolute (failing one
+scores the case zero). Every check is broken deliberately in the suite to prove it is load-bearing.
+
+**The distinctness finding.** Two different premises in the *same* genre, built by the deterministic
+blueprint, share **0.70–0.80 of their bible lines** and **0.60–0.78 of their cast cards**, while two
+worlds of *different* genres share only 0.30 / 0.00. Handles (0.33–0.60) and display names
+(0.07–0.33) do vary. So the blueprint is a template: the names change, the prose does not. The
+limits are set at 0.5 on all four measures (the cross-genre floor of 0.30 is the fleet-wide
+scaffolding every world carries), which means `distinctFromSibling` is **the one check that fails on
+every replay world** — correctly. In live mode those halves are written by the model, and this is
+the assertion that will notice if they are not. Word-level bible overlap (0.83–0.92 same genre,
+0.71 across genres) is reported but not gated: it is dominated by function words, not by content.
+
+`runEval` on the full frozen set, in replay: **18 cases, 18 passed, mean 87.88 (82.35–94.35)**,
+machine 0.9412 each (16 of 17), judge 0.77–0.88 from the offline heuristic, 441ms wall,
+$5.83 at simulated prices ($5.73 of worlds at ≈$0.32 each + $0.10 of judging), 270 `GenerationLog`
+rows (18 × 14 stages + 18 judgements).
+
+### Deviations and decisions
+
+1. **`machineScoreOf(checks, absolutes?)` took a second parameter**, defaulting to G1's list, so
+   `machineScoreOf(checks)` behaves exactly as it did. G9's absolute list adds containment.
+2. **`EvalCaseSpec` was left alone** (still `generator: "G1"`, `input: G1Input`); G9's frozen cases
+   use a separate `G9EvalCaseSpec`. Widening the shared type would have rippled into
+   `apps/api/src/services/evals.ts` for no gain.
+3. **A G9 eval case returns only the judge's `GenerationMeta` in `metas`.** `gateway.g9()` already
+   emits a row per stage and apps/api logs everything in `metas`; returning the aggregate would
+   double the studio's spend in the cost dashboard (see G9 §4 above).
+4. **G9 is not batchable.** It is fourteen dependent calls behind one gateway method, so the worlds
+   are built through the interactive path and only the judgements go out as one batch — which is
+   where §5.4's 50% still applies.
+5. **The judge reuses `GJ_AXES` and `GJ_WEIGHTS` rather than a parallel rubric.** `CRITERIA.G9`
+   re-points the six axes at a world, exactly as `CRITERIA.G7` already does for summaries:
+   inCharacter = coherence with the premise, diversity = are the eight distinguishable,
+   humour = does the world give the player something to do, jpNaturalness = does the JA read
+   natively, safety unchanged, emoji not applicable (score 8, G7's precedent). Each case is judged
+   on **one locale**, projected and cut to ~5.9kB, or the JA axis would be measuring a candidate
+   that is half English.
+
+### What apps/api would need to adopt layer 2 (cross-cutting, not done here)
+
+`apps/api/src/services/g9.ts` feature-detects a **synchronous** `screenPremise` and that still
+works unchanged — the deep screen is strictly additive. To get the second layer, the world-create
+path would `await screenPremiseDeep(gateway, premise, locale)` instead, keep its own local floor
+ANDed on top (it already never unblocks), and persist `layer` / `model` next to the verdict. Two
+notes for whoever does it: a model block can carry `category: null` (the model blocked but named no
+category we recognise), so the 422 copy needs a generic fallback; and the call adds up to
+`LLM_PREMISE_SCREEN_TIMEOUT_MS` to the create request.
+
+### Known gaps left open (measured, not fixed)
+
+- **Layer 1 over-blocks "suicide" as a topic.** `screenPremise("a drama about a town still
+  recovering from a suicide ten years ago")` blocks as `self_harm`. It is a keyword list, and
+  `suicide` has no innocent reading in it. Fixing it needs the same strong/soft split the minor
+  rules already use, and would change a pinned test, so it is recorded rather than changed.
+- Layer 2's classification accuracy is unmeasured: there is no API key in this sandbox, so the
+  probe table exercises the wiring against stub classifiers, not the model.
+
+### Verification
+
+- `pnpm --filter llm test` — **417 passed / 11 files** (the 303 baseline, unchanged and unweakened,
+  plus 66 premise-screen and 48 G9-eval tests).
+- `pnpm --filter llm typecheck` clean · `npx tsc --noEmit -p apps/api/tsconfig.json` clean ·
+  `pnpm --filter api test` — 311 passed / 28 files, unchanged.

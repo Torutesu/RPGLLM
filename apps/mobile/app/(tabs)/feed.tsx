@@ -20,6 +20,8 @@ import { StreakChip } from "../../src/components/StreakCard";
 import { PostMedia } from "../../src/components/PostMedia";
 import { TrendingStrip } from "../../src/components/TrendingStrip";
 import { WorldChip, titleFromSlug } from "../../src/components/WorldChip";
+import { Overflow } from "../../src/components/Overflow";
+import { isSomeoneElsesWorld } from "../../src/studio/report";
 import { heatOf, mediaOf } from "../../src/lib/derive";
 import { Gradient, Icon, FadeSlideIn, typo } from "../../src/ui";
 import { ensurePushRegistered } from "../../src/push";
@@ -283,6 +285,20 @@ export default function FeedScreen() {
     }, [loadFeed, me?.persona?.id]),
   );
 
+  /*
+   * Expo Router leaves the screen underneath mounted, so anything the feed renders is still in the
+   * tree while Explore sits on top of it — and Explore carries `report-world` on every community
+   * card. The feed's own copy exists only while the feed is the screen in front, so the id can
+   * never match twice.
+   */
+  const [focused, setFocused] = useState(true);
+  useFocusEffect(
+    useCallback(() => {
+      setFocused(true);
+      return () => setFocused(false);
+    }, []),
+  );
+
   const [refreshing, setRefreshing] = useState(false);
   const onRefresh = useCallback(() => {
     setRefreshing(true);
@@ -310,6 +326,9 @@ export default function FeedScreen() {
 
   const wallet = me?.wallet;
   const worldSlug = me?.persona?.worldSlug ?? "";
+  const worldId = me?.persona?.worldId ?? "";
+  /** `GET /v1/worlds` is "presets + mine", so a slug missing from it belongs to somebody else. */
+  const reportableWorld = isSomeoneElsesWorld(worlds, worldSlug);
   const worldTitle = useMemo(() => {
     const match = worlds?.find((w) => w.slug === worldSlug);
     return match?.title ?? (worldSlug ? titleFromSlug(worldSlug) : t("feed"));
@@ -327,7 +346,23 @@ export default function FeedScreen() {
           gap: spacing.sm,
         }}
       >
-        <WorldChip title={worldTitle} slug={worldSlug || "world"} onPress={() => router.push("/explore")} />
+        <View style={{ flexDirection: "row", alignItems: "center", gap: spacing.xxs, flexShrink: 1, minWidth: 0 }}>
+          <WorldChip title={worldTitle} slug={worldSlug || "world"} onPress={() => router.push("/explore")} />
+          {/*
+            SCR-037 for a world (Guideline 1.2). A player who finds a world wrong finds it *while
+            playing it*, so the way out sits on the world's own chip — the same "…" as every other
+            reportable cell. Only for a world somebody else made: never a preset, never your own.
+          */}
+          {focused && reportableWorld && worldId ? (
+            <Overflow
+              id={worldSlug}
+              target="world"
+              targetId={worldId}
+              testID={T.reportWorld}
+              labelKey="reportWorld"
+            />
+          ) : null}
+        </View>
         <View style={{ flexDirection: "row", alignItems: "center", gap: spacing.sm }}>
           <StreakChip />
           <EnergyBadge energy={wallet?.energy ?? 0} coffee={wallet?.coffee ?? 0} onPress={() => router.push("/energy")} />

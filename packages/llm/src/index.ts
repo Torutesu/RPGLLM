@@ -78,6 +78,14 @@ export type { G2Input, G2Output, G10Input, G10Output, GJInput, GJOutput, GJAxis 
 export {
   screenPremise,
   sanitizePremise,
+  screenPremiseDeep,
+  g9Screen,
+  replayG9Screen,
+  coerceCategory,
+  G9ScreenZ,
+  G9_SCREEN_VARIANT_ID,
+  PREMISE_POLICY,
+  PREMISE_CATEGORIES,
   runG9,
   aggregateMeta,
   assembleWorld,
@@ -134,6 +142,13 @@ export type {
   G9StageRunner,
   PremiseScreenResult,
   PremiseVerdict,
+  PremiseScreenDeepResult,
+  PremiseScreenDeepOptions,
+  PremiseScreenGateway,
+  PremiseScreenLayer,
+  PremiseModelStatus,
+  G9ScreenInput,
+  G9ScreenOutput,
   Archetype,
   GenrePack,
   GenreWords,
@@ -203,6 +218,35 @@ export {
   HARD_CASES,
   type EvalCaseSpec,
 } from "./eval-cases.js";
+
+/* G9 in the gate (§6.2): the studio's machine checks, its judge brief and its frozen case set. */
+export {
+  blendedScore,
+  G1_ABSOLUTE_CHECKS,
+  JUDGE_UNAVAILABLE,
+} from "./eval-core.js";
+export {
+  cjkRatio,
+  distinctnessOf,
+  g9Metrics,
+  judgeCandidateG9,
+  judgeContextG9,
+  machineChecksG9,
+  playerVisible,
+  runEvalG9,
+  DISTINCTNESS_LIMITS,
+  G9_ABSOLUTE_CHECKS,
+  MAX_JA_ECHO,
+  MIN_JA_CJK_RATIO,
+  type G9Distinctness,
+  type G9Metrics,
+} from "./eval-g9.js";
+export {
+  buildG9Case,
+  frozenEvalCasesG9,
+  HARD_G9_CASES,
+  type G9EvalCaseSpec,
+} from "./eval-cases-g9.js";
 
 export {
   runAmbientRefillBatched,

@@ -35,6 +35,11 @@ export function WorldChip({
         borderColor: colors.border,
         backgroundColor: colors.card,
         maxWidth: 210,
+        // The header it sits in is a full row (streak, energy, coffee, settings — and, in a world
+        // somebody else made, the report affordance). The title is the part that can afford to
+        // give: it shrinks and ellipsises instead of pushing the controls off the screen.
+        flexShrink: 1,
+        minWidth: 0,
       }}
     >
       <Gradient
@@ -47,7 +52,7 @@ export function WorldChip({
       </Text>
     </View>
   );
-  if (!onPress) return <View testID={T.worldChip}>{body}</View>;
+  if (!onPress) return <View testID={T.worldChip} style={{ flexShrink: 1, minWidth: 0 }}>{body}</View>;
   return (
     <Pressable
       testID={T.worldChip}
@@ -55,7 +60,7 @@ export function WorldChip({
       accessibilityRole="button"
       accessibilityLabel={title}
       hitSlop={spacing.xs}
-      style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}
+      style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1, flexShrink: 1, minWidth: 0 })}
     >
       {body}
     </Pressable>
