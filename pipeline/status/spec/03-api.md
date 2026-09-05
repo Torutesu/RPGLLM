@@ -107,3 +107,37 @@
 - **実績判定は SQL の集計のみ**で LLM を呼ばない。`(personaId, key)` の一意制約で解除は厳密に 1 回。
 - **トレンドの話題はワールド自身の投稿本文から決定的に抽出**する。数詞・時間語・高頻度動詞・汎用名詞は除外し、単語 1 語は 3 投稿以上で初めて採用する。
 - **投稿のメディアは投稿 ID から SVG を生成**する。外部画像は 1 枚も使わない。
+
+## World Studio 追加分(ユーザー作成ワールド, 2026-09-05)
+
+| Method | Path | Auth | Request | Response | Screen |
+|---|---|---|---|---|---|
+| POST | /worlds | authenticated | CreateWorldReq{premise, genre, locale, visibility} | CreateWorldRes{world, charged{gems, remaining}} / 402 GEMS_REQUIRED / 422 PREMISE_BLOCKED / 429 WORLD_LIMIT | SCR-048 |
+| GET | /worlds/:id/status | 作成者のみ | - | WorldStatusRes{world, progress, cast[]} | SCR-049 |
+| POST | /worlds/:id/publish | 作成者のみ | PublishWorldReq{visibility} | PublishWorldRes{world, needsReview} | SCR-049 |
+| GET | /worlds/mine | authenticated | - | MyWorldsRes{worlds[], remainingToday} | SCR-050 |
+| GET | /worlds/public | authenticated | ?cursor | PublicWorldsRes{worlds[], nextCursor} | SCR-046 |
+| GET | /admin/worlds/review | admin | - | WorldReviewQueueRes(バイブル抜粋とキャストを含む) | - |
+| POST | /admin/worlds/:id/review | admin | ReviewWorldReq{decision, reason} | WorldSummaryFull | - |
+
+### 状態機械
+
+```
+draft ──create──> generating ──成功──> ready ──publish(private|unlisted)──> published
+                      │                  │
+                      │                  └──publish(public)──> review ──承認──> published
+                      │                                          └──却下──> rejected
+                      └──失敗(ジェム返金)──> draft(failureReason 付き)
+```
+
+### 実装上の注意
+- **課金と生成は同じトランザクションに入れない**。ジェム 120 の引き落としと `World` 行の作成は 1 トランザクション、
+  生成は非同期ジョブ。生成が落ちたら同じ 1 トランザクションで返金する。返金は冪等(1 ワールド 1 回まで)。
+- **`generating` で詰まったワールドを残さない**。タイムアウト掃除のジョブが必ず終端状態へ落とす。
+- **プリセット以外のワールドの `WorldSeed` は DB に持つ**。`getWorldSeed(slug)` はプロセス内の手書き 3 本しか
+  知らないため、生成ワールドは行から復元する。これが無いとフォールバック返信・イントロ・雑談が空になる。
+- **`GET /worlds`(ワールド選択)にはプリセットと自分のワールドだけを出す**。他人の公開ワールドは
+  `/worlds/public` にしかない。`private` は作成者以外に 404。
+- **ジェムの入手経路**: ウォレット作成時に 120(`STARTER_GEMS`)、連続ログイン報酬、消耗型 IAP(`GEM_PACKS`)。
+  初日に 1 個だけ作れる、が設計意図。
+- `POST /worlds` はユーザーが引ける中でいちばん高価な操作なので、レート制限は書き込み枠より厳しく取る。
