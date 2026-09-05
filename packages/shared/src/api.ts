@@ -518,6 +518,12 @@ export const WorldSummaryFullZ = WorldSummaryZ.extend({
   createdAt: z.string(),
   /** only set while status is rejected or the generation failed */
   reason: z.string().nullable(),
+  /**
+   * True when this world was live and enough players reported it to take it back off the shelf.
+   * It is `review` either way; the creator is owed the difference between "not looked at yet" and
+   * "taken down for another look", so the two say different things on screen.
+   */
+  pulled: z.boolean().default(false),
 });
 export const CreateWorldResZ = z.object({
   world: WorldSummaryFullZ,
@@ -547,6 +553,14 @@ export const WorldReviewQueueResZ = z.object({
     cast: z.array(z.object({ handle: z.string(), displayName: z.string(), role: z.string() })),
     safety: z.string().nullable(),
     safetyNote: z.string(),
+    /** distinct reporters on this world — a queue sorted by luck is not a queue */
+    reportCount: z.number().int(),
+    /** how long it has been waiting, and whether that is past WORLD_MODERATION.REVIEW_SLA_HOURS */
+    waitingHours: z.number(),
+    overdue: z.boolean(),
+    /** what people said about it, newest first, so the reviewer reads the complaint not just the world */
+    reports: z.array(z.object({ reason: z.string(), note: z.string(), createdAt: z.string() })),
   })),
+  overdueCount: z.number().int(),
 });
 export const ReviewWorldReqZ = z.object({ decision: z.enum(["approve", "reject"]), reason: z.string().max(300).default("") });

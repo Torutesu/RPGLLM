@@ -283,4 +283,9 @@ export const ja: Strings = {
   studioGenreFantasy: "ファンタジー",
   studioGenreMystery: "ミステリー",
   studioGenreSliceOfLife: "日常",
+  reportWorld: "この世界を通報",
+  reportWorldTitle: "この世界を通報する",
+  studioPulled: "再確認のため一時的に非公開",
+  studioPulledHint: "通報が一定数を超えたため、もう一度人が読んでいます。",
+  studioResubmitWait: "再申請は明日からできます",
 };

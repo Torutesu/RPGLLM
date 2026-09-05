@@ -206,4 +206,7 @@ export const T = {
   worldReviewReject: (id: string) => `world-review-reject-${id}`,
   worldReviewReason: "world-review-reason",
   worldReviewEmpty: "world-review-empty",
+  worldReviewOverdue: "world-review-overdue",
+  worldReviewReports: (id: string) => `world-review-reports-${id}`,
+  reportWorld: "report-world",
 } as const;

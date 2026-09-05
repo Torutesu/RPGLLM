@@ -239,6 +239,22 @@ export const GEM_PACKS = {
 export type GemPackId = keyof typeof GEM_PACKS;
 export const isGemPack = (id: string): id is GemPackId => Object.hasOwn(GEM_PACKS, id);
 
+/**
+ * What happens to a published world after people start playing it.
+ *
+ * A human approved it once; that is not the same as it staying fine. Reports are the only signal
+ * that scales with the audience, so enough of them takes a world off the shelf and puts it back in
+ * front of a person — automatically, without waiting for anyone to notice.
+ */
+export const WORLD_MODERATION = {
+  /** distinct reporters, on one world, that pull it out of Explore and back into the queue */
+  REPORTS_TO_PULL: 3,
+  /** a world waiting longer than this is overdue; the queue sorts and the ops surface says so */
+  REVIEW_SLA_HOURS: 24,
+  /** how long a rejected world's creator must wait before submitting it again */
+  RESUBMIT_COOLDOWN_HOURS: 24,
+} as const;
+
 export const WORLD_GENRES = ["fame", "academy", "idol", "office", "sports", "fantasy", "mystery", "slice_of_life"] as const;
 export type WorldGenre = (typeof WORLD_GENRES)[number];
 

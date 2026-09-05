@@ -282,5 +282,10 @@ export const en = {
   studioGenreFantasy: "Fantasy",
   studioGenreMystery: "Mystery",
   studioGenreSliceOfLife: "Slice of life",
+  reportWorld: "Report this world",
+  reportWorldTitle: "Report this world",
+  studioPulled: "Taken down for another look",
+  studioPulledHint: "Enough players reported it that a person is reading it again.",
+  studioResubmitWait: "You can submit this again tomorrow",
 } as const;
 export type Strings = { [K in keyof typeof en]: (typeof en)[K] extends readonly string[] ? readonly string[] : string };
