@@ -2453,3 +2453,94 @@ the same generated art everywhere (no world ever fetches an image).
    `publish("private")` whenever the world is unlisted, published or in review — that is what pulls
    it back out of the queue — and only then leaves for SCR-050. The copy-link row has no test id
    (none exists for it); `studioShareLink` / `studioCopyLink` would be welcome.
+
+---
+
+## Agent G9 — World Studio generator (AIF-003 / AIF-014)
+
+Owned `packages/llm/**` only. Nothing in `packages/shared`, `apps/api`, `apps/mobile` or `e2e` was
+touched. G9 was the last unbuilt generator; before this, a world could only be a hand-written
+TypeScript file, so the product could never have more than three.
+
+### What was added
+
+| File | What it is |
+| --- | --- |
+| `src/generators/g9/types.ts` | `G9Input`, the five stage schemas, `G9_VARIANT_IDS`. |
+| `src/generators/g9/screen.ts` | `screenPremise` + `sanitizePremise`. Pure, offline, gateway-free. |
+| `src/generators/g9/vocab.ts` | Eight genre packs: nouns, places, factions, slang, handle stems, name pools. |
+| `src/generators/g9/archetypes.ts` | Ten cast archetypes (relationships to the player), both locales. |
+| `src/generators/g9/blueprint.ts` | The deterministic world: concept, prose, outro, cards, personas, events, texture. |
+| `src/generators/g9/prompts.ts` | Studio system blocks, per-genre brief, concept/bible digests, the five task blocks. |
+| `src/generators/g9/stages.ts` | The five `GeneratorSpec`s and their repair/postprocess. |
+| `src/generators/g9/assemble.ts` | Stage outputs → `WorldSource` → `buildWorld` → `WorldSeed`. |
+| `src/generators/g9/orchestrator.ts` | `runG9` and `aggregateMeta`. |
+| `src/g9.test.ts` | 161 cases. |
+
+### The stage table
+
+| Stage | variantId | Tier | Calls | Why |
+| --- | --- | --- | --- | --- |
+| concept | `G9-concept@v1` | high | 1 | Small output, all the judgement. The only call that sees the premise. |
+| bible | `G9-bible@v1` | high | 2 (per locale) | The cached prefix every later generation inherits. |
+| cards | `G9-cards@v1` | mid | 8 (per character) | Volume, one shape, fanned out concurrently. |
+| castevents | `G9-events@v1` | mid | 1 | 7 personas + 5 events × 3 choices. |
+| texture | `G9-texture@v1` | light | 2 (per locale) | 22 ambient + 5 fallback lines/handle + welcome posts. |
+
+Fourteen calls. Each lands in `GenerationLog` separately with its own four token counts and cost;
+the `meta` returned by `gateway.g9()` is their aggregate and is deliberately **not** emitted again.
+Measured in replay at `cost.ts` prices: **≈$0.32 per world** (concept $0.055, bible $0.139, cards
+$0.076, events $0.026, texture $0.019) against a 120-gem price. Stages 3–5 share one per-world
+cached prefix — 4,389 tokens, above Haiku 4.5's 4,096 minimum — so those eleven calls are one cache
+write and ten cache reads.
+
+### Deviations and decisions
+
+1. **G9 is not in `GENERATOR_EXPERIMENTS`.** One `GeneratorId` covers five specs, and the registry
+   allocates per generator, not per stage — registering it would have put five stage variants in
+   one arm and changed the `/experiments/assignments` payload (`gateway.test.ts` pins its keys).
+   Instead `run()` in `gateway.ts` takes an optional `fixedVariant`, and each stage names its own
+   variant and tier. When G9 gets an A/B, it wants five experiments, not one.
+2. **`run()`'s `TIn extends { locale?: string }` constraint was removed** (it was unused; G9's
+   stage inputs are nested records, not the flat `BaseCtx` shape). `runBatch` is unchanged.
+3. **`G9Input` carries no `userId`**, matching the contract apps/api declared. G9 runs before a
+   world and often before a persona exists, so its `GenerationLog` rows have `userId = null`;
+   `world-build.ts` already attaches `world.createdBy` itself.
+4. **`meta.fallback` means *irrecoverable*, not *any stage fell back*.** apps/api refunds 120 gems
+   and fails the build on it, so it is true only when the concept or the bible came from the
+   template, or the parts would not assemble. A cast card or the ambient pool falling back leaves a
+   complete, coherent world — the blueprint writes those in the concept's own handles and nouns —
+   so it dents quality without voiding the purchase. Every stage still logs its own flag.
+5. **Real brands and franchises are screened as `real_person`.** `WORLD_PREMISE_BLOCKED` has no
+   separate brand category and `packages/shared` is frozen; `real_person` is the closest fit and
+   the API's own screen already uses it that way. If shared ever reopens, a `real_brand` category
+   would read better in the block copy.
+6. **`screenPremise` ignores its `locale` argument by design** — both term sets always run. A
+   Japanese user can type English and a screen that trusted the flag would be bypassable by
+   switching it. The parameter is kept for signature stability and for the API's logging.
+7. **Sexualised-minor detection is a combination rule, not a keyword list.** "student", "high
+   school", "生徒" and "trainee" are the ordinary vocabulary of the academy and idol genres, so
+   minor terms are split strong/soft: *any* minor marker plus an explicit sexual term blocks, and
+   a *strong* marker (an explicit age under 18, "child", "小学生") plus a romance term blocks.
+   "a high school romance" is allowed; "a romance between a teacher and a 15 year old" is not.
+   The suite carries a 20-row table of realistic allow cases so the screen cannot drift shut.
+
+### Replay bible tokens (per genre, `estimateTokens`, floor 4,096)
+
+| genre | en | ja |
+| --- | --- | --- |
+| fame | 4867 | 4577 |
+| academy | 4847 | 4454 |
+| idol | 4849 | 4483 |
+| office | 4834 | 4480 |
+| sports | 4825 | 4508 |
+| fantasy | 4853 | 4513 |
+| mystery | 4834 | 4449 |
+| slice_of_life | 4807 | 4464 |
+
+### Verification
+
+- `pnpm --filter llm test` — **296 passed / 9 files** (the 135 baseline plus 161 new; nothing
+  weakened or skipped).
+- `pnpm --filter llm typecheck` clean · `npx tsc --noEmit -p apps/api/tsconfig.json` clean (the
+  API's feature-detected `g9Of` / `premiseScreenFrom` bind to the real exports unchanged).

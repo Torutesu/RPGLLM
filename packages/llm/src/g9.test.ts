@@ -14,6 +14,7 @@ import { createGateway } from "./gateway.js";
 import { HANDLE_RE } from "./handles.js";
 import { estimateTokens } from "./tokens.js";
 import {
+  aggregateMeta,
   deterministicWorld,
   g9Bible,
   g9Card,
@@ -343,6 +344,58 @@ describe("G9 — gateway orchestration", () => {
         }
       }
     }
+  });
+
+  it("forgives a non-critical stage fallback and refuses a critical one", () => {
+    const stage = (variantId: string, fallback: boolean): GenerationMeta => ({
+      generator: "G9",
+      variantId,
+      model: "claude-sonnet-5",
+      tier: "mid",
+      promptHash: variantId,
+      usage: { inputTokens: 1, cacheWriteTokens: 0, cacheReadTokens: 0, outputTokens: 1 },
+      costUsd: 0.001,
+      ttftMs: null,
+      latencyMs: 1,
+      stopReason: fallback ? "error" : "end_turn",
+      fallback,
+      escalatedFrom: null,
+    });
+
+    // Three cast cards and the ambient pool came from the blueprint: the world is still complete,
+    // still in the concept's own voice, and apps/api must not refund 120 gems for it.
+    const degraded = aggregateMeta(
+      [
+        stage(G9_VARIANT_IDS.concept, false),
+        stage(G9_VARIANT_IDS.bible, false),
+        stage(G9_VARIANT_IDS.cards, true),
+        stage(G9_VARIANT_IDS.cards, true),
+        stage(G9_VARIANT_IDS.cards, true),
+        stage(G9_VARIANT_IDS.texture, true),
+      ],
+      Date.now(),
+      null,
+      true,
+    );
+    expect(degraded.fallback).toBe(false);
+
+    // The concept is the only stage that reads the premise. If it fell back, this is not the
+    // world the player paid for.
+    for (const critical of [G9_VARIANT_IDS.concept, G9_VARIANT_IDS.bible]) {
+      const voided = aggregateMeta(
+        [stage(G9_VARIANT_IDS.concept, critical === G9_VARIANT_IDS.concept), stage(critical, true)],
+        Date.now(),
+        null,
+        true,
+      );
+      expect(voided.fallback).toBe(true);
+      expect(voided.stopReason).toBe("error");
+    }
+
+    // Parts that will not assemble into a valid seed are always a refund.
+    expect(aggregateMeta([stage(G9_VARIANT_IDS.concept, false)], Date.now(), null, false)).toMatchObject(
+      { fallback: true, stopReason: "invalid_json" },
+    );
   });
 
   it("fail mode returns the deterministic world instead of throwing", async () => {

@@ -79,7 +79,24 @@ function emptyLocaleRecord<T>(make: (locale: Locale) => T): Record<Locale, T> {
   return out;
 }
 
-/** The aggregate row: summed spend, wall-clock latency, fallback if any stage fell back. */
+/**
+ * The stages that decide whether this is the player's world at all.
+ *
+ * `meta.fallback` is not a quality score — apps/api refunds 120 gems on it and fails the build.
+ * So it means *irrecoverable*: the concept (the world's identity, the only stage that reads the
+ * premise) or the bible (the cached prefix every later generation inherits) came from the template
+ * instead of the model, or the parts would not assemble into a valid seed. A cast card, an event
+ * set or an ambient pool falling back leaves a complete, coherent, playable world — the blueprint
+ * writes those in the concept's own nouns and handles — so it dents quality without voiding the
+ * purchase. Every stage still logs its own `fallback` flag, so the dashboard sees what the
+ * aggregate deliberately forgives.
+ */
+const CRITICAL_STAGES: ReadonlySet<string> = new Set([
+  G9_VARIANT_IDS.concept,
+  G9_VARIANT_IDS.bible,
+]);
+
+/** The aggregate row: summed spend, wall-clock latency, fallback only when the world is not theirs. */
 export function aggregateMeta(
   metas: readonly GenerationMeta[],
   startedAt: number,
@@ -88,13 +105,13 @@ export function aggregateMeta(
 ): GenerationMeta {
   const usage = sumUsage(metas);
   const costUsd = Math.round(metas.reduce((sum, m) => sum + m.costUsd, 0) * 1e9) / 1e9;
-  const fellBack = metas.filter((m) => m.fallback);
-  const fallback = fellBack.length > 0 || !assembledCleanly;
+  const criticalFailures = metas.filter((m) => m.fallback && CRITICAL_STAGES.has(m.variantId));
+  const fallback = criticalFailures.length > 0 || !assembledCleanly;
   const allReplay = metas.length > 0 && metas.every((m) => m.stopReason === "replay");
   const stopReason = !assembledCleanly
     ? "invalid_json"
-    : fellBack.length > 0
-      ? (fellBack[0]?.stopReason ?? "error")
+    : criticalFailures.length > 0
+      ? (criticalFailures[0]?.stopReason ?? "error")
       : allReplay
         ? "replay"
         : "end_turn";
