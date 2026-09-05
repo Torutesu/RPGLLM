@@ -15,11 +15,12 @@ import type {
   GeneratorId,
   ModelTier,
   Usage,
+  WorldSeed,
 } from "@rpgllm/shared";
 import { BATCHABLE_GENERATORS } from "@rpgllm/shared";
 import { batchStopReason, EMPTY_USAGE, priceOf } from "./cost.js";
 import { failureKindOf } from "./errors.js";
-import { modelForTier, variantFor } from "./experiments.js";
+import { modelForTier, variantFor, type GeneratorVariant } from "./experiments.js";
 import { assignmentsFor, championVariants } from "./experiments.js";
 import { g1 } from "./generators/g1.js";
 import { g2, type G2Input, type G2Output } from "./generators/g2.js";
@@ -28,6 +29,7 @@ import { g5 } from "./generators/g5.js";
 import { g7 } from "./generators/g7.js";
 import { g8 } from "./generators/g8.js";
 import { g10, type G10Input, type G10Output } from "./generators/g10.js";
+import { runG9, type G9Input } from "./generators/g9/index.js";
 import { gj, type GJInput, type GJOutput } from "./generators/gj.js";
 import { batchMaxRequests, chunkRequests, runLiveBatch, type BatchEntryStatus } from "./modes/batch.js";
 import { runFail } from "./modes/fail.js";
@@ -121,6 +123,13 @@ export interface Gateway {
   g5(input: G5Input, opts?: RunOptions): Promise<GenerationResult<G5Output>>;
   g7(input: G7Input, opts?: RunOptions): Promise<GenerationResult<G7Output>>;
   g8(input: G8Input, opts?: RunOptions): Promise<GenerationResult<G8Output>>;
+  /**
+   * AIF-003 World Studio. Five staged generators behind one call; each stage logs its own
+   * `GenerationLog` row and the returned `meta` is their aggregate (summed usage and cost,
+   * wall-clock latency, `fallback` if any stage fell back). Never throws: a failed run returns
+   * the deterministic world for `(slug, premise, genre, seed)` with `meta.fallback = true`.
+   */
+  g9(input: G9Input, opts?: RunOptions): Promise<GenerationResult<WorldSeed>>;
   g10(input: G10Input, opts?: RunOptions): Promise<GenerationResult<G10Output>>;
   gj(input: GJInput, opts?: RunOptions): Promise<GenerationResult<GJOutput>>;
   /** Batch tier (§5.4): 50% off, keyed by `customId`, never by position. */
@@ -222,15 +231,21 @@ export function createGateway(opts: GatewayOptions = {}): Gateway {
     }
   }
 
-  async function run<TIn extends { locale?: string }, TOut>(
+  // No constraint on TIn: G9's stage inputs are nested records, not the flat `BaseCtx` shape.
+  async function run<TIn, TOut>(
     spec: GeneratorSpec<TIn, TOut>,
     input: TIn,
     runOpts: RunOptions | undefined,
     userId: string | null,
     replayFn: (input: TIn) => TOut,
     seedFor: (input: TIn) => number,
+    /**
+     * G9 is five specs behind one `GeneratorId`, so its stages name their own variant instead of
+     * drawing one from the experiment registry (which allocates per generator, not per stage).
+     */
+    fixedVariant?: GeneratorVariant,
   ): Promise<GenerationResult<TOut>> {
-    const variant = variantOf(spec.id, userId, runOpts?.variantId);
+    const variant = fixedVariant ?? variantOf(spec.id, userId, runOpts?.variantId);
     const tier = runOpts?.tier ?? variant.tier;
     const model = modelForTier(tier);
     const escalatedFrom = runOpts?.escalatedFrom ?? null;
@@ -464,6 +479,29 @@ export function createGateway(opts: GatewayOptions = {}): Gateway {
     return out;
   }
 
+  /**
+   * AIF-003. The studio's stages are ordinary generator calls — same logging, same pricing, same
+   * replay clock — with their variant and tier named by the stage rather than allocated. G9 runs
+   * before a world (and often before a persona) exists, so its rows carry a null userId; apps/api
+   * attaches the world and the wallet on its side.
+   */
+  async function g9(input: G9Input, runOpts?: RunOptions): Promise<GenerationResult<WorldSeed>> {
+    return runG9(
+      input,
+      async ({ spec, variantId, tier, maxTokens, input: stageInput, replay, seed }) =>
+        run(
+          spec,
+          stageInput,
+          runOpts,
+          null,
+          replay,
+          () => seed,
+          { id: variantId, generator: "G9", tier: runOpts?.tier ?? tier, maxTokens },
+        ),
+      runOpts?.escalatedFrom ?? null,
+    );
+  }
+
   const nullUser = (): string | null => null;
 
   const batchG1 = (items: ReadonlyArray<BatchItem<G1Input>>) =>
@@ -522,6 +560,7 @@ export function createGateway(opts: GatewayOptions = {}): Gateway {
     g7: (input, runOpts) => run(g7, input, runOpts, input.userId, replayG7, () => 0),
     // G8's context carries no userId (it runs before a post exists) -> champion variant.
     g8: (input, runOpts) => run(g8, input, runOpts, null, replayG8, () => 0),
+    g9,
     g10: (input, runOpts) => run(g10, input, runOpts, input.userId, replayG10, (i) => i.seed),
     gj: (input, runOpts) => run(gj, input, runOpts, null, replayGJ, () => 0),
 

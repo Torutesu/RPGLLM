@@ -55,6 +55,12 @@ function TabBar({ activeName }: { activeName: string }) {
     // Agent K: Explore (SCR-046) is a stack route like the profile, so its tab pushes.
     { name: "explore", label: t("explore"), testID: T.tabExplore, href: "/explore" as const, push: true, badge: 0 },
     { name: "dms", label: t("dms"), testID: T.tabDms, href: "/dms" as const, push: false, badge: 0 },
+    /*
+     * WS-CLIENT: no Studio tab here. A sixth item does not fit at 390pt — "Notifications" alone
+     * needs more than a sixth of the bar, so adding one truncates two labels. The World Studio is
+     * entered from the world picker, Explore and the profile instead; see build-notes for what a
+     * `tab-studio` item would need (a short notifications label, or an icon-first bar).
+     */
     { name: "notifications", label: t("notifications"), testID: T.tabNotifications, href: "/notifications" as const, push: true, badge: notifUnread },
     { name: "profile", label: t("profile"), testID: T.tabProfile, href: "/profile" as const, push: true, badge: 0 },
   ];
@@ -83,6 +89,7 @@ function TabBar({ activeName }: { activeName: string }) {
             <View>
               <Text
                 importantForAccessibility="no"
+                numberOfLines={1}
                 style={{ color: active ? colors.accent : colors.textMuted, fontSize: font.sm, fontWeight: "700" }}
               >
                 {it.label}

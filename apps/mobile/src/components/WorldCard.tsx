@@ -29,7 +29,11 @@ function seeded(seed: number): () => number {
   };
 }
 
-function WorldCover({ slug, height }: { slug: string; height: number }) {
+/**
+ * The generated cover. Exported because the World Studio (SCR-049/050) paints the same art for a
+ * world a player just made — a brand-new world has no image to fetch and never will.
+ */
+export function WorldCover({ slug, height }: { slug: string; height: number }) {
   const art = useMemo(() => {
     const seed = hashString(slug);
     const rnd = seeded(seed);

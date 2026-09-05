@@ -101,6 +101,31 @@ export default function ProfileScreen() {
             </View>
           ) : null}
 
+          {/*
+            WS-CLIENT: the way into SCR-050. No testid: `studio-my-worlds` names the list on that
+            screen, and this row stays mounted underneath it once pushed, so sharing the id would
+            make it match twice (build-notes).
+          */}
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={t("studioMyWorlds")}
+            onPress={() => router.push("/studio/worlds")}
+            style={({ pressed }) => ({
+              flexDirection: "row",
+              alignItems: "center",
+              justifyContent: "space-between",
+              paddingVertical: spacing.md,
+              paddingHorizontal: spacing.lg,
+              borderRadius: radius.md,
+              borderWidth: 1,
+              borderColor: colors.border,
+              backgroundColor: pressed ? colors.cardHi : colors.card,
+            })}
+          >
+            <Text style={{ color: colors.text, fontSize: font.md, fontWeight: "700" }}>{t("studioMyWorlds")}</Text>
+            <Text style={{ color: colors.textMuted, fontSize: font.sm }}>›</Text>
+          </Pressable>
+
           {/* Agent L: the way into SCR-044. */}
           <Pressable
             testID={T.achievementsOpen}

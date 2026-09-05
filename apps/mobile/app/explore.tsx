@@ -3,10 +3,14 @@ import { Pressable, ScrollView, Text, View } from "react-native";
 import { router } from "expo-router";
 import { HEAT, T, colors, compactNumber, identityFor, layout, radius, spacing } from "@rpgllm/shared";
 import { useActions, useAppState, useT } from "../src/state/store";
+import type { PersonaDraft } from "../src/state/store";
 import { Card, HeaderBar, Screen, SectionHeader } from "../src/components/ui";
 import { Avatar } from "../src/components/Avatar";
 import { titleFromSlug } from "../src/components/WorldChip";
-import { api, type Trending } from "../src/api/client";
+import { api, type Trending, type WorldFull } from "../src/api/client";
+import { StudioPromoCard } from "../src/components/StudioPromoCard";
+import { StudioWorldCard } from "../src/components/StudioWorldCard";
+import { Empty } from "../src/components/Empty";
 import { AnimatedNumber, FadeSlideIn, Gradient, Icon, typo } from "../src/ui";
 
 /**
@@ -177,11 +181,13 @@ function RisingRail({ rising }: { rising: Trending["risingCharacters"] }) {
 
 export default function ExploreScreen() {
   const { me, worlds } = useAppState();
-  const { loadWorlds } = useActions();
+  const { loadWorlds, setDraft } = useActions();
   const { t } = useT();
   const personaId = me?.persona?.id ?? null;
   const [trending, setTrending] = useState<Trending | null>(null);
   const [failed, setFailed] = useState(false);
+  /** `null` until `/v1/worlds/public` answers; an empty array is a real "nobody has published yet". */
+  const [community, setCommunity] = useState<WorldFull[] | null>(null);
 
   const load = useCallback(async () => {
     if (!personaId) return;
@@ -199,6 +205,40 @@ export default function ExploreScreen() {
   useEffect(() => {
     if (!worlds) void loadWorlds();
   }, [loadWorlds, worlds]);
+
+  /**
+   * Worlds other players made. Loaded on its own so the rest of Explore is never held up by it,
+   * and so a 404 (WS-API still landing) simply leaves the section out instead of breaking the page.
+   */
+  useEffect(() => {
+    let alive = true;
+    void api
+      .publicWorlds()
+      .then((res) => {
+        if (alive) setCommunity(res.worlds);
+      })
+      .catch(() => {
+        if (alive) setCommunity(null);
+      });
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  /** A community world enters the normal flow: pick it, make a persona, play. */
+  const enterCommunityWorld = (w: WorldFull) => {
+    const draft: PersonaDraft = {
+      worldId: w.id,
+      worldSlug: w.slug,
+      handle: "",
+      displayName: "",
+      bio: "",
+      avatarUrl: null,
+      voiceNotes: "",
+    };
+    setDraft(draft);
+    router.push({ pathname: "/onboarding/persona", params: { worldId: w.id } });
+  };
 
   const worldSlug = me?.persona?.worldSlug ?? "";
   const worldTitle = useMemo(() => {
@@ -241,6 +281,38 @@ export default function ExploreScreen() {
 
         <SectionHeader title={t("rising")} />
         <RisingRail rising={trending?.risingCharacters ?? []} />
+
+        {/* Made by players — the reason Explore keeps changing after the three fixed worlds. */}
+        <SectionHeader title={t("studioCommunity")} />
+        <View testID={T.communityWorlds} style={{ paddingHorizontal: spacing.lg, gap: spacing.md }}>
+          {(community ?? []).map((w) => (
+            <StudioWorldCard
+              key={w.id}
+              world={w}
+              showCreator
+              testID={T.communityWorldCard(w.slug)}
+              onPress={() => enterCommunityWorld(w)}
+            />
+          ))}
+          {community !== null && community.length === 0 ? (
+            <Empty
+              testID={T.communityWorldsEmpty}
+              compact
+              icon="sparkle"
+              title={t("studioCommunityEmpty")}
+              actionLabel={t("studioCreate")}
+              onAction={() => router.push("/studio")}
+            />
+          ) : null}
+          {community === null ? (
+            <StudioPromoCard compact onPress={() => router.push("/studio")} />
+          ) : null}
+        </View>
+        {community !== null && community.length > 0 ? (
+          <View style={{ paddingHorizontal: spacing.lg, paddingTop: spacing.md }}>
+            <StudioPromoCard compact onPress={() => router.push("/studio")} />
+          </View>
+        ) : null}
 
         <SectionHeader title={t("pickStory")} />
         {otherWorlds.map((w) => {

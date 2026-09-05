@@ -12,7 +12,9 @@ import {
   TrendingResZ, CharacterProfileResZ,
   // Engagement (Agent L): notifications / streak / achievements.
   NotificationsResZ, MarkNotificationsReadResZ, StreakResZ, AchievementsResZ,
-  type ErrorCode, type Locale, type PlanId, type ReportReason,
+  // World Studio (SCR-048/049/050): create a world from one line, watch it build, publish it.
+  CreateWorldResZ, WorldStatusResZ, PublishWorldResZ, MyWorldsResZ, PublicWorldsResZ,
+  type ErrorCode, type Locale, type PlanId, type ReportReason, type WorldGenre,
 } from "@rpgllm/shared";
 import { API_BASE, g } from "../env";
 import { getToken } from "../auth/token";
@@ -47,7 +49,20 @@ export function setApiHandlers(h: ApiHandlers): void {
 
 type Schema<T> = { parse: (u: unknown) => T };
 type Query = Record<string, string | number | null | undefined>;
-type Options<T> = { method?: "GET" | "POST"; body?: unknown; query?: Query; schema: Schema<T>; auth?: boolean };
+type Options<T> = {
+  method?: "GET" | "POST";
+  body?: unknown;
+  query?: Query;
+  schema: Schema<T>;
+  auth?: boolean;
+  /**
+   * Whether a failure may drive app-wide UI. The default is `true`: a 402 opens the energy modal
+   * and a 5xx raises a toast. World Studio opts out — its 402 means *gems*, not energy, and the
+   * screen shows the price and the way to buy inline, so bouncing to the energy modal would be a
+   * lie. 401 always signs out regardless.
+   */
+  globalErrors?: boolean;
+};
 
 function statusToCode(status: number): ErrorCode {
   if (status === 401) return "UNAUTHORIZED";
@@ -89,7 +104,7 @@ export async function request<T>(path: string, opts: Options<T>): Promise<T> {
     });
   } catch (e) {
     const err = new ApiError("INTERNAL", 0, e instanceof Error ? e.message : "network error");
-    handlers.onNetworkError?.(err);
+    if (opts.globalErrors !== false) handlers.onNetworkError?.(err);
     throw err;
   }
 
@@ -106,11 +121,12 @@ export async function request<T>(path: string, opts: Options<T>): Promise<T> {
     const code = parsed.success ? parsed.data.code : statusToCode(res.status);
     const message = parsed.success ? parsed.data.message : `HTTP ${res.status}`;
     const err = new ApiError(code, res.status, message);
-    if (err.isEnergy) handlers.onEnergyRequired?.(err);
+    const global = opts.globalErrors !== false;
+    if (global && err.isEnergy) handlers.onEnergyRequired?.(err);
     // Only a rejected *session* signs the user out; a 401 on a request that carried no bearer
     // would otherwise wipe a token that was simply not loaded yet.
     if (res.status === 401 && sentToken) handlers.onUnauthorized?.(err);
-    if (res.status >= 500) handlers.onNetworkError?.(err);
+    if (global && res.status >= 500) handlers.onNetworkError?.(err);
     throw err;
   }
 
@@ -273,6 +289,29 @@ export const api = {
   character: (character: string, personaId?: string) =>
     request(`/characters/${encodeURIComponent(character)}`, { query: { personaId }, schema: CharacterProfileResZ }),
 
+  /* ---------- World Studio (AIF-003, SCR-048/049/050) ---------- */
+
+  /**
+   * One line in, a world out. Charges gems, so the failures are meaningful and are handled by the
+   * screen rather than by a global modal: 402 = not enough gems, 422 = the premise was blocked,
+   * 429 = the daily build limit.
+   */
+  createWorld: (body: { premise: string; genre: WorldGenre; locale: Locale; visibility: "private" | "unlisted" | "public" }) =>
+    request("/worlds", { method: "POST", body, schema: CreateWorldResZ, globalErrors: false }),
+  /** Polled while the world builds; `progress` (0..1) and `cast` turn the wait into a beat. */
+  worldStatus: (id: string) =>
+    request(`/worlds/${encodeURIComponent(id)}/status`, { schema: WorldStatusResZ, globalErrors: false }),
+  /** Public asks for human review; unlisted and private take effect immediately. */
+  publishWorld: (id: string, visibility: "private" | "unlisted" | "public") =>
+    request(`/worlds/${encodeURIComponent(id)}/publish`, {
+      method: "POST", body: { visibility }, schema: PublishWorldResZ, globalErrors: false,
+    }),
+  /** SCR-050 — the player's own worlds, plus how many builds are left today. */
+  myWorlds: () => request("/worlds/mine", { schema: MyWorldsResZ, globalErrors: false }),
+  /** Explore's "made by players" rail. Cursor-paged. */
+  publicWorlds: (cursor?: string | null) =>
+    request("/worlds/public", { query: { cursor }, schema: PublicWorldsResZ, globalErrors: false }),
+
   /** S2-2 — Expo push token. */
   registerPush: (token: string, platform: "ios" | "android" | "web") =>
     request("/push/register", { method: "POST", body: { token, platform }, schema: RegisterPushResZ }),
@@ -290,5 +329,14 @@ export type CharacterProfile = Awaited<ReturnType<typeof api.character>>;
 export type NotificationsRes = Awaited<ReturnType<typeof api.notifications>>;
 export type Notification = NotificationsRes["notifications"][number];
 export type Streak = Awaited<ReturnType<typeof api.streak>>;
+/** World Studio. */
+export type CreateWorldRes = Awaited<ReturnType<typeof api.createWorld>>;
+export type WorldStatusRes = Awaited<ReturnType<typeof api.worldStatus>>;
+export type WorldFull = WorldStatusRes["world"];
+export type WorldCastMember = WorldStatusRes["cast"][number];
+export type MyWorldsRes = Awaited<ReturnType<typeof api.myWorlds>>;
+export type PublicWorldsRes = Awaited<ReturnType<typeof api.publicWorlds>>;
+export type WorldVisibility = WorldFull["visibility"];
+export type WorldBuildStatus = WorldFull["status"];
 export type AchievementsRes = Awaited<ReturnType<typeof api.achievements>>;
 export type Achievement = AchievementsRes["achievements"][number];

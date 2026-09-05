@@ -9,6 +9,7 @@ import { SkeletonList } from "../../src/components/Skeleton";
 import { Aurora, StepDots } from "../../src/components/Brand";
 import { FadeSlideIn, typo } from "../../src/ui";
 import { WorldCard } from "../../src/components/WorldCard";
+import { StudioPromoCard } from "../../src/components/StudioPromoCard";
 import type { Character, WorldSummary } from "../../src/api/types";
 
 /** SCR-003 — three worlds, three covers, one tap. Step 1 of the first run. */
@@ -89,6 +90,16 @@ export default function ScenarioPicker() {
                 <WorldCard world={w} cast={cast[w.id] ?? []} onPress={() => choose(w)} testID={T.worldCard(w.slug)} />
               </FadeSlideIn>
             ))}
+
+            {/*
+              SCR-048 entry point. Last card in the picker on purpose: by the time you have read
+              three worlds you know exactly what one is, which is the moment "make your own" lands.
+            */}
+            {worldsStatus !== "loading" || worlds ? (
+              <FadeSlideIn delay={(worlds ?? []).length * 70} distance={14}>
+                <StudioPromoCard testID={T.studioOpen} onPress={() => router.push("/studio")} />
+              </FadeSlideIn>
+            ) : null}
           </View>
         </View>
       </ScrollView>
