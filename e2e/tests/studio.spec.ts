@@ -1,5 +1,5 @@
 import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
-import { T, WORLD_STUDIO } from "@rpgllm/shared";
+import { T, WORLD_MODERATION, WORLD_STUDIO, strings } from "@rpgllm/shared";
 import {
   apiSignup, apiUrl, bearer, gotoApp, loginInBrowser, resetDb, ROUTES, setLlmMode,
   unwrap, wallet, worldPresets, type Account,
@@ -24,7 +24,7 @@ const GENRE = "idol";
 
 interface StudioWorld {
   id: string; slug: string; title: string; status: string; visibility: string;
-  playCount: number; creatorHandle: string | null; reason: string | null;
+  playCount: number; creatorHandle: string | null; reason: string | null; pulled: boolean;
 }
 
 /* --------------------------------------------------------------- helpers ---- */
@@ -49,6 +49,31 @@ async function myWorlds(request: APIRequestContext, jwt: string): Promise<Studio
 async function publicWorlds(request: APIRequestContext, jwt: string): Promise<StudioWorld[]> {
   const res = await request.get(apiUrl("/v1/worlds/public"), { headers: bearer(jwt), failOnStatusCode: false });
   return (await unwrap<{ worlds: StudioWorld[] }>(res, "GET /v1/worlds/public")).worlds;
+}
+
+/** A small JSON call with a bearer, asserting success unless the case wants a specific refusal. */
+async function call(
+  request: APIRequestContext, jwt: string, method: "GET" | "POST", path: string, data?: unknown,
+): Promise<void> {
+  const res = method === "GET"
+    ? await request.get(apiUrl(path), { headers: bearer(jwt), failOnStatusCode: false })
+    : await request.post(apiUrl(path), { headers: bearer(jwt), data, failOnStatusCode: false });
+  await unwrap(res, `${method} ${path}`);
+}
+
+async function reportWorld(
+  request: APIRequestContext, jwt: string, worldId: string, opts: { expectStatus?: number } = {},
+): Promise<void> {
+  const res = await request.post(apiUrl("/v1/moderation/report"), {
+    headers: bearer(jwt),
+    data: { target: "world", targetId: worldId, reason: "other", note: "" },
+    failOnStatusCode: false,
+  });
+  if (opts.expectStatus !== undefined) {
+    expect(res.status(), "a second report from the same account must not count again").toBe(opts.expectStatus);
+    return;
+  }
+  await unwrap(res, "POST /v1/moderation/report");
 }
 
 /** Open SCR-048 the way a player does: the last card in the world picker. */
@@ -243,5 +268,88 @@ test.describe("World Studio", () => {
     // Refunding twice would be a free world: run the job again and check the balance holds.
     await buildWorlds(request);
     expect((await wallet(request, account.jwt)).gems, "the refund happens exactly once").toBe(before);
+  });
+  /* -------------------------------------------------------------- E2E-034 ---- */
+
+  /**
+   * A human approving a world once is not the same as it staying fine. Reports are the only signal
+   * that scales with the audience, so enough of them take a live world off the shelf without
+   * anybody having to notice — and one angry player must not be able to do it alone.
+   */
+  test("E2E-034: enough reporters take a live world off the shelf", async ({ page, request }) => {
+    const author = await apiSignup(request);
+    await loginInBrowser(page, author.jwt);
+    const world = await buildAWorld(page, request, author);
+
+    await call(request, author.jwt, "POST", `/v1/worlds/${world.id}/publish`, { visibility: "public" });
+    await call(request, author.jwt, "POST", `/v1/admin/worlds/${world.id}/review`, { decision: "approve", reason: "" });
+
+    const watcher = await apiSignup(request);
+    expect((await publicWorlds(request, watcher.jwt)).map((w) => w.id), "an approved world is on the shelf")
+      .toContain(world.id);
+
+    // Under the threshold, nothing happens — and the same person twice is still one person.
+    const reporters = [];
+    for (let i = 0; i < WORLD_MODERATION.REPORTS_TO_PULL - 1; i += 1) reporters.push(await apiSignup(request));
+    for (const reporter of reporters) await reportWorld(request, reporter.jwt, world.id);
+    await reportWorld(request, reporters[0]!.jwt, world.id, { expectStatus: 409 });
+
+    expect((await publicWorlds(request, watcher.jwt)).map((w) => w.id), "a world under the threshold stays up")
+      .toContain(world.id);
+
+    // The last one goes through the UI, because the entry point is half the feature.
+    const last = await apiSignup(request);
+    await loginInBrowser(page, last.jwt);
+    await gotoApp(page, "/explore");
+    const card = page.getByTestId(T.communityWorldCard(world.slug));
+    await expect(card, "the world must be findable in Explore before it is reported").toBeVisible({ timeout: 15_000 });
+    await card.getByTestId(T.reportWorld).click();
+    await page.getByTestId(T.reportReason("other")).click();
+    await page.getByTestId(T.reportSubmit).click();
+    await expect(page.getByTestId(T.reportDone), "the report must be acknowledged").toBeVisible({ timeout: 15_000 });
+
+    // Off the shelf, back in the queue, and marked as a takedown rather than a fresh submission.
+    expect((await publicWorlds(request, watcher.jwt)).map((w) => w.id), "the reported world leaves Explore")
+      .not.toContain(world.id);
+
+    const mine = await myWorlds(request, author.jwt);
+    expect(mine[0]?.status, "it goes back to a person").toBe("review");
+    expect(mine[0]?.pulled, "and the creator is told which kind of review this is").toBe(true);
+
+    // Pulling is not deleting: its creator still has it.
+    const stillTheirs = await request.get(apiUrl(`/v1/worlds/${world.id}`), {
+      headers: bearer(author.jwt), failOnStatusCode: false,
+    });
+    expect(stillTheirs.status(), "a pulled world stays playable by its creator").toBe(200);
+  });
+
+  /* -------------------------------------------------------------- E2E-035 ---- */
+
+  test("E2E-035: a turned-down world cannot be bounced straight back at the queue", async ({ page, request }) => {
+    const author = await apiSignup(request);
+    await loginInBrowser(page, author.jwt);
+    const world = await buildAWorld(page, request, author);
+
+    await call(request, author.jwt, "POST", `/v1/worlds/${world.id}/publish`, { visibility: "public" });
+    await call(request, author.jwt, "POST", `/v1/admin/worlds/${world.id}/review`, {
+      decision: "reject", reason: "Reads as an existing show with the names changed.",
+    });
+
+    await gotoApp(page, `/studio/${world.id}`);
+    // The creator is told what was wrong, in the reviewer's own words.
+    await expect(page.getByText("Reads as an existing show with the names changed."))
+      .toBeVisible({ timeout: 15_000 });
+
+    // The offer stands until the server refuses it, and then it is withdrawn rather than left to fail.
+    const publish = page.getByTestId(T.studioPublish);
+    await expect(publish).toBeVisible();
+    await publish.click();
+    await expect(page.getByText(strings.en.studioResubmitWait), "a refused resubmit says why")
+      .toBeVisible({ timeout: 15_000 });
+    await expect(publish, "and the button that cannot work stops being offered").toHaveCount(0);
+
+    // Turned down for Explore is not confiscated.
+    await expect(page.getByTestId(T.studioPlay), "a rejected world is still the creator's to play").toBeVisible();
+    expect((await myWorlds(request, author.jwt))[0]?.status).toBe("rejected");
   });
 });
