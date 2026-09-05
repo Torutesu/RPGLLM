@@ -199,3 +199,39 @@ export const JOBS = [
   { name: "bandit-update", schedule: "15 * * * *", description: "refresh arm posteriors and check guardrails" },
 ] as const;
 export type JobName = (typeof JOBS)[number]["name"];
+
+/* ============================================================
+ * World Studio (AIF-003)
+ * ========================================================== */
+
+/**
+ * A world is one Opus 5 call at high effort producing two full locales, so it is by far the most
+ * expensive thing a user can trigger. It is priced in gems and rate-limited per day; without both
+ * a single account could run the month's model budget in an afternoon.
+ */
+export const WORLD_STUDIO = {
+  GEM_COST: 120,
+  /** per account per UTC day, regardless of gems */
+  DAILY_LIMIT: 3,
+  /** Plus subscribers get more headroom, not free worlds */
+  DAILY_LIMIT_PLUS: 8,
+  /** the generator must clear this or the world is rejected before anyone plays it */
+  MIN_BIBLE_TOKENS: 4096,
+  CAST_SIZE: 8,
+  PRESET_PERSONAS: 7,
+  PRESET_EVENTS: 5,
+  AMBIENT_PER_LOCALE: 22,
+} as const;
+
+export const WORLD_GENRES = ["fame", "academy", "idol", "office", "sports", "fantasy", "mystery", "slice_of_life"] as const;
+export type WorldGenre = (typeof WORLD_GENRES)[number];
+
+/**
+ * A user-written premise is untrusted input that becomes a system prompt, so it is checked before
+ * generation and the generated world is checked again before anyone can publish it. These are the
+ * categories that must fail closed for a 13+ app.
+ */
+export const WORLD_PREMISE_BLOCKED = [
+  "sexual_minor", "sexual_explicit", "real_person", "hate", "self_harm", "violence_graphic",
+  "illegal", "prompt_injection",
+] as const;

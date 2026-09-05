@@ -103,6 +103,7 @@ model User {
   pushTokens       PushToken[]
   referralsSent    Referral[]             @relation("inviter")
   referralUsed     Referral?              @relation("invitee")
+  worldsCreated    World[]                @relation("worldCreator")
 
   @@unique([authProvider, authSubject])
   @@index([deletedAt])
@@ -144,21 +145,67 @@ model Persona {
 
 /// teardown: World
 model World {
-  id          String           @id @default(cuid())
-  slug        String           @unique // popstar-era, magic-academy, idol-survival
+  id          String    @id @default(cuid())
+  slug        String    @unique // popstar-era, magic-academy, idol-survival
   title       Json // {en, ja}
   scenario    Json // {en, ja} 1行シナリオ
   bible       Json // {en: string, ja: string} G9 出力そのまま(=キャッシュ用 system[1])
   bibleTokens Int // count_tokens で計測(>=4096 を CI で assert)
-  mode        WorldMode        @default(single)
-  isPreset    Boolean          @default(true)
-  difficulty  Int              @default(2) // ★の数
+  mode        WorldMode @default(single)
+  isPreset    Boolean   @default(true)
+  difficulty  Int       @default(2) // ★の数
   coverUrl    String?
   createdBy   String?
-  createdAt   DateTime         @default(now())
+  creator     User?     @relation("worldCreator", fields: [createdBy], references: [id], onDelete: SetNull)
+  createdAt   DateTime  @default(now())
+
+  /// ユーザー生成ワールド(AIF-003)の状態機械。プリセットは常に published。
+  status         WorldStatus     @default(published)
+  /// private=作者だけが遊べる / unlisted=リンクを知る人だけ / public=Explore に出る
+  visibility     WorldVisibility @default(private)
+  /// ユーザーが入力した 1 行。生成の入力であり、通報時に人が読む一次資料でもある
+  premise        String          @default("")
+  /// 生成前後の安全判定。block は生成させない/公開させない
+  safety         SafetyVerdict?
+  safetyNote     String          @default("")
+  /// 公開申請の審査記録
+  reviewedAt     DateTime?
+  reviewedBy     String?
+  rejectedReason String          @default("")
+  /// 生成失敗時のメッセージ(ユーザーに見せる)
+  failureReason  String          @default("")
+  /// この生成にかかった費用。1 ワールドが Opus 5 の高 effort なので必ず記録する
+  generationId   String?
+  playCount      Int             @default(0)
+
   characters  WorldCharacter[]
   personas    Persona[]
   ambientPool AmbientPost[]
+
+  @@index([status, visibility, createdAt])
+  @@index([createdBy, createdAt])
+}
+
+/// ユーザー生成ワールドのライフサイクル。
+enum WorldStatus {
+  /// 1 行を受け取っただけ。生成待ち
+  draft
+  /// G9 実行中
+  generating
+  /// 生成済み。作者は遊べる
+  ready
+  /// 公開申請中(人の審査待ち)
+  review
+  /// 公開済み
+  published
+  /// 生成失敗、または審査で却下
+  rejected
+}
+
+enum WorldVisibility {
+  private
+  unlisted
+  public
 }
 
 /// teardown: CharacterTemplate + WorldCharacter を MVP では1つに統合(プリセットのみ)

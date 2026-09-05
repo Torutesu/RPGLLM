@@ -481,3 +481,67 @@ export const JobsResZ = z.object({
   })),
 });
 export const RunJobReqZ = z.object({ job: z.string(), personaId: z.string().nullable().default(null) });
+
+/* ============================================================
+ * World Studio (AIF-003) — one line in, a playable world out
+ * ========================================================== */
+
+export const WorldStatusZ = z.enum(["draft", "generating", "ready", "review", "published", "rejected"]);
+export const WorldVisibilityZ = z.enum(["private", "unlisted", "public"]);
+
+/** Genre steers the generator without the player having to write a design document. */
+export const WorldGenreZ = z.enum(["fame", "academy", "idol", "office", "sports", "fantasy", "mystery", "slice_of_life"]);
+
+export const CreateWorldReqZ = z.object({
+  /** the one line the whole world is generated from */
+  premise: z.string().min(8).max(200),
+  genre: WorldGenreZ,
+  locale: LocaleZ,
+  /** created private; publishing is a separate, reviewed step */
+  visibility: WorldVisibilityZ.default("private"),
+});
+
+export const WorldSummaryFullZ = WorldSummaryZ.extend({
+  status: WorldStatusZ,
+  visibility: WorldVisibilityZ,
+  premise: z.string(),
+  isPreset: z.boolean(),
+  isMine: z.boolean(),
+  creatorHandle: z.string().nullable(),
+  playCount: z.number().int(),
+  castCount: z.number().int(),
+  createdAt: z.string(),
+  /** only set while status is rejected or the generation failed */
+  reason: z.string().nullable(),
+});
+export const CreateWorldResZ = z.object({
+  world: WorldSummaryFullZ,
+  /** what the create cost, so the client can show it rather than silently draining a wallet */
+  charged: z.object({ gems: z.number().int(), remaining: z.number().int() }),
+});
+export const WorldStatusResZ = z.object({
+  world: WorldSummaryFullZ,
+  /** 0..1 while generating, so the wait can be a beat rather than a spinner */
+  progress: z.number(),
+  cast: z.array(z.object({ handle: z.string(), displayName: z.string(), role: z.string(), intro: z.string() })),
+});
+export const MyWorldsResZ = z.object({
+  worlds: z.array(WorldSummaryFullZ),
+  /** how many more this account may create today */
+  remainingToday: z.number().int(),
+});
+export const PublicWorldsResZ = z.object({ worlds: z.array(WorldSummaryFullZ), nextCursor: z.string().nullable() });
+
+export const PublishWorldReqZ = z.object({ visibility: WorldVisibilityZ });
+export const PublishWorldResZ = z.object({ world: WorldSummaryFullZ, needsReview: z.boolean() });
+
+/** Admin review queue for worlds asking to go public. */
+export const WorldReviewQueueResZ = z.object({
+  worlds: z.array(WorldSummaryFullZ.extend({
+    bibleExcerpt: z.string(),
+    cast: z.array(z.object({ handle: z.string(), displayName: z.string(), role: z.string() })),
+    safety: z.string().nullable(),
+    safetyNote: z.string(),
+  })),
+});
+export const ReviewWorldReqZ = z.object({ decision: z.enum(["approve", "reject"]), reason: z.string().max(300).default("") });

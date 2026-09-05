@@ -1,0 +1,1 @@
+-- placeholder: intentionally empty (the DDL landed in 20260905001454_user_created_worlds)
