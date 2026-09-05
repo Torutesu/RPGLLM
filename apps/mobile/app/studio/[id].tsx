@@ -11,7 +11,7 @@ import { StudioStatusBadge } from "../../src/components/StudioWorldCard";
 import { WorldCover } from "../../src/components/WorldCard";
 import { useActions, useT } from "../../src/state/store";
 import { useWorldStatus } from "../../src/studio/useWorldStatus";
-import { isPlayable } from "../../src/studio/labels";
+import { isFailedBuild, isPlayable } from "../../src/studio/labels";
 import { shareWorldLink, worldShareUrl } from "../../src/studio/share";
 import { Burst, FadeSlideIn, Icon, PressScale, typo } from "../../src/ui";
 
@@ -98,12 +98,12 @@ export default function StudioWorldScreen() {
   }, [ready]);
 
   /**
-   * `rejected` covers two different stories. A world that never got a cast failed to generate and
-   * its gems were refunded; a world with a cast was reviewed and turned down for Explore, and is
-   * still perfectly playable in private.
+   * Two different "no". `draft` is a build that died — the server refunds and drops the world back
+   * there, so there is nothing to play and nothing to review. `rejected` is a finished world a
+   * human turned down for Explore, which is still perfectly playable in private.
    */
-  const buildFailed = world?.status === "rejected" && world.castCount === 0;
-  const reviewRejected = world?.status === "rejected" && world.castCount > 0;
+  const buildFailed = world ? isFailedBuild(world.status) : false;
+  const reviewRejected = world?.status === "rejected";
 
   /** No world yet and the poll gave up: the screen shows the failure, not a bar that never moves. */
   const showBuilding = world ? !ready && !buildFailed && !reviewRejected : phase !== "error";

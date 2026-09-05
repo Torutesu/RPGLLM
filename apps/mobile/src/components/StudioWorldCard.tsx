@@ -54,7 +54,7 @@ export function StudioStatusBadge({
     >
       {isBuilding(status) ? (
         <Icon name="sparkle" size={11} color={tint} filled />
-      ) : status === "rejected" ? (
+      ) : status === "rejected" || status === "draft" ? (
         <Icon name="shield" size={11} color={tint} />
       ) : status === "review" ? (
         <Icon name="clock" size={11} color={tint} />

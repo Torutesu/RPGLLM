@@ -58,7 +58,9 @@ export const VISIBILITY_HINT: Record<WorldVisibility, StringKey> = {
  * `studioPublished` in build-notes.
  */
 export const STATUS_LABEL: Record<WorldBuildStatus, StringKey> = {
-  draft: "studioDraft",
+  // The API only ever lands a world in `draft` after a build died and refunded it, so `draft` is
+  // what a failed build looks like on a card — not an unfinished thing the player left lying about.
+  draft: "studioFailed",
   generating: "studioBuilding",
   ready: "studioReady",
   review: "studioInReview",
@@ -67,7 +69,8 @@ export const STATUS_LABEL: Record<WorldBuildStatus, StringKey> = {
 };
 
 export const STATUS_TINT: Record<WorldBuildStatus, string> = {
-  draft: colors.textMuted,
+  // A dead build, not a doodle — muted grey read as "unfinished, your move" and it is neither.
+  draft: colors.negative,
   generating: colors.accentHi,
   ready: colors.positive,
   review: colors.warning,
@@ -75,8 +78,17 @@ export const STATUS_TINT: Record<WorldBuildStatus, string> = {
   rejected: colors.danger,
 };
 
-/** A state that is still moving, so the card polls / shimmers rather than sitting there. */
-export const isBuilding = (s: WorldBuildStatus): boolean => s === "generating" || s === "draft";
+/**
+ * A state that is still moving, so the card polls / shimmers rather than sitting there.
+ *
+ * `draft` is deliberately NOT here. The server writes it when a build has died and the gems have
+ * been refunded — treating it as "still building" is what made the build screen poll a dead world
+ * forever (E2E-033).
+ */
+export const isBuilding = (s: WorldBuildStatus): boolean => s === "generating";
+
+/** A build that died. Its gems are back and the player can start another one. */
+export const isFailedBuild = (s: WorldBuildStatus): boolean => s === "draft";
 
 /** A state a player can actually play. */
 export const isPlayable = (s: WorldBuildStatus): boolean =>

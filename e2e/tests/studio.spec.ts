@@ -29,12 +29,16 @@ interface StudioWorld {
 
 /* --------------------------------------------------------------- helpers ---- */
 
-/** The build is a scheduled job; there is no cron in this build, so E2E drives it explicitly. */
+/**
+ * The build is a scheduled job; there is no cron in this build, so E2E drives it explicitly.
+ * `/v1/__test/run-job` only knows the three legacy aliases, so this goes through the real job
+ * runner (`/v1/jobs/run`, open while TEST_HOOKS=1) and drives `world-build` by its own name.
+ */
 async function buildWorlds(request: APIRequestContext): Promise<void> {
-  const res = await request.post(apiUrl("/v1/__test/run-job"), {
+  const res = await request.post(apiUrl("/v1/jobs/run"), {
     data: { job: "world-build" }, failOnStatusCode: false,
   });
-  await unwrap(res, "POST /v1/__test/run-job world-build");
+  await unwrap(res, "POST /v1/jobs/run world-build");
 }
 
 async function myWorlds(request: APIRequestContext, jwt: string): Promise<StudioWorld[]> {
@@ -84,6 +88,11 @@ async function buildAWorld(page: Page, request: APIRequestContext, account: Acco
 test.describe("World Studio", () => {
   test.beforeEach(async ({ request }) => {
     await resetDb(request);
+    await setLlmMode(request, "replay");
+  });
+
+  // E2E-033 puts the gateway in fail mode; the mode is process-wide, so put it back.
+  test.afterEach(async ({ request }) => {
     await setLlmMode(request, "replay");
   });
 
