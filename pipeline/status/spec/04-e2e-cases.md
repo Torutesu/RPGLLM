@@ -219,3 +219,13 @@
 - screens: [SCR-049]
 - steps: Given `LLM_MODE=fail` / When 世界を作成する / Then 失敗が明示され、返金済みと表示される。ウォレットのジェムは作成前と同じで、返金は 1 回だけ
 - priority: P0
+
+## E2E-034: 通報が一定数を超えると公開ワールドが棚から下りる
+- screens: [SCR-046, SCR-050]
+- steps: Given 承認済みで公開中のワールドがある / When 別々のプレイヤー `WORLD_MODERATION.REPORTS_TO_PULL` 人が通報する / Then 発見タブから消え、審査キューに `pulled` として戻る。作成者はそのまま遊べる。同一人物の重複通報では下りない
+- priority: P0
+
+## E2E-035: 却下されたワールドはクールダウン中に再申請できない
+- screens: [SCR-049]
+- steps: Given 審査で却下されたワールドがある / When すぐに再度「みんなに公開する」を押す / Then 断られ、`studioResubmitWait` が出る。自分だけの世界としては遊べたまま
+- priority: P1
