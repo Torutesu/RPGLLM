@@ -178,6 +178,17 @@ model World {
   generationId   String?
   playCount      Int             @default(0)
 
+  /// 生成入力。G9 を呼ぶのはリクエストではなくジョブなので、行に残しておく必要がある
+  genre     String  @default("")
+  genLocale Locale?
+  /// G9 が返した WorldSeed そのもの。プリセットは `seed-fallback` / @rpgllm/llm を読むが、
+  /// ユーザー生成ワールドはここが唯一の出所(services/world-seeds.ts の DB フォールバック)
+  seed      Json?
+  /// ジョブが掴んだ時刻。null = 未着手。タイムアウト掃除がこれを見る
+  buildStartedAt DateTime?
+  /// 返金は一度きり。ここが埋まっている行は二度と返金されない
+  refundedAt     DateTime?
+
   characters  WorldCharacter[]
   personas    Persona[]
   ambientPool AmbientPost[]

@@ -12,6 +12,11 @@ export const ErrorCodeZ = z.enum([
   "ACCOUNT_DELETED",
   /** S1-2 the target is blocked by this persona (409) */
   "BLOCKED",
+  /** World Studio: not enough gems to build a world (402) */
+  "GEMS_REQUIRED",
+  /** World Studio: today's world-building allowance is spent (429) — distinct from RATE_LIMITED
+   *  so the client can say "come back tomorrow" instead of "slow down". */
+  "WORLD_LIMIT",
 ]);
 export type ErrorCode = z.infer<typeof ErrorCodeZ>;
 export const ApiErrorZ = z.object({ code: ErrorCodeZ, message: z.string() });

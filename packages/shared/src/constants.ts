@@ -197,6 +197,7 @@ export const JOBS = [
   { name: "purge-login-codes", schedule: "*/15 * * * *", description: "drop expired one-time login codes" },
   { name: "push-receipts", schedule: "*/20 * * * *", description: "read Expo receipts and prune dead device tokens" },
   { name: "bandit-update", schedule: "15 * * * *", description: "refresh arm posteriors and check guardrails" },
+  { name: "world-build", schedule: "* * * * *", description: "generate player-created worlds (G9) and sweep stuck builds" },
 ] as const;
 export type JobName = (typeof JOBS)[number]["name"];
 

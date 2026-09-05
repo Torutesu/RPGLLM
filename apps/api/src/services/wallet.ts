@@ -1,5 +1,5 @@
 import type { PrismaClient, Subscription, Wallet } from "@prisma/client";
-import { ENERGY } from "@rpgllm/shared";
+import { ENERGY, WORLD_STUDIO } from "@rpgllm/shared";
 import type { Clock } from "../clock";
 import { nextMidnight } from "../clock";
 import { entitlementsFor } from "./entitlements";
@@ -16,6 +16,37 @@ export const dailyMaxFor = (sub: Subscription | null, now?: Date): number =>
 export const adFreeFor = (sub: Subscription | null, now?: Date): boolean => entitlementsFor(sub, now).adFree;
 
 /**
+ * The shape of a brand-new wallet, including the World Studio grant.
+ *
+ * `WORLD_STUDIO.STARTER_GEMS` is 120 — exactly one world. Gems otherwise have no source but a
+ * purchase, and a studio nobody can reach on day one is a studio nobody ever sees. It is granted
+ * **once**, because it is granted at wallet creation and a user has one wallet forever; the ledger
+ * entry is what makes that auditable rather than merely true.
+ */
+export const newWalletData = (userId: string, now: Date) => ({
+  userId,
+  energy: ENERGY.FREE_DAILY,
+  coffee: ENERGY.STARTING_COFFEE,
+  gems: WORLD_STUDIO.STARTER_GEMS,
+  dailyRefillAt: nextMidnight(now),
+});
+
+export const STARTER_GEMS_REF = "starter_gems";
+
+/** Wallet + its opening ledger entry, in one transaction. */
+export async function createWallet(prisma: PrismaClient, userId: string, now: Date): Promise<Wallet> {
+  return await prisma.$transaction(async (tx) => {
+    const wallet = await tx.wallet.create({ data: newWalletData(userId, now) });
+    if (WORLD_STUDIO.STARTER_GEMS > 0) {
+      await tx.ledgerEntry.create({
+        data: { walletId: wallet.id, currency: "gems", delta: WORLD_STUDIO.STARTER_GEMS, source: "admin", ref: STARTER_GEMS_REF },
+      });
+    }
+    return wallet;
+  });
+}
+
+/**
  * Lazy daily refill (job `wallet.dailyRefill` runs on read).
  * When now >= dailyRefillAt: energy = max(energy, dailyMax), adRewardsToday = 0,
  * dailyRefillAt = next UTC midnight.
@@ -30,9 +61,7 @@ export async function ensureWallet(
     prisma.subscription.findUnique({ where: { userId } }),
   ]);
   const now = clock.now();
-  const wallet = existing ?? (await prisma.wallet.create({
-    data: { userId, energy: ENERGY.FREE_DAILY, coffee: ENERGY.STARTING_COFFEE, dailyRefillAt: nextMidnight(now) },
-  }));
+  const wallet = existing ?? (await createWallet(prisma, userId, now));
   const dailyMax = dailyMaxFor(subscription, now);
   if (now < wallet.dailyRefillAt) return { wallet, subscription, dailyMax };
 

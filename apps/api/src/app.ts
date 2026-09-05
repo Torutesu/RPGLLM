@@ -5,6 +5,7 @@ import { fail } from "./http";
 import { rateLimit, type RateLimitStore } from "./middleware/rate-limit";
 import { logError, requestLog } from "./middleware/request-log";
 import { accountRoutes } from "./routes/account";
+import { adminWorldRoutes } from "./routes/admin-worlds";
 import { achievementRoutes } from "./routes/achievements";
 import { authRoutes } from "./routes/auth";
 import { billingRoutes } from "./routes/billing";
@@ -101,6 +102,8 @@ export function createApp(deps: Deps): Hono<AppEnv> {
   // Agent G (S1): account deletion/export/consent and report/block.
   v1.route("/account", accountRoutes());
   v1.route("/moderation", moderationRoutes());
+  // World Studio (AIF-003): a human approves every public world. Same gate as the report queue.
+  v1.route("/admin/worlds", adminWorldRoutes());
   // Agent H (S2): retention & growth.
   v1.route("/digest", digestRoutes());
   v1.route("/memory", memoryRoutes());

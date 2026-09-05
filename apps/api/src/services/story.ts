@@ -33,7 +33,7 @@ export async function loadStoryContext(prisma: PrismaClient, user: User, persona
   // Agent G (S1-2): a blocked character leaves the cast, so it stops replying and stops being
   // offered in the DM picker.
   const cast = withoutBlocked(characters, blocked, (ch) => ch.id);
-  return { user, persona: personaRow as Persona, world, characters: cast, relationships, blockedCharacterIds: blocked, locale, seed: await getWorldSeed(world.slug) };
+  return { user, persona: personaRow as Persona, world, characters: cast, relationships, blockedCharacterIds: blocked, locale, seed: await getWorldSeed(world.slug, prisma) };
 }
 
 export const characterByHandle = (characters: WorldCharacter[], handle: string): WorldCharacter | undefined =>

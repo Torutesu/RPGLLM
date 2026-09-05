@@ -4,6 +4,7 @@
  * Budgets (per minute, all overridable by env):
  *   auth start/verify   5   — per IP *and* per email
  *   post / DM writes    20  — per user (each one costs an LLM call)
+ *   world create        3   — per user (each one costs a high-tier, two-locale world)
  *   ad reward           10  — per user (each one mints energy)
  *   everything else     120 — per user, or per IP when unauthenticated
  *
@@ -16,7 +17,8 @@
 import type { Context, MiddlewareHandler } from "hono";
 import { verifySession } from "../auth";
 import {
-  rateLimitAdPerMin, rateLimitAuthPerMin, rateLimitDefaultPerMin, rateLimitEnabled, rateLimitWritePerMin,
+  rateLimitAdPerMin, rateLimitAuthPerMin, rateLimitDefaultPerMin, rateLimitEnabled, rateLimitWorldPerMin,
+  rateLimitWritePerMin,
 } from "../env";
 import { fail } from "../http";
 import type { AppEnv } from "../types";
@@ -84,7 +86,7 @@ export function clientIp(c: Context<AppEnv>): string {
   return socketAddress(c.env) ?? "unknown";
 }
 
-export type BudgetKind = "auth" | "write" | "ad" | "default" | "exempt";
+export type BudgetKind = "auth" | "write" | "ad" | "world" | "default" | "exempt";
 
 /** Route → budget. Paths arrive both as `/v1/...` and (health/test hooks) unversioned. */
 export function budgetFor(method: string, path: string): BudgetKind {
@@ -103,6 +105,9 @@ export function budgetFor(method: string, path: string): BudgetKind {
   }
   if (method === "POST") {
     if (p === "/wallet/ad-reward") return "ad";
+    // World Studio (AIF-003): one request here is one Opus 5 high-effort call producing two full
+    // locales — an order of magnitude more expensive than a post. Its own, much smaller budget.
+    if (p === "/worlds") return "world";
     if (p === "/posts" || /^\/posts\/[^/]+\/more-replies$/.test(p)) return "write";
     if (p === "/dms" || /^\/dms\/[^/]+\/messages$/.test(p)) return "write";
     if (/^\/generations\/[^/]+\/rate$/.test(p)) return "write";
@@ -114,7 +119,8 @@ export const perMinFor = (kind: Exclude<BudgetKind, "exempt">): number =>
   kind === "auth" ? rateLimitAuthPerMin()
     : kind === "write" ? rateLimitWritePerMin()
       : kind === "ad" ? rateLimitAdPerMin()
-        : rateLimitDefaultPerMin();
+        : kind === "world" ? rateLimitWorldPerMin()
+          : rateLimitDefaultPerMin();
 
 /** Best-effort email extraction for the per-address auth budget. Hono caches the parsed body. */
 async function emailOf(c: Context<AppEnv>): Promise<string | null> {

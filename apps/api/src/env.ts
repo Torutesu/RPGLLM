@@ -69,6 +69,23 @@ export const rateLimitAuthPerMin = (): number => envNum("RATE_LIMIT_AUTH_PER_MIN
 export const rateLimitWritePerMin = (): number => envNum("RATE_LIMIT_WRITE_PER_MIN", 20);
 export const rateLimitAdPerMin = (): number => envNum("RATE_LIMIT_AD_PER_MIN", 10);
 export const rateLimitDefaultPerMin = (): number => envNum("RATE_LIMIT_DEFAULT_PER_MIN", 120);
+/**
+ * `POST /v1/worlds` (World Studio). The most expensive thing a user can trigger — one Opus 5 call
+ * at high effort, two locales — so its budget is the day's allowance, not a per-minute write rate.
+ */
+export const rateLimitWorldPerMin = (): number => envNum("RATE_LIMIT_WORLD_PER_MIN", 3);
+
+/**
+ * Whether `POST /v1/worlds` kicks the `world-build` job in-process instead of waiting for the next
+ * scheduler tick. On by default (a player is watching a progress bar); off while `TEST_HOOKS=1`
+ * so vitest and the E2E harness drive the build themselves and nothing writes after a truncate.
+ */
+export const worldBuildOnCreate = (): boolean => {
+  const v = envStr("WORLD_BUILD_ON_CREATE", "");
+  if (v === "1") return true;
+  if (v === "0") return false;
+  return !testHooksEnabled();
+};
 
 /** `/v1/health` DB probe budget. */
 export const healthDbTimeoutMs = (): number => envNum("HEALTH_DB_TIMEOUT_MS", 1500);

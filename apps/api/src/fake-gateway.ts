@@ -18,7 +18,7 @@ import {
   PRICING, SAFETY_BLOCK_TEST_PHRASES,
   type G1Input, type G1Output, type G4Input, type G4Output, type G5Input, type G5Output,
   type G7Input, type G7Output, type G8Input, type G8Output,
-  type GenerationMeta, type GenerationResult, type GeneratorId, type ModelTier,
+  type GenerationMeta, type GenerationResult, type GeneratorId, type ModelTier, type WorldSeed,
 } from "@rpgllm/shared";
 import type {
   AnyBatchItem, AnyBatchOutcome, BatchItem, BatchResults, Gateway, LlmMode, RunOptions,
@@ -28,6 +28,8 @@ import { batchStopReason, scoreCandidateOffline } from "@rpgllm/llm";
 import { BATCH_DISCOUNT } from "@rpgllm/shared";
 import { hashString, seededRandom } from "./services/rng";
 import { modelForTier } from "./env";
+import { buildStandInWorldSeed } from "./fake-world-seed";
+import type { G9Fn, G9Input } from "./services/g9";
 
 export interface FakeCall { generator: GeneratorId; tier: ModelTier; escalatedFrom: string | null; input: unknown }
 
@@ -38,6 +40,8 @@ const CHAMPION_TIER: Record<GeneratorId, ModelTier> = {
 const price = (model: string) => PRICING[model] ?? { input: 1, output: 5, cacheRead: 0.1, cacheWrite: 1.25 };
 
 export interface FakeGateway extends Gateway {
+  /** G9 lives here until `@rpgllm/llm` exports it; `services/g9.ts` feature-detects either way. */
+  g9: G9Fn;
   calls: FakeCall[];
   /** force the next N generator calls to behave as if the model failed */
   failNext(n: number): void;
@@ -265,6 +269,28 @@ export function createFakeGateway(initialMode: LlmMode = "replay"): FakeGateway 
   };
 
 
+  /**
+   * G9 — World Studio (AIF-003). The one generator a *user* can trigger by hand, so the stand-in
+   * has to be as real as the others: a full `WorldSeed` that parses and whose bibles clear the
+   * 4,096-token floor in both locales (`fake-world-seed.ts`). In `fail` mode — and under
+   * `failNext()` — it comes back as a fallback with an empty bible, which is exactly the shape the
+   * build job must refuse and refund.
+   */
+  const g9 = async (input: G9Input, opts?: RunOptions): Promise<GenerationResult<WorldSeed>> => {
+    const tier = tierFor("G9", opts);
+    record("G9", tier, opts, input);
+    const failed = shouldFail();
+    const seedKey = `${input.slug}:${input.genre}:${input.seed}`;
+    const output = buildStandInWorldSeed(input);
+    if (failed) {
+      return {
+        output: { ...output, bible: { en: "", ja: "" } },
+        meta: meta("G9", tier, seedKey, true, opts, 40),
+      };
+    }
+    return { output, meta: meta("G9", tier, seedKey, false, opts, 4000) };
+  };
+
   /* ---------------------------------------------------------------- batch tier ---- */
 
   const g2 = async (input: G2Input, opts?: RunOptions): Promise<GenerationResult<G2Output>> => {
@@ -378,7 +404,7 @@ export function createFakeGateway(initialMode: LlmMode = "replay"): FakeGateway 
   return {
     mode: () => mode,
     setMode: (m: LlmMode) => { mode = m; },
-    g1, g2, g4, g5, g7, g8, g10, gj,
+    g1, g2, g4, g5, g7, g8, g9, g10, gj,
     batch, batchG1, batchG2, batchG4, batchG5, batchG7, batchG10, batchGJ,
     assignments,
     champion: () => ({ G1: "fake:g1-mid", G4: "fake:g4-mid", G5: "fake:g5-high", G8: "fake:g8-light" }),

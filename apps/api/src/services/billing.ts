@@ -1,11 +1,12 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { Prisma, type PrismaClient, type Subscription } from "@prisma/client";
-import { ENERGY, PLANS, type PlanId } from "@rpgllm/shared";
+import { ENERGY, GEM_PACKS, PLANS, isGemPack, type PlanId } from "@rpgllm/shared";
 import { z } from "zod";
 import type { Clock } from "../clock";
 import { nextMidnight } from "../clock";
 import { billingMode, envStr, isProduction } from "../env";
 import { entitlementsFor } from "./entitlements";
+import { newWalletData } from "./wallet";
 import type { Tx } from "../types";
 
 /**
@@ -263,7 +264,8 @@ export function subscriptionPatchFor(event: RcEvent, current: Subscription | nul
       // The only immediate revocation. The money came back, the entitlement goes now.
       return { plan, active: false, renewsAt: null };
 
-    // Non-subscription purchase (coffee/gems packs) — recorded, but it grants no entitlement.
+    // Non-subscription purchase (coffee / gem packs) — no entitlement moves. A gem pack is
+    // granted upstream in `applyWebhookEvent`, before this is consulted.
     case "NON_RENEWING_PURCHASE":
       return null;
 
@@ -282,6 +284,8 @@ export interface ApplyResult {
   plan: PlanId | null;
   active: boolean | null;
   energy: number | null;
+  /** gems granted by a consumable pack, when the event was one */
+  gems: number | null;
 }
 
 const skip = (event: RcEvent, reason: string): ApplyResult => ({
@@ -294,6 +298,7 @@ const skip = (event: RcEvent, reason: string): ApplyResult => ({
   plan: null,
   active: null,
   energy: null,
+  gems: null,
 });
 
 /** Every app-user id the event could plausibly name, most specific first. */
@@ -336,7 +341,7 @@ export async function resolveUserId(prisma: PrismaClient, event: RcEvent): Promi
 async function topUpEnergy(tx: Tx, userId: string, dailyMax: number, now: Date, ref: string): Promise<number> {
   const wallet = await tx.wallet.upsert({
     where: { userId },
-    create: { userId, energy: dailyMax, coffee: ENERGY.STARTING_COFFEE, dailyRefillAt: nextMidnight(now) },
+    create: { ...newWalletData(userId, now), energy: dailyMax },
     update: {},
   });
   const target = Math.max(wallet.energy, dailyMax);
@@ -349,11 +354,26 @@ async function topUpEnergy(tx: Tx, userId: string, dailyMax: number, now: Date, 
   return target;
 }
 
+/**
+ * Consumable gem packs (World Studio, AIF-003).
+ *
+ * These arrive as `NON_RENEWING_PURCHASE`. Until now they were recorded as a `Purchase` row and
+ * dropped on the floor — the money was taken and nothing was granted. The grant runs inside the
+ * same transaction as that `Purchase` row, whose unique `rcEventId` is therefore the idempotency
+ * key for the gems too: a redelivered webhook hits the unique index and the whole thing rolls back.
+ */
+async function grantGems(tx: Tx, userId: string, gems: number, now: Date, ref: string): Promise<number> {
+  const wallet = await tx.wallet.upsert({ where: { userId }, create: newWalletData(userId, now), update: {} });
+  const updated = await tx.wallet.update({ where: { id: wallet.id }, data: { gems: { increment: gems } } });
+  await tx.ledgerEntry.create({ data: { walletId: wallet.id, currency: "gems", delta: gems, source: "purchase", ref } });
+  return updated.gems;
+}
+
 /** A refund claws the tank back down to the free ceiling so a refunded purchase cannot be farmed. */
 async function clawBackEnergy(tx: Tx, userId: string, now: Date, ref: string): Promise<number> {
   const wallet = await tx.wallet.upsert({
     where: { userId },
-    create: { userId, energy: ENERGY.FREE_DAILY, coffee: ENERGY.STARTING_COFFEE, dailyRefillAt: nextMidnight(now) },
+    create: newWalletData(userId, now),
     update: {},
   });
   const target = Math.min(wallet.energy, ENERGY.FREE_DAILY);
@@ -457,6 +477,17 @@ export async function applyWebhookEvent(prisma: PrismaClient, clock: Clock, even
           plan: saved.plan in PLANS ? (saved.plan as PlanId) : null,
           active: saved.active,
           energy: null,
+          gems: null,
+        };
+      }
+
+      // A consumable gem pack is not a subscription event at all: it grants a balance and stops.
+      const purchased = event.new_product_id ?? event.product_id ?? "";
+      if (event.type === "NON_RENEWING_PURCHASE" && isGemPack(purchased)) {
+        const gems = await grantGems(tx, userId, GEM_PACKS[purchased].gems, now, `pack:${event.id}`);
+        return {
+          applied: true, duplicate: false, eventId: event.id, type: event.type, reason: "gems_granted",
+          userId, plan: null, active: null, energy: null, gems,
         };
       }
 
@@ -496,6 +527,7 @@ export async function applyWebhookEvent(prisma: PrismaClient, clock: Clock, even
         plan: patch.plan,
         active: saved.active,
         energy,
+        gems: null,
       };
     });
   } catch (e) {

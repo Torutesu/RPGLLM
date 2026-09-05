@@ -112,7 +112,7 @@
 
 | Method | Path | Auth | Request | Response | Screen |
 |---|---|---|---|---|---|
-| POST | /worlds | authenticated | CreateWorldReq{premise, genre, locale, visibility} | CreateWorldRes{world, charged{gems, remaining}} / 402 GEMS_REQUIRED / 422 PREMISE_BLOCKED / 429 WORLD_LIMIT | SCR-048 |
+| POST | /worlds | authenticated | CreateWorldReq{premise, genre, locale, visibility} | CreateWorldRes{world, charged{gems, remaining}} / 402 GEMS_REQUIRED / 422 SAFETY_BLOCKED / 429 WORLD_LIMIT | SCR-048 |
 | GET | /worlds/:id/status | 作成者のみ | - | WorldStatusRes{world, progress, cast[]} | SCR-049 |
 | POST | /worlds/:id/publish | 作成者のみ | PublishWorldReq{visibility} | PublishWorldRes{world, needsReview} | SCR-049 |
 | GET | /worlds/mine | authenticated | - | MyWorldsRes{worlds[], remainingToday} | SCR-050 |
@@ -123,17 +123,24 @@
 ### 状態機械
 
 ```
-draft ──create──> generating ──成功──> ready ──publish(private|unlisted)──> published
+draft ──create──> generating ──成功──> ready ──publish(unlisted)──> published(visibility=unlisted)
                       │                  │
-                      │                  └──publish(public)──> review ──承認──> published
-                      │                                          └──却下──> rejected
+                      │                  ├──publish(public)──> review ──承認──> published(visibility=public)
+                      │                  │                        └──却下──> rejected
+                      │                  └──publish(private)──> ready(visibility=private)
                       └──失敗(ジェム返金)──> draft(failureReason 付き)
 ```
+
+`private` は作成者だけ。`unlisted` は**リンクを知っていれば誰でも遊べる**が、ワールド選択にも
+発見タブにも出ない(=審査は要らない。第三者が見る以上 G8 は通す)。`public` だけが人間の審査を通り、
+そこを通ってはじめて発見タブに出る。`private` に戻すと審査キューからも発見タブからも取り下げられる。
 
 ### 実装上の注意
 - **課金と生成は同じトランザクションに入れない**。ジェム 120 の引き落としと `World` 行の作成は 1 トランザクション、
   生成は非同期ジョブ。生成が落ちたら同じ 1 トランザクションで返金する。返金は冪等(1 ワールド 1 回まで)。
 - **`generating` で詰まったワールドを残さない**。タイムアウト掃除のジョブが必ず終端状態へ落とす。
+- **エラーコードは専用のものを返す**。402 `GEMS_REQUIRED` / 429 `WORLD_LIMIT`(汎用の `RATE_LIMITED` とは別。
+  「落ち着いて」ではなく「また明日」なので、クライアントの文言が変わる)/ 422 `SAFETY_BLOCKED`。
 - **プリセット以外のワールドの `WorldSeed` は DB に持つ**。`getWorldSeed(slug)` はプロセス内の手書き 3 本しか
   知らないため、生成ワールドは行から復元する。これが無いとフォールバック返信・イントロ・雑談が空になる。
 - **`GET /worlds`(ワールド選択)にはプリセットと自分のワールドだけを出す**。他人の公開ワールドは

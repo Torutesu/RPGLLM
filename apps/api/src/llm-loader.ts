@@ -11,6 +11,7 @@ import type { Gateway, GatewayOptions } from "@rpgllm/llm";
 import { createFakeGateway } from "./fake-gateway";
 import { FALLBACK_WORLD_SEEDS } from "./seed-fallback";
 import { llmMode } from "./env";
+import { premiseScreenFrom, type PremiseScreen } from "./services/g9";
 
 type LlmModule = Partial<{
   createGateway: (opts?: GatewayOptions) => Gateway;
@@ -59,4 +60,13 @@ export async function loadEstimateTokens(): Promise<(text: string) => number> {
   const mod = await importLlm();
   if (typeof mod.estimateTokens === "function") return mod.estimateTokens;
   return (text: string) => Math.ceil(text.length / 3.5);
+}
+
+/**
+ * The World Studio premise screen (AIF-003). Same defensive shape as everything else here:
+ * `@rpgllm/llm` may not export `screenPremise` yet, and the local floor in `services/g9.ts` runs
+ * either way — the two verdicts are ANDed, never swapped.
+ */
+export async function loadPremiseScreen(): Promise<PremiseScreen> {
+  return premiseScreenFrom(await importLlm());
 }

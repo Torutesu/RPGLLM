@@ -1,12 +1,12 @@
 import { Hono } from "hono";
 import type { Context } from "hono";
-import { AgeGateReqZ, AGE, AuthEmailStartReqZ, AuthEmailVerifyReqZ, DEV_EMAIL_CODE, ENERGY } from "@rpgllm/shared";
-import { nextMidnight } from "../clock";
+import { AgeGateReqZ, AGE, AuthEmailStartReqZ, AuthEmailVerifyReqZ, DEV_EMAIL_CODE } from "@rpgllm/shared";
 import { requireAuth, signSession } from "../auth";
 import { constantTimeEqual, mailSender, normalizeEmail, type VerifyResult } from "../auth-codes";
 import { authCodeMaxAttempts, authCodeTtlMs, authDevCodeEnabled } from "../env";
 import { fail, ok, parseBody } from "../http";
 import { consumeLoginCode, issueLoginCode } from "../services/login-codes";
+import { createWallet } from "../services/wallet";
 import type { AppEnv } from "../types";
 
 export function authRoutes(): Hono<AppEnv> {
@@ -55,11 +55,9 @@ export function authRoutes(): Hono<AppEnv> {
     const user = existing ?? (await deps.prisma.user.create({
       data: { email, authProvider: "email", authSubject: email, birthYear: 0, isMinor: true },
     }));
-    if (!existing) {
-      await deps.prisma.wallet.create({
-        data: { userId: user.id, energy: ENERGY.FREE_DAILY, coffee: ENERGY.STARTING_COFFEE, dailyRefillAt: nextMidnight(deps.clock.now()) },
-      });
-    }
+    // One wallet, created once, with its opening balances and the ledger entry that records them
+    // (services/wallet.ts) — including the World Studio starter gems.
+    if (!existing) await createWallet(deps.prisma, user.id, deps.clock.now());
     return ok({ jwt: await signSession(user.id), isNew: !existing, needsAgeGate: user.birthYear === 0 });
   };
 

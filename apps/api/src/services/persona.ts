@@ -9,6 +9,7 @@ import { localized, type LocaleKey } from "./locale";
 import { mediaForBatch } from "./media";
 import { computeMetrics, hashString, seededRandom, seedFrom } from "./rng";
 import { getWorldSeed } from "./world-seeds";
+import { canPlay } from "./world-studio";
 
 type CreatePersonaReq = z.infer<typeof CreatePersonaReqZ>;
 
@@ -23,6 +24,8 @@ export type CreatePersonaOutcome =
 export async function createPersonaWithFeed(deps: Deps, user: User, req: CreatePersonaReq): Promise<CreatePersonaOutcome> {
   const world = await deps.prisma.world.findUnique({ where: { id: req.worldId } });
   if (!world) return { ok: false, code: "NOT_FOUND", message: "World not found" };
+  // AIF-003: knowing the id of somebody else's private world must not be enough to play it.
+  if (!canPlay(world, user.id)) return { ok: false, code: "NOT_FOUND", message: "World not found" };
 
   const handle = normHandle(req.handle);
   const taken = await deps.prisma.persona.findUnique({ where: { worldId_handle: { worldId: world.id, handle } } });
@@ -60,6 +63,12 @@ export async function createPersonaWithFeed(deps: Deps, user: User, req: CreateP
         isFollower: c.id === firstFollower.id,
       })),
     });
+    /**
+     * "Plays" is what ranks a world on the community shelf (AIF-003), so it counts *personas*, not
+     * requests: it is incremented in the same transaction that creates the persona, and a retried
+     * or idempotent create returns above without reaching here. One player, one play.
+     */
+    await tx.world.update({ where: { id: world.id }, data: { playCount: { increment: 1 } } });
     return created;
   });
 
@@ -107,7 +116,7 @@ async function seedInitialFeed(
     if (m.mediaKind !== null) await deps.prisma.post.update({ where: { id }, data: m });
   }
 
-  const seed = await getWorldSeed(world.slug);
+  const seed = await getWorldSeed(world.slug, deps.prisma);
   const input: G1Input = {
     userId: user.id,
     locale,

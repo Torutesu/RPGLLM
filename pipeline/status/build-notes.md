@@ -2296,3 +2296,140 @@ The recipe is `docs/testing.md`. Short version:
   `job.start`/`job.done` per run, and exits 0 on `SIGTERM` after draining.
 - Two concurrent runs no longer interfere: each `pnpm --filter api test` creates and drops
   `rpgllm_test_v<pid>`, and each `pnpm e2e` creates and drops `rpgllm_test_e2e_p<pid>`.
+
+---
+
+## Agent WS-API — World Studio server (AIF-003)
+
+Player-created worlds, end to end on the server: `POST /v1/worlds` → the `world-build` job → a
+playable world → publish → human review. `apps/api/**` only; `packages/shared`, `packages/llm`,
+`apps/mobile` and `e2e` untouched.
+
+### What was added
+
+- **Routes** (`src/routes/worlds.ts`): `POST /v1/worlds`, `GET /v1/worlds/mine`,
+  `GET /v1/worlds/public`, `GET /v1/worlds/:id/status`, `POST /v1/worlds/:id/publish`.
+  `GET /v1/worlds` (the picker) now returns presets **plus the caller's own finished worlds and
+  nothing else**; `GET /v1/worlds/:id` 404s a world the caller may not play.
+  **Admin** (`src/routes/admin-worlds.ts`, mounted at `/v1/admin/worlds`, same gate as
+  `GET /v1/moderation/reports`): `GET /review`, `POST /:id/review`. Publishing can only ever reach
+  `review`; `published` is written in exactly one place, and it is not reachable by a player.
+- **Job** (`src/jobs/world-build.ts`): sweep stuck builds, then claim → G9 → validate
+  (`WorldSeedZ` **and** `MIN_BIBLE_TOKENS` per locale) → `seedWorld` → `ready`. Failure ⇒ `draft`
+  + user-facing `failureReason` + refund in the same transaction + a notification.
+- **Domain** (`src/services/world-studio.ts`): the daily cap, the gem debit/refund, slugs,
+  visibility predicates, progress, and the list serialisers.
+
+### Deviations and decisions
+
+1. **`JOBS` in `packages/shared` is frozen, so `world-build` is declared in
+   `src/jobs/registry.ts` as `LOCAL_JOBS`** and merged into `jobDefinitions`. It runs under the
+   same advisory lock, `JobRun` log, `GET /v1/jobs` listing and `POST /v1/jobs/run` as every other
+   job. **Request to the owner of `packages/shared`:** add
+   `{ name: "world-build", schedule: "* * * * *", description: "generate player-created worlds (G9) and sweep stuck builds" }`
+   to `JOBS`; then delete `LOCAL_JOBS` and nothing else changes.
+   `apps/api/test/jobs.test.ts`'s "lists every job" case now asserts
+   `JOBS ∪ LOCAL_JOBS` — still an exact-set assertion, over the true set.
+2. **`packages/llm` had not shipped `g9`/`screenPremise` yet.** `src/services/g9.ts`
+   feature-detects both (`g9Of(gateway)`, `premiseScreenFrom(mod)`) exactly as `llm-loader.ts`
+   already does for `createGateway`. A deterministic stand-in `g9` lives in `fake-gateway.ts` +
+   `fake-world-seed.ts` and emits a real `WorldSeed` whose bibles clear 4,096 tokens in **both**
+   locales under the real estimator, so every case runs today. The local premise screen is ANDed
+   with `screenPremise`, never replaced by it — the real one can tighten the verdict, never loosen it.
+3. **No `GEMS_REQUIRED` error code exists** (`ErrorCodeZ` is frozen), so a short wallet answers
+   `402 ENERGY_REQUIRED`, the shape the energy path already uses. The daily cap answers
+   `429 RATE_LIMITED` with the Plus limit named in the message.
+4. **Schema (mine):** `World` gains `genre`, `genLocale`, `seed` (Json), `buildStartedAt`,
+   `refundedAt` — migration `20260905010500_world_studio_build`, applied to `rpgllm` and
+   `rpgllm_test`. `seed` is what makes `getWorldSeed(slug, prisma)` fall back to the database, so
+   fallback replies, welcome posts, intros, preset personas and ambient text work identically for a
+   user world and a hand-authored one, with no branch at any call site. `refundedAt` is claimed with
+   a conditional `UPDATE` in the refund transaction, which is what makes "refunded at most once"
+   a database guarantee rather than a code path.
+5. **Wallet creation moved into `services/wallet.ts`'s `createWallet`** (`routes/auth.ts` used to
+   inline it) so the `WORLD_STUDIO.STARTER_GEMS` grant and its ledger entry cannot be skipped by
+   whichever path happens to create the wallet first. `services/billing.ts`'s three wallet upserts
+   use the same `newWalletData`.
+6. **`ApplyResult` (billing) gains `gems: number \| null`.** Consumable `NON_RENEWING_PURCHASE`
+   events with a `GEM_PACKS` product id now grant gems inside the same transaction as the
+   `Purchase` row, so its unique `rcEventId` is the idempotency key for the gems too. The webhook
+   route's response body is unchanged.
+7. **`WORLD_BUILD_ON_CREATE`** (default on, off while `TEST_HOOKS=1`) makes the create route kick
+   the builder in-process. It is an optimisation, never the contract — the scheduler runs
+   `world-build` every minute regardless. `RATE_LIMIT_WORLD_PER_MIN` (default 3) gives
+   `POST /v1/worlds` its own budget kind, an order of magnitude below the write budget.
+8. **`createPersonaWithFeed` now checks `canPlay`**: knowing the id of somebody else's private
+   world was otherwise enough to play it. `playCount` is incremented in the persona-creating
+   transaction — once per persona, never per request.
+
+### Verification
+
+- `pnpm --filter api typecheck` clean · `pnpm exec eslint apps/api` 0 errors.
+- `pnpm --filter api test` — **295 passed / 27 files** (266 baseline + 29 new; nothing weakened,
+  nothing skipped).
+
+## Agent WS-CLIENT — World Studio client (SCR-048 create, SCR-049 building→ready, SCR-050 my worlds)
+
+Owned `apps/mobile/**` only. Nothing in `packages/shared`, `packages/llm`, `apps/api` or `e2e` was
+touched; every colour, string and test id comes from the frozen shared package.
+
+### What was added
+
+| Route / module | What it is |
+| --- | --- |
+| `app/studio/index.tsx` | SCR-048. Premise field (live count against 8–200), 8-genre picker, language, three visibilities with their consequences, price against the wallet, builds left today, one CTA. |
+| `app/studio/[id].tsx` | SCR-049. Polls `/v1/worlds/:id/status`, walks the four named steps, then reveals cover + title + scenario + the eight cast cards, with play / publish / keep-private. Also the two "no" endings: turned down for Explore, and a build that failed and was refunded. |
+| `app/studio/worlds.tsx` | SCR-050. The shelf, re-read on focus (review finishes while you are elsewhere). |
+| `src/components/StudioWorldCard.tsx` | Row card + the state pill, used by SCR-050 and Explore. |
+| `src/components/StudioProgress.tsx` | The four build steps and the (monotonic) progress bar. |
+| `src/components/StudioCast.tsx` | The staggered cast reveal. |
+| `src/components/StudioPromoCard.tsx` | "Create your own", used at the end of the world picker and in Explore. |
+| `src/studio/labels.ts` | Genre / visibility / status → i18n key + tint, in one place. |
+| `src/studio/useWorldStatus.ts` | The polling hook: keeps the last good answer, backs off, gives up after four failures with a retry. |
+
+Entry points: the last card in the world picker (`onboarding/scenario.tsx`, `T.studioOpen`), a
+"made by players" section plus a promo card in `explore.tsx`, and a "My worlds" row on
+`profile.tsx`. `WorldCover` is now exported from `components/WorldCard.tsx` so a player world paints
+the same generated art everywhere (no world ever fetches an image).
+
+### Deviations and requests
+
+1. **`api.request` gained `globalErrors?: boolean`** (`src/api/client.ts`, default `true`). Every
+   studio call passes `false`: a 402 from `POST /v1/worlds` means *gems*, not energy, and the
+   global handler would have thrown the player into the energy modal. 401 still signs out.
+2. **One test id per screen.** Expo Router keeps screens below the top of the stack mounted, so an
+   id used on two screens matches twice at once and breaks a strict Playwright locator — measured:
+   profile → my worlds returned 2 nodes for `studio-my-worlds` before the split. Final allocation:
+   `studio-open` = the world-picker card only; `studio-my-worlds` = the list on SCR-050. The
+   profile row and Explore's promo card therefore carry **no** test id (reachable by role + name);
+   ids named e.g. `studioMyWorldsOpen` / `studioExploreOpen` would fix that if wanted.
+3. **`T.studioTabButton` is unclaimed.** A sixth tab does not fit at 390pt — "Notifications" alone
+   needs more than a sixth of the bar, and adding Studio truncated two labels (screenshotted, then
+   reverted). A tab needs either a short notifications label or an icon-first bar; say the word and
+   the client side is a two-line change.
+4. **i18n gaps (worked around, please add):** there is no `studioPublished`, so a finished world
+   wears its audience instead (`studioVisibilityPublic` → "Everyone", `…Private` → "Just me") —
+   which also reads better in a list than "Your world is ready" as a pill. And there is a single
+   `studioPremisePlaceholder`, so the hero field's rotation cycles that line **plus the existing
+   worlds' `scenario` strings from `/v1/worlds`** (server-localised, and exactly the shape of a
+   premise). Three or four `studioPremiseExample*` keys would make it a one-line change.
+5. **Two API readings, stated so they can be corrected:** `status: "rejected"` with `castCount === 0`
+   is treated as *the build failed and the gems came back*, and with a cast as *review said no, it
+   is still yours to play*. "Keep it private" makes no request — a world created private already is.
+6. **No pulsing CTA.** The first cut wrapped "Build my world" in `Pulse`; Playwright then refused to
+   click it ("element is not stable") until it timed out — a looping transform on a control is an
+   E2E trap. It is lit with `glow()` instead. Worth avoiding on any future button.
+7. **Dead end worth a follow-up:** with 0 gems the studio correctly says "not enough gems", but
+   nothing on the screen sells any — `GEM_PACKS` exists in `constants.ts` and the paywall only
+   sells Plus. A gem-pack sheet (and a `studioGetGems` string/id) is the missing piece.
+
+### Verification
+
+- `pnpm --filter mobile typecheck` clean · `pnpm --filter mobile export:web` succeeds.
+- Driven in Chromium at 390×844 twice: once against stubbed contract-shaped responses (every state
+  including building → ready → publish, rejection, failure, empty wallet, and JA), and once against
+  **the real API** (`LLM_MODE=replay`, private database): sign-in → picker → studio → build charged
+  120 gems and routed to SCR-049 → my worlds listed it → Explore showed the community empty state →
+  a second attempt with an empty wallet showed "Not enough gems" and a disabled CTA. The build
+  itself cannot finish in this environment (`world.build.no_generator`: replay has no world
+  generator fixture), so the ready state was verified against stubs only.

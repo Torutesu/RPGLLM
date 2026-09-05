@@ -5,32 +5,51 @@
  * Idempotent: worlds by slug, characters by (worldId, handle), ambient pool rebuilt per (world, locale).
  * Falls back to `src/seed-fallback.ts` while Agent B's seeds are still landing.
  */
-import { PrismaClient, type Locale, type Prisma } from "@prisma/client";
+import { PrismaClient, type Locale, type Prisma, type World, type WorldStatus, type WorldVisibility } from "@prisma/client";
 import { LOCALES, type WorldSeed } from "@rpgllm/shared";
 import { loadEstimateTokens } from "./llm-loader";
 import { normHandle } from "./services/handles";
 import { getWorldSeeds, worldSeedSource } from "./services/world-seeds";
 
-export async function seedWorld(prisma: PrismaClient, seed: WorldSeed, estimate: (t: string) => number): Promise<void> {
+/**
+ * Extra columns the World Studio build job needs written in the same upsert (AIF-003). Presets pass
+ * nothing and keep the old behaviour exactly: `isPreset: true`, published, no creator.
+ */
+export interface SeedWorldOptions {
+  isPreset?: boolean;
+  status?: WorldStatus;
+  visibility?: WorldVisibility;
+  generationId?: string | null;
+  /** persist the generator's `WorldSeed` on the row — the only copy a user world ever has */
+  storeSeed?: boolean;
+  failureReason?: string;
+  buildStartedAt?: Date | null;
+}
+
+export async function seedWorld(
+  prisma: PrismaClient,
+  seed: WorldSeed,
+  estimate: (t: string) => number,
+  opts: SeedWorldOptions = {},
+): Promise<World> {
   const bibleTokens = Math.max(...LOCALES.map((l) => estimate(seed.bible[l] ?? "")));
+  const common = {
+    title: seed.title as unknown as Prisma.InputJsonValue,
+    scenario: seed.scenario as unknown as Prisma.InputJsonValue,
+    bible: seed.bible as unknown as Prisma.InputJsonValue,
+    bibleTokens,
+    difficulty: seed.difficulty,
+    ...(opts.status ? { status: opts.status } : {}),
+    ...(opts.visibility ? { visibility: opts.visibility } : {}),
+    ...(opts.generationId !== undefined ? { generationId: opts.generationId } : {}),
+    ...(opts.storeSeed ? { seed: seed as unknown as Prisma.InputJsonValue } : {}),
+    ...(opts.failureReason !== undefined ? { failureReason: opts.failureReason } : {}),
+    ...(opts.buildStartedAt !== undefined ? { buildStartedAt: opts.buildStartedAt } : {}),
+  };
   const world = await prisma.world.upsert({
     where: { slug: seed.slug },
-    create: {
-      slug: seed.slug,
-      title: seed.title as unknown as Prisma.InputJsonValue,
-      scenario: seed.scenario as unknown as Prisma.InputJsonValue,
-      bible: seed.bible as unknown as Prisma.InputJsonValue,
-      bibleTokens,
-      difficulty: seed.difficulty,
-      isPreset: true,
-    },
-    update: {
-      title: seed.title as unknown as Prisma.InputJsonValue,
-      scenario: seed.scenario as unknown as Prisma.InputJsonValue,
-      bible: seed.bible as unknown as Prisma.InputJsonValue,
-      bibleTokens,
-      difficulty: seed.difficulty,
-    },
+    create: { slug: seed.slug, isPreset: opts.isPreset ?? true, ...common },
+    update: common,
   });
 
   const handleToId = new Map<string, string>();
@@ -67,6 +86,7 @@ export async function seedWorld(prisma: PrismaClient, seed: WorldSeed, estimate:
     await prisma.ambientPost.deleteMany({ where: { worldId: world.id, locale: locale as Locale } });
     if (rows.length > 0) await prisma.ambientPost.createMany({ data: rows });
   }
+  return world;
 }
 
 export async function seedDatabase(prisma: PrismaClient): Promise<{ worlds: number; source: string }> {

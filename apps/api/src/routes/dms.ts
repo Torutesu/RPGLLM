@@ -32,7 +32,7 @@ export function dmRoutes(): Hono<AppEnv> {
 
     const ctx = await loadStoryContext(deps.prisma, user, persona.id);
     if (!ctx) return notFound("Persona");
-    const seed = await getWorldSeed(ctx.world.slug);
+    const seed = await getWorldSeed(ctx.world.slug, deps.prisma);
     const intro = (handle: string) => {
       const s = seed?.cast.find((x) => sameHandle(x.handle, handle));
       return s ? localized(s.intro, ctx.locale) : undefined;

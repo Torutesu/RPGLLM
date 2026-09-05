@@ -25,6 +25,7 @@ import { runBanditUpdate } from "./bandit-update";
 import { runMemoryConsolidation, runMemoryConsolidationBatchedJob } from "./memory-consolidate";
 import { runOfflineDirector, runOfflineDirectorBatchedJob } from "./offline-director";
 import { sweepPushReceipts } from "./push-receipts";
+import { runWorldBuild } from "./world-build";
 import { finishRun, pruneRuns, shortError, startRun, withJobLock, type JobRunRow } from "./runs";
 
 export type ScheduledJobName = (typeof JOBS)[number]["name"];
@@ -123,6 +124,14 @@ const RUNNERS: Record<ScheduledJobName, (deps: JobDeps, opts: JobOptions) => Pro
     };
   },
   "bandit-update": async (deps) => await runBanditUpdate(deps),
+  /**
+   * World Studio (AIF-003). Every minute: fail anything stuck in `generating` past the timeout,
+   * then build what is waiting. A player is watching a progress bar for each of these.
+   */
+  "world-build": async (deps) => {
+    const r = await runWorldBuild(deps.prisma, deps.gateway, deps.clock, {});
+    return { processed: r.built, detail: { considered: r.considered, built: r.built, failed: r.failed, swept: r.swept } };
+  },
 };
 
 export const jobDefinitions: JobDefinition[] = JOBS.map((row) => ({
