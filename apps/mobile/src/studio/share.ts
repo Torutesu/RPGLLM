@@ -8,9 +8,14 @@ import { APP_ORIGIN, IS_WEB } from "../env";
  * openable by whoever receives it, which a bare path is not. On the web the page's own origin is
  * always right; on a device `EXPO_PUBLIC_APP_URL` is the only thing that can be shared off it.
  * Same shape as the moment share link (`components/MomentCard.tsx`).
+ *
+ * It points at `/world/:id` — the world page — and not at `/studio/:id`, the creator's own build
+ * screen: that one reads a creator-only endpoint, so every link ever sent answered its recipient
+ * with "Couldn't load" (QA-002). `/studio/:id` still forwards a visitor to the same place, so the
+ * links already in circulation keep working.
  */
 export function worldShareUrl(worldId: string): string {
-  const path = `/studio/${encodeURIComponent(worldId)}`;
+  const path = `/world/${encodeURIComponent(worldId)}`;
   if (IS_WEB && typeof window !== "undefined" && window.location) return `${window.location.origin}${path}`;
   if (APP_ORIGIN) return `${APP_ORIGIN}${path}`;
   return path;

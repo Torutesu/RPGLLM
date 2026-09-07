@@ -24,6 +24,11 @@ import { WorldCover } from "./WorldCard";
  * A world that is finished says *who can play it* instead ("Just me", "Everyone"): "Your world is
  * ready" is a headline, not a pill, and once it is built the open question is the audience.
  *
+ * The audience it names is the one **in force**, never the one the row wishes for: a `ready` world
+ * whose `visibility` says `public` is playable by its creator and nobody else, and a pill reading
+ * EVERYONE over a world no one else can open is the badge lying about the product (QA-003). See
+ * `studio/audience.ts` for the whole table.
+ *
  * `pulled` is the exception that earns its own pill. It is `review` too, but "waiting to be read"
  * and "taken off the shelf because players reported it" are not the same news, and the second is
  * the one a creator must not discover by accident — so it says so, in the colour of a problem.
@@ -42,7 +47,8 @@ export function StudioStatusBadge({
   const { t } = useT();
   const settled = status === "ready" || status === "published";
   const tint = pulled ? colors.danger : STATUS_TINT[status];
-  const label = t(pulled ? "studioPulled" : settled ? VISIBILITY_LABEL[visibility] : STATUS_LABEL[status]);
+  const audience = audienceInForce({ status, visibility });
+  const label = t(pulled ? "studioPulled" : settled ? VISIBILITY_LABEL[audience] : STATUS_LABEL[status]);
   return (
     <View
       testID={testID}

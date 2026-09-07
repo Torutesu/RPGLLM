@@ -30,7 +30,9 @@ import { logGeneration } from "../services/generation";
 import type { LocaleKey } from "../services/locale";
 import { notify } from "../services/notify";
 import { seedFrom } from "../services/rng";
+import { setWorldVisibility } from "../services/world-publish";
 import { refundWorldOnce, worldBuildBatchSize, worldBuildTimeoutMs } from "../services/world-studio";
+import type { Deps } from "../types";
 
 export interface WorldBuildResult {
   considered: number;
@@ -59,7 +61,7 @@ async function tellCreator(
   prisma: PrismaClient,
   world: World,
   locale: LocaleKey,
-  key: "studioReady" | "studioFailed",
+  key: "studioReady" | "studioFailed" | "studioRejected",
 ): Promise<void> {
   if (!world.createdBy) return;
   const persona = await prisma.persona.findFirst({
@@ -108,13 +110,61 @@ async function sweepStuck(prisma: PrismaClient, now: Date): Promise<World[]> {
   });
 }
 
+/**
+ * **The create-time half of the publish decision** (QA-003).
+ *
+ * SCR-048 asks "who can play it?" before the world exists, and `POST /v1/worlds` writes the answer
+ * onto the row. This is where that answer is honoured — through exactly the transition the share
+ * button uses, never a second copy of it:
+ *
+ *  - `private` — nothing to do. The world is `ready`, and that is the whole of it.
+ *  - `unlisted` / `public` — the generated bible and cast go through G8, then `published` or
+ *    `review`. Nothing reaches Explore without a person, whichever door the creator came through.
+ *
+ * A block does not lose the world or the 120 gems: it has been built and paid for, so it lands
+ * `ready` + private with the verdict on the row and a sentence its creator can read on SCR-049 —
+ * where the share button is offered again, because the world is no longer claiming to be public.
+ * The same is true if the gate itself is unreachable; a world nobody could screen is a world that
+ * stays the creator's until they ask again.
+ */
+async function settleVisibility(deps: Deps, world: World, locale: LocaleKey): Promise<void> {
+  if (world.visibility === "private") return;
+  const wanted = world.visibility;
+  const blockedReason = `${t(locale as Locale, "studioRejected")} ${t(locale as Locale, "studioRejectedHint")}`;
+  try {
+    const outcome = await setWorldVisibility(deps, world, wanted, {
+      locale,
+      actorId: world.createdBy,
+      blockedReason,
+    });
+    if (outcome.ok) {
+      logLine({ level: "info", msg: "world.build.shared", worldId: world.id, visibility: wanted, status: outcome.world.status });
+      return;
+    }
+    if (outcome.kind === "blocked") {
+      logLine({ level: "warn", msg: "world.build.gate_blocked", worldId: world.id, visibility: wanted });
+      await tellCreator(deps.prisma, world, locale, "studioRejected");
+      return;
+    }
+    // Unreachable for a world that was `generating` a moment ago; logged rather than swallowed
+    // because if it ever happens the creator is holding a world nobody agreed to share.
+    logLine({ level: "warn", msg: "world.build.share_refused", worldId: world.id, reason: outcome.message });
+    await deps.prisma.world.updateMany({ where: { id: world.id, status: "ready" }, data: { visibility: "private" } });
+  } catch (err: unknown) {
+    logLine({ level: "error", msg: "world.build.gate_failed", worldId: world.id, reason: (err as Error).message });
+    // No verdict means no sharing — and no misleading message either. It is theirs, and the Share
+    // button on SCR-049 is the retry.
+    await deps.prisma.world.updateMany({ where: { id: world.id, status: "ready" }, data: { visibility: "private" } });
+  }
+}
+
 async function buildOne(
-  prisma: PrismaClient,
-  gateway: Gateway,
+  deps: Deps,
   world: World,
   now: Date,
   estimate: (text: string) => number,
 ): Promise<"built" | "failed"> {
+  const { prisma, gateway } = deps;
   const locale = localeOf(world, "en");
   const g9 = g9Of(gateway);
   if (!g9) {
@@ -179,6 +229,10 @@ async function buildOne(
 
   logLine({ level: "info", msg: "world.build.ready", worldId: world.id, slug: world.slug });
   await tellCreator(prisma, world, locale, "studioReady");
+  // The world exists now, so the answer given on SCR-048 can finally be acted on. Read the row back
+  // rather than trusting the pre-build copy: `seedWorld` has just rewritten most of it, and the
+  // gate reads the *generated* bible and cast.
+  await settleVisibility(deps, await prisma.world.findUniqueOrThrow({ where: { id: world.id } }), locale);
   return "built";
 }
 
@@ -189,6 +243,7 @@ export async function runWorldBuild(
   opts: WorldBuildOptions = {},
 ): Promise<WorldBuildResult> {
   const now = clock.now();
+  const deps: Deps = { prisma, gateway, clock };
   const out: WorldBuildResult = { considered: 0, built: 0, failed: 0, swept: 0 };
 
   for (const stuck of await sweepStuck(prisma, now)) {
@@ -211,7 +266,7 @@ export async function runWorldBuild(
     });
     if (claimed.count === 0) continue;
     out.considered += 1;
-    const outcome = await buildOne(prisma, gateway, { ...world, buildStartedAt: now }, now, estimate);
+    const outcome = await buildOne(deps, { ...world, buildStartedAt: now }, now, estimate);
     if (outcome === "built") out.built += 1;
     else out.failed += 1;
   }

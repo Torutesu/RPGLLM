@@ -10,7 +10,7 @@ import type { Deps } from "../types";
 export async function safetyGate(
   deps: Deps,
   input: G8Input,
-  userId: string,
+  userId: string | null,
 ): Promise<{ verdict: SafetyVerdict; generationId: string }> {
   const result = await deps.gateway.g8(input);
   const verdict = result.output.verdict as SafetyVerdict;

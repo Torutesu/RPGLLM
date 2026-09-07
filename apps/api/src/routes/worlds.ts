@@ -10,7 +10,6 @@ import { loadDeepPremiseScreen } from "../llm-loader";
 import { requireActiveAccount } from "../services/account";
 import { atHandle, sameHandle } from "../services/handles";
 import { localized, type LocaleKey } from "../services/locale";
-import { safetyGate } from "../services/safety";
 import { toApiCharacter, toApiWorld } from "../services/serialize";
 import { ensureWallet } from "../services/wallet";
 import { getWorldSeed } from "../services/world-seeds";
@@ -18,9 +17,8 @@ import {
   GemsRequiredError, buildProgress, canStillPlay, castCounts, creatorHandles, dailyWorldLimit, decorate,
   pickerWhere, slugifyPremise, spendGems, toApiWorldFull, uniqueSlug, worldsCreatedToday,
 } from "../services/world-studio";
-import { resubmitCooldownHours } from "../services/world-moderation";
-import { appealRejection, clearedAppeal } from "../services/world-appeal";
-import { releasedClaim } from "../services/world-review-claim";
+import { setWorldVisibility } from "../services/world-publish";
+import { appealRejection } from "../services/world-appeal";
 import { tamePremise } from "../fake-world-seed";
 import type { AppEnv, Deps } from "../types";
 
@@ -259,14 +257,12 @@ export function worldRoutes(): Hono<AppEnv> {
   });
 
   /**
-   * SCR-049 → share. `private` applies immediately; it is the creator's own business, and nobody
-   * else can reach the world.
+   * SCR-049 → share, and the *second* of the two doors onto one decision.
    *
-   * Anything a second person can open — `unlisted` by link, `public` in Explore — goes through G8
-   * over the **generated** bible and cast (not the premise, which was screened before any of this
-   * existed). `unlisted` then goes live, because a link that reaches one friend is not a discovery
-   * surface. `public` is not a setting: it goes to a queue and a human decides. There is no path
-   * through this handler that puts a world in Explore.
+   * Everything about what each visibility means, and about when a world may change hands at all,
+   * lives in `services/world-publish.ts` — because the same decision is also made on SCR-048,
+   * before the world exists, and settled by the build job. This handler's whole job is to turn the
+   * shared outcome into an HTTP answer (QA-003).
    */
   app.post("/:id/publish", requireAuth, requireActiveAccount, async (c) => {
     const body = await parseBody(c.req, PublishWorldReqZ);
@@ -276,103 +272,21 @@ export function worldRoutes(): Hono<AppEnv> {
     const locale = user.locale as LocaleKey;
     const world = await findWorld(deps, c.req.param("id"));
     if (!world || world.createdBy !== user.id) return notFound("World");
-    if (world.status === "draft" || world.status === "generating") {
-      return fail("VALIDATION", "That world hasn't finished building yet", 409);
-    }
 
-    /**
-     * **A takedown is not the creator's to undo** (QA-001).
-     *
-     * A world that reports pulled off the shelf is `review` with `pulledAt` set — not `rejected` —
-     * so it used to walk straight past the cooldown below, and `unlisted` would set it back to
-     * `published` and clear `pulledAt`. One request, dressed as a de-escalation ("I made it
-     * link-only"), and the world left the queue permanently with its complaints unresolved: no
-     * human would ever read it, anyone holding the id could still open it, and it could never be
-     * pulled again because pulling requires `public`.
-     *
-     * While a person still owes this world a decision, the only visibility change available is
-     * `private` — which takes it away from everyone, complaints intact.
-     */
-    if (world.pulledAt !== null && body.value.visibility !== "private") {
-      return fail(
-        "VALIDATION",
-        "This world was taken down after reports. A person is reading it — you can make it private, but not share it again.",
-        409,
-      );
-    }
-
-    /**
-     * Rejection is not forever, but it is not instant either. Without a cooldown a creator bounces
-     * the same turned-down world off the review queue continuously and a reviewer's decision costs
-     * them nothing — so a rejected world waits `WORLD_MODERATION.RESUBMIT_COOLDOWN_HOURS` before it
-     * can be offered to anyone else again, and is told exactly how long. Checked before the safety
-     * gate, so a refused resubmit costs no tokens.
-     */
-    if (body.value.visibility !== "private") {
-      const wait = resubmitCooldownHours(world, deps.clock.now());
-      if (wait !== null) {
-        return fail(
-          "VALIDATION",
-          `That world was turned down. You can submit it again in ${wait} ${wait === 1 ? "hour" : "hours"}.`,
-          409,
-        );
-      }
-    }
-
-    if (body.value.visibility === "private") {
-      const updated = await deps.prisma.world.update({
-        where: { id: world.id },
-        // Pulling a world back also withdraws it from the queue, or from Explore — including a
-        // world reports took off the shelf: it is no longer waiting on anyone. Its reports stay
-        // open, so the complaint history survives the creator making it private. Whoever had
-        // claimed it is reading a world that left the queue, so the lease goes too.
-        data: {
-          visibility: "private", status: "ready", pulledAt: null, reviewRequestedAt: null,
-          ...clearedAppeal, ...releasedClaim,
-        },
-      });
-      return ok({ world: await oneFull(deps, updated, locale, user.id), needsReview: false });
-    }
-
-    const characters = await deps.prisma.worldCharacter.findMany({ where: { worldId: world.id }, orderBy: { handle: "asc" } });
-    // A public world's audience includes minors, so it is judged at the strictest setting no matter
-    // who is asking to publish it.
-    const gate = await safetyGate(deps, {
+    const outcome = await setWorldVisibility(deps, world, body.value.visibility, {
       locale,
-      isMinor: true,
-      text: reviewText(world, characters, locale),
-      surface: "post",
-    }, user.id);
-
-    if (gate.verdict === "block") {
-      await deps.prisma.world.update({
-        where: { id: world.id },
-        data: { safety: "block", safetyNote: "blocked by the pre-publication safety gate", status: "ready", visibility: "private" },
-      });
-      return fail("SAFETY_BLOCKED", "This world can't be shared.", 422);
-    }
-
-    const unlisted = body.value.visibility === "unlisted";
-    const updated = await deps.prisma.world.update({
-      where: { id: world.id },
-      data: {
-        visibility: body.value.visibility,
-        // `unlisted` is live but undiscoverable; `public` waits for a person.
-        status: unlisted ? "published" : "review",
-        safety: gate.verdict,
-        safetyNote: gate.verdict === "soften" ? "flagged for a closer read" : "",
-        // The review clock starts when the world joins the queue, not when it was created — and a
-        // fresh submission is never a takedown, whatever this world's history is.
-        ...(unlisted ? { reviewRequestedAt: null } : { reviewRequestedAt: deps.clock.now() }),
-        pulledAt: null,
-        // A genuine resubmit is a new review cycle, so the appeal budget starts again: whatever
-        // rejection an earlier appeal argued with is not the decision this world now carries. It
-        // also arrives unclaimed — nobody is holding a world that was not in the queue.
-        ...clearedAppeal,
-        ...releasedClaim,
-      },
+      actorId: user.id,
+      // The 422 below carries the message; a request that gets an answer needs nothing on the row.
     });
-    return ok({ world: await oneFull(deps, updated, locale, user.id), needsReview: !unlisted }, unlisted ? 200 : 202);
+    if (!outcome.ok) {
+      return outcome.kind === "refused"
+        ? fail("VALIDATION", outcome.message, 409)
+        : fail("SAFETY_BLOCKED", "This world can't be shared.", 422);
+    }
+    return ok(
+      { world: await oneFull(deps, outcome.world, locale, user.id), needsReview: outcome.needsReview },
+      outcome.needsReview ? 202 : 200,
+    );
   });
 
   /**
@@ -445,22 +359,6 @@ export function worldRoutes(): Hono<AppEnv> {
   });
 
   return app;
-}
-
-/** How much of a generated world a reviewer — G8 or a human — is shown. */
-export const REVIEW_EXCERPT_CHARS = 4000;
-
-export function reviewText(
-  world: World,
-  characters: { handle: string; role: string; card: unknown }[],
-  locale: LocaleKey,
-): string {
-  return [
-    localized(world.title, locale),
-    localized(world.scenario, locale),
-    localized(world.bible, locale).slice(0, REVIEW_EXCERPT_CHARS),
-    ...characters.map((ch) => `${ch.handle} (${ch.role}): ${localized(ch.card, locale)}`),
-  ].join("\n");
 }
 
 interface PublicCursor { score: number; id: string }
