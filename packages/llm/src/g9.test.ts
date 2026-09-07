@@ -13,6 +13,7 @@ import {
 import { createGateway } from "./gateway.js";
 import { HANDLE_RE } from "./handles.js";
 import { estimateTokens } from "./tokens.js";
+import { cjkRatio } from "./eval-g9.js";
 import {
   aggregateMeta,
   deterministicWorld,
@@ -94,6 +95,20 @@ describe("G9 — generated worlds have the shape of authored worlds", () => {
           }
         });
       }
+
+      it("gives every cast member a role line in both locales, written in each", () => {
+        for (const c of world.cast) {
+          const en = c.roleLocalized?.en ?? "";
+          const ja = c.roleLocalized?.ja ?? "";
+          expect(en.length, c.handle).toBeGreaterThan(0);
+          expect(ja.length, c.handle).toBeGreaterThan(0);
+          // The single-language field the bible interpolates is the English half, exactly.
+          expect(c.role, c.handle).toBe(en);
+          // and the Japanese half is Japanese — not the English line passed through.
+          expect(ja, c.handle).not.toBe(en);
+          expect(cjkRatio(ja), c.handle).toBeGreaterThan(0.5);
+        }
+      });
 
       it("has 8 cast, exactly one press account and >=5 first-follower options", () => {
         expect(world.cast).toHaveLength(WORLD_STUDIO.CAST_SIZE);
@@ -180,6 +195,84 @@ describe("G9 — generated worlds have the shape of authored worlds", () => {
 });
 
 /* ------------------------------------------------------------ determinism ---- */
+
+/**
+ * The live path. In replay every stage is its own blueprint slice, so `roleLocalized` is there by
+ * construction; what has to be proved is the tier that actually calls a model. G9a is the only
+ * stage that produces a cast, so it is the only stage that can produce — or fail to produce — a
+ * localized role, and `postprocess` is what guarantees the world downstream of it always has one.
+ */
+describe("G9a — the localized role survives whatever the model returns", () => {
+  const base = inputFor({ slug: "role-repair", genre: "idol", locale: "ja" });
+  const reference = deterministicConcept(base);
+  const raw = (over: Partial<(typeof reference)["cast"][number]>) => ({
+    ...reference,
+    cast: reference.cast.map((c, i) => (i === 0 ? { ...c, ...over } : c)),
+  });
+  const firstOf = (concept: ReturnType<typeof deterministicConcept> | null) => concept?.cast[0];
+
+  it("keeps a model-written pair and mirrors the English half onto `role`", () => {
+    const out = g9Concept.postprocess(
+      raw({ role: "the frontrunner", roleLocalized: { en: "the frontrunner", ja: "一番になるはずだった子" } }),
+      { base },
+    );
+    const member = firstOf(out);
+    expect(member?.role).toBe("the frontrunner");
+    expect(member?.roleLocalized?.en).toBe("the frontrunner");
+    expect(member?.roleLocalized?.ja).toBe("一番になるはずだった子");
+  });
+
+  it("fills a missing Japanese half from the archetype rather than from the English", () => {
+    const out = g9Concept.postprocess(raw({ role: "the frontrunner", roleLocalized: undefined }), {
+      base,
+    });
+    const member = firstOf(out);
+    expect(member?.role).toBe("the frontrunner");
+    expect(member?.roleLocalized?.ja.length ?? 0).toBeGreaterThan(0);
+    expect(member?.roleLocalized?.ja).not.toBe("the frontrunner");
+    expect(cjkRatio(member?.roleLocalized?.ja ?? "")).toBeGreaterThan(0.5);
+  });
+
+  it("refuses a Japanese half that is just the English line again", () => {
+    const out = g9Concept.postprocess(
+      raw({ role: "the frontrunner", roleLocalized: { en: "the frontrunner", ja: "the frontrunner" } }),
+      { base },
+    );
+    const member = firstOf(out);
+    expect(member?.roleLocalized?.ja).not.toBe("the frontrunner");
+    expect(cjkRatio(member?.roleLocalized?.ja ?? "")).toBeGreaterThan(0.5);
+  });
+
+  it("gives every repaired member both halves, whatever the model sent", () => {
+    const out = g9Concept.postprocess(
+      { ...reference, cast: reference.cast.map((c) => ({ ...c, roleLocalized: undefined })) },
+      { base },
+    );
+    expect(out?.cast).toHaveLength(WORLD_STUDIO.CAST_SIZE);
+    for (const c of out?.cast ?? []) {
+      expect(c.roleLocalized?.en).toBe(c.role);
+      expect(cjkRatio(c.roleLocalized?.ja ?? ""), c.handle).toBeGreaterThan(0.5);
+    }
+  });
+
+  it("carries both halves into the prompt every later stage reads", () => {
+    const concept = g9Concept.postprocess(raw({}), { base }) ?? reference;
+    const cardPrompt = g9Card.render({
+      base,
+      concept,
+      prose: { en: "p", ja: "p" },
+      handle: concept.cast[0]?.handle ?? "",
+    });
+    expect(cardPrompt.user).toContain("role (en):");
+    expect(cardPrompt.user).toContain("role (ja):");
+    // and the shared per-world prefix carries the pair, so the bible and texture stages see it too
+    const texturePrompt = g9Texture.render({ base, concept, prose: { en: "p", ja: "p" }, locale: "ja" });
+    const jaRole = concept.cast[0]?.roleLocalized?.ja ?? "";
+    expect(jaRole.length).toBeGreaterThan(0);
+    expect(texturePrompt.system.join("\n")).toContain(jaRole);
+    expect(texturePrompt.user).toContain(jaRole);
+  });
+});
 
 describe("G9 — determinism", () => {
   it("same (slug, premise, genre, seed) -> byte-identical world", () => {

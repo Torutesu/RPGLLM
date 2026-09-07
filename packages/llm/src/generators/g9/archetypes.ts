@@ -18,8 +18,19 @@ export type LocaleText = Record<Locale, string>;
 
 export interface Archetype {
   key: string;
-  /** stored on `CharacterCard.role`, a single string used in both locales' bibles */
-  role: string;
+  /**
+   * The short role label, per locale. `roleLocalized.en` is *the* English role — the single
+   * `CharacterCard.role` string is derived from it, so the two can never drift apart and the
+   * assembled bible (which still interpolates the single string) stays byte-identical.
+   *
+   * The Japanese half is written as Japanese. A cast list that says 「一番になるはずだった子」
+   * next to a Japanese intro reads as a Japanese world; one that says "the frontrunner" there is
+   * the exact tell that makes a JA player call the whole app a translation.
+   *
+   * Slot-free in both locales: these strings are surfaced verbatim in a chip in the cast UI, and
+   * `fill` leaves unknown slots in place on purpose.
+   */
+  roleLocalized: LocaleText;
   isPressAccount: boolean;
   canBeFirstFollower: boolean;
   /** the eight labelled halves of a card, in the order `renderCard` emits them */
@@ -43,7 +54,7 @@ export interface Archetype {
 
 const PRESS: Archetype = {
   key: "press",
-  role: "press account",
+  roleLocalized: { en: "press account", ja: "唯一のニュース垢" },
   isPressAccount: true,
   canBeFirstFollower: false,
   roleLine: {
@@ -99,7 +110,7 @@ const PRESS: Archetype = {
 
 const SUPERFAN: Archetype = {
   key: "superfan",
-  role: "organiser of the crowd",
+  roleLocalized: { en: "organiser of the crowd", ja: "現場を仕切っている古参" },
   isPressAccount: false,
   canBeFirstFollower: true,
   roleLine: {
@@ -155,7 +166,7 @@ const SUPERFAN: Archetype = {
 
 const RIVAL: Archetype = {
   key: "rival",
-  role: "the one a step ahead",
+  roleLocalized: { en: "the one a step ahead", ja: "半歩だけ先にいる人" },
   isPressAccount: false,
   canBeFirstFollower: true,
   roleLine: {
@@ -211,7 +222,7 @@ const RIVAL: Archetype = {
 
 const MENTOR: Archetype = {
   key: "mentor",
-  role: "the one who already did it",
+  roleLocalized: { en: "the one who already did it", ja: "同じ道を先に通った人" },
   isPressAccount: false,
   canBeFirstFollower: true,
   roleLine: {
@@ -267,7 +278,7 @@ const MENTOR: Archetype = {
 
 const HANDLER: Archetype = {
   key: "handler",
-  role: "the institution's friendly face",
+  roleLocalized: { en: "the institution's friendly face", ja: "運営側の、優しい担当" },
   isPressAccount: false,
   canBeFirstFollower: true,
   roleLine: {
@@ -323,7 +334,7 @@ const HANDLER: Archetype = {
 
 const CRITIC: Archetype = {
   key: "critic",
-  role: "the analyst nobody asked for",
+  roleLocalized: { en: "the analyst nobody asked for", ja: "頼んでもいない解説役" },
   isPressAccount: false,
   canBeFirstFollower: true,
   roleLine: {
@@ -379,7 +390,7 @@ const CRITIC: Archetype = {
 
 const CHAOS: Archetype = {
   key: "chaos",
-  role: "the one who makes it worse",
+  roleLocalized: { en: "the one who makes it worse", ja: "必ず事態を悪くする人" },
   isPressAccount: false,
   canBeFirstFollower: true,
   roleLine: {
@@ -435,7 +446,7 @@ const CHAOS: Archetype = {
 
 const OLDFRIEND: Archetype = {
   key: "oldfriend",
-  role: "from before, not rising as fast",
+  roleLocalized: { en: "from before, not rising as fast", ja: "前からいて、伸びていない" },
   isPressAccount: false,
   canBeFirstFollower: true,
   roleLine: {
@@ -491,7 +502,7 @@ const OLDFRIEND: Archetype = {
 
 const NEWCOMER: Archetype = {
   key: "newcomer",
-  role: "arrived after the player",
+  roleLocalized: { en: "arrived after the player", ja: "あとから来た新入り" },
   isPressAccount: false,
   canBeFirstFollower: true,
   roleLine: {
@@ -547,7 +558,7 @@ const NEWCOMER: Archetype = {
 
 const VETERAN: Archetype = {
   key: "veteran",
-  role: "here longest, seen it all",
+  roleLocalized: { en: "here longest, seen it all", ja: "ここに一番長くいる人" },
   isPressAccount: false,
   canBeFirstFollower: true,
   roleLine: {

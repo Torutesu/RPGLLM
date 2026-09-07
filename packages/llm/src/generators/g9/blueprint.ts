@@ -232,10 +232,18 @@ export function deterministicConcept(base: G9Input): G9Concept {
       ? `The ${names.en} Wire`
       : (namePool[i] ?? `Account ${i + 1}`);
     const enWords = pack.words.en;
+    const jaWords = pack.words.ja;
+    // `role` is derived from `roleLocalized.en` rather than authored twice, so the single-language
+    // string the bible interpolates can never drift from the English half of the localized pair.
+    const roleLocalized = {
+      en: fill(a.roleLocalized.en, { ...enWords }),
+      ja: fill(a.roleLocalized.ja, { ...jaWords }),
+    };
     return {
       handle: bareHandle(handle),
       displayName,
-      role: fill(a.role, { ...enWords }),
+      role: roleLocalized.en,
+      roleLocalized,
       archetype: a.key,
       avatarKey: `${base.genre}-${bareHandle(handle)}`,
       isPressAccount: a.isPressAccount,

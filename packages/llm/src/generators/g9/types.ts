@@ -51,7 +51,14 @@ const LocaleTextZ = z.object({ en: z.string(), ja: z.string() });
 export const G9ConceptCastZ = z.object({
   handle: z.string(),
   displayName: z.string(),
+  /** the single-language role label; kept because `WorldSeed.cast[].role` and the bible use it */
   role: z.string(),
+  /**
+   * The same role line, per locale. Optional on the wire — a live model that forgets it must not
+   * cost the world its whole concept call — but `repairCast` fills it for every member, so a
+   * post-`postprocess` concept always has one. Read it through `roleIn()`, never directly.
+   */
+  roleLocalized: LocaleTextZ.optional(),
   /** which relationship-to-the-player this account is; see archetypes.ts */
   archetype: z.string(),
   avatarKey: z.string(),
@@ -60,6 +67,15 @@ export const G9ConceptCastZ = z.object({
   intro: LocaleTextZ,
 });
 export type G9ConceptCast = z.infer<typeof G9ConceptCastZ>;
+
+/**
+ * The role line to show/write in one locale. Falls back to the single-language `role`, which is
+ * what every pre-`roleLocalized` seed and every consumer that has not been updated still carries.
+ */
+export function roleIn(member: Pick<G9ConceptCast, "role" | "roleLocalized">, locale: Locale): string {
+  const localized = member.roleLocalized?.[locale]?.trim() ?? "";
+  return localized.length > 0 ? localized : member.role;
+}
 
 /**
  * Deliberately loose bounds: a model that returns seven cast members should be repaired by

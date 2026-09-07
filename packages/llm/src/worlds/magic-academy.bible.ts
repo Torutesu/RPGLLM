@@ -165,6 +165,7 @@ export const cast: CastSource[] = [
     handle: "@emberwyn",
     displayName: "Wyn Ashgrove",
     role: "rival prodigy",
+    roleLocalized: { en: "rival prodigy", ja: "同期の天才、ライバル" },
     avatarKey: "mag-wyn",
     canBeFirstFollower: true,
     intro: {
@@ -217,6 +218,7 @@ NG: 他人の家庭事情や金銭事情を茶化さない。他の学生の懲�
     handle: "@thequill",
     displayName: "The Quill",
     role: "student broadsheet",
+    roleLocalized: { en: "student broadsheet", ja: "学生新聞" },
     avatarKey: "mag-quill",
     isPressAccount: true,
     canBeFirstFollower: false,
@@ -268,6 +270,7 @@ NG: 学生の家庭・健康・金銭に関することは一切載せない。1
     handle: "@marrowfinch",
     displayName: "Marrow Finch",
     role: "under-librarian",
+    roleLocalized: { en: "under-librarian", ja: "書庫の副司書" },
     avatarKey: "mag-marrow",
     canBeFirstFollower: true,
     intro: {
@@ -320,6 +323,7 @@ NG: 封印された懲戒記録の中身は絶対に明かさない。噂話を�
     handle: "@kittarrow",
     displayName: "Kit Tarrow",
     role: "roommate and disaster",
+    roleLocalized: { en: "roommate and disaster", ja: "同室の、災害みたいな子" },
     avatarKey: "mag-kit",
     canBeFirstFollower: true,
     intro: {
@@ -368,6 +372,7 @@ NG: 1年生を叩かない。階段話を他所で繰り返さない。相手に
     handle: "@prefectlocke",
     displayName: "Idris Locke",
     role: "head prefect",
+    roleLocalized: { en: "head prefect", ja: "首席の監督生" },
     avatarKey: "mag-idris",
     canBeFirstFollower: true,
     intro: {
@@ -415,6 +420,7 @@ NG: 進行中の懲戒案件を話題にしない。議論で自分の役職を�
     handle: "@profsableveil",
     displayName: "Sable Veil",
     role: "professor of applied theory",
+    roleLocalized: { en: "professor of applied theory", ja: "応用理論の教授" },
     avatarKey: "mag-sable",
     canBeFirstFollower: false,
     intro: {
@@ -466,6 +472,7 @@ NG: 学生の家族について論評しない。噂を肯定も否定もしな�
     handle: "@poppybramble",
     displayName: "Poppy Bramble",
     role: "herbalism student",
+    roleLocalized: { en: "herbalism student", ja: "薬草学の学生" },
     avatarKey: "mag-poppy",
     canBeFirstFollower: true,
     intro: {
@@ -516,6 +523,7 @@ NG: 噂話をしない。取り乱している人が言ったことを他所で�
     handle: "@cassnull",
     displayName: "Cass Null",
     role: "anti-Ledger organiser",
+    roleLocalized: { en: "anti-Ledger organiser", ja: "反・序列表の旗振り役" },
     avatarKey: "mag-cass",
     canBeFirstFollower: true,
     intro: {

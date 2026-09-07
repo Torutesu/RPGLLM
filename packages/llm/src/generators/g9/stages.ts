@@ -12,7 +12,7 @@ import {
   renderOutro,
   renderProse,
 } from "./blueprint.js";
-import { ALL_ARCHETYPES } from "./archetypes.js";
+import { ALL_ARCHETYPES, archetypeByKey } from "./archetypes.js";
 import {
   G9_TASKS,
   STUDIO_GLOBAL,
@@ -29,6 +29,7 @@ import {
   G9ConceptZ,
   G9TextureZ,
   G9_VARIANT_IDS,
+  roleIn,
   type G9BibleInput,
   type G9BibleOutput,
   type G9CardInput,
@@ -89,10 +90,23 @@ function repairCast(raw: readonly G9ConceptCast[], reference: G9Concept): G9Conc
     if (archetype === "") continue;
     seenHandles.add(handle);
     seenArchetypes.add(archetype);
+
+    // The role line, in both locales. `role` stays the single English string the bible and every
+    // existing consumer read; `roleLocalized` is what a JA player actually sees under the name.
+    // A JA half that is missing — or that came back as the English line, which is the half-
+    // translated cast this field exists to remove — falls back to the archetype's own Japanese,
+    // never to the English.
+    const archetypeRole = archetypeByKey(archetype)?.roleLocalized;
+    const roleEn =
+      clamp(c.role, 60) || clamp(c.roleLocalized?.en ?? "", 60) || archetypeRole?.en || "account";
+    const rawJa = clamp(c.roleLocalized?.ja ?? "", 60);
+    const roleJa = rawJa.length > 0 && rawJa !== roleEn ? rawJa : (archetypeRole?.ja ?? roleEn);
+
     cleaned.push({
       handle,
       displayName: clamp(c.displayName, 60) || handle,
-      role: clamp(c.role, 60) || "account",
+      role: roleEn,
+      roleLocalized: { en: roleEn, ja: roleJa },
       archetype,
       avatarKey: clamp(c.avatarKey, 60) || `${archetype}-${handle}`,
       isPressAccount: archetype === "press" ? true : c.isPressAccount,
@@ -107,7 +121,11 @@ function repairCast(raw: readonly G9ConceptCast[], reference: G9Concept): G9Conc
     if (seenHandles.has(ref.handle) || seenArchetypes.has(ref.archetype)) continue;
     seenHandles.add(ref.handle);
     seenArchetypes.add(ref.archetype);
-    cleaned.push({ ...ref, intro: { ...ref.intro } });
+    cleaned.push({
+      ...ref,
+      intro: { ...ref.intro },
+      roleLocalized: { en: roleIn(ref, "en"), ja: roleIn(ref, "ja") },
+    });
   }
   const cast = cleaned.slice(0, WORLD_STUDIO.CAST_SIZE);
 
@@ -264,7 +282,8 @@ export const g9Card: GeneratorSpec<G9CardInput, G9CardOutput> = {
             : [
                 `handle: @${member.handle}`,
                 `display name: ${member.displayName}`,
-                `role: ${member.role}`,
+                `role (en): ${roleIn(member, "en")}`,
+                `role (ja): ${roleIn(member, "ja")}`,
                 `archetype: ${member.archetype}`,
                 `press account: ${member.isPressAccount ? "yes" : "no"}`,
                 `selectable as first follower: ${member.canBeFirstFollower ? "yes" : "no"}`,
@@ -398,7 +417,10 @@ export const g9Texture: GeneratorSpec<G9TextureInput, G9TextureOutput> = {
 
   render(input: G9TextureInput): RenderedPrompt {
     const roster = input.concept.cast
-      .map((c) => `- @${c.handle} (${c.displayName}) — ${c.role}${c.isPressAccount ? " [PRESS]" : ""}`)
+      .map(
+        (c) =>
+          `- @${c.handle} (${c.displayName}) — ${roleIn(c, input.locale)}${c.isPressAccount ? " [PRESS]" : ""}`,
+      )
       .join("\n");
     return {
       system: [STUDIO_GLOBAL[input.locale], worldBrief(input.concept, input.prose)],

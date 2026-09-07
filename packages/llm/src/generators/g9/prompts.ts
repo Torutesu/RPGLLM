@@ -1,6 +1,7 @@
 import { WORLD_STUDIO, type Locale } from "@rpgllm/shared";
 import { clamp, section } from "../../prompts/render.js";
 import { sanitizePremise } from "./screen.js";
+import { roleIn } from "./types.js";
 import type { G9Concept, G9Input } from "./types.js";
 import { packFor } from "./vocab.js";
 
@@ -172,7 +173,7 @@ export function conceptBlock(concept: G9Concept): string {
     "## CAST — these eight handles and no others",
     ...concept.cast.map(
       (c) =>
-        `- @${c.handle} (${c.displayName}) — ${c.role} [${c.archetype}]${c.isPressAccount ? " [PRESS ACCOUNT]" : ""}${c.canBeFirstFollower ? "" : " [not a first follower]"}\n  ${c.intro.en}\n  ${c.intro.ja}`,
+        `- @${c.handle} (${c.displayName}) — ${roleIn(c, "en")} / ${roleIn(c, "ja")} [${c.archetype}]${c.isPressAccount ? " [PRESS ACCOUNT]" : ""}${c.canBeFirstFollower ? "" : " [not a first follower]"}\n  ${c.intro.en}\n  ${c.intro.ja}`,
     ),
   ];
   return lines.join("\n");
@@ -212,7 +213,10 @@ Read the premise below and design the world it implies. Return one JSON object:
 9. \`slang\`: eight terms this world's people actually use, each with a gloss in both locales.
    Invented or repurposed — never a real platform's vocabulary.
 10. \`cast\`: exactly eight accounts. For each: \`handle\` (lowercase, 3-15 chars, no @),
-    \`displayName\`, \`role\` (a short English label), \`archetype\` (one of: press, superfan,
+    \`displayName\`, \`role\` (a short English label), \`roleLocalized\` (\`en\` and \`ja\`: the same
+    role line written in each language — \`en\` must equal \`role\`, and \`ja\` must be written as
+    Japanese, not translated from the English one; six to fourteen characters, characterful, the
+    label a Japanese author would put under this account's name), \`archetype\` (one of: press, superfan,
     rival, mentor, handler, critic, chaos, oldfriend, newcomer, veteran — each used at most once),
     \`avatarKey\` (genre-handle), \`isPressAccount\`, \`canBeFirstFollower\`, and \`intro\` in both
     locales: one line the player reads when choosing who follows them first.
@@ -234,7 +238,10 @@ Read the premise below and design the world it implies. Return one JSON object:
 9. \`slang\`: この世界の人間が実際に使う語を8つ。両ロケールの語義付き。
    架空か、意味を変えた既存語。実在プラットフォームの用語は使わない。
 10. \`cast\`: ちょうど8アカウント。各要素に \`handle\`(英小文字3〜15文字、@なし)、
-    \`displayName\`、\`role\`(短い英語のラベル)、\`archetype\`(press, superfan, rival, mentor,
+    \`displayName\`、\`role\`(短い英語のラベル)、\`roleLocalized\`(\`en\` と \`ja\`。同じ肩書きを
+    それぞれの言語で書く。\`en\` は \`role\` と同一にする。\`ja\` は英語からの翻訳ではなく、
+    日本語として書く。6〜14文字、性格の出る言い方で、日本語の作者がその人物の名前の下に
+    置くラベル)、\`archetype\`(press, superfan, rival, mentor,
     handler, critic, chaos, oldfriend, newcomer, veteran のいずれか。重複禁止)、
     \`avatarKey\`(genre-handle)、\`isPressAccount\`、\`canBeFirstFollower\`、
     そして \`intro\` を両ロケールで(最初のフォロワーを選ぶ画面に出る1行)。

@@ -14,8 +14,17 @@ import { bareHandle, bareKeys } from "../handles.js";
 
 export interface CastSource {
   handle: string;
-  displayName: string;
+  /** the single-language role label — this is the string the assembled bible interpolates */
   role: string;
+  /**
+   * The same role line per locale, and the half that reaches a player. `role` alone meant a
+   * Japanese world shipped Japanese intros next to English role lines; a world whose whole claim
+   * is that it crosses languages cannot have that seam. Write the JA as Japanese, not as a
+   * translation of the EN. Keep `roleLocalized.en === role`: `renderBible` uses `role`, so the
+   * two diverging would silently mean the bible and the cast list disagree.
+   */
+  roleLocalized?: Record<Locale, string>;
+  displayName: string;
   avatarKey: string;
   isPressAccount?: boolean;
   canBeFirstFollower?: boolean;
@@ -70,6 +79,10 @@ function renderCastCards(cast: readonly CastSource[], locale: Locale): string {
         c.canBeFirstFollower === false ? "not selectable as first follower" : null,
       ].filter((t): t is string => t !== null);
       const suffix = tags.length > 0 ? ` [${tags.join(" / ")}]` : "";
+      // Deliberately `c.role`, not the localized half: this string is `system[1]`, the cross-user
+      // cached prefix, and every byte of it is a cache key. Localizing the header here would move
+      // the JA prefix for every world that already shipped. `roleLocalized` rides alongside in the
+      // seed and is what the player-facing surfaces read. See build-notes G9 §roleLocalized.
       return `## ${c.handle} — ${c.displayName} (${c.role})${suffix}\n${c.card[locale].trim()}`;
     })
     .join("\n\n");
@@ -107,6 +120,7 @@ export function buildWorld(src: WorldSource): WorldSeed {
       handle: bareHandle(c.handle),
       displayName: c.displayName,
       role: c.role,
+      ...(c.roleLocalized === undefined ? {} : { roleLocalized: { ...c.roleLocalized } }),
       card: c.card,
       isPressAccount: c.isPressAccount ?? false,
       intro: c.intro,

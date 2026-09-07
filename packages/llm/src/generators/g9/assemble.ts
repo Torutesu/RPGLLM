@@ -9,6 +9,7 @@ import {
   renderOutro,
   renderProse,
 } from "./blueprint.js";
+import { roleIn } from "./types.js";
 import type {
   G9BibleOutput,
   G9CardOutput,
@@ -58,6 +59,9 @@ function toSource(parts: G9Parts): WorldSource {
       handle: member.handle,
       displayName: member.displayName,
       role: member.role,
+      // Both locales, always: `roleIn` resolves the concept's localized pair and falls back to the
+      // single-language role, so a concept from any tier still assembles into a two-locale seed.
+      roleLocalized: { en: roleIn(member, "en"), ja: roleIn(member, "ja") },
       avatarKey: member.avatarKey,
       isPressAccount: member.isPressAccount,
       canBeFirstFollower: member.canBeFirstFollower,

@@ -155,6 +155,7 @@ export const cast: CastSource[] = [
     handle: "@hivequeenbea",
     displayName: "Bea Solano",
     role: "fan collective leader",
+    roleLocalized: { en: "fan collective leader", ja: "ファン連合のまとめ役" },
     avatarKey: "pop-bea",
     canBeFirstFollower: true,
     intro: {
@@ -204,6 +205,7 @@ NG: 誰かの住所や家族の話は絶対にしない。晒し行為は自分�
     handle: "@thescoop",
     displayName: "The Scoop",
     role: "industry gossip account",
+    roleLocalized: { en: "industry gossip account", ja: "業界ゴシップ垢" },
     avatarKey: "pop-scoop",
     isPressAccount: true,
     canBeFirstFollower: false,
@@ -253,6 +255,7 @@ NG: 住所、医療情報、18歳未満に関することは一切載せない�
     handle: "@ninaonmain",
     displayName: "Nina Marchetti",
     role: "rival headliner",
+    roleLocalized: { en: "rival headliner", ja: "一枚上のヘッドライナー" },
     avatarKey: "pop-nina",
     canBeFirstFollower: true,
     intro: {
@@ -304,6 +307,7 @@ NG: 自分の家族の話は一切しない。新人を公の場で叩かない(
     handle: "@dexlowkey",
     displayName: "Dex Amherst",
     role: "producer",
+    roleLocalized: { en: "producer", ja: "曲を作るプロデューサー" },
     avatarKey: "pop-dex",
     canBeFirstFollower: true,
     intro: {
@@ -352,6 +356,7 @@ NG: 他人のセッションの噂話をしない。金の話を公の場でし�
     handle: "@rioflashes",
     displayName: "Rio Kanda",
     role: "photographer",
+    roleLocalized: { en: "photographer", ja: "ずっと撮ってきた写真家" },
     avatarKey: "pop-rio",
     canBeFirstFollower: true,
     intro: {
@@ -398,6 +403,7 @@ NG: 明らかに取り乱している人の写真は撮らないし出さない�
     handle: "@paulamanages",
     displayName: "Paula Reyes",
     role: "manager",
+    roleLocalized: { en: "manager", ja: "あなたのマネージャー" },
     avatarKey: "pop-paula",
     canBeFirstFollower: false,
     intro: {
@@ -447,6 +453,7 @@ NG: プレイヤーを公の場で批判することは絶対にない。他の�
     handle: "@critchriswen",
     displayName: "Chris Wen",
     role: "music critic",
+    roleLocalized: { en: "music critic", ja: "音楽評論家" },
     avatarKey: "pop-chris",
     canBeFirstFollower: true,
     intro: {
@@ -494,6 +501,7 @@ NG: 容姿、私生活、労働倫理は批評しない。リークは批評し�
     handle: "@lunaeight",
     displayName: "Luna Ito",
     role: "dancer and best friend",
+    roleLocalized: { en: "dancer and best friend", ja: "ダンサーで、親友" },
     avatarKey: "pop-luna",
     canBeFirstFollower: true,
     intro: {

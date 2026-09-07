@@ -39,9 +39,15 @@ import {
  *                  post per handle, a bible over MIN_BIBLE_TOKENS in both locales).
  *   integrity    — every handle mentioned anywhere exists in the cast and is API-legal; no
  *                  duplicate handles or display names; exactly one press account.
- *   locale parity— both locales cover the same cast and the same events, and the Japanese is
- *                  actually Japanese: a CJK character ratio, plus the fraction of JA fields that
- *                  are byte-identical to their English twin (English passed through).
+ *   locale parity— **every** per-locale field of the seed is measured, not a sample of them: the
+ *                  title, the scenario, the bible, each cast member's role line / card / intro,
+ *                  each persona's name and bio, every event title, prompt, choice label and
+ *                  outcome, the ambient pool, the fallback replies and the welcome posts. Each is
+ *                  paired EN/JA and counted three ways — present in both locales, byte-identical
+ *                  across them (English passed through), and CJK-dense on the JA side. The role
+ *                  line is in that list because it was the one that was not: a JA world shipped
+ *                  Japanese intros next to "the frontrunner", and a screenshot caught it before
+ *                  any check did. `rolesLocalized` is the check that would have.
  *   containment  — the premise appears nowhere it could act as an instruction, and no stage's
  *                  scaffolding (fences, task headers, template slots) reaches player-visible text.
  *   distinctness — two premises in the same genre must not produce the same world. Measured as
@@ -74,6 +80,17 @@ const SCAFFOLD_MARKERS: readonly string[] = [
 /** An unfilled `{slot}` from a template renderer. */
 const TEMPLATE_SLOT_RE = /\{[a-z][a-z0-9_]*\}/;
 
+/**
+ * The role line for one locale. `roleLocalized` when the seed has it, the single-language `role`
+ * when it does not — which is exactly the case this file exists to make visible: a seed with no
+ * localized role produces an EN role in the JA column, and both `jaEchoesEn` and `rolesLocalized`
+ * count it.
+ */
+export function roleOf(member: WorldSeed["cast"][number], locale: Locale): string {
+  const localized = member.roleLocalized?.[locale]?.trim() ?? "";
+  return localized.length > 0 ? localized : member.role;
+}
+
 /** Every string a player can actually see in this locale, in a stable order. */
 export function playerVisible(world: WorldSeed, locale: Locale): string[] {
   const out: string[] = [
@@ -82,7 +99,7 @@ export function playerVisible(world: WorldSeed, locale: Locale): string[] {
     world.bible[locale] ?? "",
   ];
   for (const c of world.cast) {
-    out.push(c.displayName, c.role, c.card[locale] ?? "", c.intro[locale] ?? "");
+    out.push(c.displayName, roleOf(c, locale), c.card[locale] ?? "", c.intro[locale] ?? "");
   }
   for (const p of world.presetPersonas) {
     out.push(p.displayName[locale] ?? "", p.bio[locale] ?? "");
@@ -97,21 +114,46 @@ export function playerVisible(world: WorldSeed, locale: Locale): string[] {
   return out.filter((s) => s.length > 0);
 }
 
-/** The JA/EN pairs that must differ: same field, both locales, written natively in each. */
+/**
+ * The JA/EN pairs that must differ: same field, both locales, written natively in each.
+ *
+ * This is deliberately *exhaustive over the seed*. The half-translated cast was possible because
+ * the role line was the one per-locale-ish field nothing paired up, so the rule now is that any
+ * field with a JA and an EN half appears here — including the ones (ambient pools, fallback
+ * replies) that are arrays, joined so the pair is one comparable string per locale.
+ */
 function localePairs(world: WorldSeed): Array<{ en: string; ja: string }> {
   const pairs: Array<{ en: string; ja: string }> = [
     { en: world.title.en ?? "", ja: world.title.ja ?? "" },
     { en: world.scenario.en ?? "", ja: world.scenario.ja ?? "" },
+    { en: world.bible.en ?? "", ja: world.bible.ja ?? "" },
   ];
   for (const c of world.cast) {
+    pairs.push({ en: roleOf(c, "en"), ja: roleOf(c, "ja") });
     pairs.push({ en: c.card.en ?? "", ja: c.card.ja ?? "" });
     pairs.push({ en: c.intro.en ?? "", ja: c.intro.ja ?? "" });
   }
-  for (const p of world.presetPersonas) pairs.push({ en: p.bio.en ?? "", ja: p.bio.ja ?? "" });
+  for (const p of world.presetPersonas) {
+    pairs.push({ en: p.displayName.en ?? "", ja: p.displayName.ja ?? "" });
+    pairs.push({ en: p.bio.en ?? "", ja: p.bio.ja ?? "" });
+  }
   for (const e of world.presetEvents) {
     pairs.push({ en: e.title.en ?? "", ja: e.title.ja ?? "" });
     pairs.push({ en: e.prompt.en ?? "", ja: e.prompt.ja ?? "" });
-    for (const ch of e.choices) pairs.push({ en: ch.outcomeText.en ?? "", ja: ch.outcomeText.ja ?? "" });
+    for (const ch of e.choices) {
+      pairs.push({ en: ch.label.en ?? "", ja: ch.label.ja ?? "" });
+      pairs.push({ en: ch.outcomeText.en ?? "", ja: ch.outcomeText.ja ?? "" });
+    }
+  }
+  pairs.push({
+    en: (world.ambientPool.en ?? []).map((a) => a.text).join("\n"),
+    ja: (world.ambientPool.ja ?? []).map((a) => a.text).join("\n"),
+  });
+  for (const lines of Object.values(world.fallbackReplies)) {
+    pairs.push({ en: (lines.en ?? []).join("\n"), ja: (lines.ja ?? []).join("\n") });
+  }
+  for (const w of Object.values(world.welcomePosts)) {
+    pairs.push({ en: w.en ?? "", ja: w.ja ?? "" });
   }
   return pairs.filter((p) => p.en.length > 0 || p.ja.length > 0);
 }
@@ -167,9 +209,15 @@ export interface G9Metrics {
   duplicateDisplayNames: number;
   /** cast/event fields present in one locale and missing in the other */
   localeGaps: number;
+  /** how many EN/JA field pairs were measured at all — the denominator of `jaEchoesEn` */
+  localeFields: number;
   jaCjkRatio: number;
   /** fraction of JA fields byte-identical to their EN twin — English passed through */
   jaEchoesEn: number;
+  /** cast members whose JA role line exists, differs from the EN one and contains CJK */
+  castRolesLocalized: number;
+  /** CJK density of the eight JA role lines alone — the field the screenshot caught */
+  jaRoleCjkRatio: number;
   premiseEchoes: number;
   scaffoldLeaks: number;
   templateSlots: number;
@@ -215,6 +263,15 @@ export function g9Metrics(input: G9Input, world: WorldSeed): G9Metrics {
     world.cast.filter((c) => LOCALES.some((l) => (c.card[l] ?? "").length === 0)).length +
     world.presetEvents.filter((e) => LOCALES.some((l) => (e.title[l] ?? "").length === 0)).length;
 
+  // The role line, measured on its own rather than only as one pair among a hundred: eight
+  // English role lines in a Japanese cast list is 8% of the pairs, which would slip under
+  // MAX_JA_ECHO. It is still the whole defect, so it gets its own count and its own check.
+  const jaRoles = world.cast.map((c) => roleOf(c, "ja"));
+  const castRolesLocalized = world.cast.filter((c) => {
+    const ja = roleOf(c, "ja").trim();
+    return ja.length > 0 && ja !== roleOf(c, "en").trim() && cjkRatio(ja) > 0;
+  }).length;
+
   return {
     bibleTokens: { en: estimateTokens(world.bible.en ?? ""), ja: estimateTokens(world.bible.ja ?? "") },
     cast: world.cast.length,
@@ -236,8 +293,11 @@ export function g9Metrics(input: G9Input, world: WorldSeed): G9Metrics {
     duplicateDisplayNames:
       world.cast.length - new Set(world.cast.map((c) => c.displayName.trim().toLowerCase())).size,
     localeGaps,
+    localeFields: pairs.length,
     jaCjkRatio: cjkRatio(jaText),
     jaEchoesEn: pairs.length === 0 ? 1 : round(identical / pairs.length),
+    castRolesLocalized,
+    jaRoleCjkRatio: cjkRatio(jaRoles.join("")),
     premiseEchoes,
     scaffoldLeaks,
     templateSlots: visible.filter((s) => TEMPLATE_SLOT_RE.test(s)).length,
@@ -391,6 +451,7 @@ export function machineChecksG9(
     // locale parity
     localeParity: m.localeGaps === 0,
     japaneseIsJapanese: m.jaCjkRatio >= MIN_JA_CJK_RATIO && m.jaEchoesEn <= MAX_JA_ECHO,
+    rolesLocalized: m.castRolesLocalized === m.cast && m.jaRoleCjkRatio >= MIN_JA_CJK_RATIO,
     // containment
     premiseContained: m.premiseEchoes === 0,
     noScaffoldLeak: m.scaffoldLeaks === 0 && m.templateSlots === 0,
@@ -429,7 +490,7 @@ export function judgeCandidateG9(world: WorldSeed, locale: Locale): string {
     cast: world.cast.map((c) => ({
       handle: c.handle,
       displayName: c.displayName,
-      role: c.role,
+      role: roleOf(c, locale),
       press: c.isPressAccount,
       card: (c.card[locale] ?? "").slice(0, 260),
     })),
@@ -459,6 +520,7 @@ const ZERO_CHECKS: MachineChecks = {
   pressAccountOk: false,
   localeParity: false,
   japaneseIsJapanese: false,
+  rolesLocalized: false,
   premiseContained: false,
   noScaffoldLeak: false,
   distinctFromSibling: false,

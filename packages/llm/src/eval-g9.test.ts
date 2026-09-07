@@ -124,6 +124,22 @@ describe("what the machine checks measure on today's replay worlds", () => {
       expect(m.localeGaps).toBe(0);
       expect(m.jaCjkRatio).toBeGreaterThan(0.8);
       expect(m.jaEchoesEn).toBe(0);
+      // Every per-locale field of the seed is paired, not a sample of them. Derived from the
+      // world rather than pinned to a literal, so a field that stops being measured fails here
+      // even when the world's own contents change.
+      const expectedPairs =
+        3 + // title, scenario, bible
+        world.cast.length * 3 + // role line, card, intro
+        world.presetPersonas.length * 2 + // display name, bio
+        world.presetEvents.reduce((n, e) => n + 2 + e.choices.length * 2, 0) +
+        1 + // the ambient pool, joined per locale
+        Object.keys(world.fallbackReplies).length +
+        Object.keys(world.welcomePosts).length;
+      expect(m.localeFields).toBe(expectedPairs);
+      expect(m.localeFields).toBe(98);
+      // the role line specifically — the field the screenshot caught
+      expect(m.castRolesLocalized).toBe(m.cast);
+      expect(m.jaRoleCjkRatio).toBeGreaterThan(0.9);
       // containment
       expect(m.premiseEchoes).toBe(0);
       expect(m.scaffoldLeaks).toBe(0);
@@ -242,6 +258,50 @@ describe("each machine check is load-bearing", () => {
     expect(m.jaEchoesEn).toBeGreaterThan(MAX_JA_ECHO);
     expect(m.jaCjkRatio).toBeGreaterThan(MIN_JA_CJK_RATIO); // the bible alone still reads as JA
     expect(checksOf(w2).japaneseIsJapanese).toBe(false);
+  });
+
+  /**
+   * The defect this file was extended for: a world authored in Japanese, with Japanese intros
+   * and English role lines. It was found in a screenshot, not by a check. Two measurements now
+   * catch it, and the second one is why it needs its own: eight English role lines are only 8%
+   * of the world's hundred-odd locale pairs, which sits *under* MAX_JA_ECHO. The fleet-wide echo
+   * ratio would have shrugged at it.
+   */
+  it("catches a cast whose role lines were never written in Japanese", () => {
+    const w = clone(baseWorld);
+    for (const member of w.cast) delete member.roleLocalized;
+    const m = g9Metrics(first.input, w);
+    expect(m.castRolesLocalized).toBe(0);
+    expect(m.jaRoleCjkRatio).toBe(0);
+    expect(checksOf(w).rolesLocalized).toBe(false);
+    // and it would have hidden under the aggregate: that check still passes.
+    expect(m.jaEchoesEn).toBeLessThanOrEqual(MAX_JA_ECHO);
+    expect(checksOf(w).japaneseIsJapanese).toBe(true);
+
+    // One untranslated member out of eight is enough to fail.
+    const w2 = clone(baseWorld);
+    const one = w2.cast[3];
+    if (one?.roleLocalized !== undefined) one.roleLocalized.ja = one.roleLocalized.en;
+    expect(checksOf(w2).rolesLocalized).toBe(false);
+  });
+
+  /**
+   * The other half of the fix: the parity measurement now covers *every* per-locale field, not
+   * the five it happened to list. Each field mutated here was invisible to the check before.
+   */
+  it("catches English passed through in fields that used not to be paired at all", () => {
+    const w = clone(baseWorld);
+    for (const post of Object.values(w.welcomePosts)) post.ja = post.en;
+    for (const lines of Object.values(w.fallbackReplies)) lines.ja = [...lines.en];
+    w.ambientPool.ja = structuredClone(w.ambientPool.en);
+    for (const e of w.presetEvents) for (const ch of e.choices) ch.label.ja = ch.label.en;
+    for (const p of w.presetPersonas) p.displayName.ja = p.displayName.en;
+
+    const m = g9Metrics(first.input, w);
+    expect(m.jaEchoesEn).toBeGreaterThan(MAX_JA_ECHO);
+    expect(checksOf(w).japaneseIsJapanese).toBe(false);
+    // The cast cards, intros and roles are untouched, so this is the new coverage and nothing else.
+    expect(checksOf(w).rolesLocalized).toBe(true);
   });
 
   it("catches the premise echoed verbatim into the world — and it is an absolute check", () => {

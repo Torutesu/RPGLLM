@@ -4,6 +4,9 @@ import { loadWorldSeeds } from "./worlds/index.js";
 import { estimateTokens } from "./tokens.js";
 import { HANDLE_RE } from "./handles.js";
 import { characterFixture, worldFixture } from "./fixtures/index.js";
+import { renderBible, type WorldSource } from "./worlds/build.js";
+import { cast as idolCast, outro as idolOutro, prose as idolProse } from "./worlds/idol-survival.bible.js";
+import { cjkRatio } from "./eval-g9.js";
 
 const seeds = loadWorldSeeds();
 
@@ -36,6 +39,23 @@ describe("world seeds", () => {
         // E2E picks the first of each list, so both must be usable.
         expect(world.cast[0]?.canBeFirstFollower).toBe(true);
         expect(world.presetPersonas[0]).toBeDefined();
+      });
+
+      /**
+       * The half-translated cast, as a check. A JA player who opens this world sees the intro and
+       * the role line side by side; one Japanese and one English is the tell that the app is a
+       * translation of an American one, which is the single thing the JA market spots instantly
+       * (gtm.md, 勝ち筋 B). It was found in a screenshot once. It fails here now.
+       */
+      it("gives every cast member a role line written in each language", () => {
+        for (const c of world.cast) {
+          const en = c.roleLocalized?.en ?? "";
+          const ja = c.roleLocalized?.ja ?? "";
+          expect(en, c.handle).toBe(c.role);
+          expect(ja.length, c.handle).toBeGreaterThan(0);
+          expect(ja, c.handle).not.toBe(en);
+          expect(cjkRatio(ja), c.handle).toBeGreaterThan(0.5);
+        }
       });
 
       it("stores every handle bare and API-legal", () => {
@@ -96,6 +116,42 @@ describe("world seeds", () => {
       });
     });
   }
+
+  /**
+   * `roleLocalized` rides in the seed but must never reach `system[1]`. That string is the
+   * cross-user cached prefix (cost-architecture 3.1) and every byte of it is part of the cache
+   * key, so localizing the cast header would silently move the prefix for every world already
+   * shipped. Measured here rather than assumed: change the localized role and the bible must not
+   * move by one byte, in either locale.
+   */
+  it("assembling roleLocalized does not move the cached bible prefix", () => {
+    const source: WorldSource = {
+      slug: "probe",
+      difficulty: 1,
+      title: { en: "t", ja: "t" },
+      scenario: { en: "s", ja: "s" },
+      prose: idolProse,
+      outro: idolOutro,
+      cast: idolCast,
+      presetPersonas: [],
+      presetEvents: [],
+      fallbackReplies: {},
+      ambientPool: { en: [], ja: [] },
+      welcomePosts: {},
+    };
+    const rewritten: WorldSource = {
+      ...source,
+      cast: idolCast.map((c) => ({ ...c, roleLocalized: { en: c.role, ja: "まったく別の肩書き" } })),
+    };
+    const stripped: WorldSource = {
+      ...source,
+      cast: idolCast.map(({ roleLocalized: _drop, ...rest }) => rest),
+    };
+    for (const locale of LOCALES) {
+      expect(renderBible(rewritten, locale)).toBe(renderBible(source, locale));
+      expect(renderBible(stripped, locale)).toBe(renderBible(source, locale));
+    }
+  });
 
   it("popstar-era keeps the handles E2E-002 depends on", () => {
     const world = seeds.find((w) => w.slug === "popstar-era");

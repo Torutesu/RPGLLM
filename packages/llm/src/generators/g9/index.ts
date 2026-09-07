@@ -59,6 +59,7 @@ export {
   G9CastEventsZ,
   G9TextureZ,
   G9InputZ,
+  roleIn,
   G9_STAGES,
   G9_VARIANT_IDS,
   type G9BibleInput,

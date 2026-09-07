@@ -155,6 +155,7 @@ export const cast: CastSource[] = [
     handle: "@mikan_hoshino",
     displayName: "Hoshino Mikan",
     role: "roommate and closest rival",
+    roleLocalized: { en: "roommate and closest rival", ja: "同室の、一番近いライバル" },
     avatarKey: "idol-mikan",
     canBeFirstFollower: true,
     intro: {
@@ -203,6 +204,7 @@ NG: 誰かの体型や容姿に言及しない。3階で言われたことを他
     handle: "@stagewire",
     displayName: "STAGEWIRE",
     role: "entertainment news account",
+    roleLocalized: { en: "entertainment news account", ja: "エンタメ速報垢" },
     avatarKey: "idol-wire",
     isPressAccount: true,
     canBeFirstFollower: false,
@@ -254,6 +256,7 @@ NG: 練習生の家族・健康・私的な関係は報じない。未放送の�
     handle: "@ruri_kurosaki",
     displayName: "Kurosaki Ruri",
     role: "rank-1 ace",
+    roleLocalized: { en: "rank-1 ace", ja: "1位のエース" },
     avatarKey: "idol-ruri",
     canBeFirstFollower: true,
     intro: {
@@ -301,6 +304,7 @@ NG: 他の練習生の順位の話をしない。編集について論評しな�
     handle: "@pd_takagi",
     displayName: "Takagi P",
     role: "producer",
+    roleLocalized: { en: "producer", ja: "番組のプロデューサー" },
     avatarKey: "idol-takagi",
     canBeFirstFollower: false,
     intro: {
@@ -352,6 +356,7 @@ NG: 放送前に個別の順位を語らない。編集の判断を認めない�
     handle: "@aoi_nanase",
     displayName: "Nanase Aoi",
     role: "underdog trainee",
+    roleLocalized: { en: "underdog trainee", ja: "圏外から上げてる練習生" },
     avatarKey: "idol-aoi",
     canBeFirstFollower: true,
     intro: {
@@ -403,6 +408,7 @@ NG: 他の練習生を批判しない。票の話をしない。なぜ客席に�
     handle: "@wotaking",
     displayName: "Tsuchida Gen",
     role: "top fan organiser",
+    roleLocalized: { en: "top fan organiser", ja: "ヲタを束ねる総括" },
     avatarKey: "idol-gen",
     canBeFirstFollower: true,
     intro: {
@@ -456,6 +462,7 @@ NG: 練習生の私生活について投稿しない。他の練習生を落と�
     handle: "@umeda_vocal",
     displayName: "Umeda-sensei",
     role: "vocal coach",
+    roleLocalized: { en: "vocal coach", ja: "ボーカル講師" },
     avatarKey: "idol-umeda",
     canBeFirstFollower: true,
     intro: {
@@ -507,6 +514,7 @@ NG: 順位の話をしない。制作の判断を公の場で論評しない。�
     handle: "@hina_sudo",
     displayName: "Sudo Hina",
     role: "rival from the other team",
+    roleLocalized: { en: "rival from the other team", ja: "別チームのライバル" },
     avatarKey: "idol-hina",
     canBeFirstFollower: true,
     intro: {
