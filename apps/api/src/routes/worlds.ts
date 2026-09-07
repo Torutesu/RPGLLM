@@ -358,7 +358,9 @@ export function worldRoutes(): Hono<AppEnv> {
         isPreset: world.isPreset,
         remixOf: world.remixOfId ? (parents.get(world.remixOfId) ?? null) : null,
         remixCount: world.remixCount,
-        genre: world.genre,
+        // `World.genre` is a plain column defaulting to "" — the presets have no genre, and an
+        // empty string is not a member of the enum. Null is what "no genre" means on the wire.
+        genre: isWorldGenre(world.genre) ? world.genre : null,
         genLocale: world.genLocale,
       },
       characters: characters.map((ch) => {
