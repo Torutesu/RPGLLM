@@ -108,7 +108,11 @@ export const EXPORT_LIMIT = 1000;
 
 export interface ExportPayload {
   exportedAt: string;
-  user: { id: string; email: string | null; locale: "en" | "ja"; birthYear: number | null; createdAt: string };
+  user: {
+    id: string; email: string | null; locale: "en" | "ja"; birthYear: number | null; createdAt: string;
+    /** The name their worlds are credited to (services/creator-handle.ts) — public, and theirs. */
+    creatorHandle: string;
+  };
   personas: Record<string, unknown>[];
   posts: Record<string, unknown>[];
   dms: Record<string, unknown>[];
@@ -153,6 +157,7 @@ export async function buildExport(prisma: PrismaClient, user: User, now: Date): 
       locale: user.locale,
       birthYear: user.birthYear > 0 ? user.birthYear : null,
       createdAt: user.createdAt.toISOString(),
+      creatorHandle: user.creatorHandle,
     },
     personas: personas.map((p) => ({
       id: p.id,

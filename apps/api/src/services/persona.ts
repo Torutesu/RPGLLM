@@ -3,6 +3,7 @@ import type { CreatePersonaReqZ, G1Input } from "@rpgllm/shared";
 import { PACING, STATS } from "@rpgllm/shared";
 import type { z } from "zod";
 import type { Deps } from "../types";
+import { adoptFirstPersonaHandle } from "./creator-handle";
 import { logGeneration } from "./generation";
 import { normHandle, sameHandle } from "./handles";
 import { resolveHandle } from "./persona-handle";
@@ -78,6 +79,15 @@ export async function createPersonaWithFeed(deps: Deps, user: User, req: CreateP
     await tx.world.update({ where: { id: world.id }, data: { playCount: { increment: 1 } } });
     return created;
   });
+
+  /**
+   * The one moment the account may take a name it chose (services/creator-handle.ts): the player
+   * has just typed a handle they like, and nothing of theirs has been published under the
+   * placeholder yet. Outside the persona transaction on purpose: a lost race on the handle's
+   * unique index would abort the transaction that just created the persona, and a credit line is
+   * never a reason someone fails to enter a world. Every way it can decline is handled in there.
+   */
+  await adoptFirstPersonaHandle(deps.prisma, user.id, persona.handle, deps.clock.now());
 
   const feedReady = await seedInitialFeed(deps, user, persona, characters, firstFollower);
   return { ok: true, persona, feedReady };

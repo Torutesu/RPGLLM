@@ -89,6 +89,13 @@ model User {
   analyticsConsent Boolean                @default(false)
   /// S2-5 リファラル: 自分の招待コード
   referralCode     String?                @unique
+  /// 作者名(勝ち筋 A ②)。ワールドのクレジットはここだけを見る。
+  /// 常に normHandle 済み(小文字)なので、この @unique がそのまま大文字小文字を無視した一意性になる。
+  /// アカウント作成時に必ず埋まる(NOT NULL)= クレジットの無いワールドは存在しない。
+  creatorHandle    String                 @unique
+  /// プレースホルダを卒業した瞬間。null = まだ生成名で、最初の Persona が一度だけ名乗り直せる。
+  /// 一度きり: 二つ目のワールドで Persona を作っても、一つ目のワールドの作者名は動かない。
+  creatorHandleClaimedAt DateTime?
   /// 連続ログイン。台帳からの導出をやめ、正本をここに置く(build-notes: streak storage)
   streakDays       Int                    @default(0)
   streakBestDays   Int                    @default(0)

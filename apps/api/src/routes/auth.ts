@@ -5,6 +5,7 @@ import { requireAuth, signSession } from "../auth";
 import { constantTimeEqual, mailSender, normalizeEmail, type VerifyResult } from "../auth-codes";
 import { authCodeMaxAttempts, authCodeTtlMs, authDevCodeEnabled } from "../env";
 import { fail, ok, parseBody } from "../http";
+import { createUserWithCreatorHandle } from "../services/creator-handle";
 import { consumeLoginCode, issueLoginCode } from "../services/login-codes";
 import { createWallet } from "../services/wallet";
 import type { AppEnv } from "../types";
@@ -52,8 +53,11 @@ export function authRoutes(): Hono<AppEnv> {
     }
 
     const existing = await deps.prisma.user.findUnique({ where: { email } });
-    const user = existing ?? (await deps.prisma.user.create({
-      data: { email, authProvider: "email", authSubject: email, birthYear: 0, isMinor: true },
+    // Every account is born with a public credit line (services/creator-handle.ts). It is minted
+    // here rather than on first use so "a world with no author" is impossible by construction,
+    // not merely unlikely — the studio is reachable before any persona exists.
+    const user = existing ?? (await createUserWithCreatorHandle(deps.prisma, {
+      email, authProvider: "email", authSubject: email, birthYear: 0, isMinor: true,
     }));
     // One wallet, created once, with its opening balances and the ledger entry that records them
     // (services/wallet.ts) — including the World Studio starter gems.

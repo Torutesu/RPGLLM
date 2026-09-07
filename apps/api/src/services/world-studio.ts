@@ -242,18 +242,20 @@ export function buildProgress(world: World, now: Date): number {
   }
 }
 
-/** The creator's most recent persona handle — worlds are credited to a persona, never to an email. */
+/**
+ * Who a world is credited to: `User.creatorHandle`, and nothing else.
+ *
+ * This used to read the creator's *most recent persona* handle, which meant the author of a world
+ * was whoever they had most recently played as — a name that moved when they started a second
+ * world, and that did not exist at all until they had played one. `services/creator-handle.ts`
+ * explains why the credit now lives on the account. The column is NOT NULL, so every account that
+ * still exists has one; the `?? null` is for `createdBy` pointing at a purged account.
+ */
 export async function creatorHandles(prisma: PrismaClient, userIds: readonly string[]): Promise<Map<string, string>> {
   const ids = [...new Set(userIds)];
   if (ids.length === 0) return new Map();
-  const rows = await prisma.persona.findMany({
-    where: { userId: { in: ids } },
-    orderBy: { createdAt: "desc" },
-    select: { userId: true, handle: true },
-  });
-  const out = new Map<string, string>();
-  for (const row of rows) if (!out.has(row.userId)) out.set(row.userId, row.handle);
-  return out;
+  const rows = await prisma.user.findMany({ where: { id: { in: ids } }, select: { id: true, creatorHandle: true } });
+  return new Map(rows.map((u) => [u.id, u.creatorHandle]));
 }
 
 /** `castCount` for a batch of worlds, in one GROUP BY rather than one query per card. */

@@ -3162,3 +3162,57 @@ link forwards, the creator's own link is not a dead end, the legacy `ready`+`pub
 world still says EVERYONE, a queued one offers no publish and keeps its withdrawal, and Explore with
 no persona says "Pick your story" / 「ストーリーを選ぶ」 under the heading instead of nothing.
 Screenshots: `/tmp/claude-0/-home-user-RPGLLM/eeac402b-8806-5fd2-846a-21bc19595131/scratchpad/fix/`.
+
+---
+
+## Agent CREATOR-ID — a creator handle on the account (`apps/api`)
+
+gtm.md 勝ち筋 A ②「名前」. A world was credited by `creatorHandles()` = **the creator's most recent
+persona handle**, and a `Persona` is per (user, world). So the credit moved when its author started
+a second world, and did not exist at all before their first persona — the studio is reachable from
+the world picker, which a brand-new player sees before any persona exists (`e2e` QA-002).
+
+### What changed
+
+`User.creatorHandle` — `NOT NULL @unique`, stored normalised (lowercase, `services/handles.ts`), so
+the plain unique index *is* the case-insensitive uniqueness. Written by exactly two events:
+
+- **signup** mints a readable placeholder (`quietheron42`) inside `createUserWithCreatorHandle`,
+  retrying the *name* on a unique-index loss, never the row;
+- **the first persona** may replace it, **once** — `creatorHandleClaimedAt` stamps the window shut
+  whatever the outcome, so a later persona in a later world can never move an earlier world's
+  credit again. It declines (leaving the placeholder) if anything of theirs has already been seen
+  by someone else, if the name is a cast handle or reserved, or if another account has it.
+
+`creatorHandles()` now reads `User`; every call site that credits a world (`routes/worlds.ts`,
+`routes/admin-worlds.ts`, `decorate`) goes through it unchanged. `services/creator-handle.ts` holds
+the rules and the reasoning. Migration `20260907140000_creator_handle` backfills existing accounts
+from the persona their worlds are credited under **today**, deduplicated before the unique index
+exists, with a generated name for everyone it cannot serve.
+
+### 1. Cross-cutting — for whoever owns `packages/shared` and `apps/mobile`
+
+1. **The credit is now a stable identity, so it can become a link.** `creatorHandle` on
+   `WorldSummaryFullZ` / `WorldDetailResZ` is unchanged in shape and needs no client change to keep
+   working. What it now supports that it could not before: the same string identifies the same
+   person across every world they made, so "made by @rina" can point somewhere. The page itself
+   (circuit ②'s second half) is deliberately not built here.
+2. **`GET /v1/me` does not return the caller's own creator handle.** Nothing needs it yet — a
+   creator only sees their name on their own world cards — but a rename flow or a "this is you"
+   affordance will, and that is an additive field on `MeResZ`. `GET /v1/account/export` already
+   carries it (`user.creatorHandle`), which is where it belongs for portability.
+
+### 2. Cross-cutting — left open, and why
+
+3. **A cast handle generated *after* a creator handle exists can still collide with it.** Both
+   writes of a creator handle refuse a name any world's cast already uses, but `WorldCharacter` rows
+   are minted later by G9, and renaming a cast member would break every reference to them in the
+   bible. Closing it properly means the world generator consulting `User.creatorHandle` when it
+   names a cast — a `packages/llm` + `apps/api` change, and a spend decision.
+4. **Notifications to a creator still go through "their most recent persona".** `tellCreator`
+   (`jobs/world-build.ts`) and `tellCreatorPulled` (`services/world-moderation.ts`) address a
+   `Notification`, which hangs off a `personaId` in the schema — so a creator with no persona is
+   silently told nothing about their own world finishing, failing or being pulled. That is the same
+   underlying shape as this bug (a user-level fact routed through a per-world row) but fixing it is
+   a schema change to `Notification` and a client change, so it is left alone here. This is circuit
+   ①「返り」 territory, not ②.
