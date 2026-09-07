@@ -11,6 +11,8 @@ import { tellCreator } from "../services/creator-notify";
 import { clearedAppeal } from "../services/world-appeal";
 import { claimWorldForReview, releasedClaim } from "../services/world-review-claim";
 import { REVIEW_EXCERPT_CHARS } from "../services/world-publish";
+import { creditApproval, resetTrust } from "../services/creator-trust";
+import { consumedCharge } from "../services/world-submit-fee";
 import type { AppEnv } from "../types";
 
 /** Who is reviewing, as their own client says it. Not authentication — see the note below. */
@@ -118,6 +120,15 @@ export function adminWorldRoutes(): Hono<AppEnv> {
           // A lapsed lease is reported as no lease at all — nobody is holding this world.
           claimedBy: entry.claim?.by ?? null,
           claimedUntil: entry.claim?.until.toISOString() ?? null,
+          // gtm.md §2 exit 3 — what to look at first, computed once when the world was submitted
+          // and read straight off the row here. **Advice, never a verdict**: null is an ordinary
+          // card (a world submitted before digests existed, or one whose extraction found nothing
+          // worth storing), and the reviewer works it exactly as they did last week.
+          digest: entry.digest,
+          // exit 2 — the creator's standing, so a reviewer knows whether this card is a first
+          // submission or one drawn out of a trusted creator's stream. Admin-only: the same number
+          // is never on another player's view of a creator.
+          creatorTrust: entry.creatorTrust,
         };
       }),
       overdueCount: queue.overdueCount,
@@ -191,6 +202,17 @@ export function adminWorldRoutes(): Hono<AppEnv> {
      * filter on `status = "review"` first, and re-entering the queue (publish, appeal, pull) always
      * rewrites the timestamp.
      */
+    /**
+     * **What the decision does to the creator's standing** (gtm.md §2 exit 2,
+     * `services/creator-trust.ts`). An approval is `+1` — unless the world was *pulled*, in which
+     * case the decision restores a world rather than earning anything, and counting it would let a
+     * creator farm standing by having one world brigaded repeatedly. A rejection, including one
+     * that upholds reports on a pulled world, resets them to being read every time.
+     *
+     * Either way the shelf fee stops being refundable (`consumedCharge`): the twenty minutes it
+     * bought have now been spent, so withdrawing the world afterwards must not hand it back.
+     */
+    const wasPulled = world.pulledAt !== null;
     const updated = await deps.prisma.$transaction(async (tx) => {
       const row = await tx.world.update({
         where: { id: world.id },
@@ -199,6 +221,7 @@ export function adminWorldRoutes(): Hono<AppEnv> {
             // Back on the shelf, and no longer pulled: a person has now looked at it.
             status: "published", reviewedAt: now, reviewedBy: reviewer, rejectedReason: "",
             pulledAt: null,
+            ...consumedCharge,
             // An approval answers the appeal it was carrying, and there is no longer a rejection
             // to argue with — so the next one, if this world is ever rejected again, starts fresh.
             ...clearedAppeal,
@@ -213,6 +236,7 @@ export function adminWorldRoutes(): Hono<AppEnv> {
             reviewedBy: reviewer,
             rejectedReason: body.value.reason,
             pulledAt: null,
+            ...consumedCharge,
             // **The appeal state is deliberately left standing.** A world rejected *again* after an
             // appeal has spent its appeal for that argument: `appealsUsed` stays at the limit, so
             // `canAppeal` is false and the creator's next step is the ordinary cooldown. A new
@@ -221,6 +245,10 @@ export function adminWorldRoutes(): Hono<AppEnv> {
           },
       });
       await resolveWorldReports(tx, world.id, now, approved);
+      if (world.createdBy) {
+        const move = approved ? creditApproval(tx, world.createdBy, wasPulled) : resetTrust(tx, world.createdBy, now);
+        if (move) await move;
+      }
       /**
        * **The decision reaches the creator.** It used to reach nobody: approve/reject wrote the row
        * and the creator found out by opening SCR-049 again. A world in review is a person waiting

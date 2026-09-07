@@ -10,7 +10,7 @@
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { WORLD_MODERATION } from "@rpgllm/shared";
 import { runJobOnce, type JobDeps } from "../src/jobs/registry";
-import { call, makeHarness, prisma, resetDatabase, signup, type Harness } from "./helpers";
+import { call, grantShelfGems, makeHarness, prisma, resetDatabase, signup, type Harness } from "./helpers";
 
 let h: Harness;
 let deps: JobDeps;
@@ -56,6 +56,8 @@ async function submittedWorld(premise: string) {
   expect(created.status).toBe(201);
   const record = await runJobOnce(deps, "world-build", { trigger: "test" });
   expect(record.error).toBeNull();
+  // The shelf costs gems on top of the world (gtm.md §2 exit 1); a fresh account has none left.
+  await grantShelfGems(userId, 4);
   const worldId = created.data.world.id;
   expect((await call(h, "POST", `/v1/worlds/${worldId}/publish`, { token, body: { visibility: "public" } })).status).toBe(202);
   return { token, userId, worldId };

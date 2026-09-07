@@ -6,7 +6,7 @@
  * private world (only its author), and what it takes to reach Explore (a human).
  */
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
-import { WORLD_STUDIO, GEM_PACKS } from "@rpgllm/shared";
+import { WORLD_MODERATION, WORLD_STUDIO, GEM_PACKS } from "@rpgllm/shared";
 import { runJobOnce, type JobDeps } from "../src/jobs/registry";
 import { runWorldBuild } from "../src/jobs/world-build";
 import { budgetFor, perMinFor } from "../src/middleware/rate-limit";
@@ -14,7 +14,7 @@ import { applyWebhookEvent, type RcEvent } from "../src/services/billing";
 import { localPremiseScreen } from "../src/services/g9";
 import { getStoredWorldSeed } from "../src/services/world-seeds";
 import { refundWorldOnce, slugifyPremise } from "../src/services/world-studio";
-import { call, makeHarness, prisma, resetDatabase, signup, type Harness } from "./helpers";
+import { call, grantShelfGems, makeHarness, prisma, resetDatabase, signup, type Harness } from "./helpers";
 
 let h: Harness;
 let deps: JobDeps;
@@ -71,6 +71,9 @@ async function readyWorld(opts: { visibility?: string; premise?: string } = {}) 
   const { token, userId } = await signup(h);
   const created = await createWorld(token, opts.premise ?? PREMISE, opts.visibility ?? "private");
   expect(created.status).toBe(201);
+  // The shelf costs gems on top of the world (gtm.md §2 exit 1) and the build job settles a
+  // create-time `public` before this returns, so the wallet is funded before it runs.
+  await grantShelfGems(userId, 4);
   await buildOnce();
   const world = await prisma.world.findUniqueOrThrow({ where: { id: created.data.world.id } });
   return { token, userId, world, created };
@@ -517,7 +520,10 @@ describe("the visibility chosen on SCR-048 is the visibility the world gets", ()
     expect(world.visibility).toBe("private");
     expect(world.safety).toBe("block");
     expect(world.refundedAt, "a built world is not a failed build").toBeNull();
-    expect(await gemsOf(userId), "the gems were spent on a world that exists").toBe(0);
+    // The 120 for the world are gone — it exists, it is playable. The shelf fee is **not**: the
+    // gate said no, and nobody pays to be told no (gtm.md §2 exit 1, `services/world-submit-fee.ts`).
+    expect(await gemsOf(userId), "the world was paid for; the review it never got was not")
+      .toBe(WORLD_MODERATION.PUBLIC_SUBMIT_GEMS * 4);
     expect(world.failureReason.length, "and the creator is told why it is not shared").toBeGreaterThan(0);
 
     // It is on their shelf, with the reason, and playable.

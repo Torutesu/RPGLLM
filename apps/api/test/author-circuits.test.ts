@@ -15,7 +15,7 @@ import { runJobOnce, type JobDeps } from "../src/jobs/registry";
 import { PLAY_MILESTONES } from "../src/services/world-plays";
 import { freshMinShelf, freshSlots } from "../src/services/world-fresh";
 import { renameCooldownDays } from "../src/services/creator-rename";
-import { call, makeHarness, prisma, resetDatabase, signup, type Harness } from "./helpers";
+import { call, grantShelfGems, makeHarness, prisma, resetDatabase, signup, type Harness } from "./helpers";
 
 let h: Harness;
 let deps: JobDeps;
@@ -76,6 +76,8 @@ async function builtWorld(opts: { premise?: string; locale?: string; userLocale?
   const created = await create(token, opts.premise ?? PREMISE, "private", opts.locale ?? "en");
   expect(created.status).toBe(201);
   await buildOnce();
+  // The shelf costs gems on top of the world (gtm.md §2 exit 1); a fresh account has none left.
+  await grantShelfGems(userId, 4);
   const world = await prisma.world.findUniqueOrThrow({ where: { id: created.data.world.id } });
   return { token, userId, world };
 }

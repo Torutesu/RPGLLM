@@ -322,7 +322,7 @@ export const ja: Strings = {
   reelRendering: "書き出し中…",
   reelReady: "保存しました",
   reelUnsupported: "この端末では動画を書き出せません。カードは共有できます",
-  studioPublicCost: "みんなに公開するには60ジェム",
+  studioPublicCost: "みんなに公開するには",
   studioPublicCostHint: "発見タブの世界はすべて人が読みます。その分です。",
   studioNotEnoughForPublic: "棚に並べるにはジェムが足りません",
   trustTitle: "審査が速くなる",

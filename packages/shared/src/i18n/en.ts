@@ -321,7 +321,8 @@ export const en = {
   reelRendering: "Recording…",
   reelReady: "Saved",
   reelUnsupported: "This device can't record video — the card still shares",
-  studioPublicCost: "Sharing with everyone costs 60 gems",
+  /** The number is rendered beside this, never inside it — the fee is env-tunable. */
+  studioPublicCost: "Sharing with everyone costs",
   studioPublicCostHint: "A person reads every world in Explore. This pays for that read.",
   studioNotEnoughForPublic: "Not enough gems to put this on the shelf",
   trustTitle: "Reviewed faster",

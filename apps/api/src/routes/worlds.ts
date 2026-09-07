@@ -259,10 +259,19 @@ export function worldRoutes(): Hono<AppEnv> {
   /**
    * SCR-049 → share, and the *second* of the two doors onto one decision.
    *
-   * Everything about what each visibility means, and about when a world may change hands at all,
-   * lives in `services/world-publish.ts` — because the same decision is also made on SCR-048,
-   * before the world exists, and settled by the build job. This handler's whole job is to turn the
-   * shared outcome into an HTTP answer (QA-003).
+   * Everything about what each visibility means, about when a world may change hands at all, and
+   * about what it costs, lives in `services/world-publish.ts` — because the same decision is also
+   * made on SCR-048, before the world exists, and settled by the build job. This handler's whole
+   * job is to turn the shared outcome into an HTTP answer (QA-003).
+   *
+   * Four answers, and the 202 is no longer the only interesting one (gtm.md §2):
+   *
+   *  - **202** — a person now owes this world twenty minutes. `charged` says what that cost.
+   *  - **200** — it is live: `private`, `unlisted`, or a trusted creator's submission the sampling
+   *    draw sent straight to the shelf (`services/creator-trust.ts`).
+   *  - **402** — Explore costs `WORLD_MODERATION.PUBLIC_SUBMIT_GEMS` and this wallet is short. The
+   *    world is untouched and still playable; building and playing are free, the shelf is not.
+   *  - **409 / 422** — it may not change hands right now, or the gate said no. Neither takes a gem.
    */
   app.post("/:id/publish", requireAuth, requireActiveAccount, async (c) => {
     const body = await parseBody(c.req, PublishWorldReqZ);
@@ -279,12 +288,19 @@ export function worldRoutes(): Hono<AppEnv> {
       // The 422 below carries the message; a request that gets an answer needs nothing on the row.
     });
     if (!outcome.ok) {
-      return outcome.kind === "refused"
-        ? fail("VALIDATION", outcome.message, 409)
-        : fail("SAFETY_BLOCKED", "This world can't be shared.", 422);
+      if (outcome.kind === "refused") return fail("VALIDATION", outcome.message, 409);
+      // 402, the same answer as an empty energy bar — the world is fine, the wallet is not.
+      if (outcome.kind === "gems") return fail("GEMS_REQUIRED", outcome.message, 402);
+      return fail("SAFETY_BLOCKED", "This world can't be shared.", 422);
     }
     return ok(
-      { world: await oneFull(deps, outcome.world, locale, user.id), needsReview: outcome.needsReview },
+      {
+        world: await oneFull(deps, outcome.world, locale, user.id),
+        needsReview: outcome.needsReview,
+        // What the shelf cost, so the client can say so rather than silently draining a wallet —
+        // negative when a withdrawn submission got its fee back.
+        charged: outcome.charged,
+      },
       outcome.needsReview ? 202 : 200,
     );
   });

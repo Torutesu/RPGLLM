@@ -20,6 +20,7 @@ import { notFound, ok } from "../http";
 import { normHandle } from "../services/handles";
 import type { LocaleKey } from "../services/locale";
 import { decorate } from "../services/world-studio";
+import { trustForOne } from "../services/creator-trust";
 import type { AppEnv } from "../types";
 
 /** Worlds on one profile page. A creator with more than this has other problems worth having. */
@@ -46,18 +47,28 @@ export function creatorRoutes(): Hono<AppEnv> {
 
     // The shelf's definition of public, exactly — one predicate, so a world can never be listed
     // here that Explore would not list.
+    const isYou = creator.id === viewer.id;
     const shelf = { createdBy: creator.id, status: "published", visibility: "public" } as const;
-    const [worlds, totals] = await Promise.all([
+    const [worlds, totals, trust] = await Promise.all([
       deps.prisma.world.findMany({ where: shelf, orderBy: [{ createdAt: "desc" }, { id: "desc" }], take: PROFILE_WORLDS }),
       // Counted over the same set the list is drawn from: a "total plays" that included private
       // drafts would leak how much unpublished work someone has, and would not add up to the
       // numbers on the cards below it.
       deps.prisma.world.aggregate({ where: shelf, _count: { _all: true }, _sum: { playCount: true } }),
+      /**
+       * **Trust is the creator's own business** (gtm.md §2 exit 2). It is resolved only when the
+       * caller is the creator, so it cannot leak through a serialisation mistake later: a public
+       * badge saying "this person's worlds go live unread" is a shopping list for anyone looking
+       * for an account to buy, borrow or pressure. The reviewer sees it on the queue card, where
+       * it is admin-gated; nobody else ever does.
+       */
+      isYou ? trustForOne(deps.prisma, creator.id) : Promise.resolve(null),
     ]);
 
     return ok({
       handle: creator.creatorHandle,
-      isYou: creator.id === viewer.id,
+      isYou,
+      trust,
       worldCount: totals._count._all,
       totalPlays: totals._sum.playCount ?? 0,
       joinedAt: creator.createdAt.toISOString(),

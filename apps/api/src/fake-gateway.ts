@@ -23,6 +23,7 @@ import {
 import type {
   AnyBatchItem, AnyBatchOutcome, BatchItem, BatchResults, Gateway, LlmMode, RunOptions,
   G2Input, G2Output, G9ScreenInput, G9ScreenOutput, G10Input, G10Output, GJInput, GJOutput,
+  DigestInput, DigestOutput,
 } from "@rpgllm/llm";
 import { batchStopReason, scoreCandidateOffline } from "@rpgllm/llm";
 import { BATCH_DISCOUNT } from "@rpgllm/shared";
@@ -381,6 +382,20 @@ export function createFakeGateway(initialMode: LlmMode = "replay"): FakeGateway 
     return { output, meta: meta("G9", tier, `screen:${input.premise}`, false, opts, 8) };
   };
 
+  /**
+   * The review digest's model half (gtm.md §2 exit 3, `services/review-digest.ts`).
+   *
+   * It answers with **no points**, deliberately. `reviewDigest` never calls this in replay mode at
+   * all — the offline measurement is the whole digest there — so the only paths that reach it are
+   * live and fail, and a stand-in that invented contested points would put words a model never
+   * said in front of a reviewer. Nothing is a safe thing for a fake to say about a real world.
+   */
+  const g9Digest = async (input: DigestInput, opts?: RunOptions): Promise<GenerationResult<DigestOutput>> => {
+    const tier = tierFor("G9", opts);
+    record("G9", tier, opts, input);
+    return { output: { points: [] }, meta: meta("G9", tier, `digest:${input.world.slug}`, false, opts, 2) };
+  };
+
   const batchG1 = (items: ReadonlyArray<BatchItem<G1Input>>) => fakeBatch(items, g1);
   const batchG2 = (items: ReadonlyArray<BatchItem<G2Input>>) => fakeBatch(items, g2);
   const batchG4 = (items: ReadonlyArray<BatchItem<G4Input>>) => fakeBatch(items, g4);
@@ -418,7 +433,7 @@ export function createFakeGateway(initialMode: LlmMode = "replay"): FakeGateway 
   return {
     mode: () => mode,
     setMode: (m: LlmMode) => { mode = m; },
-    g1, g2, g4, g5, g7, g8, g9, g9Screen, g10, gj,
+    g1, g2, g4, g5, g7, g8, g9, g9Screen, g9Digest, g10, gj,
     batch, batchG1, batchG2, batchG4, batchG5, batchG7, batchG10, batchGJ,
     assignments,
     champion: () => ({ G1: "fake:g1-mid", G4: "fake:g4-mid", G5: "fake:g5-high", G8: "fake:g8-light" }),

@@ -35,6 +35,23 @@ export interface WorldModerationConfig {
    * truth but is not operator-settable.
    */
   appealsPerRejection: number;
+  /**
+   * gtm.md §2 exit 1 — what a place on the shelf costs, on top of what the world cost to build.
+   * **The only one of these that may legitimately be `0`**: a launch promotion, or a market where
+   * gems are not sold yet, is a policy someone will actually want, and a fee of zero disables
+   * nothing except the charge. Every other number here means something dangerous at zero.
+   */
+  publicSubmitGems: number;
+  /** exit 2 — approvals, with no rejection and no upheld report, that earn sampled review */
+  trustApprovals: number;
+  /** one submission in this many from a trusted creator is still read end to end. 1 = read them all. */
+  trustSampleEvery: number;
+  /**
+   * Whether a rejection drops a creator back to reading every one. No env key: "a reviewer's no
+   * costs a creator their standing" is a policy, not a threshold, so it is resolved here for one
+   * source of truth and is not operator-settable.
+   */
+  trustResetOnReject: boolean;
 }
 
 /**
@@ -43,8 +60,28 @@ export interface WorldModerationConfig {
  */
 export const MAX_VALUE = 100_000;
 
+/**
+ * Like `resolve`, but `0` is a value rather than a typo. Used for exactly one key — see
+ * `publicSubmitGems`. Everything else keeps the stricter reading.
+ */
+function resolveAllowingZero(key: string, fallback: number): number {
+  const raw = process.env[key];
+  if (raw === undefined || raw.trim() === "") return fallback;
+  const n = Number(raw);
+  if (Number.isInteger(n) && n >= 0 && n <= MAX_VALUE) return n;
+  warnOnce(key, raw, fallback);
+  return fallback;
+}
+
 /** Warn once per distinct bad value — this is read on every request that touches the queue. */
 const warned = new Set<string>();
+
+function warnOnce(key: string, raw: string, using: number): void {
+  const seen = `${key}=${raw}`;
+  if (warned.has(seen)) return;
+  warned.add(seen);
+  logLine({ level: "warn", msg: "world.moderation.config.invalid", key, value: raw, using });
+}
 
 function resolve(key: string, fallback: number): number {
   const raw = process.env[key];
@@ -53,11 +90,7 @@ function resolve(key: string, fallback: number): number {
   // Positive integers only. `0` is refused on purpose: it is the value a shell expands a typo to,
   // and every one of these means something dangerous at zero.
   if (Number.isInteger(n) && n >= 1 && n <= MAX_VALUE) return n;
-  const seen = `${key}=${raw}`;
-  if (!warned.has(seen)) {
-    warned.add(seen);
-    logLine({ level: "warn", msg: "world.moderation.config.invalid", key, value: raw, using: fallback });
-  }
+  warnOnce(key, raw, fallback);
   return fallback;
 }
 
@@ -67,6 +100,10 @@ export const worldModerationConfig = (): WorldModerationConfig => ({
   resubmitCooldownHours: resolve(WORLD_MODERATION_ENV.RESUBMIT_COOLDOWN_HOURS, WORLD_MODERATION.RESUBMIT_COOLDOWN_HOURS),
   claimMinutes: resolve(WORLD_MODERATION_ENV.CLAIM_MINUTES, WORLD_MODERATION.CLAIM_MINUTES),
   appealsPerRejection: WORLD_MODERATION.APPEALS_PER_REJECTION,
+  publicSubmitGems: resolveAllowingZero(WORLD_MODERATION_ENV.PUBLIC_SUBMIT_GEMS, WORLD_MODERATION.PUBLIC_SUBMIT_GEMS),
+  trustApprovals: resolve(WORLD_MODERATION_ENV.TRUST_APPROVALS, WORLD_MODERATION.TRUST_APPROVALS),
+  trustSampleEvery: resolve(WORLD_MODERATION_ENV.TRUST_SAMPLE_EVERY, WORLD_MODERATION.TRUST_SAMPLE_EVERY),
+  trustResetOnReject: WORLD_MODERATION.TRUST_RESET_ON_REJECT,
 });
 
 /** Test seam: forget which bad values have already been logged. */

@@ -2,12 +2,13 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import {
-  LOCALES, T, WORLD_STUDIO, colors, compactNumber, font, glow, layout, radius, spacing,
+  LOCALES, T, WORLD_MODERATION, WORLD_STUDIO, colors, compactNumber, font, glow, layout, radius, spacing,
   type Locale, type WorldGenre,
 } from "@rpgllm/shared";
 import { api, ApiError, type WorldVisibility } from "../../src/api/client";
 import { Button, HeaderBar, Screen } from "../../src/components/ui";
 import { Aurora } from "../../src/components/Brand";
+import { ShelfPrice } from "../../src/components/ShelfPrice";
 import { WorldCover } from "../../src/components/WorldCard";
 import { useActions, useAppState, useT } from "../../src/state/store";
 import { GENRES, GENRE_LABEL, GENRE_TINT, VISIBILITIES, VISIBILITY_HINT, VISIBILITY_LABEL } from "../../src/studio/labels";
@@ -226,6 +227,15 @@ export default function StudioCreate() {
   const tooLong = length > MAX;
   const validLength = length >= MIN && length <= MAX;
   const poor = gems < WORLD_STUDIO.GEM_COST;
+  /**
+   * "Everyone", picked here, is the same decision as SCR-049's share button — the build job walks
+   * the finished world through the same transition and the same shelf charge. So this screen owes
+   * the same two things: the price, said before the pick, and a refusal that names *which* half is
+   * short. A world built for 120 whose shelf fee then fails silently is exactly the toll this
+   * charge must not become.
+   */
+  const shelfFee = visibility === "public" ? WORLD_MODERATION.PUBLIC_SUBMIT_GEMS : 0;
+  const poorForShelf = !poor && gems < WORLD_STUDIO.GEM_COST + shelfFee;
   const capped = remaining !== null && remaining <= 0;
 
   useEffect(() => {
@@ -289,6 +299,7 @@ export default function StudioCreate() {
   const errorText = error
     ?? (capped ? t("studioLimitReached") : null)
     ?? (poor ? t("studioNotEnoughGems") : null)
+    ?? (poorForShelf ? t("studioNotEnoughForPublic") : null)
     ?? (tooShort ? t("studioPremiseTooShort") : null)
     ?? (tooLong ? t("studioPremiseTooLong") : null);
 
@@ -331,7 +342,7 @@ export default function StudioCreate() {
 
   const countTone = tooLong ? colors.danger : validLength ? colors.positive : colors.textMuted;
   /** Everything the build needs is in place — the CTA lights up. */
-  const ready = validLength && !busy && !poor && !capped;
+  const ready = validLength && !busy && !poor && !poorForShelf && !capped;
 
   return (
     <Screen wash={false}>
@@ -480,6 +491,18 @@ export default function StudioCreate() {
                 <VisibilityRow key={v} value={v} selected={v === visibility} onPress={() => setVisibility(v)} />
               ))}
             </View>
+            {/*
+              Only under the door that costs something, and only once it is chosen — the other two
+              rows stay exactly as free as they are. The balance is left out here because the price
+              card directly below already carries it; two gem counts a thumb apart is noise.
+            */}
+            {visibility === "public" ? (
+              <FadeSlideIn distance={8}>
+                <View style={{ paddingHorizontal: spacing.md, paddingTop: spacing.xxs }}>
+                  <ShelfPrice gems={null} tone="quiet" identified={false} />
+                </View>
+              </FadeSlideIn>
+            ) : null}
           </View>
 
           {/* ------------------------------------------------------------ price + CTA ---- */}
@@ -555,7 +578,7 @@ export default function StudioCreate() {
                 icon="sparkle"
                 onPress={() => void onCreate()}
                 loading={busy}
-                disabled={!validLength || busy || poor || capped}
+                disabled={!validLength || busy || poor || poorForShelf || capped}
               />
             </View>
           </View>

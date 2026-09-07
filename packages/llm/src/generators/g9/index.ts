@@ -24,6 +24,58 @@ export {
   type PremiseScreenLayer,
   type PremiseModelStatus,
 } from "./screen-deep.js";
+export {
+  g9Digest,
+  replayG9Digest,
+  capPoints,
+  cleanModelPoint,
+  coerceConfidence,
+  coerceRule,
+  measuredBlock,
+  namesSomething,
+  readsAsVerdict,
+  worldChars,
+  worldExcerpt,
+  DigestOutputZ,
+  DIGEST_CONCERN_MAX,
+  DIGEST_EVIDENCE_MAX,
+  DIGEST_EVIDENCE_MIN,
+  DIGEST_EXCERPT,
+  DIGEST_MAX_PER_RULE,
+  DIGEST_MAX_POINTS,
+  DIGEST_POLICY,
+  DIGEST_READING,
+  DIGEST_VARIANT_ID,
+  VERDICT_TERMS,
+  type DigestInput,
+  type DigestOutput,
+} from "./digest.js";
+export {
+  cjkDensity,
+  isGrounded,
+  measuredPoints,
+  normaliseEvidence,
+  worldHaystack,
+  worldPassages,
+  CONFIDENCES,
+  DIGEST_CARD_COLLISION,
+  DIGEST_MIN_JA_CJK,
+  DIGEST_RULES,
+  type DigestConfidence,
+  type DigestRule,
+  type Passage,
+  type ReviewPoint,
+} from "./digest-offline.js";
+export {
+  reviewDigest,
+  toReviewDigest,
+  type DigestCoverage,
+  type DigestModelStatus,
+  type ReviewDigest,
+  type ReviewDigestArgs,
+  type ReviewDigestGateway,
+  type ReviewDigestResult,
+} from "./digest-run.js";
 export { runG9, aggregateMeta, type G9StageRunner, type G9RunHooks } from "./orchestrator.js";
 export { resolveCastHandles, type CastRenameOutcome } from "./rename-cast.js";
 export { assembleWorld, deterministicWorld, type G9Parts } from "./assemble.js";

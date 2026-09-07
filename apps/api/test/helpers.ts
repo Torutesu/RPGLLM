@@ -1,6 +1,6 @@
 import type { Hono } from "hono";
 import { PrismaClient } from "@prisma/client";
-import { DEV_EMAIL_CODE } from "@rpgllm/shared";
+import { DEV_EMAIL_CODE, WORLD_MODERATION } from "@rpgllm/shared";
 import { createApp } from "../src/app";
 import { createClock, type Clock } from "../src/clock";
 import { createFakeGateway, type FakeGateway } from "../src/fake-gateway";
@@ -37,6 +37,21 @@ export function makeHarness(): Harness {
 export async function resetDatabase(): Promise<void> {
   await prisma.$executeRawUnsafe(`TRUNCATE TABLE ${TRUNCATE_ALL.map((t) => `"${t}"`).join(", ")} RESTART IDENTITY CASCADE`);
   await seedDatabase(prisma);
+}
+
+/**
+ * Top up a wallet with shelf fees (gtm.md §2 exit 1, `WORLD_MODERATION.PUBLIC_SUBMIT_GEMS`).
+ *
+ * `STARTER_GEMS` is exactly one world, so an account that has just built one has an empty wallet —
+ * and asking for a place on Explore now costs gems on top of that. Every fixture that submits a
+ * world for review therefore has to buy the shelf first. This weakens nothing: it funds a wallet
+ * so the case under test is reached, and the 402 has cases of its own in `world-submit-fee.test.ts`.
+ */
+export async function grantShelfGems(userId: string, packs = 1): Promise<void> {
+  await prisma.wallet.update({
+    where: { userId },
+    data: { gems: { increment: WORLD_MODERATION.PUBLIC_SUBMIT_GEMS * packs } },
+  });
 }
 
 export interface JsonResponse<T> { status: number; data: T; error: { code: string; message: string } | null }

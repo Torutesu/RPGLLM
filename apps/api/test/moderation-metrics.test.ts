@@ -2,7 +2,7 @@ import { beforeAll, beforeEach, afterEach, describe, expect, it } from "vitest";
 import { WORLD_MODERATION } from "@rpgllm/shared";
 import { runJobOnce, type JobDeps } from "../src/jobs/registry";
 import { median, percentile, reviewMinutesPerWorld, safeRate } from "../src/services/moderation-metrics";
-import { call, makeHarness, prisma, resetDatabase, signup, type Harness } from "./helpers";
+import { call, grantShelfGems, makeHarness, prisma, resetDatabase, signup, type Harness } from "./helpers";
 
 /**
  * `GET /v1/admin/moderation/metrics` — the queue as it actually behaves, next to the thresholds
@@ -61,12 +61,14 @@ const HOUR_MS = 3_600_000;
 
 /** A built world waiting for a person. */
 async function submittedWorld(premise: string): Promise<{ token: string; worldId: string }> {
-  const { token } = await signup(h);
+  const { token, userId } = await signup(h);
   const created = await call<{ world: { id: string } }>(h, "POST", "/v1/worlds", {
     token, body: { premise, genre: "idol", locale: "en", visibility: "private" },
   });
   expect(created.status).toBe(201);
   expect((await runJobOnce(deps, "world-build", { trigger: "test" })).error).toBeNull();
+  // The shelf costs gems on top of the world (gtm.md §2 exit 1); a fresh account has none left.
+  await grantShelfGems(userId, 4);
   const worldId = created.data.world.id;
   expect((await call(h, "POST", `/v1/worlds/${worldId}/publish`, { token, body: { visibility: "public" } })).status).toBe(202);
   return { token, worldId };
@@ -126,7 +128,13 @@ describe("the queue, measured", () => {
     expect(m.decisions.approvalRate, "a rate over no decisions is 0, not NaN").toBe(0);
     expect(m.reports.perThousandPlays, "…and a rate over no plays is 0, not Infinity").toBe(0);
     expect(Number.isFinite(m.reports.perThousandPlays)).toBe(true);
-    expect(m.economics).toEqual({ worldsReviewedLast7d: 0, estimatedReviewMinutes: 0, generationCostUsd: 0 });
+    expect(m.economics).toEqual({
+      worldsReviewedLast7d: 0, estimatedReviewMinutes: 0, generationCostUsd: 0,
+      // gtm.md §2 puts a dollar figure on the queue, so the surface does too. Nobody reviewed
+      // anything, so it cost nothing — but the rate and the minutes it multiplies are still stated,
+      // because an operator cannot check a total whose inputs are invisible.
+      reviewCostUsd: 0, reviewHourlyUsd: 15, minutesPerWorld: WORLD_MODERATION.CLAIM_MINUTES,
+    });
     expect(m.queue).toEqual({ waiting: 0, overdue: 0, appeals: 0, pulled: 0, oldestWaitingHours: 0 });
 
     // The point of the endpoint: the thresholds actually in force, next to what they are doing.

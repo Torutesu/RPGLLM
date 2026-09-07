@@ -1,15 +1,17 @@
-import React, { useCallback, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { ScrollView, Text, View } from "react-native";
 import { Redirect, router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import { T, colors, compactNumber, layout, radius, spacing } from "@rpgllm/shared";
 import { api, type CreatorProfile } from "../../src/api/client";
 import { Button, HeaderBar, Screen } from "../../src/components/ui";
 import { Aurora } from "../../src/components/Brand";
+import { CreatorTrustBlock } from "../../src/components/CreatorTrust";
 import { Empty } from "../../src/components/Empty";
 import { SkeletonList } from "../../src/components/Skeleton";
 import { StudioWorldCard } from "../../src/components/StudioWorldCard";
 import { pushOnce } from "../../src/nav";
 import { useAppState, useT } from "../../src/state/store";
+import { rememberTrusted, wasEverTrusted } from "../../src/studio/trust";
 import { FadeSlideIn, Icon, typo } from "../../src/ui";
 
 /**
@@ -54,6 +56,8 @@ export default function CreatorPage() {
   const { booted, me, token } = useAppState();
   const [profile, setProfile] = useState<CreatorProfile | null>(null);
   const [phase, setPhase] = useState<"loading" | "ready" | "error">("loading");
+  /** Has this device seen this creator trusted before? The one thing `trust` cannot say alone. */
+  const [wasTrusted, setWasTrusted] = useState(false);
   const alive = useRef(true);
 
   /*
@@ -91,6 +95,36 @@ export default function CreatorPage() {
       };
     }, [load]),
   );
+
+  /**
+   * Trust is the creator's own business — the contract sends it to nobody else, and this page
+   * refuses to print it for anybody else even if a future payload leaks one. A public mark of
+   * "read less closely" is a target, which is the whole reason the field is private.
+   */
+  const trust = profile?.isYou ? profile.trust : null;
+
+  /*
+   * `trusted: true` is remembered, because losing it is invisible in the payload: a reset returns
+   * `approvals` to zero, which is exactly what a creator who has never been trusted looks like.
+   * On a device that has not seen it, this stays false and the block shows only the progress it
+   * can prove — a missing sentence, never a wrong one.
+   */
+  useEffect(() => {
+    if (!trust || !handle) return;
+    let live = true;
+    void (async () => {
+      if (trust.trusted) {
+        await rememberTrusted(handle);
+        if (live) setWasTrusted(true);
+        return;
+      }
+      const seen = await wasEverTrusted(handle);
+      if (live) setWasTrusted(seen);
+    })();
+    return () => {
+      live = false;
+    };
+  }, [trust, handle]);
 
   /** Creators are only meaningful inside a session — the endpoint refuses an anonymous read. */
   if (booted && !token) return <Redirect href="/auth" />;
@@ -167,6 +201,13 @@ export default function CreatorPage() {
                 <Stat testID={T.creatorTotalPlays} label={t("creatorPlays")} value={compactNumber(profile.totalPlays)} />
                 <Stat label={t("creatorSince")} value={since} />
               </View>
+
+              {/*
+               * Exit 2 — what the next world costs a reviewer, and how that changes. It sits under
+               * the numbers because it is about the work, and above the rename because it is the
+               * one thing on this page that moves.
+               */}
+              {trust ? <CreatorTrustBlock trust={trust} wasTrusted={wasTrusted} /> : null}
 
               {/*
                * Your own name, and the way out of a placeholder. It sits under the numbers rather

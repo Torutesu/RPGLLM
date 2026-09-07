@@ -215,6 +215,8 @@ export const T = {
   worldReviewEmpty: "world-review-empty",
   // Exits 1–3: what the shelf costs, and what trust buys
   studioPublicCost: "studio-public-cost",
+  /** The same sentence on SCR-048, where the audience is picked before the world exists. */
+  studioPublicCostCreate: "studio-public-cost-create",
   studioTrust: "studio-trust",
   worldReviewDigest: (id: string) => `world-review-digest-${id}`,
   worldReviewSampled: (id: string) => `world-review-sampled-${id}`,

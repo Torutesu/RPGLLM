@@ -37,6 +37,13 @@ import {
   type G9ScreenInput,
   type G9ScreenOutput,
 } from "./generators/g9/screen-model.js";
+import {
+  g9Digest,
+  replayG9Digest,
+  DIGEST_VARIANT_ID,
+  type DigestInput,
+  type DigestOutput,
+} from "./generators/g9/digest.js";
 import { gj, type GJInput, type GJOutput } from "./generators/gj.js";
 import { batchMaxRequests, chunkRequests, runLiveBatch, type BatchEntryStatus } from "./modes/batch.js";
 import { runFail } from "./modes/fail.js";
@@ -150,6 +157,13 @@ export interface Gateway {
    * which owns the AND, the timeout and the failure policy; this is the raw call it makes.
    */
   g9Screen(input: G9ScreenInput, opts?: RunOptions): Promise<GenerationResult<G9ScreenOutput>>;
+  /**
+   * The review digest (docs/moderation.md §3). One mid-tier call per world queued for the public
+   * shelf, whose cached prefix is the review policy rather than the world. Callers should use
+   * `reviewDigest`, which owns the offline half, the merge, the timeout and the three result
+   * shapes; this is the raw call it makes.
+   */
+  g9Digest(input: DigestInput, opts?: RunOptions): Promise<GenerationResult<DigestOutput>>;
   g10(input: G10Input, opts?: RunOptions): Promise<GenerationResult<G10Output>>;
   gj(input: GJInput, opts?: RunOptions): Promise<GenerationResult<GJOutput>>;
   /** Batch tier (§5.4): 50% off, keyed by `customId`, never by position. */
@@ -595,6 +609,16 @@ export function createGateway(opts: GatewayOptions = {}): Gateway {
         generator: "G9",
         tier: runOpts?.tier ?? g9Screen.defaultTier,
         maxTokens: g9Screen.maxTokens,
+      }),
+    // The digest runs against a queued world, before any reviewer and for no particular user ->
+    // null userId, and its own variant id so `GenerationLog` splits it from the studio stages and
+    // from the premise screen.
+    g9Digest: (input, runOpts) =>
+      run(g9Digest, input, runOpts, null, replayG9Digest, () => 0, {
+        id: DIGEST_VARIANT_ID,
+        generator: "G9",
+        tier: runOpts?.tier ?? g9Digest.defaultTier,
+        maxTokens: g9Digest.maxTokens,
       }),
     g10: (input, runOpts) => run(g10, input, runOpts, input.userId, replayG10, (i) => i.seed),
     gj: (input, runOpts) => run(gj, input, runOpts, null, replayGJ, () => 0),

@@ -24,6 +24,8 @@ import { tellCreator } from "./creator-notify";
 import { clearedAppeal, liveAppeal, type AppealCase } from "./world-appeal";
 import { activeClaim, releasedClaim, type ReviewClaim } from "./world-review-claim";
 import { worldModerationConfig } from "./world-moderation-config";
+import { pauseTrust, trustFor, type CreatorTrust } from "./creator-trust";
+import { storedDigest, type ReviewDigest } from "./review-digest";
 import { logLine } from "../middleware/request-log";
 import type { Tx } from "../types";
 
@@ -73,8 +75,8 @@ export interface PullOutcome {
  * cannot deadlock against the build job or the review decision, which never lock a `World` row.
  */
 export async function pullWorldIfBrigaded(tx: Tx, worldId: string, now: Date): Promise<PullOutcome> {
-  const locked = await tx.$queryRaw<{ id: string; status: string; visibility: string; isPreset: boolean }[]>`
-    SELECT "id", "status"::text AS "status", "visibility"::text AS "visibility", "isPreset"
+  const locked = await tx.$queryRaw<{ id: string; status: string; visibility: string; isPreset: boolean; createdBy: string | null }[]>`
+    SELECT "id", "status"::text AS "status", "visibility"::text AS "visibility", "isPreset", "createdBy"
       FROM "World" WHERE "id" = ${worldId} FOR UPDATE`;
   const world = locked[0];
   if (!world) return { reporters: 0, pulled: false };
@@ -101,6 +103,15 @@ export async function pullWorldIfBrigaded(tx: Tx, worldId: string, now: Date): P
     // attached: whatever rejection an old appeal argued with is not what this world is here for.
     data: { status: "review", pulledAt: now, reviewRequestedAt: now, ...clearedAppeal, ...releasedClaim },
   });
+  /**
+   * A pull **suspends** its creator's sampling trust (gtm.md §2 exit 2). The suspension itself is
+   * derived — "has any world in `review` with `pulledAt`" — so it needs no write and lifts by
+   * itself when a person decides; what is written here is the guarantee that the first submission
+   * after it lifts is read in full, exactly like the first one after graduating. Somebody with a
+   * live world off the shelf under objection is precisely who should not be publishing unread, and
+   * a brigade still cannot destroy standing it did not earn.
+   */
+  if (claimed.count > 0 && world.createdBy) await pauseTrust(tx, world.createdBy);
   return { reporters, pulled: claimed.count > 0 };
 }
 
@@ -289,6 +300,14 @@ export interface QueueEntry {
   appeal: AppealCase | null;
   /** the reviewer holding it right now, or null — a lapsed lease is not a claim */
   claim: ReviewClaim | null;
+  /**
+   * What to look at first (gtm.md §2 exit 3), computed once at submission and **read** here — never
+   * recomputed, because a queue that got slower as it got longer is a queue nobody works. `null` is
+   * an ordinary card: nothing in this file, or downstream of it, reads a digest to decide anything.
+   */
+  digest: ReviewDigest | null;
+  /** the creator's standing (exit 2). Admin-only — never on another player's view of them. */
+  creatorTrust: CreatorTrust | null;
 }
 
 export interface ReviewQueue {
@@ -362,9 +381,10 @@ export async function reviewQueue(
     byWorld.set(c.targetId, list);
   }
 
-  const [total, ops] = await Promise.all([
+  const [total, ops, trust] = await Promise.all([
     prisma.world.count({ where: { status: "review" } }),
     worldModerationOps(prisma, now),
+    trustFor(prisma, page.flatMap((w) => (w.createdBy ? [w.createdBy] : []))),
   ]);
 
   return {
@@ -377,6 +397,8 @@ export async function reviewQueue(
       reports: byWorld.get(row.id) ?? [],
       appeal: liveAppeal(row),
       claim: activeClaim(row, now),
+      digest: storedDigest(row),
+      creatorTrust: row.createdBy ? (trust.get(row.createdBy) ?? null) : null,
     })),
     overdueCount: ops.overdueReviews,
     appealCount: ops.appealedWorlds,

@@ -102,6 +102,16 @@ model User {
   streakDays             Int                    @default(0)
   streakBestDays         Int                    @default(0)
   streakLastAt           DateTime?
+
+  /// 勝ち筋 2（gtm.md §2 の「信頼度の階段」）。却下も是認された通報もなく積み上がった承認の数。
+  /// WORLD_MODERATION.TRUST_APPROVALS に達すると公開申請がサンプリング審査に落ちる。
+  /// 却下（=通報の是認を含む）で 0 に戻る。作者本人にしか返さない（CreatorProfileResZ.trust）。
+  trustApprovals         Int                    @default(0)
+  /// 信頼を得てから出した公開申請の数。0 = 信頼後の最初の 1 本で、これは必ず全文を読む。
+  /// 通報での取り下げでも 0 に戻る（信頼が戻ったあとの最初の 1 本も必ず読む）。
+  trustSubmissions       Int                    @default(0)
+  /// 直近で trustApprovals が 0 に戻された時刻。運用の可視化用で、判定には使わない。
+  trustResetAt           DateTime?
   personas               Persona[]
   wallet                 Wallet?
   subscription           Subscription?
@@ -238,6 +248,24 @@ model World {
   claimedBy    String?
   claimedUntil DateTime?
 
+  /// 勝ち筋 1（gtm.md §2「棚に課金する」）。いま立っている公開申請に対して徴収したジェム。
+  /// 0 = 返すものが無い。審査で結論が出た時点で 0 に戻す（読まれた時点で対価は消費されている）。
+  /// 条件付き UPDATE でここを 0 にした側だけが返金を書くので、二重返金は起こらない。
+  publishChargeGems Int       @default(0)
+  /// 最後に「棚に出して」と言われた時刻。手数料が 0 の設定でも必ず入る = 公開申請の件数の正本。
+  /// sampledAwayAt と合わせて「人が読んだ件数 / 読まずに出た件数」が引ける。
+  publishSubmittedAt DateTime?
+
+  /// 勝ち筋 3（gtm.md §2「自動ゲートに前段を寄せる」）。ReviewDigestZ そのまま。
+  /// 公開申請の時に一度だけ計算して置く（キュー読み出しのたびに作らない）。null = 助言が無い。
+  /// これは助言であって判定ではない: これだけで承認/却下/スキップされる経路はどこにも無い。
+  reviewDigest   Json?
+  reviewDigestAt DateTime?
+
+  /// 勝ち筋 2。信頼された作者の申請が抽選に当たらず、人が読まないまま公開された時刻。
+  /// 「人の手を離れた件数」= 効果の実測値そのものなので、行に残す（pulledAt と違い消さない）。
+  sampledAwayAt DateTime?
+
   characters  WorldCharacter[]
   personas    Persona[]
   ambientPool AmbientPost[]
@@ -246,6 +274,7 @@ model World {
   @@index([createdBy, createdAt])
   @@index([status, reviewRequestedAt])
   @@index([remixOfId])
+  @@index([sampledAwayAt])
 }
 
 /// ユーザー生成ワールドのライフサイクル。

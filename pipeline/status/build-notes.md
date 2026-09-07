@@ -3919,3 +3919,132 @@ a shockwave ring on the beat they land · headline takeover, line-staggered · b
 6. Measured in Chromium 1194 at 390×844: `video/mp4;codecs=avc1` is chosen ahead of WebM (far more
    shareable), output **1080×1920, 9.13 s, ~4.5 MB**, fragmented MP4 (`ftyp/moov/moof+mdat`), decoded
    and frame-grabbed to confirm. WebM is the fallback where MP4 recording is unsupported.
+
+---
+
+## Agent SHELF-CLIENT — what the shelf costs, and what trust buys (`apps/mobile`)
+
+gtm.md §2 in two client surfaces: **exit 1**, the charge for a place in Explore, said before the
+button is pressed; **exit 2**, trust, drawn as progress rather than as a badge.
+
+| surface | where |
+|---|---|
+| the shelf price + its reason | `src/components/ShelfPrice.tsx` (`T.studioPublicCost`) |
+| SCR-049's publish row, and the resubmit after a rejection | `app/studio/[id].tsx` |
+| SCR-048's visibility picker, when "Everyone" is chosen | `app/studio/index.tsx` |
+| trust, on the creator's own page | `src/components/CreatorTrust.tsx` + `src/studio/trust.ts` (`T.studioTrust`) |
+
+### How the charge is worded, and why it is a box rather than a line
+
+The price and the reason are one block: **"Sharing with everyone costs 60 gems"** with
+**"A person reads every world in Explore. This pays for that read."** directly under it. The hint is
+not a benefit line and does not try to be — it names the thing the money buys, which is twenty
+minutes of a person's attention (`WORLD_MODERATION.CLAIM_MINUTES`, $5.00 against $0.32 of
+generation). A player who understands why a charge exists forgives it; one who meets it as a
+gate does not.
+
+Three placement rules the layout encodes:
+
+1. **Before the press, never after.** On SCR-049 the block sits *inside* a bordered box together
+   with "Share it with everyone", so the price is read as part of that button, not discovered by
+   pressing it.
+2. **The free doors must look free.** "Anyone with the link" and "Keep it private" sit outside that
+   box and carry no gem, no number and no hint. The i18n set has no "free" string and none was
+   invented — the contrast *is* the statement. (An id/string for "free" is the missing piece if
+   anyone ever wants it said out loud.)
+3. **The refusal belongs to the box.** A 402 renders `studioNotEnoughForPublic` inside the priced
+   box, above the button that caused it (`publishError` now carries `{ text, shelf }`); every other
+   publish failure keeps its old slot above the controls. An alert about the shelf floating two
+   rows above "Play this world" reads as being about the world.
+
+### Two screens, one decision — and the id that only one of them may carry
+
+`world-publish.ts` is walked by **both** doors: SCR-049's share button *and* the build job, for a
+world created as "Everyone" on SCR-048. So the fee is charged on both, and SCR-048 was quietly
+selling a 180-gem outcome under a 120-gem price card. It now:
+
+- shows the same price + reason under the "Everyone" row, only while that row is selected;
+- refuses with `studioNotEnoughForPublic` (not `studioNotEnoughGems`) and disables the CTA when the
+  wallet covers the build but not the shelf — the previous behaviour built the world for 120 and
+  then let the shelf charge fail silently at build time, which is the exact toll this charge must
+  not become.
+
+**Deviation:** `T.studioPublicCost` is rendered **only on SCR-049**. Expo Router keeps stacked
+screens mounted and a remix opened from a world page can have SCR-049 underneath, so the same id on
+both screens could match twice. `ShelfPrice` takes `identified={false}` for SCR-048, which says the
+same sentence with no id. **An id of its own for the SCR-048 price line is the missing piece.**
+
+A resubmit after a rejection is charged again (`world-submit-fee.ts` §3: an appeal is free, a
+resubmit is not), so the price is stated there too — but while an unspent appeal is on screen it
+drops to a caption with no box, so it cannot outshout the door that costs nothing.
+
+### Trust, and the one thing the payload cannot say
+
+`CreatorProfileResZ.trust` is rendered only when `isYou` — never on another player's page, even if
+the field somehow arrives. A visible mark of "read less closely" is a target, which is why the
+contract keeps it private in the first place.
+
+Three states: **earned** (positive, full meter), **progressing** (accent, `N approvals until…`), and
+**lost**. `trustLost` is the careful one. It is drawn in `textDim` with no alert role and no danger
+colour, and it is **paired with the progress line underneath it**, so it reads as a fact about the
+next submission with the way back attached, rather than as a punishment.
+
+**A reset is invisible in the payload**: `TRUST_RESET_ON_REJECT` returns `approvals` to 0, which is
+exactly what a creator who has never been trusted looks like. So `src/studio/trust.ts` remembers,
+per handle, that this device has *seen* `trusted: true` (AsyncStorage; localStorage on web —
+verified surviving a full page reload). On a device that has not seen it, `trustLost` is simply not
+shown and the block shows the progress it can prove: a missing sentence, never a wrong one. It is
+also lost on a rename, since the key is the handle. **If the API ever wants this to be exact, a
+`resetAt`/`wasTrusted` on `CreatorTrustZ` would replace the whole mechanism.**
+
+`countLine(locale, n, text)` joins a count to its string: EN with a space, JA without, because
+`trustProgress` opens with the counter itself ("回の承認で…"). The rest of the app joins with a
+space in both locales — fine for `3 left today`, wrong for a counter.
+
+### Frozen copy that will drift
+
+`studioPublicCost` hard-codes **60** in both locales, but `WORLD_MODERATION_ENV.PUBLIC_SUBMIT_GEMS`
+lets the server change the fee without a deploy. The number is not interpolated anywhere on the
+client (the string is the string), so **a deploy that changes the fee makes this copy a lie**. Worth
+a parameterised string before the env override is ever used.
+
+### Verified
+
+`pnpm --filter mobile typecheck` clean. `expo export -p web` (the `export:web` command, into
+`dist-shelf` so the shared `dist` was left alone) succeeded, served on :8390 against a **private API
+on :4300 with its own database** (`rpgllm_test_shelf2`, `LLM_MODE=replay`). Chromium 390×844, EN and
+JA, **against the real API with nothing stubbed** — the moderation-economics API landed mid-task, so
+the 402, the charge and `trust` are all real responses:
+
+- real charge: 240 gems → publish → **180**, world in `review`; the price row correctly disappears
+  once the world is queued (`canAskForEveryone` is false there);
+- real 402 at 10 gems → "Not enough gems to put this on the shelf" / 「棚に並べるにはジェムが足りません」;
+- SCR-048: the 60-gem line appears only with "Everyone" selected (0 → 1 match), carries no id
+  (0 matches for `studio-public-cost`), CTA enabled at 300 gems and disabled at 150 with the shelf
+  refusal;
+- **id uniqueness**: `studio-public-cost` and `studio-publish` match exactly **1** each in every
+  state (ready, rejected-with-appeal, rejected-after-appeal); `studio-trust` exactly **1**, and
+  **0** on another creator's page with their trust present in the payload;
+- degrade: the same screens were driven earlier against the **pre-landing** API — publish worked
+  with `charged` absent (zod default 0) and the trust block rendered nothing with `trust` absent.
+
+Screenshots: `/tmp/claude-0/-home-user-RPGLLM/eeac402b-8806-5fd2-846a-21bc19595131/scratchpad/shelf/`
+(`create-{en,ja}-everyone|short`, `shelf-{en,ja}-publish-row|short-balance|402|after-publish|rejected-quiet|rejected-resubmit`,
+`trust-{en,ja}-absent|progress|earned|lost|not-mine`).
+
+## Orchestrator — the shelf fee, after SHELF-CLIENT (2026-09-07)
+
+Two things that agent recorded, both now closed in `packages/shared` + `apps/mobile`:
+
+- **`studioPublicCost` hard-coded "60 gems" in both locales** while `WORLD_PUBLIC_SUBMIT_GEMS` can
+  change the fee without a deploy. The string is now the sentence only and the number is rendered
+  beside it from `WORLD_MODERATION.PUBLIC_SUBMIT_GEMS`.
+- **SCR-048's copy of the line had no id** (it passed `identified={false}` to dodge a double match
+  under a stacked screen). It carries `T.studioPublicCostCreate` now, so both are addressable and
+  neither collides.
+
+**Still open, and worth knowing:** the client renders the *constant*, so a deployment that overrides
+`WORLD_PUBLIC_SUBMIT_GEMS` shows the old number until the app ships again. The 402 is authoritative,
+so nobody is charged a price they were not shown — but they can be shown a price that is not the
+price. The fix is for the server to tell the client the fee in force (a `config` block on
+`GET /v1/me` is the obvious place); it is an API change and an agent held that directory.

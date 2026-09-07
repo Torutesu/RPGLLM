@@ -6,11 +6,12 @@ import { api, ApiError, type WorldFull, type WorldVisibility } from "../../src/a
 import { Button, HeaderBar, Screen } from "../../src/components/ui";
 import { Aurora } from "../../src/components/Brand";
 import { AppealForm, AppealStatus } from "../../src/components/StudioAppeal";
+import { ShelfPrice, shortForShelf } from "../../src/components/ShelfPrice";
 import { StudioCast } from "../../src/components/StudioCast";
 import { StudioProgress } from "../../src/components/StudioProgress";
 import { StudioStatusBadge } from "../../src/components/StudioWorldCard";
 import { WorldHero } from "../../src/components/WorldHero";
-import { useActions, useT } from "../../src/state/store";
+import { useActions, useAppState, useT } from "../../src/state/store";
 import { useWorldStatus } from "../../src/studio/useWorldStatus";
 import { rejectedStep } from "../../src/studio/appeal";
 import { canAskForEveryone, canPutBehindLink, isLiveBehindLink } from "../../src/studio/audience";
@@ -48,16 +49,40 @@ function Meta({ world }: { world: WorldFull }) {
   );
 }
 
+/** The shelf's own refusal, inside the box that states its price. */
+function ShelfRefusal({ text }: { text: string }) {
+  return (
+    <Text
+      accessibilityRole="alert"
+      accessibilityLiveRegion="polite"
+      style={[typo.meta, { color: colors.danger }]}
+    >
+      {text}
+    </Text>
+  );
+}
+
 export default function StudioWorldScreen() {
   const params = useLocalSearchParams<{ id?: string }>();
   const worldId = params.id ?? null;
   const { t } = useT();
-  const { setDraft } = useActions();
+  const { setDraft, refreshMe } = useActions();
+  const { me } = useAppState();
   const { data, phase, stale, reload } = useWorldStatus(worldId);
+  /**
+   * The wallet, for the shelf price. `null` while `/v1/me` has not answered — the price row shows
+   * the cost either way and simply says nothing about the balance it does not have.
+   */
+  const gems = me ? me.wallet.gems : null;
 
   const [published, setPublished] = useState<WorldFull | null>(null);
   const [publishBusy, setPublishBusy] = useState<WorldVisibility | null>(null);
-  const [publishError, setPublishError] = useState<string | null>(null);
+  /**
+   * A refused publish, and whether the refusal is about the *shelf* specifically. The shelf's
+   * price has its own box on this screen, and a sentence about that price belongs inside it —
+   * an alert two rows above the Play button reads as being about the world, not about the door.
+   */
+  const [publishError, setPublishError] = useState<{ text: string; shelf: boolean } | null>(null);
   const [burst, setBurst] = useState(0);
   const [copied, setCopied] = useState(false);
   /** Set once the server has refused a resubmit, so the button that cannot work stops being offered. */
@@ -82,6 +107,14 @@ export default function StudioWorldScreen() {
   useEffect(() => {
     if (ready) setBurst((n) => n + 1);
   }, [ready]);
+
+  /*
+   * The publish row states a price against a balance, and this screen is reached from a shelf that
+   * may have been open for a while. One read on mount so the number next to the gem is current.
+   */
+  useEffect(() => {
+    void refreshMe();
+  }, [refreshMe]);
 
   /*
    * The poll has given up and there is nothing on screen. Before saying "Couldn't load", ask the
@@ -176,6 +209,12 @@ export default function StudioWorldScreen() {
     try {
       const res = await api.publishWorld(world.id, visibility);
       setPublished(res.world);
+      /*
+       * Exit 1: asking for the shelf takes gems. `charged` defaults to zero, so this is a no-op
+       * against an API that has not started charging yet — and when it does, the balance the next
+       * screen shows is the one the server just wrote, not the one this screen remembers.
+       */
+      if (res.charged.gems > 0) void refreshMe();
       return true;
     } catch (e) {
       const err = e instanceof ApiError ? e : null;
@@ -188,8 +227,17 @@ export default function StudioWorldScreen() {
         setResubmitWait(true);
         return false;
       }
+      /*
+       * A 402 here is never energy — `publishWorld` opts out of the global handlers for exactly
+       * this reason. It is the shelf's price, and only the public door has one, so the sentence
+       * names the shelf rather than the wallet in general.
+       */
+      const poorForShelf = visibility === "public" && (err?.isGems === true || err?.status === 402);
       // The safety gate runs on every publish, unlisted included.
-      setPublishError(err?.isSafety ? t("studioPremiseBlocked") : t("loadFailed"));
+      setPublishError({
+        text: poorForShelf ? t("studioNotEnoughForPublic") : err?.isSafety ? t("studioPremiseBlocked") : t("loadFailed"),
+        shelf: poorForShelf,
+      });
       return false;
     } finally {
       setPublishBusy(null);
@@ -331,9 +379,9 @@ export default function StudioWorldScreen() {
                 <StudioCast cast={data?.cast ?? []} />
               </View>
 
-              {publishError ? (
+              {publishError && !publishError.shelf ? (
                 <Text accessibilityRole="alert" accessibilityLiveRegion="polite" style={[typo.meta, { color: colors.danger }]}>
-                  {publishError}
+                  {publishError.text}
                 </Text>
               ) : null}
 
@@ -381,15 +429,34 @@ export default function StudioWorldScreen() {
               */}
               <View style={{ gap: spacing.sm }}>
                 <Button testID={T.studioPlay} label={t("studioPlay")} icon="sparkle" onPress={play} />
+                {/*
+                  The one door that costs something, and the price is inside it — read before the
+                  press, with the reason attached (gtm.md §2: a person reads every world in
+                  Explore). The two doors below are outside this box and carry no gem, no number
+                  and no hint, because private and unlisted are free and must look it.
+                */}
                 {canAskForEveryone(world) ? (
-                  <Button
-                    testID={T.studioPublish}
-                    label={t("studioPublish")}
-                    icon="share"
-                    variant="secondary"
-                    loading={publishBusy === "public"}
-                    onPress={() => void publish("public")}
-                  />
+                  <View
+                    style={{
+                      gap: spacing.md,
+                      padding: spacing.md,
+                      borderRadius: radius.md,
+                      backgroundColor: colors.cardHi,
+                      borderWidth: 1,
+                      borderColor: shortForShelf(gems) ? `${colors.danger}66` : colors.border,
+                    }}
+                  >
+                    <ShelfPrice gems={gems} />
+                    {publishError?.shelf ? <ShelfRefusal text={publishError.text} /> : null}
+                    <Button
+                      testID={T.studioPublish}
+                      label={t("studioPublish")}
+                      icon="share"
+                      variant="secondary"
+                      loading={publishBusy === "public"}
+                      onPress={() => void publish("public")}
+                    />
+                  </View>
                 ) : null}
                 {canPutBehindLink(world) ? (
                   <Button
@@ -461,19 +528,45 @@ export default function StudioWorldScreen() {
               */}
               {showResubmit ? (
                 <>
-                  {publishError ? (
+                  {publishError && !publishError.shelf ? (
                     <Text accessibilityRole="alert" accessibilityLiveRegion="polite" style={[typo.meta, { color: colors.danger }]}>
-                      {publishError}
+                      {publishError.text}
                     </Text>
                   ) : null}
-                  <Button
-                    testID={T.studioPublish}
-                    label={t("studioPublish")}
-                    icon="share"
-                    variant={quietResubmit ? "ghost" : "secondary"}
-                    loading={publishBusy === "public"}
-                    onPress={() => void publish("public")}
-                  />
+                  {/*
+                    Sending it back is the same endpoint with the same `public`, so it is the same
+                    charge and it is said here too — a creator who learns the price by being
+                    charged twice has been tolled. It keeps the ranking, though: while an unspent
+                    appeal is on screen the price drops to a caption and loses its box, so the
+                    resubmit does not outshout the door that costs nothing.
+                    (`T.studioPublicCost` is safe here — `rejected` and `ready` never render at
+                    the same time, so the id exists once on the screen either way.)
+                  */}
+                  <View
+                    style={
+                      quietResubmit
+                        ? { gap: spacing.sm }
+                        : {
+                            gap: spacing.md,
+                            padding: spacing.md,
+                            borderRadius: radius.md,
+                            backgroundColor: colors.cardHi,
+                            borderWidth: 1,
+                            borderColor: shortForShelf(gems) ? `${colors.danger}66` : colors.border,
+                          }
+                    }
+                  >
+                    <ShelfPrice gems={gems} tone={quietResubmit ? "quiet" : "loud"} />
+                    {publishError?.shelf ? <ShelfRefusal text={publishError.text} /> : null}
+                    <Button
+                      testID={T.studioPublish}
+                      label={t("studioPublish")}
+                      icon="share"
+                      variant={quietResubmit ? "ghost" : "secondary"}
+                      loading={publishBusy === "public"}
+                      onPress={() => void publish("public")}
+                    />
+                  </View>
                 </>
               ) : null}
 

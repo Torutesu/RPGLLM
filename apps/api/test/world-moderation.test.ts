@@ -11,7 +11,7 @@ import { WORLD_MODERATION, WORLD_STUDIO } from "@rpgllm/shared";
 import { runJobOnce, type JobDeps } from "../src/jobs/registry";
 import { budgetFor } from "../src/middleware/rate-limit";
 import { pullWorldIfBrigaded } from "../src/services/world-moderation";
-import { call, makeHarness, prisma, resetDatabase, signup, type Harness } from "./helpers";
+import { call, grantShelfGems, makeHarness, prisma, resetDatabase, signup, type Harness } from "./helpers";
 
 let h: Harness;
 let deps: JobDeps;
@@ -61,6 +61,8 @@ async function shelvedWorld(premise = PREMISE) {
   });
   expect(created.status).toBe(201);
   await buildOnce();
+  // The shelf costs gems on top of the world (gtm.md §2 exit 1); a fresh account has none left.
+  await grantShelfGems(userId, 4);
   const id = created.data.world.id;
   expect((await call(h, "POST", `/v1/worlds/${id}/publish`, { token, body: { visibility: "public" } })).status).toBe(202);
   const approved = await call<PublishRes>(h, "POST", `/v1/admin/worlds/${id}/review`, {
@@ -77,6 +79,8 @@ async function submittedWorld(premise: string) {
     token, body: { premise, genre: "idol", locale: "en", visibility: "private" },
   });
   await buildOnce();
+  // The shelf costs gems on top of the world (gtm.md §2 exit 1); a fresh account has none left.
+  await grantShelfGems(userId, 4);
   const id = created.data.world.id;
   await call(h, "POST", `/v1/worlds/${id}/publish`, { token, body: { visibility: "public" } });
   return { token, userId, worldId: id };

@@ -40,6 +40,8 @@ import type { PrismaClient } from "@prisma/client";
 import { envNum } from "../env";
 import { worldModerationConfig } from "./world-moderation-config";
 import { worldModerationOps } from "./world-moderation";
+import { REFUND_REF, SUBMIT_REF } from "./world-submit-fee";
+import { countWithDigest } from "./review-digest";
 
 const HOUR_MS = 60 * 60 * 1000;
 const DAY_MS = 24 * HOUR_MS;
@@ -67,6 +69,25 @@ export function reviewMinutesPerWorld(): number {
   const raw = envNum(REVIEW_MINUTES_ENV, REVIEW_MINUTES_DEFAULT);
   return Number.isFinite(raw) && raw > 0 && raw <= REVIEW_MINUTES_MAX ? raw : REVIEW_MINUTES_DEFAULT;
 }
+
+/**
+ * What an hour of a reviewer costs. gtm.md §2 prices the queue at **$15/hour** ($5.00 for the
+ * twenty minutes this service already leases a world for) and notes offshore at $8; both are
+ * assumptions about somebody else's contract, so the number is an operator's to set. It is the
+ * multiplier on every dollar figure below, which is exactly why it is named in the response.
+ */
+export const REVIEW_HOURLY_ENV = "WORLD_REVIEW_HOURLY_USD";
+export const REVIEW_HOURLY_DEFAULT = 15;
+/** Past this it is a typo (an annual salary pasted into an hourly field), not a wage. */
+const REVIEW_HOURLY_MAX = 1000;
+
+export function reviewHourlyUsd(): number {
+  const raw = envNum(REVIEW_HOURLY_ENV, REVIEW_HOURLY_DEFAULT);
+  return Number.isFinite(raw) && raw > 0 && raw <= REVIEW_HOURLY_MAX ? raw : REVIEW_HOURLY_DEFAULT;
+}
+
+/** Minutes of reviewer time, in dollars, at the rate in force. */
+export const minutesToUsd = (minutes: number): number => (minutes / 60) * reviewHourlyUsd();
 
 /** A rate over nothing is 0, not NaN and not Infinity. The only division in this file. */
 export const safeRate = (numerator: number, denominator: number): number =>
@@ -101,7 +122,44 @@ export interface ModerationMetrics {
     medianLatencyHours: number | null; p90LatencyHours: number | null;
   };
   reports: { open: number; last7d: number; perThousandPlays: number; pullsLast7d: number; pullsReapproved: number };
-  economics: { worldsReviewedLast7d: number; estimatedReviewMinutes: number; generationCostUsd: number };
+  economics: {
+    worldsReviewedLast7d: number;
+    estimatedReviewMinutes: number;
+    generationCostUsd: number;
+    /** what that reviewer time cost at `WORLD_REVIEW_HOURLY_USD` — the $5.00 of gtm.md §2, measured */
+    reviewCostUsd: number;
+    reviewHourlyUsd: number;
+    minutesPerWorld: number;
+  };
+  /**
+   * **The number that has to go down** (gtm.md §2). All three exits exist to move review load off
+   * people, and a saving nobody can see is not engineering — so this says how many submissions went
+   * live without a human, what that would have cost, and what the shelf collected for the ones that
+   * did reach a person.
+   */
+  sampling: {
+    /** thresholds in force for exit 2, so a deploy can see whether its override took */
+    trustApprovals: number;
+    trustSampleEvery: number;
+    shelfFeeGems: number;
+    /** creators at or over the approval bar right now (a suspension does not un-earn approvals) */
+    trustedCreators: number;
+    /** public submissions in the window, and the two ways they were answered */
+    submissionsLast7d: number;
+    sampledAwayLast7d: number;
+    readByAHumanLast7d: number;
+    /** the load actually removed: 0 before anyone is trusted, and the thing to watch after */
+    sampledShare: number;
+    reviewMinutesAvoided: number;
+    reviewCostAvoidedUsd: number;
+    /** all-time, because the interesting question after a month is cumulative */
+    sampledAwayAllTime: number;
+    /** what the shelf collected, net of refunds for submissions nobody got to */
+    gemsChargedLast7d: number;
+    gemsRefundedLast7d: number;
+    /** queued worlds carrying exit 3's advice — a reviewer's twenty minutes, shortened or not */
+    queuedWithDigest: number;
+  };
 }
 
 const isRejected = (world: { status: string; rejectedReason: string }): boolean =>
@@ -115,7 +173,10 @@ export async function moderationMetrics(prisma: PrismaClient, now: Date): Promis
   const config = worldModerationConfig();
   const since = new Date(now.getTime() - METRICS_WINDOW_DAYS * DAY_MS);
 
-  const [ops, decided, reportsLast7d, reportsAllTime, plays, pulls, reviewedNotes] = await Promise.all([
+  const [
+    ops, decided, reportsLast7d, reportsAllTime, plays, pulls, reviewedNotes,
+    trustedCreators, submissions, sampledAway, sampledAwayAllTime, queuedWithDigest, shelfLedger,
+  ] = await Promise.all([
     // The queue, from the same function the ops surface and the scheduled sweep read.
     worldModerationOps(prisma, now),
     prisma.world.findMany({
@@ -135,6 +196,23 @@ export async function moderationMetrics(prisma: PrismaClient, now: Date): Promis
       where: { kind: "world_reviewed", createdAt: { gte: since } },
       select: { target: true, createdAt: true, payload: true },
       orderBy: { createdAt: "asc" },
+    }),
+    /* ---- exit 2, measured ---- */
+    prisma.user.count({ where: { trustApprovals: { gte: config.trustApprovals } } }),
+    // Every public submission stamps `publishSubmittedAt`, whatever the fee is set to — so this is
+    // the denominator even on a deploy that has turned the charge off.
+    prisma.world.count({ where: { publishSubmittedAt: { gte: since } } }),
+    prisma.world.count({ where: { sampledAwayAt: { gte: since } } }),
+    prisma.world.count({ where: { sampledAwayAt: { not: null } } }),
+    countWithDigest(prisma),
+    // exit 1, from the ledger rather than a second set of books.
+    prisma.ledgerEntry.findMany({
+      where: {
+        currency: "gems",
+        createdAt: { gte: since },
+        OR: [{ ref: { startsWith: `${SUBMIT_REF}:` } }, { ref: { startsWith: `${REFUND_REF}:` } }],
+      },
+      select: { delta: true, ref: true },
     }),
   ]);
 
@@ -176,6 +254,14 @@ export async function moderationMetrics(prisma: PrismaClient, now: Date): Promis
     ? await prisma.generationLog.aggregate({ _sum: { costUsd: true }, where: { id: { in: generationIds } } })
     : null;
 
+  /* ---- what the queue costs, and what was not spent on it ---- */
+  const perWorld = reviewMinutesPerWorld();
+  const reviewedMinutes = decided.length * perWorld;
+  const avoidedMinutes = sampledAway * perWorld;
+  // A charge is a negative delta and a refund a positive one; both are reported as positive gems.
+  const charged = shelfLedger.filter((e) => e.ref?.startsWith(`${SUBMIT_REF}:`)).reduce((n, e) => n - e.delta, 0);
+  const refunded = shelfLedger.filter((e) => e.ref?.startsWith(`${REFUND_REF}:`)).reduce((n, e) => n + e.delta, 0);
+
   return {
     thresholds: {
       reportsToPull: config.reportsToPull,
@@ -207,8 +293,27 @@ export async function moderationMetrics(prisma: PrismaClient, now: Date): Promis
     },
     economics: {
       worldsReviewedLast7d: decided.length,
-      estimatedReviewMinutes: round(decided.length * reviewMinutesPerWorld(), 2),
+      estimatedReviewMinutes: round(reviewedMinutes, 2),
       generationCostUsd: round(Number(cost?._sum.costUsd ?? 0), 6),
+      reviewCostUsd: round(minutesToUsd(reviewedMinutes), 2),
+      reviewHourlyUsd: reviewHourlyUsd(),
+      minutesPerWorld: perWorld,
+    },
+    sampling: {
+      trustApprovals: config.trustApprovals,
+      trustSampleEvery: config.trustSampleEvery,
+      shelfFeeGems: config.publicSubmitGems,
+      trustedCreators,
+      submissionsLast7d: submissions,
+      sampledAwayLast7d: sampledAway,
+      readByAHumanLast7d: Math.max(0, submissions - sampledAway),
+      sampledShare: round(safeRate(sampledAway, submissions), 4),
+      reviewMinutesAvoided: round(avoidedMinutes, 2),
+      reviewCostAvoidedUsd: round(minutesToUsd(avoidedMinutes), 2),
+      sampledAwayAllTime,
+      gemsChargedLast7d: charged,
+      gemsRefundedLast7d: refunded,
+      queuedWithDigest,
     },
   };
 }
