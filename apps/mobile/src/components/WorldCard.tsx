@@ -1,4 +1,4 @@
-import React, { useMemo } from "react";
+import React, { useId, useMemo } from "react";
 import { Pressable, Text, View } from "react-native";
 import Svg, { Circle, Defs, Ellipse, G, LinearGradient, Path, Rect, Stop } from "react-native-svg";
 import { colors, elevation, font, hashString, identityFor, identityPalette, layout, radius, spacing } from "@rpgllm/shared";
@@ -34,13 +34,23 @@ function seeded(seed: number): () => number {
  * world a player just made — a brand-new world has no image to fetch and never will.
  */
 export function WorldCover({ slug, height }: { slug: string; height: number }) {
+  /*
+   * SVG `<defs>` ids are global to the document, and `url(#x)` resolves to whichever element with
+   * that id comes first. Seeding them from the slug therefore breaks the moment one world is on
+   * screen twice — which Expo Router makes routine, because it keeps stacked screens mounted:
+   * Explore → the creator's page → the world page can all be showing the same cover, and the two
+   * behind the top one would hand it their gradients (a 76px thumbnail's geometry painted into a
+   * 220px hero, i.e. a cover that renders black). `useId` is per *instance*, so each cover
+   * references its own; the art itself is still seeded from the slug and so still deterministic.
+   */
+  const instance = useId().replace(/[^a-zA-Z0-9]/g, "");
   const art = useMemo(() => {
     const seed = hashString(slug);
     const rnd = seeded(seed);
     const id = identityFor(slug);
     const alt = identityPalette[(id.index + 4) % identityPalette.length] ?? identityPalette[0]!;
     return {
-      uid: `wc${seed.toString(36)}`,
+      uid: `wc${seed.toString(36)}${instance}`,
       id,
       alt,
       bands: Array.from({ length: 5 }, (_, i) => ({
@@ -58,7 +68,7 @@ export function WorldCover({ slug, height }: { slug: string; height: number }) {
       horizon: 92 + rnd() * 48,
       lift: 26 + rnd() * 46,
     };
-  }, [slug]);
+  }, [slug, instance]);
 
   const sky = `${art.uid}sky`;
   const beam = `${art.uid}beam`;

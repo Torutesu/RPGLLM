@@ -6,6 +6,7 @@ import { LEGAL, LOCALES, T, colors, font, radius, spacing, type Locale } from "@
 import { IS_WEB } from "../src/env";
 import { useActions, useAppState, useT } from "../src/state/store";
 import { Button, HeaderBar, Screen } from "../src/components/ui";
+import { pushOnce } from "../src/nav";
 
 const STORE_SUBSCRIPTIONS: Record<string, string> = {
   ios: "https://apps.apple.com/account/subscriptions",
@@ -92,6 +93,7 @@ export default function SettingsScreen() {
   }, [loadBlocked, me?.persona?.id]);
 
   const isMinor = me?.user.isMinor ?? true;
+  const creatorHandle = me?.user.creatorHandle ?? "";
   const consentLocked = isMinor;
   const subscription = me?.subscription;
   /**
@@ -165,6 +167,23 @@ export default function SettingsScreen() {
       <ScrollView testID={T.settings} contentContainerStyle={{ padding: spacing.lg, paddingBottom: spacing.xxl }}>
         <Section title={t("account")}>
           <Row label={t("email")} value={me?.user.email ?? me?.user.id ?? "—"} />
+          {/*
+            Circuit ② — the name every world this account makes is credited under. An account is
+            minted with a placeholder (`quietheron42`), so the way out of it has to be somewhere a
+            player would think to look, and settings is that place. It opens the naming screen
+            rather than editing inline: this is not a preference, it is a name.
+
+            The row deliberately does *not* link to your own creator page. Settings and
+            `/creator/[handle]` both carry `T.creatorRename`, and Expo Router keeps stacked screens
+            mounted — a path between them would put that id on screen twice.
+          */}
+          <Row label={t("handle")} value={creatorHandle ? `@${creatorHandle}` : "—"} />
+          <Button
+            testID={T.creatorRename}
+            label={t("creatorRename")}
+            variant="secondary"
+            onPress={() => pushOnce("/creator/rename")}
+          />
           <Button testID={T.settingsExport} label={t("exportData")} variant="secondary" onPress={() => void onExport()} loading={busy === "export"} />
           <Button testID={T.settingsSignOut} label={t("signOut")} variant="ghost" onPress={() => void onSignOut()} />
           <Button testID={T.settingsDelete} label={t("deleteAccount")} variant="ghost" onPress={() => router.push("/delete-account")} />

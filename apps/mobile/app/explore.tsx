@@ -6,10 +6,12 @@ import { useActions, useAppState, useT } from "../src/state/store";
 import { Card, HeaderBar, Screen, SectionHeader } from "../src/components/ui";
 import { Avatar } from "../src/components/Avatar";
 import { titleFromSlug } from "../src/components/WorldChip";
-import { api, type Trending, type WorldFull } from "../src/api/client";
+import { api, type PublicWorldsRes, type Trending, type WorldFull } from "../src/api/client";
 import { StudioPromoCard } from "../src/components/StudioPromoCard";
 import { StudioWorldCard } from "../src/components/StudioWorldCard";
+import { FreshWorldCard } from "../src/components/FreshWorldCard";
 import { Empty } from "../src/components/Empty";
+import { pushOnce } from "../src/nav";
 import { AnimatedNumber, FadeSlideIn, Gradient, Icon, typo } from "../src/ui";
 
 /**
@@ -185,8 +187,11 @@ export default function ExploreScreen() {
   const personaId = me?.persona?.id ?? null;
   const [trending, setTrending] = useState<Trending | null>(null);
   const [failed, setFailed] = useState(false);
-  /** `null` until `/v1/worlds/public` answers; an empty array is a real "nobody has published yet". */
-  const [community, setCommunity] = useState<WorldFull[] | null>(null);
+  /**
+   * `null` until `/v1/worlds/public` answers; an empty `worlds` is a real "nobody has published
+   * yet". `fresh` is the second shelf the same call carries — see the rail below.
+   */
+  const [community, setCommunity] = useState<PublicWorldsRes | null>(null);
 
   const load = useCallback(async () => {
     if (!personaId) return;
@@ -214,7 +219,7 @@ export default function ExploreScreen() {
     void api
       .publicWorlds()
       .then((res) => {
-        if (alive) setCommunity(res.worlds);
+        if (alive) setCommunity(res);
       })
       .catch(() => {
         if (alive) setCommunity(null);
@@ -230,7 +235,7 @@ export default function ExploreScreen() {
    * (`app/world/[id].tsx`), so a community world is one thing wherever you met it.
    */
   const openCommunityWorld = (w: WorldFull) => {
-    router.push({ pathname: "/world/[id]", params: { id: w.id } });
+    pushOnce({ pathname: "/world/[id]", params: { id: w.id } });
   };
 
   const worldSlug = me?.persona?.worldSlug ?? "";
@@ -291,10 +296,44 @@ export default function ExploreScreen() {
         <SectionHeader title={t("rising")} />
         <RisingRail rising={trending?.risingCharacters ?? []} />
 
+        {/*
+          Circuit ③ — the slot a ranking cannot swallow.
+
+          The shelf below this one is ranked by `playCount`, and a ranking left to itself is always
+          winner-take-all: the worlds with plays get the plays, and a new author's first world never
+          reaches its first ten players. This rail is the guaranteed slot that breaks that, and
+          `freshWorldsHint` says exactly what it is — worlds here are shown *because they are new*.
+
+          It sits above the ranked shelf on purpose. A horizontal rail costs one screen-row and
+          then hands the page back, so being first is cheap here; being below a long ranked list is
+          the same as not existing. See `FreshWorldCard` for why the cards disagree with the ranked
+          rows on shape, number and tone rather than repeating them in a different order.
+        */}
+        {community && community.fresh.length > 0 ? (
+          <>
+            <SectionHeader title={t("freshWorlds")} />
+            <Text style={[typo.meta, { color: colors.textMuted, paddingHorizontal: spacing.lg, paddingBottom: spacing.sm }]}>
+              {t("freshWorldsHint")}
+            </Text>
+            <ScrollView
+              testID={T.freshWorlds}
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={{ paddingHorizontal: spacing.lg, gap: spacing.md, paddingVertical: spacing.xs }}
+            >
+              {community.fresh.map((w, i) => (
+                <FadeSlideIn key={w.id} delay={i * 45} distance={10}>
+                  <FreshWorldCard world={w} onPress={() => openCommunityWorld(w)} />
+                </FadeSlideIn>
+              ))}
+            </ScrollView>
+          </>
+        ) : null}
+
         {/* Made by players — the reason Explore keeps changing after the three fixed worlds. */}
         <SectionHeader title={t("studioCommunity")} />
         <View testID={T.communityWorlds} style={{ paddingHorizontal: spacing.lg, gap: spacing.md }}>
-          {(community ?? []).map((w) => (
+          {(community?.worlds ?? []).map((w) => (
             <StudioWorldCard
               key={w.id}
               world={w}
@@ -309,7 +348,7 @@ export default function ExploreScreen() {
               onPress={() => openCommunityWorld(w)}
             />
           ))}
-          {community !== null && community.length === 0 ? (
+          {community !== null && community.worlds.length === 0 ? (
             <Empty
               testID={T.communityWorldsEmpty}
               compact
@@ -323,7 +362,7 @@ export default function ExploreScreen() {
             <StudioPromoCard compact onPress={() => router.push("/studio")} />
           ) : null}
         </View>
-        {community !== null && community.length > 0 ? (
+        {community !== null && community.worlds.length > 0 ? (
           <View style={{ paddingHorizontal: spacing.lg, paddingTop: spacing.md }}>
             <StudioPromoCard compact onPress={() => router.push("/studio")} />
           </View>

@@ -14,6 +14,9 @@ import {
   NotificationsResZ, MarkNotificationsReadResZ, StreakResZ, AchievementsResZ,
   // World Studio (SCR-048/049/050): create a world from one line, watch it build, publish it.
   CreateWorldResZ, WorldStatusResZ, PublishWorldResZ, MyWorldsResZ, PublicWorldsResZ, AppealWorldResZ,
+  // The author circuits: the creator as a place you can go (②), the name they are credited
+  // under (②), and a world made out of one you played (④).
+  CreatorProfileResZ, SetCreatorHandleResZ,
   type ErrorCode, type Locale, type PlanId, type ReportReason, type WorldGenre,
 } from "@rpgllm/shared";
 import { API_BASE, g } from "../env";
@@ -321,9 +324,45 @@ export const api = {
     }),
   /** SCR-050 — the player's own worlds, plus how many builds are left today. */
   myWorlds: () => request("/worlds/mine", { schema: MyWorldsResZ, globalErrors: false }),
-  /** Explore's "made by players" rail. Cursor-paged. */
+  /**
+   * Explore's "made by players" shelf, plus `fresh` — the slot a ranking cannot swallow. Cursor-paged.
+   */
   publicWorlds: (cursor?: string | null) =>
     request("/worlds/public", { query: { cursor }, schema: PublicWorldsResZ, globalErrors: false }),
+
+  /* ---------- Circuit ②: the creator as a place you can go ---------- */
+
+  /**
+   * One creator's public shelf. The handle is what a credit says, with or without the "@".
+   *
+   * `globalErrors: false` throughout: a creator page that 404s while WS-API lands must show its own
+   * "couldn't load" and a retry, never a toast about the network or the energy modal.
+   */
+  creator: (handle: string) =>
+    request(`/creators/${encodeURIComponent(handle.replace(/^@/, ""))}`, {
+      schema: CreatorProfileResZ, globalErrors: false,
+    }),
+
+  /**
+   * Renaming the name your worlds are credited under. 409 = taken, 422 = the shape was refused —
+   * both are the screen's own business, so nothing here may raise a global modal.
+   */
+  setCreatorHandle: (handle: string) =>
+    request("/me/creator-handle", {
+      method: "POST", body: { handle }, schema: SetCreatorHandleResZ, globalErrors: false,
+    }),
+
+  /* ---------- Circuit ④: a world made out of one you played ---------- */
+
+  /**
+   * Same price, same failures and the same response as a create — what is cheaper is the deciding.
+   * `genre` and `locale` are deliberately omitted: the contract makes them optional so the server
+   * inherits the source world's, and no world response exposes either field for the client to echo.
+   */
+  remixWorld: (sourceId: string, body: { premise: string; visibility: "private" | "unlisted" | "public" }) =>
+    request(`/worlds/${encodeURIComponent(sourceId)}/remix`, {
+      method: "POST", body, schema: CreateWorldResZ, globalErrors: false,
+    }),
 
   /** S2-2 — Expo push token. */
   registerPush: (token: string, platform: "ios" | "android" | "web") =>
@@ -349,6 +388,7 @@ export type WorldFull = WorldStatusRes["world"];
 export type WorldCastMember = WorldStatusRes["cast"][number];
 export type MyWorldsRes = Awaited<ReturnType<typeof api.myWorlds>>;
 export type PublicWorldsRes = Awaited<ReturnType<typeof api.publicWorlds>>;
+export type CreatorProfile = Awaited<ReturnType<typeof api.creator>>;
 export type WorldVisibility = WorldFull["visibility"];
 export type WorldBuildStatus = WorldFull["status"];
 export type AchievementsRes = Awaited<ReturnType<typeof api.achievements>>;

@@ -35,3 +35,25 @@ export function resetToFeed(): void {
   if (router.canGoBack()) router.back();
   else router.replace("/feed");
 }
+
+/**
+ * `router.push`, but a second identical push inside `GUARD_MS` is dropped.
+ *
+ * Expo Router keeps every stacked screen mounted, so pushing the same route twice mounts it twice
+ * and every `data-testid` on it matches twice — a double-tapped button (or a fast automated
+ * driver) is enough to do it. The screens the author circuits added are exactly the ones at risk:
+ * `/creator/[handle]`, `/creator/rename` and the studio in remix mode all carry ids that must
+ * resolve to one element.
+ */
+const GUARD_MS = 700;
+let lastHref = "";
+let lastAt = 0;
+
+export function pushOnce(href: Parameters<typeof router.push>[0]): void {
+  const key = typeof href === "string" ? href : JSON.stringify(href);
+  const now = Date.now();
+  if (key === lastHref && now - lastAt < GUARD_MS) return;
+  lastHref = key;
+  lastAt = now;
+  router.push(href);
+}

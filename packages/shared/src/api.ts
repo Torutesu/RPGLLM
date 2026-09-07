@@ -56,6 +56,9 @@ export const MeResZ = z.object({
 });
 
 /** ---------- Worlds (SCR-003/004/006) ---------- */
+/** Mirrors `WORLD_GENRES`. Declared up here because the world detail needs it. */
+export const WorldGenreZ = z.enum(["fame", "academy", "idol", "office", "sports", "fantasy", "mystery", "slice_of_life"]);
+
 export const WorldSummaryZ = z.object({ id: z.string(), slug: z.string(), title: z.string(), scenario: z.string(), difficulty: z.number().int(), coverUrl: z.string().nullable() });
 export const WorldsResZ = z.array(WorldSummaryZ);
 export const CharacterZ = z.object({ id: z.string(), handle: z.string(), displayName: z.string(), role: z.string(), avatarUrl: z.string().nullable(), isPressAccount: z.boolean(), canBeFirstFollower: z.boolean(), intro: z.string() });
@@ -72,6 +75,16 @@ export const WorldDetailResZ = z.object({
     creatorHandle: z.string().nullable().default(null),
     playCount: z.number().int().default(0),
     isPreset: z.boolean().default(true),
+    /**
+     * Lineage, on the page a visitor lands on. A remix that only credits its source inside the
+     * creator's own screen credits nobody — the same shape of defect as a share link that only
+     * works for the person who made it.
+     */
+    remixOf: z.object({ id: z.string(), slug: z.string(), title: z.string(), creatorHandle: z.string().nullable() }).nullable().default(null),
+    remixCount: z.number().int().default(0),
+    /** What a remix inherits. Without these the remix form can only guess or stay silent. */
+    genre: WorldGenreZ.nullable().default(null),
+    genLocale: LocaleZ.nullable().default(null),
   }),
   characters: z.array(CharacterZ),
   presetPersonas: z.array(PresetPersonaZ),
@@ -516,7 +529,6 @@ export const WorldStatusZ = z.enum(["draft", "generating", "ready", "review", "p
 export const WorldVisibilityZ = z.enum(["private", "unlisted", "public"]);
 
 /** Genre steers the generator without the player having to write a design document. */
-export const WorldGenreZ = z.enum(["fame", "academy", "idol", "office", "sports", "fantasy", "mystery", "slice_of_life"]);
 
 export const CreateWorldReqZ = z.object({
   /** the one line the whole world is generated from */

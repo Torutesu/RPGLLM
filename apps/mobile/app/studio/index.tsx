@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Pressable, ScrollView, Text, TextInput, View } from "react-native";
-import { router, useFocusEffect } from "expo-router";
+import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import {
   LOCALES, T, WORLD_STUDIO, colors, compactNumber, font, glow, layout, radius, spacing,
   type Locale, type WorldGenre,
@@ -8,6 +8,7 @@ import {
 import { api, ApiError, type WorldVisibility } from "../../src/api/client";
 import { Button, HeaderBar, Screen } from "../../src/components/ui";
 import { Aurora } from "../../src/components/Brand";
+import { WorldCover } from "../../src/components/WorldCard";
 import { useActions, useAppState, useT } from "../../src/state/store";
 import { GENRES, GENRE_LABEL, GENRE_TINT, VISIBILITIES, VISIBILITY_HINT, VISIBILITY_LABEL } from "../../src/studio/labels";
 import { FadeSlideIn, Gradient, Icon, PressScale, typo } from "../../src/ui";
@@ -148,7 +149,58 @@ function VisibilityRow({
   );
 }
 
+/**
+ * Circuit ④ — what this screen is when it was opened from a world.
+ *
+ * A remix keeps the source's genre and locale and takes a new premise, so in this mode the two
+ * pickers are *gone* rather than pre-selected: the contract makes `genre` and `locale` optional
+ * precisely so the server can inherit them from the source, and no world response exposes either
+ * field for the client to echo back (recorded in build-notes). Showing pickers whose value the
+ * request will not carry would be a lie about what the screen does — and the point of the mode is
+ * that the only thing left to decide is the premise.
+ */
+function RemixSource({ title, slug, by }: { title: string; slug: string; by: string }) {
+  const { t } = useT();
+  return (
+    <View
+      testID={T.remixSource}
+      accessibilityRole="text"
+      accessibilityLabel={`${t("remixFrom")} ${title}${by ? ` ${t("studioBy")} @${by}` : ""}`}
+      style={{
+        flexDirection: "row",
+        alignItems: "center",
+        gap: spacing.md,
+        padding: spacing.md,
+        borderRadius: radius.lg,
+        backgroundColor: colors.card,
+        borderWidth: 1,
+        borderColor: `${colors.accent}55`,
+      }}
+    >
+      <View style={{ width: 56, height: 56, borderRadius: radius.md, overflow: "hidden", backgroundColor: colors.bgElevated }}>
+        <WorldCover slug={slug} height={56} />
+      </View>
+      <View style={{ flex: 1, gap: 2 }}>
+        <Text importantForAccessibility="no" style={[typo.micro, { color: colors.textMuted }]}>
+          {t("remixFrom").toUpperCase()}
+        </Text>
+        <Text numberOfLines={1} importantForAccessibility="no" style={[typo.h2, { color: colors.text }]}>
+          {title}
+        </Text>
+        {by ? (
+          <Text numberOfLines={1} importantForAccessibility="no" style={[typo.count, { color: colors.textMuted }]}>
+            {`${t("studioBy")} @${by}`}
+          </Text>
+        ) : null}
+      </View>
+    </View>
+  );
+}
+
 export default function StudioCreate() {
+  const params = useLocalSearchParams<{ remixOf?: string; remixTitle?: string; remixSlug?: string; remixBy?: string }>();
+  const remixOf = params.remixOf ?? "";
+  const remixing = remixOf.length > 0;
   const { me, worlds, locale } = useAppState();
   const { loadWorlds, refreshMe, setDraft } = useActions();
   const { t } = useT();
@@ -245,7 +297,9 @@ export default function StudioCreate() {
     setError(null);
     setBusy(true);
     try {
-      const res = await api.createWorld({ premise: trimmed, genre, locale: worldLocale, visibility });
+      const res = remixing
+        ? await api.remixWorld(remixOf, { premise: trimmed, visibility })
+        : await api.createWorld({ premise: trimmed, genre, locale: worldLocale, visibility });
       void refreshMe();
       setDraft(null);
       router.replace({ pathname: "/studio/[id]", params: { id: res.world.id } });
@@ -281,8 +335,11 @@ export default function StudioCreate() {
 
   return (
     <Screen wash={false}>
-      <Aurora seed="world-studio" intensity={0.9} />
-      <HeaderBar title={t("studioTitle")} onBack={() => (router.canGoBack() ? router.back() : router.replace("/feed"))} />
+      <Aurora seed={remixing ? `remix-${params.remixSlug ?? remixOf}` : "world-studio"} intensity={0.9} />
+      <HeaderBar
+        title={remixing ? t("remix") : t("studioTitle")}
+        onBack={() => (router.canGoBack() ? router.back() : router.replace("/feed"))}
+      />
       <ScrollView
         keyboardShouldPersistTaps="handled"
         contentContainerStyle={{ padding: spacing.lg, paddingBottom: spacing.xxxl, gap: spacing.xl }}
@@ -290,9 +347,21 @@ export default function StudioCreate() {
         <View style={{ width: "100%", maxWidth: layout.maxContentWidth, alignSelf: "center", gap: spacing.xl }}>
           <View style={{ gap: spacing.sm }}>
             <Text accessibilityRole="header" style={[typo.title, { color: colors.text }]}>
-              {t("studioPitch")}
+              {remixing ? t("remix") : t("studioPitch")}
             </Text>
+            {remixing ? (
+              <Text style={[typo.meta, { color: colors.textDim }]}>{t("remixHint")}</Text>
+            ) : null}
           </View>
+
+          {/* What you are building on, named — so the premise field is answered against something. */}
+          {remixing ? (
+            <RemixSource
+              title={params.remixTitle ?? ""}
+              slug={params.remixSlug ?? ""}
+              by={(params.remixBy ?? "").replace(/^@/, "")}
+            />
+          ) : null}
 
           {/* ---------------------------------------------------------- the hero field ---- */}
           <View style={{ gap: spacing.sm }}>
@@ -353,6 +422,7 @@ export default function StudioCreate() {
           </View>
 
           {/* ------------------------------------------------------------------ genre ---- */}
+          {remixing ? null : (
           <View style={{ gap: spacing.md }}>
             <Label text={t("studioGenreLabel")} />
             <View accessibilityRole="radiogroup" style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
@@ -361,8 +431,10 @@ export default function StudioCreate() {
               ))}
             </View>
           </View>
+          )}
 
           {/* --------------------------------------------------------------- language ---- */}
+          {remixing ? null : (
           <View style={{ gap: spacing.md }}>
             <Label text={t("studioLocaleLabel")} />
             <View accessibilityRole="radiogroup" style={{ flexDirection: "row", gap: spacing.sm }}>
@@ -398,6 +470,7 @@ export default function StudioCreate() {
               })}
             </View>
           </View>
+          )}
 
           {/* ------------------------------------------------------------- visibility ---- */}
           <View style={{ gap: spacing.sm }}>
@@ -477,7 +550,7 @@ export default function StudioCreate() {
             */}
             <View style={ready ? { borderRadius: radius.pill, ...glow(colors.accent, 22) } : undefined}>
               <Button
-                testID={T.studioCreate}
+                testID={remixing ? T.remixCreate : T.studioCreate}
                 label={t("studioCreate")}
                 icon="sparkle"
                 onPress={() => void onCreate()}

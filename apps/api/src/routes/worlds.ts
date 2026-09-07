@@ -346,12 +346,20 @@ export function worldRoutes(): Hono<AppEnv> {
     // A world someone made is presented as *someone's* work, on the page a recipient of a share
     // link lands on — a credit that only exists inside the creator's own screen is not authorship.
     const handles = world.createdBy ? await creatorHandles(deps.prisma, [world.createdBy]) : null;
+    // Lineage and the two fields a remix inherits, on the page a *visitor* lands on: a derivative
+    // that only credits its source inside the creator's own screen credits nobody, and a remix form
+    // that cannot read the genre it is inheriting can only guess or stay silent.
+    const parents = await remixParents(deps.prisma, [world], locale);
     return ok({
       world: {
         ...toApiWorld(world, locale),
         creatorHandle: world.createdBy ? (handles?.get(world.createdBy) ?? null) : null,
         playCount: world.playCount,
         isPreset: world.isPreset,
+        remixOf: world.remixOfId ? (parents.get(world.remixOfId) ?? null) : null,
+        remixCount: world.remixCount,
+        genre: world.genre,
+        genLocale: world.genLocale,
       },
       characters: characters.map((ch) => {
         const seeded = seed?.cast.find((s) => sameHandle(s.handle, ch.handle));

@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo } from "react";
 import { Pressable, ScrollView, Text, View } from "react-native";
 import { router, useFocusEffect } from "expo-router";
-import { T, colors, radius, spacing, timeAgo } from "@rpgllm/shared";
+import { T, colors, compactNumber, radius, spacing, timeAgo } from "@rpgllm/shared";
 import type { Notification } from "../src/api/client";
 import { StreakCard, StreakChip } from "../src/components/StreakCard";
 import { Button, HeaderBar, Screen } from "../src/components/ui";
@@ -27,6 +27,17 @@ const KIND_ICON: Record<Notification["kind"], IconName> = {
   event: "sparkle",
   digest: "clock",
   unlock: "trophy",
+  /*
+   * Circuit ① — the author's return signal. A `playCount` sitting in a table is not a return; the
+   * whole reason these four kinds exist is that reaction-free creation stops. They are given the
+   * studio's own vocabulary rather than the social one: people for a world being played, a spark
+   * for one that finished building, a check for one that cleared review, a shield for one taken
+   * back off the shelf.
+   */
+  world_played: "person",
+  world_ready: "sparkle",
+  world_reviewed: "check",
+  world_pulled: "shield",
 };
 
 const KIND_COLOR: Record<Notification["kind"], string> = {
@@ -39,9 +50,20 @@ const KIND_COLOR: Record<Notification["kind"], string> = {
   event: colors.negative,
   digest: colors.textDim,
   unlock: colors.energy,
+  world_played: colors.accentHi,
+  world_ready: colors.positive,
+  world_reviewed: colors.verified,
+  world_pulled: colors.danger,
 };
 
-/** `post:<id>` | `dm:<threadId>` | `event:<id>` | `achievement:<key>` | `digest:<id>` | `profile`. */
+/**
+ * `post:<id>` | `dm:<threadId>` | `event:<id>` | `achievement:<key>` | `digest:<id>` | `profile`
+ * | `world:<id>`.
+ *
+ * A world notification lands on the world's own page — the thing the news is *about*. When it is
+ * yours that page carries the way through to the studio, so "taken down" still reaches the appeal
+ * in one more tap without every row needing to know which of the two screens it meant.
+ */
 function go(target: string | null): void {
   if (!target) return;
   const sep = target.indexOf(":");
@@ -53,8 +75,57 @@ function go(target: string | null): void {
     case "event": router.push(`/event/${id}`); return;
     case "achievement": router.push("/achievements"); return;
     case "profile": router.push("/profile"); return;
+    case "world": router.push({ pathname: "/world/[id]", params: { id } }); return;
+    case "creator": router.push({ pathname: "/creator/[handle]", params: { handle: id } }); return;
     default: resetToFeed();
   }
+}
+
+/** First finite number under any of `keys`. `payload` is `Record<string, unknown>` by contract. */
+function numberIn(payload: Record<string, unknown>, keys: readonly string[]): number | null {
+  for (const k of keys) {
+    const v = payload[k];
+    if (typeof v === "number" && Number.isFinite(v)) return v;
+  }
+  return null;
+}
+
+function stringIn(payload: Record<string, unknown>, keys: readonly string[]): string | null {
+  for (const k of keys) {
+    const v = payload[k];
+    if (typeof v === "string" && v.trim().length > 0) return v;
+  }
+  return null;
+}
+
+/**
+ * A world row, written as news about your work rather than as a line of activity.
+ *
+ * Only `world_played` has shipped copy (`worldPlayedTitle` / `worldPlayedBody`), and it is the one
+ * that carries a number, so it is composed here: the headline is the event and the second line is
+ * the figure that makes it worth reading. The other three keep the server's sentence as their
+ * headline and add the world's name underneath when the payload names it — requested as three more
+ * i18n keys in build-notes.
+ */
+function worldNews(
+  item: Notification,
+  t: (k: "worldPlayedTitle" | "worldPlayedBody") => string,
+): { title: string; body: string | null } | null {
+  if (!item.kind.startsWith("world_")) return null;
+  const worldTitle = stringIn(item.payload, ["worldTitle", "title"]);
+  if (item.kind === "world_played") {
+    const plays = numberIn(item.payload, ["playCount", "plays", "count"]);
+    return {
+      title: t("worldPlayedTitle"),
+      body: plays !== null ? `${compactNumber(plays)} ${t("worldPlayedBody")}` : (worldTitle ?? item.text),
+    };
+  }
+  /*
+   * The server's sentence usually already names the world ("Greenhouse Nine is ready to play"),
+   * and repeating it underneath reads as a rendering slip rather than as detail. The name is only
+   * added when the headline does not already carry it.
+   */
+  return { title: item.text, body: worldTitle && !item.text.includes(worldTitle) ? worldTitle : null };
 }
 
 function dayKey(iso: string): string {
@@ -62,14 +133,20 @@ function dayKey(iso: string): string {
 }
 
 function NotificationRow({ item }: { item: Notification }) {
+  const { t } = useT();
   const unread = item.readAt === null;
   const tint = KIND_COLOR[item.kind];
+  const news = worldNews(item, t);
   return (
     <Pressable
       testID={T.notifRow(item.id)}
       onPress={() => go(item.target)}
       accessibilityRole="button"
-      accessibilityLabel={`${item.text}, ${timeAgo(item.createdAt)}`}
+      accessibilityLabel={
+        news
+          ? `${news.title}${news.body ? `. ${news.body}` : ""}, ${timeAgo(item.createdAt)}`
+          : `${item.text}, ${timeAgo(item.createdAt)}`
+      }
       style={({ pressed }) => ({
         flexDirection: "row",
         alignItems: "center",
@@ -105,9 +182,22 @@ function NotificationRow({ item }: { item: Notification }) {
         </View>
       </View>
 
-      <Text numberOfLines={2} importantForAccessibility="no" style={[typo.body, { color: unread ? colors.text : colors.textDim, flex: 1 }]}>
-        {item.text}
-      </Text>
+      {news ? (
+        <View style={{ flex: 1, gap: 2 }}>
+          <Text numberOfLines={2} importantForAccessibility="no" style={[typo.bodyStrong, { color: unread ? colors.text : colors.textDim }]}>
+            {news.title}
+          </Text>
+          {news.body ? (
+            <Text numberOfLines={2} importantForAccessibility="no" style={[typo.meta, { color: colors.textMuted }]}>
+              {news.body}
+            </Text>
+          ) : null}
+        </View>
+      ) : (
+        <Text numberOfLines={2} importantForAccessibility="no" style={[typo.body, { color: unread ? colors.text : colors.textDim, flex: 1 }]}>
+          {item.text}
+        </Text>
+      )}
       <Text importantForAccessibility="no" style={[typo.caption, { color: colors.textMuted }]}>
         {timeAgo(item.createdAt)}
       </Text>

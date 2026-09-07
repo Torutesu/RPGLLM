@@ -8,6 +8,7 @@ import { audienceInForce } from "../studio/audience";
 import { STATUS_LABEL, STATUS_TINT, VISIBILITY_LABEL, isBuilding } from "../studio/labels";
 import { isReportableWorld } from "../studio/report";
 import { Icon, PressScale, Shimmer, typo } from "../ui";
+import { CreatorLink } from "./CreatorLink";
 import { Overflow } from "./Overflow";
 import { WorldCover } from "./WorldCard";
 
@@ -118,8 +119,16 @@ export function StudioWorldCard({
   const raw = world.scenario.trim().length > 0 ? world.scenario : world.premise;
   const norm = (s: string): string => s.trim().toLowerCase().replace(/[.…\s]+$/, "");
   const line = norm(raw).startsWith(norm(world.title)) || norm(world.title).startsWith(norm(raw)) ? "" : raw;
-  const credit = showCreator && world.creatorHandle ? `${t("studioBy")} @${world.creatorHandle}` : null;
+  /**
+   * Circuit ② — the credit is a link now, and a link may not be nested inside the card's own
+   * Pressable (the SCR-037 rule this file already follows for the report menu): one tap would both
+   * open the world and open the creator. So it rides *under* the card as a sibling, which also
+   * reads better — the world is the object, the person is a second destination.
+   */
+  const creatorHandle = showCreator && world.creatorHandle ? world.creatorHandle : null;
   const plays = `${compactNumber(world.playCount)} ${t("studioPlays")}`;
+  /** Circuit ④ — being remixed is a thing that happened *to your work*, so the card carries it. */
+  const remixes = world.remixCount > 0 ? `${compactNumber(world.remixCount)} ${t("remixCount")}` : null;
 
   return (
     /*
@@ -146,8 +155,8 @@ export function StudioWorldCard({
           world.title,
           t(pulled ? "studioPulled" : STATUS_LABEL[world.status]),
           appealPending ? t("studioAppealPending") : "",
-          credit ?? "",
           plays,
+          remixes ?? "",
         ]
           .filter(Boolean)
           .join(". ")}
@@ -186,17 +195,20 @@ export function StudioWorldCard({
                 ) : null}
                 <View style={{ flexDirection: "row", alignItems: "center", gap: spacing.sm, flexWrap: "wrap" }}>
                   <StudioStatusBadge status={world.status} visibility={world.visibility} pulled={pulled} />
-                  {credit ? (
-                    <Text numberOfLines={1} importantForAccessibility="no" style={[typo.count, { color: colors.textMuted }]}>
-                      {credit}
-                    </Text>
-                  ) : null}
                   <View style={{ flexDirection: "row", alignItems: "center", gap: 3 }}>
                     <Icon name="person" size={11} color={colors.textMuted} />
                     <Text importantForAccessibility="no" style={[typo.count, { color: colors.textMuted }]}>
                       {plays}
                     </Text>
                   </View>
+                  {remixes ? (
+                    <View style={{ flexDirection: "row", alignItems: "center", gap: 3 }}>
+                      <Icon name="sparkle" size={11} color={colors.accentHi} />
+                      <Text importantForAccessibility="no" style={[typo.count, { color: colors.accentHi }]}>
+                        {remixes}
+                      </Text>
+                    </View>
+                  ) : null}
                 </View>
                 {pulled ? (
                   <Text numberOfLines={2} importantForAccessibility="no" style={[typo.caption, { color: colors.textDim }]}>
@@ -221,6 +233,12 @@ export function StudioWorldCard({
           </PressScale>
         )}
       </Pressable>
+
+      {creatorHandle ? (
+        <View style={{ paddingTop: spacing.xs, paddingLeft: spacing.md }}>
+          <CreatorLink handle={creatorHandle} testID={T.creatorLink} />
+        </View>
+      ) : null}
     </View>
   );
 }

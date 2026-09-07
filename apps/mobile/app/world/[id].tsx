@@ -5,10 +5,12 @@ import { T, colors, compactNumber, layout, spacing } from "@rpgllm/shared";
 import { Button, HeaderBar, Screen } from "../../src/components/ui";
 import { Aurora } from "../../src/components/Brand";
 import { SkeletonList } from "../../src/components/Skeleton";
+import { CreatorLink } from "../../src/components/CreatorLink";
 import { StudioCast } from "../../src/components/StudioCast";
 import { StudioStatusBadge } from "../../src/components/StudioWorldCard";
 import { WorldHero } from "../../src/components/WorldHero";
 import { useActions, useAppState, useT } from "../../src/state/store";
+import { pushOnce } from "../../src/nav";
 import { useSharedWorld } from "../../src/studio/useSharedWorld";
 import { Icon, typo } from "../../src/ui";
 
@@ -31,8 +33,10 @@ import { Icon, typo } from "../../src/ui";
 const COVER_H = 220;
 
 export default function WorldPage() {
-  const params = useLocalSearchParams<{ id?: string }>();
+  const params = useLocalSearchParams<{ id?: string; from?: string }>();
   const worldId = params.id ?? null;
+  /** The creator page this world was opened from, if any — see the credit below. */
+  const from = (params.from ?? "").replace(/^@/, "");
   const { t } = useT();
   const { booted, token } = useAppState();
   const { setDraft } = useActions();
@@ -95,10 +99,26 @@ export default function WorldPage() {
                 {world.isPreset ? null : (
                   <View style={{ flexDirection: "row", alignItems: "center", gap: spacing.md, flexWrap: "wrap" }}>
                     {full ? <StudioStatusBadge status={full.status} visibility={full.visibility} /> : null}
+                    {/*
+                     * Circuit ② — the credit is the link. It keeps `T.worldCredit` (the id E2E
+                     * already asserts) rather than taking `T.creatorLink`, so the page a share
+                     * link lands on still proves it says whose world this is.
+                     *
+                     * When this page was opened *from* that creator's own page, the credit walks
+                     * back to it instead of pushing a second copy — Expo Router keeps stacked
+                     * screens mounted, and two `/creator/[handle]` screens would duplicate every
+                     * id on them.
+                     */}
                     {world.creatorHandle ? (
-                      <Text testID={T.worldCredit} style={[typo.count, { color: colors.textMuted }]}>
-                        {`${t("studioBy")} @${world.creatorHandle}`}
-                      </Text>
+                      <CreatorLink
+                        handle={world.creatorHandle}
+                        testID={T.worldCredit}
+                        onPress={
+                          from && from === world.creatorHandle && router.canGoBack()
+                            ? () => router.back()
+                            : undefined
+                        }
+                      />
                     ) : null}
                     <View style={{ flexDirection: "row", alignItems: "center", gap: 3 }}>
                       <Icon name="person" size={12} color={colors.textMuted} />
@@ -106,11 +126,66 @@ export default function WorldPage() {
                         {`${compactNumber(world.playCount)} ${t("studioPlays")}`}
                       </Text>
                     </View>
+                    {/* Circuit ④, from the other side: this world has been built on. */}
+                    {full && full.remixCount > 0 ? (
+                      <View style={{ flexDirection: "row", alignItems: "center", gap: 3 }}>
+                        <Icon name="sparkle" size={12} color={colors.accentHi} filled />
+                        <Text style={[typo.count, { color: colors.accentHi }]}>
+                          {`${compactNumber(full.remixCount)} ${t("remixCount")}`}
+                        </Text>
+                      </View>
+                    ) : null}
                   </View>
                 )}
+
+                {/*
+                 * A derivative credits what it came out of. Deliberately a credit and not a link:
+                 * `T.remixSource` names the source panel on the studio screen, and this page can be
+                 * stacked underneath that screen (world → remix), so using the id twice would let
+                 * it match twice. Recorded in build-notes — a `remixSourceLink` id would let the
+                 * lineage be walked in both directions.
+                 */}
+                {full?.remixOf ? (
+                  <Text style={[typo.count, { color: colors.textMuted }]}>
+                    {`${t("remixFrom")} ${full.remixOf.title}${
+                      full.remixOf.creatorHandle ? ` ${t("studioBy")} @${full.remixOf.creatorHandle}` : ""
+                    }`}
+                  </Text>
+                ) : null}
               </View>
 
               <Button testID={T.worldPlay} label={t("studioPlay")} icon="sparkle" onPress={play} />
+
+              {/*
+               * Circuit ④ — the cheapest consumer→author conversion there is.
+               *
+               * The blank page is the enemy: asking someone to invent a world from nothing converts
+               * almost nobody, while asking them for one different line about a world they just
+               * played converts a great deal more. So the offer lives here, on the page you meet a
+               * world on, and it carries its price in the same breath — `remixHint` says plainly
+               * that it costs the same 120 gems as any other world, because a surprise at the
+               * paywall is how you lose the author you just recruited.
+               */}
+              <View style={{ gap: spacing.xs }}>
+                <Button
+                  testID={T.remixOpen}
+                  label={t("remix")}
+                  variant="secondary"
+                  icon="plus"
+                  onPress={() =>
+                    pushOnce({
+                      pathname: "/studio",
+                      params: {
+                        remixOf: world.id,
+                        remixTitle: world.title,
+                        remixSlug: world.slug,
+                        remixBy: world.creatorHandle ?? "",
+                      },
+                    })
+                  }
+                />
+                <Text style={[typo.caption, { color: colors.textMuted }]}>{t("remixHint")}</Text>
+              </View>
 
               <View style={{ gap: spacing.md }}>
                 <Text accessibilityRole="header" style={[typo.micro, { color: colors.textMuted }]}>

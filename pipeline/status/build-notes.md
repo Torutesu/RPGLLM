@@ -3330,8 +3330,16 @@ Preset worlds: `jaRoleCjkRatio` 0.966 – 0.986, 0/8 JA roles equal to their EN 
 
 gtm.md §"勝ち筋 A の設計要件" — ①返り ②名前 ③初速 ④転換. Every id from `testids.ts` and every
 string from `i18n` verbatim; no new shared exports were needed. `pnpm --filter mobile typecheck`
-clean, `export:web` succeeds, driven in Chromium at 390×844 in EN and JA against a contract-shaped
-stub (the endpoints below had not landed in `apps/api` yet).
+clean, `export:web` succeeds, driven in Chromium at 390×844 in EN and JA.
+
+**Verified twice.** First against a contract-shaped stub (the API endpoints had not landed when the
+client work started), then — once WS-API landed mid-session — against the **real API**: a private
+Postgres (`rpgllm_circuits`), `apps/api` on :4611, two real accounts, two generated worlds, a real
+remix, and a real rename. All four circuits behave the same both ways; the paths and response
+shapes the client calls match the landed routes exactly. Two API rules were confirmed from the
+client side: the ranked shelf excludes exactly the fresh ids (no world is in both lists), and
+`fresh` is empty below `WORLD_FRESH_MIN_SHELF` public worlds — the client renders no rail at all in
+that case, which is the intended honest degradation.
 
 ### Where each circuit lives
 
@@ -3355,7 +3363,9 @@ stub (the endpoints below had not landed in `apps/api` yet).
    which today reaches a visitor only through the creator-only `/worlds/:id/status`. So on
    `app/world/[id].tsx` a **visitor** sees neither the world's lineage nor its remix count — the
    two facts circuit ④ exists to make public. Same class of gap as QA-002. Asked for: `remixOf`
-   and `remixCount` on `WorldDetailResZ.world`.
+   and `remixCount` on `WorldDetailResZ.world`. **Confirmed live**: `real-04-world.png` is a world
+   that genuinely is a remix (`remixOf` = "Drowned Era" in the database) opened by someone who is
+   not its creator — the page shows the credit and the play count and no lineage at all.
 3. **Only `world_played` has copy.** `worldPlayedTitle`/`worldPlayedBody` are composed client-side
    (headline + the figure from `payload.playCount`); `world_ready`, `world_reviewed` and
    `world_pulled` fall back to the server's `text`, so **the API must write those three in the
@@ -3368,7 +3378,10 @@ stub (the endpoints below had not landed in `apps/api` yet).
 5. **Notification `payload` keys assumed.** `world_played` reads `playCount`/`plays`/`count` and
    `worldTitle`/`title`, each type-checked before use; unknown shapes fall back to `text`. Worth
    pinning in the notification contract.
-6. **`creatorSince` wraps to two lines in EN** ("CREATING SINCE") in the three-stat row at 390px.
+6. **`creator-world-count` shares a prefix with `creator-world-<slug>`.** Both are frozen ids, but
+   an E2E selector like `[data-testid^='creator-world-']` matches the *stat*, not a card (it cost
+   me a debugging round). Whoever writes the creator-page E2E should address cards by their slug.
+7. **`creatorSince` wraps to two lines in EN** ("CREATING SINCE") in the three-stat row at 390px.
    Legible, but a shorter EN string would sit better. JA ("作りはじめた日") fits on one.
 
 ### Client fixes made along the way
