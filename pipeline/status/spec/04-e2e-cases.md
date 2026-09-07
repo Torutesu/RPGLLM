@@ -229,3 +229,33 @@
 - screens: [SCR-049]
 - steps: Given 審査で却下されたワールドがある / When すぐに再度「みんなに公開する」を押す / Then 断られ、`studioResubmitWait` が出る。自分だけの世界としては遊べたまま
 - priority: P1
+
+## E2E-036: ワールドのクレジットは「行ける場所」である
+- screens: [SCR-046, /world/:id, /creator/:handle]
+- steps: Given 他人が作った公開ワールドがある / When リンクから世界ページを開き「by @x」をタップする / Then 作者ページが開き、その人の公開ワールドが並ぶ
+- priority: P0
+
+## E2E-037: 新着枠は「空の棚」ではなく「出さない」
+- screens: [SCR-046]
+- steps: Given 公開ワールドが埋もれるほど無い / When 発見タブを開く / Then 「できたばかり」の見出しは出ない（サーバ側の `fresh` も空）。埋もれる量に達したときの挙動は `apps/api/test/author-circuits.test.ts` が固定する（12本分のジェムは公開APIから作れないため）
+- priority: P1
+
+## E2E-038: 遊んだ世界が、作る入口になる
+- screens: [/world/:id, SCR-048]
+- steps: Given 他人の公開ワールドを開いている / When 「自分のバージョンをつくる」から1行だけ書いて作成する / Then ジャンルと言語は引き継がれ、完成した世界は元の世界をクレジットし、元の世界の派生数が増える
+- priority: P0
+
+## E2E-039: 作者は自分に名前をつけられ、作品がついてくる
+- screens: [/creator/:handle]
+- steps: Given 仮名のまま公開ワールドを持っている / When 作者ページから改名する / Then `GET /v1/me` が新しい名前を返し、**他人から見たワールドのクレジットも新しい名前**になる（非正規化していないので移行対象がない）
+- priority: P0
+
+## E2E-040: 遊ばれたことが作者に届く
+- screens: [SCR-042]
+- steps: Given ペルソナを一度も作っていない作者の公開ワールドがある / When 別のプレイヤーがそれを遊ぶ / Then 作者の通知一覧に「遊ばれた」が届く（ペルソナ不在でも受信箱が存在する）
+- priority: P0
+
+## E2E-041: 日本語で書かれた世界が、英語で完全に遊べる
+- screens: [/world/:id]
+- steps: Given 作者が日本語で世界を作り、リンク限定で公開する / When 英語ロケールの別アカウントがそのリンクを開く / Then キャストの role と intro に日本語が1文字も残っていない（role の混在は一度出荷され、テストではなくスクショで見つかった）
+- priority: P0
