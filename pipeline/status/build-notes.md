@@ -2826,3 +2826,129 @@ belongs to somebody else. A `null` picker (not loaded, or failed) offers nothing
 - Driven in Chromium at 390×844 against a live API + web export, EN and JA: feed → Explore →
   report → `reportDone`; three reporters → pulled → the creator's SCR-049 and SCR-050; reviewer
   rejects → resubmit → `studioResubmitWait` and the button withdrawn (`studio-publish` count 0).
+
+## Agent APPEAL-CLIENT — the creator's appeal (SCR-049 / SCR-050)
+
+`POST /v1/worlds/:id/appeal` on the rejected state, `appealed` as a durable state on both the build
+screen and the my-worlds card, and a decision about which of the two answers to a rejection gets to
+speak.
+
+1. **The appeal outranks the cooldown, and the screen renders the rank instead of both at once.**
+   `src/studio/appeal.ts` owns it: `rejectedStep(world, {appealSent, resubmitRefused})` returns
+   exactly one of `appeal | appealPending | resubmit | resubmitWait`. While an unspent appeal is on
+   screen it takes the accent (secondary button + the form), the resubmit drops from `secondary` to
+   `ghost`, and a cooldown refusal underneath it drops from the warning line to a muted caption —
+   one offer, one quiet door. Once the appeal is spent or was never offered, the resubmit takes the
+   volume back and `studioResubmitWait` is the loud sentence it is today, unchanged. **The resubmit
+   is never removed while an appeal is available**: a creator who accepts the decision and just
+   wants another roll in 24 h must not be made to write a letter first, so demotion rather than
+   suppression is the whole mechanism. Opening the form does hide it — an open form is one task.
+2. **`appealed` is read off the world, never off a toast.** A successful appeal puts the world back
+   in `review`, so `isAppealPending(world) = appealed && status === "review"` drives
+   `studioAppealPending` on SCR-049 (in the review notice's place — the SLA line would bury the
+   news) and on the SCR-050 card, under the factual `IN REVIEW` pill. `studioAppealSent` is the
+   answer to the button press in that same box; on the next load it becomes the pending line. **The
+   reveal burst is suppressed for an appealed world** the same way it is for a pulled one — a world
+   crossing `rejected → review` because its creator argued is not a confetti moment.
+3. **A world that is `rejected` *with* `appealed` is not offered another appeal**, whichever way the
+   appeal went (`APPEALS_PER_REJECTION: 1`). The offer needs `canAppeal && !appealed`.
+4. **10–500 is enforced in the client.** The field caps at 500 (`maxLength`) and the submit button
+   is disabled below 10, so the server's 400 is not how a creator discovers a limit on the one
+   message they get. The message is `trim()`ed before both the check and the request, so 10 spaces
+   is not an appeal. A numeric `n / 500` counter carries the length — no new copy was needed.
+5. **What was stubbed.** `POST /v1/worlds/:id/appeal` had not landed at the time of this pass, and
+   the world serializer does not yet emit `canAppeal` / `appealed` (both `.default(false)` in
+   `WorldSummaryFullZ`, so they parse but are always false). The walkthrough therefore ran against a
+   **real API** (own stack on :4300, real signup → build → publish → admin reject → real 409 on the
+   resubmit) with exactly two things intercepted in the browser: the appeal POST, and the injection
+   of `canAppeal` / `appealed` into the world payloads. **The client needs no change when WS-API
+   lands** — it already reads both fields off the contract and posts `{message}`; only the
+   interception goes away. Worth re-driving once the endpoint is real, in particular the response's
+   `world.status`: this assumes the appeal moves it to `review`, which is what the review queue's
+   `appeal` field ("back in the queue because they appealed") implies.
+6. **No new ids or strings.** `studioAppeal` / `studioAppealInput` / `studioAppealSubmit` /
+   `studioAppealSent` and the six `studioAppeal*` strings were used verbatim; `studioAppealPending`
+   has no id of its own, which is right — it is a sentence in two places, and giving it one id would
+   have matched twice with `/studio/worlds` stacked under `/studio/[id]`. Checked in Chromium: with
+   the shelf mounted underneath, each of the four appeal ids matches exactly **1**.
+
+### Verification
+
+- `pnpm --filter mobile typecheck` clean; `pnpm --filter mobile export:web` succeeds.
+- Chromium at 390×844, EN and JA, against a live API + web export: shelf → rejected world → appeal
+  offered → resubmit refused (real 409) reads as a muted caption under the appeal → form → submit
+  disabled at 9 chars, enabled at 154 → sent → reload shows the pending state → the card shows it
+  too → with the appeal spent, the cooldown is the warning line again.
+
+## Agent APPEAL-API — appeals, review claims, and thresholds that can be moved
+
+Three gaps the previous pass wrote down honestly (`docs/moderation.md` §7, and the two the runbook
+does not mention because they had no surface): a rejection nobody could argue with, two reviewers
+able to spend the same twenty minutes, and four thresholds that could only be changed by a deploy.
+
+**Endpoints.** `POST /v1/worlds/:id/appeal` (`AppealWorldReqZ` → `AppealWorldResZ`), creator-only,
+rejected-only, once per rejection; `POST /v1/admin/worlds/:id/claim` (→ `ClaimWorldResZ`). Both
+contracts were already in `packages/shared` and were implemented as written — **nothing outside
+`apps/api/**` was touched.**
+
+1. **The appeal budget is per decision, not per world.** `World.appealsUsed` counts appeals against
+   the rejection currently standing, and is reset by everything that starts a *new* review cycle: a
+   genuine resubmit (`publish`), an automatic pull, and an approval. A second rejection after an
+   appeal deliberately leaves it alone — that is what makes "a rejection after an appeal ends it"
+   true, while "rejected again after a real resubmit is appealable again" is also true. `canAppeal`
+   is creator + `rejected` + budget unspent; `appealed` is `appealsUsed > 0`, so
+   `appealed && status === "review"` is exactly the pending state APPEAL-CLIENT already reads.
+   The client's assumption in §5 above holds: the response's `world.status` is `review`.
+2. **The appeal carries the decision, not just the world.** `appealMessage` and `appealReason` are
+   written at appeal time (`appealReason` is *copied* from `rejectedReason`, which the next decision
+   overwrites), and the queue card exposes them as `appeal.{message, createdAt, previousReason}`.
+   `reviewRequestedAt` is reset, so an appeal that sits for three days shows up in `overdueCount`
+   like anything else. No cooldown check on this path: an appeal is not a resubmit.
+3. **The claim is a lease.** `claimedBy` + `claimedUntil`, `CLAIM_MINUTES` long. It expires by
+   itself — `claimedUntil` in the past *is* an unclaimed world, so no sweep, no release endpoint,
+   and no way for a closed laptop to strand a world; re-claiming by the holder extends it; a
+   decision clears it (as does the creator withdrawing the world to `private`). The winner of a
+   simultaneous claim is decided by a conditional `updateMany` (`status = 'review'` AND unclaimed
+   OR lapsed OR already mine), so the loser writes nothing, re-reads, and gets a **409** naming the
+   holder and the minutes left. A 409 rather than a 200 with `claimedByYou: false`: a client that
+   only checks the status must not walk away thinking it holds a world it does not — which does
+   mean `claimedByYou` is always `true` in a 200, and a future read-only "who has this" would be
+   the thing that makes the field earn its place.
+4. **A claimed world is ranked, not hidden.** Queue order is now three tiers: not-claimed-by-someone
+   -else first, then "a person is waiting on you" (pulled **or** appealed), then reporters, wait,
+   id. Hiding claimed worlds would make the queue's length depend on who is asking and would hide a
+   stale claim exactly when someone needs to override it. `appealCount` sits next to `overdueCount`,
+   queue-wide.
+5. **One place reads the env.** `src/services/world-moderation-config.ts` resolves all of
+   `WORLD_MODERATION_ENV` over the shipped constants and is the only `process.env` reader for them;
+   `isOverdue`, the pull threshold, the cooldown, the claim length and the ops payload all go
+   through it. Values must be integers in `1..100_000` — anything else (including `0`, which is
+   what a typo expands to and is dangerous on every one of these) logs once and falls back. The
+   resolved numbers are on `/v1/cost/{summary,live}` as `slaHours`, `reportsToPull`,
+   `resubmitCooldownHours`, `claimMinutes`, `appealsPerRejection`, next to new counts
+   `appealedWorlds` and `claimedWorlds` — an operator can see what is actually in force without
+   reading the environment of a box they may not be able to log into.
+
+### Cross-cutting, for whoever owns these
+
+- **`docs/moderation.md` is now stale in two places** and I do not own `docs/`: §7 says "There is no
+  appeal endpoint yet" (there is, and the queue card shows the appeal), and §4 says the only path
+  back is the cooldown (an appeal skips it, once). §2 should also mention claiming, and §5 that a
+  pull clears any standing appeal. Nothing in the runbook's *judgement* changes.
+- **Reviewer identity is a client-supplied `x-reviewer` header** (≤ 64 chars, default `admin`), used
+  for `claimedBy`, for `reviewedBy`, and for "whose claim is somebody else's" in the queue. The
+  admin gate is a single shared token, so this is a name for coordination, not an authorisation —
+  it is unforgeable only to the extent that the admin token is. `packages/shared` has no constant
+  for the header name; if a reviewer client is built, that is worth adding there.
+- **Pre-existing, not fixed:** a rejected world can dodge the resubmit cooldown by being published
+  `private` first (that sets `status: "ready"`, and `resubmitCooldownHours` keys off
+  `status === "rejected"`). Closing it properly needs a `rejectedAt` that survives the round trip —
+  a schema change I did not want to fold into this pass silently. Flagged rather than patched.
+
+### Verification
+
+`pnpm --filter api test`: **311 → 342 passing** (31 new across `test/world-appeal.test.ts`,
+`test/world-review-claim.test.ts`, `test/world-moderation-config.test.ts`), nothing weakened or
+skipped; `tsc --noEmit` clean; `prisma migrate diff` reports no drift between the schema and the
+migrated database. The only edit outside those three new files on the test side is an additive
+`headers` option on `test/helpers.ts`'s `call()`, which is how a test says which reviewer it is.

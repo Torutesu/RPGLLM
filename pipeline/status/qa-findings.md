@@ -151,8 +151,9 @@ BODY: World Studio / Seven Survival / Your world is ready / … / EVERYONE / 0 p
 
 (screenshot `p10-public-at-create.png` — the status badge reads **EVERYONE** on a world that no one
 else can see). The player has spent 120 gems, been told the world is public, and there is no control
-on the screen that submits it for review. The only escape is "Keep it to myself", which navigates
-away to `/studio/worlds`, then re-entering the world.
+on the screen that submits it for review — `getByTestId("studio-publish")` resolves to no element
+at all (screenshot `qa-003b-no-publish-button.png`). The only escape is "Keep it to myself", which
+navigates away to `/studio/worlds`, then re-entering the world.
 
 **Why it matters.** This is the same class as the `unlisted` state nobody could reach: a user-visible
 choice that silently does nothing, plus an affordance that keys off the resulting bad state and
@@ -239,9 +240,11 @@ No player worlds yet — be the first
 …
 ```
 
-`TRENDING NOW` has no card, no spinner and no copy under it (screenshot `p9-explore-empty.png`).
-"Made by players" and "Rising" both handle the empty case properly, which makes the gap look like a
-render failure rather than an intentional blank.
+`TRENDING NOW` has no card, no spinner and no copy under it (screenshots `p9-explore-empty.png`,
+`qa-006-explore-blank-trending.png`). The container itself is measurably gone, not merely empty:
+`getByTestId("trending-list")` resolves but reports **hidden**, because a `View` with no children
+collapses to zero height. "Made by players" and "Rising" both handle the empty case properly, which
+makes the gap look like a render failure rather than an intentional blank.
 
 ---
 
