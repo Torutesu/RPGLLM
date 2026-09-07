@@ -29,11 +29,11 @@ did not change, but the orchestrator should re-run the new cases after it lands.
 | # | Severity | State | One line |
 |---|----------|-------|----------|
 | QA-001 | **High** | **fixed** | A world that reports pulled off the shelf escaped moderation for good by republishing it as `unlisted`. |
-| QA-002 | **High** | open | The share link for an unlisted world is dead for everyone but its creator. |
-| QA-003 | **High** | open | SCR-048's "Who can play?" picker is inert, and picking "Everyone" strands the world with no way to publish it. |
+| QA-002 | **High** (fixed) | open | The share link for an unlisted world is dead for everyone but its creator. |
+| QA-003 | **High** (fixed) | open | SCR-048's "Who can play?" picker is inert, and picking "Everyone" strands the world with no way to publish it. |
 | QA-004 | Medium | **fixed** | The rejection cooldown was bypassable in two calls (private, then public). |
 | QA-005 | Low | **fixed** | A whitespace-only premise passed validation and cost 120 gems. |
-| QA-006 | Low | open | Explore renders a bare "Trending now" heading — no content, no empty state — for an account with no persona. |
+| QA-006 | Low (fixed) | open | Explore renders a bare "Trending now" heading — no content, no empty state — for an account with no persona. |
 
 ---
 
@@ -329,3 +329,31 @@ A report that only lists failures has not looked anywhere. These were attacked a
 - None of the six needs an E2E case weakened to land. The new cases are `test.fail()` and will start
   reporting as unexpected passes the moment the product is right, which is the signal to drop the
   annotation.
+
+
+---
+
+## Closed (2026-09-07)
+
+All six are fixed and every `test.fail()` annotation is off; `world-lifecycle.spec.ts` is now six
+ordinary regression guards plus three on what held. Suite: **64 passed / 4 skipped / 0 failed**.
+
+| # | How it was closed |
+|---|---|
+| QA-001 | A takedown is not the creator's to undo: while a person owes the world a decision, `private` is the only visibility change available. |
+| QA-002 | A route, not a permission. `/status` stays creator-only; the share link points at a new `/world/:id` a recipient can open, old links forward, and the world detail now carries the creator handle and play count. |
+| QA-003 | One transition (`services/world-publish.ts`) shared by the publish route and the build job, so the create-time choice *is* the publish decision made earlier. Client side: no state withdraws the only affordance that moves a world out of it, and a badge never names an audience the world does not have. |
+| QA-004 | The cooldown keys on the decision (`rejectedReason`), not on the world's current status, which the creator could rewrite. |
+| QA-005 | Trim on the side that takes the money; a premise with no ASCII gets a hash-derived slug instead of the bare genre. |
+| QA-006 | A deliberate empty state under the heading. |
+
+### Two more found while fixing these
+
+- **The feed could be a wall of text at the worst moment.** `mediaFor` excluded every post with a
+  parent — a rule about thread nesting — but a character's reply to the player *is* a feed cell, so
+  right after a burst of posting the visible page was all text. This is what made DISC-002 red under
+  a full parallel run and green alone; it was never a flake.
+- **A creator's name moved.** Worlds were credited to the creator's most recent *persona* handle, so
+  making a persona in a second world changed the author label on the first, and a creator who had
+  never made a persona had no name at all. `User.creatorHandle` is now stable, unique and never
+  empty.
