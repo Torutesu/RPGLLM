@@ -614,6 +614,40 @@ export const CreateWorldReqZ = z.object({
   visibility: WorldVisibilityZ.default("private"),
 });
 
+/* ---------- Exit 3: make the human's twenty minutes shorter ---------- */
+/**
+ * What a reviewer is actually deciding, extracted before they open the world.
+ *
+ * The gate today answers "block or not". A reviewer's twenty minutes go on the questions it does
+ * not answer — is this somebody else's IP with the names filed off, is the JA written or
+ * translated, is this 13+ in spirit rather than in vocabulary — so this puts those in front of
+ * them with the evidence attached. It is advice, never a verdict: `confidence` exists so a
+ * reviewer can tell a strong signal from a guess, and every point cites where in the world it came
+ * from so it can be checked rather than believed.
+ */
+export const ReviewPointZ = z.object({
+  /** the rule from docs/moderation.md §3 this bears on */
+  rule: z.enum(["original", "age", "playable", "locales", "vector"]),
+  concern: z.string(),
+  /** the passage it came from, so the reviewer reads the world and not the summary */
+  evidence: z.string(),
+  confidence: z.enum(["low", "medium", "high"]),
+});
+export const ReviewDigestZ = z.object({
+  points: z.array(ReviewPointZ),
+  /** null when nothing was extracted — an empty digest is a fact, not a pass */
+  generatedAt: z.string().nullable(),
+  sampled: z.boolean(),
+});
+
+/* ---------- Exit 2: trust, so review load follows new creators and not worlds ---------- */
+export const CreatorTrustZ = z.object({
+  approvals: z.number().int(),
+  trusted: z.boolean(),
+  /** approvals still needed; null once trusted */
+  toTrusted: z.number().int().nullable(),
+});
+
 export const WorldSummaryFullZ = WorldSummaryZ.extend({
   status: WorldStatusZ,
   visibility: WorldVisibilityZ,
@@ -675,6 +709,8 @@ export const PublicWorldsResZ = z.object({
 export const CreatorProfileResZ = z.object({
   handle: z.string(),
   isYou: z.boolean(),
+  /** only ever sent to the creator themselves — a public trust badge is a target */
+  trust: CreatorTrustZ.nullable().default(null),
   worldCount: z.number().int(),
   totalPlays: z.number().int(),
   joinedAt: z.string(),
@@ -699,7 +735,12 @@ export const RemixWorldReqZ = z.object({
 });
 
 export const PublishWorldReqZ = z.object({ visibility: WorldVisibilityZ });
-export const PublishWorldResZ = z.object({ world: WorldSummaryFullZ, needsReview: z.boolean() });
+export const PublishWorldResZ = z.object({
+  world: WorldSummaryFullZ,
+  needsReview: z.boolean(),
+  /** gems taken for the shelf, and what is left — 0 when the world is not going public */
+  charged: z.object({ gems: z.number().int(), remaining: z.number().int() }).default({ gems: 0, remaining: 0 }),
+});
 
 /** Admin review queue for worlds asking to go public. */
 export const WorldReviewQueueResZ = z.object({
@@ -720,6 +761,9 @@ export const WorldReviewQueueResZ = z.object({
     /** who is looking at it right now, so two reviewers do not spend the same twenty minutes */
     claimedBy: z.string().nullable(),
     claimedUntil: z.string().nullable(),
+    /** what to look at first, and whether this one was drawn for a full read */
+    digest: ReviewDigestZ.nullable().default(null),
+    creatorTrust: CreatorTrustZ.nullable().default(null),
   })),
   overdueCount: z.number().int(),
   appealCount: z.number().int(),

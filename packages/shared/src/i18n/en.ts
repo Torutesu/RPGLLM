@@ -321,5 +321,15 @@ export const en = {
   reelRendering: "Recording…",
   reelReady: "Saved",
   reelUnsupported: "This device can't record video — the card still shares",
+  studioPublicCost: "Sharing with everyone costs 60 gems",
+  studioPublicCostHint: "A person reads every world in Explore. This pays for that read.",
+  studioNotEnoughForPublic: "Not enough gems to put this on the shelf",
+  trustTitle: "Reviewed faster",
+  trustProgress: "approvals until your worlds are reviewed faster",
+  trustEarned: "Your worlds go up faster now",
+  trustLost: "Back to a full read on every world",
+  reviewDigest: "What to look at",
+  reviewSampled: "Drawn for a full read",
+  reviewNoPoints: "Nothing flagged — read it yourself",
 } as const;
 export type Strings = { [K in keyof typeof en]: (typeof en)[K] extends readonly string[] ? readonly string[] : string };

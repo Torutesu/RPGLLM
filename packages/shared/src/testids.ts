@@ -213,6 +213,11 @@ export const T = {
   worldReviewReject: (id: string) => `world-review-reject-${id}`,
   worldReviewReason: "world-review-reason",
   worldReviewEmpty: "world-review-empty",
+  // Exits 1–3: what the shelf costs, and what trust buys
+  studioPublicCost: "studio-public-cost",
+  studioTrust: "studio-trust",
+  worldReviewDigest: (id: string) => `world-review-digest-${id}`,
+  worldReviewSampled: (id: string) => `world-review-sampled-${id}`,
   worldReviewOverdue: "world-review-overdue",
   worldReviewReports: (id: string) => `world-review-reports-${id}`,
   reportWorld: "report-world",

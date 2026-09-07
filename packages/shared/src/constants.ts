@@ -263,6 +263,25 @@ export const WORLD_MODERATION = {
    * same world is wasted time; a world stuck behind someone who closed their laptop is worse.
    */
   CLAIM_MINUTES: 20,
+  /**
+   * gtm.md §2: reviewing a world costs fifteen times what generating one costs, and more than the
+   * gem pack that pays for it. These are the three exits, in the order they should be taken.
+   *
+   * **1. Charge for the shelf.** Anyone may build and play; only somebody who wants Explore pays
+   * for the human who has to read it. This is the review cost, internalised.
+   */
+  PUBLIC_SUBMIT_GEMS: 60,
+  /**
+   * **2. Trust.** After this many approvals with no rejection and no upheld report, a creator's
+   * submissions are sampled rather than read end to end — so review load grows with the number of
+   * *new* creators, not with the number of worlds. This is the lever that actually changes the
+   * shape of the cost curve.
+   */
+  TRUST_APPROVALS: 3,
+  /** One in this many submissions from a trusted creator is still read in full, chosen at random. */
+  TRUST_SAMPLE_EVERY: 5,
+  /** A rejection or an upheld report drops a creator back to reading every one. */
+  TRUST_RESET_ON_REJECT: true,
 } as const;
 
 /**
@@ -275,6 +294,9 @@ export const WORLD_MODERATION_ENV = {
   REVIEW_SLA_HOURS: "WORLD_REVIEW_SLA_HOURS",
   RESUBMIT_COOLDOWN_HOURS: "WORLD_RESUBMIT_COOLDOWN_HOURS",
   CLAIM_MINUTES: "WORLD_CLAIM_MINUTES",
+  PUBLIC_SUBMIT_GEMS: "WORLD_PUBLIC_SUBMIT_GEMS",
+  TRUST_APPROVALS: "WORLD_TRUST_APPROVALS",
+  TRUST_SAMPLE_EVERY: "WORLD_TRUST_SAMPLE_EVERY",
 } as const;
 
 export const WORLD_GENRES = ["fame", "academy", "idol", "office", "sports", "fantasy", "mystery", "slice_of_life"] as const;
