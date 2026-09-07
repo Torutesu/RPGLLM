@@ -22,7 +22,7 @@ import {
   type EvalCaseRun,
   type EvalRunResult,
 } from "@rpgllm/llm";
-import { localized } from "./locale";
+import { localized, roleFor } from "./locale";
 import { logGeneration } from "./generation";
 import { normHandle } from "./handles";
 import type { Deps } from "../types";
@@ -121,7 +121,7 @@ export async function productionCases(prisma: PrismaClient, limit: number): Prom
       cast: characters.map((c) => ({
         handle: normHandle(c.handle),
         displayName: c.displayName,
-        role: c.role,
+        role: roleFor(c, locale),
         card: localized(c.card, locale),
         isPressAccount: c.isPressAccount,
       })),

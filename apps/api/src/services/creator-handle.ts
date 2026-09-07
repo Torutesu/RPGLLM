@@ -18,8 +18,11 @@
  *    a name" is the database's, not a convention some future call site can forget.
  *  - **the first persona** may replace it, once. That is the only moment the player has typed a
  *    name they like while nothing has yet been published under the placeholder. Afterwards
- *    `creatorHandleClaimedAt` is stamped and the name is frozen for good — renaming is a later,
- *    deliberate feature that will have to deal with redirects.
+ *    `creatorHandleClaimedAt` is stamped and this automatic window is closed for good.
+ *
+ * Deliberately renaming is a third event and lives in `services/creator-rename.ts`
+ * (`POST /v1/me/creator-handle`): most creators never make a persona, so the placeholder needed a
+ * door out of it that is not "play something first".
  *
  * Rejected alternatives, briefly: crediting a persona of the creator's *in that world* (they need
  * not play their own world at all); the *oldest* persona instead of the newest (still absent, still
@@ -29,6 +32,7 @@
  * to care).
  */
 import { Prisma, type PrismaClient, type User } from "@prisma/client";
+import { envNum } from "../env";
 import { hashString } from "./rng";
 import { normHandle } from "./handles";
 
@@ -94,6 +98,30 @@ export async function collidesWithCast(prisma: PrismaClient, handle: string): Pr
   return cast !== null;
 }
 
+/**
+ * How long a name a creator let go of stays theirs to take back, and nobody else's to take.
+ * The reservation is what stops the cheapest impersonation there is — watching for a rename and
+ * stepping into the vacancy, so that every `/creator/@name` link already out in the world points
+ * at a stranger. See `services/creator-rename.ts`.
+ */
+export const handleReclaimDays = (): number => envNum("CREATOR_HANDLE_RECLAIM_DAYS", 30);
+
+/**
+ * Is this name still held for somebody else? Asked on **every** path that writes a creator handle —
+ * a rename, a first persona adopting one, and even a minted placeholder — because a reservation
+ * that only one of the three respects is not a reservation.
+ */
+export async function reservedByAnother(
+  prisma: PrismaClient,
+  handle: string,
+  userId: string | null,
+  now: Date,
+): Promise<boolean> {
+  const release = await prisma.creatorHandleRelease.findUnique({ where: { handle } });
+  if (!release || release.userId === userId) return false;
+  return now.getTime() - release.releasedAt.getTime() < handleReclaimDays() * 24 * 60 * 60 * 1000;
+}
+
 /** May this string be somebody's public credit at all? Shape and reservations only — no I/O. */
 export const isUsableCreatorHandle = (handle: string): boolean =>
   CREATOR_HANDLE_RE.test(handle) && !RESERVED.has(handle);
@@ -117,6 +145,7 @@ export async function createUserWithCreatorHandle(
   prisma: PrismaClient,
   data: Omit<Prisma.UserUncheckedCreateInput, "creatorHandle">,
   seed: string = freshSeed(),
+  now: Date = new Date(),
 ): Promise<User> {
   for (let attempt = 0; attempt < 12; attempt += 1) {
     // After a few losses the seed itself is the problem (two rows deriving one name), so stop
@@ -124,6 +153,8 @@ export async function createUserWithCreatorHandle(
     const candidate = placeholderHandle(attempt < 4 ? `${seed}:${attempt}` : `${freshSeed()}:${attempt}`);
     if (!isUsableCreatorHandle(candidate)) continue;
     if (await collidesWithCast(prisma, candidate)) continue;
+    // A minted placeholder must not land on a name somebody is still allowed to take back.
+    if (await reservedByAnother(prisma, candidate, null, now)) continue;
     try {
       return await prisma.user.create({ data: { ...data, creatorHandle: candidate } });
     } catch (err: unknown) {
@@ -147,7 +178,8 @@ export async function createUserWithCreatorHandle(
  * Four ways it declines, all of them leaving the placeholder in place:
  *  - the window is already closed (this is a second persona, or a concurrent first one won),
  *  - something of theirs has already been seen by somebody else under the placeholder,
- *  - the name is a cast handle, reserved, or malformed,
+ *  - the name is a cast handle, a reserved word, malformed, or still held for the account that
+ *    renamed away from it (`reservedByAnother`),
  *  - another account already goes by it. (`rina` is free per world, so two players can both be
  *    `@rina` in their own worlds; only one of them can be `@rina` to the whole product. The loser
  *    keeps a name that is at least theirs and stable — inventing `rina2` for someone who never
@@ -171,6 +203,7 @@ export async function adoptFirstPersonaHandle(
   const handle = normHandle(rawHandle);
   if (!isUsableCreatorHandle(handle)) return null;
   if (await collidesWithCast(prisma, handle)) return null;
+  if (await reservedByAnother(prisma, handle, userId, now)) return null;
 
   try {
     const updated = await prisma.user.update({ where: { id: userId }, data: { creatorHandle: handle } });

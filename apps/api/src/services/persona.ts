@@ -7,11 +7,12 @@ import { adoptFirstPersonaHandle } from "./creator-handle";
 import { logGeneration } from "./generation";
 import { normHandle, sameHandle } from "./handles";
 import { resolveHandle } from "./persona-handle";
-import { localized, type LocaleKey } from "./locale";
+import { localized, roleFor, type LocaleKey } from "./locale";
 import { mediaForBatch } from "./media";
 import { computeMetrics, hashString, seededRandom, seedFrom } from "./rng";
 import { getWorldSeed } from "./world-seeds";
 import { canPlay } from "./world-studio";
+import { countPlay } from "./world-plays";
 
 type CreatePersonaReq = z.infer<typeof CreatePersonaReqZ>;
 
@@ -75,8 +76,12 @@ export async function createPersonaWithFeed(deps: Deps, user: User, req: CreateP
      * "Plays" is what ranks a world on the community shelf (AIF-003), so it counts *personas*, not
      * requests: it is incremented in the same transaction that creates the persona, and a retried
      * or idempotent create returns above without reaching here. One player, one play.
+     *
+     * And a play is the author's return signal (gtm.md 勝ち筋 A ①): `countPlay` rings them on the
+     * first play by somebody else and then on a milestone ladder — never once per play, which at
+     * this call site would be literally one notification per persona creation.
      */
-    await tx.world.update({ where: { id: world.id }, data: { playCount: { increment: 1 } } });
+    await countPlay(tx, world.id, user.id);
     return created;
   });
 
@@ -147,7 +152,7 @@ async function seedInitialFeed(
     // Generators and replay fixtures key on bare handles; the DB stores them with a leading "@".
     // Without normHandle the fixture lookup misses and G1 returns the "..." placeholder.
     cast: characters.map((c) => ({
-      handle: normHandle(c.handle), displayName: c.displayName, role: c.role, card: localized(c.card, locale), isPressAccount: c.isPressAccount,
+      handle: normHandle(c.handle), displayName: c.displayName, role: roleFor(c, locale), card: localized(c.card, locale), isPressAccount: c.isPressAccount,
     })),
     involved: [{ handle: normHandle(firstFollower.handle), affinity: 20, summary: "", isFollower: true }],
     recentFeed: shuffled.map((a) => ({ authorHandle: normHandle(firstFollower.handle), kind: "ambient" as const, text: a.text })),

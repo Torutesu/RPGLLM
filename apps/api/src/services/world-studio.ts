@@ -183,11 +183,14 @@ export async function canStillPlay(prisma: PrismaClient, world: World, userId: s
 
 /* ------------------------------------------------------------ serialising ---- */
 
+/** The source a remix came out of, as a card credits it. */
+export type ApiRemixOf = ApiWorldFull["remixOf"];
+
 export function toApiWorldFull(
   world: World,
   locale: LocaleKey,
   viewerId: string,
-  extra: { castCount: number; creatorHandle: string | null },
+  extra: { castCount: number; creatorHandle: string | null; remixOf?: ApiRemixOf },
 ): ApiWorldFull {
   return {
     id: world.id,
@@ -216,6 +219,11 @@ export function toApiWorldFull(
     // argued with, so a world back in `review` with `appealed` is an appeal being read right now.
     canAppeal: canAppeal(world, viewerId),
     appealed: hasAppealed(world),
+    // 勝ち筋 A ④: a derivative says what it came out of, and a source says how often it was taken
+    // up. `remixCount` is denormalised onto the row (written in the remix's own transaction) so a
+    // shelf of twenty cards does not become twenty COUNT queries.
+    remixOf: extra.remixOf ?? null,
+    remixCount: world.remixCount,
   };
 }
 
@@ -269,20 +277,47 @@ export async function castCounts(prisma: PrismaClient, worldIds: readonly string
   return new Map(rows.map((r) => [r.worldId, r._count._all]));
 }
 
-/** Everything the list endpoints need, resolved in three queries regardless of page size. */
+/**
+ * The worlds these ones were remixed from, keyed by **parent** id. Two queries for a whole page,
+ * and a parent that has since been deleted simply resolves to nothing — a derivative outliving its
+ * source is not an error, it is just a world that no longer says where it came from.
+ */
+export async function remixParents(
+  prisma: PrismaClient,
+  worlds: readonly World[],
+  locale: LocaleKey,
+): Promise<Map<string, NonNullable<ApiRemixOf>>> {
+  const ids = [...new Set(worlds.flatMap((w) => (w.remixOfId ? [w.remixOfId] : [])))];
+  if (ids.length === 0) return new Map();
+  const parents = await prisma.world.findMany({
+    where: { id: { in: ids } },
+    select: { id: true, slug: true, title: true, createdBy: true },
+  });
+  const handles = await creatorHandles(prisma, parents.flatMap((p) => (p.createdBy ? [p.createdBy] : [])));
+  return new Map(parents.map((p) => [p.id, {
+    id: p.id,
+    slug: p.slug,
+    title: localized(p.title, locale),
+    creatorHandle: p.createdBy ? (handles.get(p.createdBy) ?? null) : null,
+  }]));
+}
+
+/** Everything the list endpoints need, resolved in a fixed number of queries whatever the page size. */
 export async function decorate(
   prisma: PrismaClient,
   worlds: World[],
   locale: LocaleKey,
   viewerId: string,
 ): Promise<ApiWorldFull[]> {
-  const [counts, handles] = await Promise.all([
+  const [counts, handles, parents] = await Promise.all([
     castCounts(prisma, worlds.map((w) => w.id)),
     creatorHandles(prisma, worlds.flatMap((w) => (w.createdBy ? [w.createdBy] : []))),
+    remixParents(prisma, worlds, locale),
   ]);
   return worlds.map((w) =>
     toApiWorldFull(w, locale, viewerId, {
       castCount: counts.get(w.id) ?? 0,
       creatorHandle: w.createdBy ? (handles.get(w.createdBy) ?? null) : null,
+      remixOf: w.remixOfId ? (parents.get(w.remixOfId) ?? null) : null,
     }));
 }

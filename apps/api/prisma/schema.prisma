@@ -75,42 +75,46 @@ enum GeneratorId {
 
 /// teardown: User
 model User {
-  id               String                 @id @default(cuid())
-  email            String?                @unique
-  authProvider     String // apple | google | email
-  authSubject      String
-  birthYear        Int // 年齢ゲート(13+)。18歳未満は minor=true
-  isMinor          Boolean                @default(true)
-  locale           Locale                 @default(en)
-  createdAt        DateTime               @default(now())
+  id                     String                 @id @default(cuid())
+  email                  String?                @unique
+  authProvider           String // apple | google | email
+  authSubject            String
+  birthYear              Int // 年齢ゲート(13+)。18歳未満は minor=true
+  isMinor                Boolean                @default(true)
+  locale                 Locale                 @default(en)
+  createdAt              DateTime               @default(now())
   /// S1-1 アカウント削除: 論理削除 → 30日後に purge ジョブが物理削除
-  deletedAt        DateTime?
+  deletedAt              DateTime?
   /// S1-6 データ収集の同意(未成年は既定 false、行動ターゲティング広告を止める)
-  analyticsConsent Boolean                @default(false)
+  analyticsConsent       Boolean                @default(false)
   /// S2-5 リファラル: 自分の招待コード
-  referralCode     String?                @unique
+  referralCode           String?                @unique
   /// 作者名(勝ち筋 A ②)。ワールドのクレジットはここだけを見る。
   /// 常に normHandle 済み(小文字)なので、この @unique がそのまま大文字小文字を無視した一意性になる。
   /// アカウント作成時に必ず埋まる(NOT NULL)= クレジットの無いワールドは存在しない。
-  creatorHandle    String                 @unique
+  creatorHandle          String                 @unique
   /// プレースホルダを卒業した瞬間。null = まだ生成名で、最初の Persona が一度だけ名乗り直せる。
   /// 一度きり: 二つ目のワールドで Persona を作っても、一つ目のワールドの作者名は動かない。
   creatorHandleClaimedAt DateTime?
+  /// 最後に改名した時刻。プレースホルダからの卒業(1回目)は無料で、以後はクールダウンがかかる
+  creatorHandleRenamedAt DateTime?
   /// 連続ログイン。台帳からの導出をやめ、正本をここに置く(build-notes: streak storage)
-  streakDays       Int                    @default(0)
-  streakBestDays   Int                    @default(0)
-  streakLastAt     DateTime?
-  personas         Persona[]
-  wallet           Wallet?
-  subscription     Subscription?
-  purchases        Purchase[]
-  assignments      ExperimentAssignment[]
-  ratings          Rating[]
-  reports          Report[]
-  pushTokens       PushToken[]
-  referralsSent    Referral[]             @relation("inviter")
-  referralUsed     Referral?              @relation("invitee")
-  worldsCreated    World[]                @relation("worldCreator")
+  streakDays             Int                    @default(0)
+  streakBestDays         Int                    @default(0)
+  streakLastAt           DateTime?
+  personas               Persona[]
+  wallet                 Wallet?
+  subscription           Subscription?
+  purchases              Purchase[]
+  assignments            ExperimentAssignment[]
+  ratings                Rating[]
+  reports                Report[]
+  pushTokens             PushToken[]
+  referralsSent          Referral[]             @relation("inviter")
+  referralUsed           Referral?              @relation("invitee")
+  worldsCreated          World[]                @relation("worldCreator")
+  notifications          Notification[]
+  handleReleases         CreatorHandleRelease[]
 
   @@unique([authProvider, authSubject])
   @@index([deletedAt])
@@ -188,13 +192,24 @@ model World {
   /// この生成にかかった費用。1 ワールドが Opus 5 の高 effort なので必ず記録する
   generationId   String?
   playCount      Int             @default(0)
+  /// 勝ち筋 A ①。作者に「遊ばれた」を伝えた時点のプレイ数(=通知済みの最大マイルストーン)。
+  /// 条件付き UPDATE でここを進めた側だけが通知を書くので、同時プレイでも二重に鳴らない。
+  playsNotified  Int             @default(0)
+
+  /// 勝ち筋 A ④「転換」。この世界の種になった世界。辺は必ず「新しい行 → 既に存在する行」に向くので
+  /// 循環はつくれない(remixOfId は作成時にしか書かれず、以後変更されない)。
+  remixOfId  String?
+  remixOf    World?  @relation("worldRemix", fields: [remixOfId], references: [id], onDelete: SetNull)
+  remixes    World[] @relation("worldRemix")
+  /// 派生された回数。一覧カードに出すので非正規化する(remix と同一トランザクションで +1)
+  remixCount Int     @default(0)
 
   /// 生成入力。G9 を呼ぶのはリクエストではなくジョブなので、行に残しておく必要がある
-  genre     String  @default("")
-  genLocale Locale?
+  genre          String    @default("")
+  genLocale      Locale?
   /// G9 が返した WorldSeed そのもの。プリセットは `seed-fallback` / @rpgllm/llm を読むが、
   /// ユーザー生成ワールドはここが唯一の出所(services/world-seeds.ts の DB フォールバック)
-  seed      Json?
+  seed           Json?
   /// ジョブが掴んだ時刻。null = 未着手。タイムアウト掃除がこれを見る
   buildStartedAt DateTime?
   /// 返金は一度きり。ここが埋まっている行は二度と返金されない
@@ -210,18 +225,18 @@ model World {
   /// 却下への異議申し立て(WORLD_MODERATION.APPEALS_PER_REJECTION)。
   /// appealsUsed は「いま争われている却下」に対して使った回数で、正規の再申請・自動取り下げ・承認で 0 に戻る。
   /// 却下のたびに 1 回だけ、が「一度きり」の意味。
-  appealsUsed       Int       @default(0)
+  appealsUsed   Int       @default(0)
   /// 行列に入っている異議の申し立て時刻。null = 生の申請(または異議は決着済み)
-  appealedAt        DateTime?
+  appealedAt    DateTime?
   /// 創作者の言い分。審査カードにそのまま出る
-  appealMessage     String    @default("")
+  appealMessage String    @default("")
   /// その異議が争っている却下理由のコピー。審査者に「新規申請」ではなく「判断への反論」を見せるため
-  appealReason      String    @default("")
+  appealReason  String    @default("")
 
   /// 審査の一時確保(リース)。claimedUntil を過ぎれば自動的に空く = ロックではない。
   /// 二人が同じ 20 分を使わないためだけの仕組みで、閉じたノートPCの後ろで世界が詰まってはいけない
-  claimedBy         String?
-  claimedUntil      DateTime?
+  claimedBy    String?
+  claimedUntil DateTime?
 
   characters  WorldCharacter[]
   personas    Persona[]
@@ -230,6 +245,7 @@ model World {
   @@index([status, visibility, createdAt])
   @@index([createdBy, createdAt])
   @@index([status, reviewRequestedAt])
+  @@index([remixOfId])
 }
 
 /// ユーザー生成ワールドのライフサイクル。
@@ -262,6 +278,10 @@ model WorldCharacter {
   handle             String
   displayName        String
   role               String // rival | bestie | press | producer ...
+  /// 役割ラベルのロケール別表記 {en, ja}。null = 旧行(role にフォールバック)。
+  /// バイブルもイントロも両ロケールで生成されるのに role だけ単一言語で、
+  /// ja のワールドのキャストが英語の役割を返していた(勝ち筋 B: 世界は言語を超える)。
+  roleLocalized      Json?
   card               Json // {en, ja}: 口調/価値観/口癖/NG(bible 内の該当部分と同一文字列)
   avatarUrl          String?
   isPressAccount     Boolean             @default(false) // @gmz 型
@@ -640,13 +660,26 @@ enum NotificationKind {
   event
   digest
   unlock
+  /// 勝ち筋 A ①「返り」。作者宛て = personaId ではなく userId に紐づく通知。
+  /// world_played はしきい値(最初の 1 回 + マイルストーン)でのみ書かれる。毎プレイではない。
+  world_played
+  world_ready
+  world_reviewed
+  world_pulled
 }
 
 /// 通知タブ。SNS 系プロダクト最大のドーパミン装置で、MVP には存在しなかった。
+/// 宛先はちょうど一方が埋まる: personaId = そのペルソナの物語の出来事、
+/// userId = アカウント宛て(自分のワールドが遊ばれた/完成した/審査された/取り下げられた)。
+/// 作者はペルソナを一度も作らずに World Studio に到達できるので、
+/// 作者宛ての通知をペルソナに紐づけると宛先が存在せず、黙って捨てられていた(勝ち筋 A ①)。
 model Notification {
   id        String           @id @default(cuid())
-  personaId String
-  persona   Persona          @relation(fields: [personaId], references: [id], onDelete: Cascade)
+  personaId String?
+  persona   Persona?         @relation(fields: [personaId], references: [id], onDelete: Cascade)
+  /// アカウント宛て。personaId が null のときだけ埋まる
+  userId    String?
+  user      User?            @relation(fields: [userId], references: [id], onDelete: Cascade)
   kind      NotificationKind
   /// 誰がやったか(キャラ)。milestone / unlock は null
   actorId   String?
@@ -661,6 +694,8 @@ model Notification {
 
   @@index([personaId, readAt])
   @@index([personaId, createdAt])
+  @@index([userId, readAt])
+  @@index([userId, createdAt])
 }
 
 /// 実績の解除記録。カタログ自体は packages/shared の ACHIEVEMENTS(コード側)が持つ。
@@ -825,4 +860,17 @@ model PushTicket {
   checkedAt DateTime?
 
   @@index([checkedAt, sentAt])
+}
+
+/// 手放した作者名の予約(勝ち筋 A ②)。
+/// クレジットはリンクなので、改名した瞬間に古い名前が他人のものになると、
+/// 出回っている `/creator/@name` のリンクが別人を指す = 一番安いなりすましになる。
+/// 元の持ち主はいつでも取り戻せて、他人は RECLAIM_DAYS を過ぎるまで取れない。
+model CreatorHandleRelease {
+  handle     String   @id
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  releasedAt DateTime @default(now())
+
+  @@index([userId])
 }

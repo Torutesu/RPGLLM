@@ -19,6 +19,17 @@ export function localized(value: unknown, locale: Locale | LocaleKey): string {
   return "";
 }
 
+/**
+ * A cast member's role label in one locale.
+ *
+ * `WorldCharacter.roleLocalized` is `{en, ja}` and nullable: rows seeded before G9 carried the pair
+ * have only the single-language `role`, and so does any seed that omits it. Falling back to `role`
+ * is what makes the column safe to add without a backfill — and reading it here, rather than at
+ * three separate call sites, is what stops the next surface forgetting it.
+ */
+export const roleFor = (row: { role: string; roleLocalized?: unknown }, locale: Locale | LocaleKey): string =>
+  (row.roleLocalized ? localized(row.roleLocalized, locale) : "") || row.role;
+
 /** First sentence (used to derive a character `intro` when the seed has none). */
 export function firstSentence(text: string, max = 120): string {
   const trimmed = text.trim().replace(/\s+/g, " ");

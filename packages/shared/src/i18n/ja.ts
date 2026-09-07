@@ -311,4 +311,8 @@ export const ja: Strings = {
   remixCount: "派生",
   worldPlayedTitle: "あなたの世界が遊ばれました",
   worldPlayedBody: "人が遊んでいます",
+  studioApproved: "あなたの世界が公開されました",
+  studioApprovedBody: "人が読んで、発見タブに並びました",
+  worldReadyTitle: "世界ができました",
+  worldPulledTitle: "再確認のため一時的に非公開になりました",
 };

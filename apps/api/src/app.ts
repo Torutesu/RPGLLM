@@ -10,6 +10,7 @@ import { achievementRoutes } from "./routes/achievements";
 import { authRoutes } from "./routes/auth";
 import { billingRoutes } from "./routes/billing";
 import { costRoutes } from "./routes/cost";
+import { creatorRoutes } from "./routes/creators";
 import { banditRoutes } from "./routes/bandit";
 import { evalRoutes } from "./routes/evals";
 import { jobRoutes } from "./jobs";
@@ -83,6 +84,8 @@ export function createApp(deps: Deps): Hono<AppEnv> {
   v1.route("/auth", authRoutes());
   v1.route("/me", meRoutes());
   v1.route("/worlds", worldRoutes());
+  // 勝ち筋 A ②: the page a world's credit line points at.
+  v1.route("/creators", creatorRoutes());
   v1.route("/personas", personaRoutes());
   v1.route("/feed", feedRoutes());
   v1.route("/posts", postRoutes());

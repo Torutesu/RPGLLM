@@ -26,6 +26,26 @@ export interface SeedWorldOptions {
   buildStartedAt?: Date | null;
 }
 
+/**
+ * One cast member's columns, written the same way on create and on update.
+ *
+ * `roleLocalized` is the reason this is a function: G9 now returns the role label in both locales
+ * (`WorldSeedZ.cast[].roleLocalized`) and dropping it here is what made a Japanese world serve
+ * English role lines to a Japanese player — the bible and the intros crossed the language, the one
+ * word under the name did not. It stays optional: a seed without it leaves the column null and
+ * every reader falls back to `role`.
+ */
+function castFields(member: WorldSeed["cast"][number]) {
+  return {
+    displayName: member.displayName,
+    role: member.role,
+    ...(member.roleLocalized ? { roleLocalized: member.roleLocalized as unknown as Prisma.InputJsonValue } : {}),
+    card: member.card as unknown as Prisma.InputJsonValue,
+    isPressAccount: member.isPressAccount,
+    canBeFirstFollower: member.canBeFirstFollower,
+  };
+}
+
 export async function seedWorld(
   prisma: PrismaClient,
   seed: WorldSeed,
@@ -57,22 +77,8 @@ export async function seedWorld(
     const handle = `@${normHandle(member.handle)}`;
     const character = await prisma.worldCharacter.upsert({
       where: { worldId_handle: { worldId: world.id, handle } },
-      create: {
-        worldId: world.id,
-        handle,
-        displayName: member.displayName,
-        role: member.role,
-        card: member.card as unknown as Prisma.InputJsonValue,
-        isPressAccount: member.isPressAccount,
-        canBeFirstFollower: member.canBeFirstFollower,
-      },
-      update: {
-        displayName: member.displayName,
-        role: member.role,
-        card: member.card as unknown as Prisma.InputJsonValue,
-        isPressAccount: member.isPressAccount,
-        canBeFirstFollower: member.canBeFirstFollower,
-      },
+      create: { worldId: world.id, handle, ...castFields(member) },
+      update: castFields(member),
     });
     handleToId.set(normHandle(member.handle), character.id);
   }

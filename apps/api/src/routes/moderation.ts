@@ -64,7 +64,7 @@ export function moderationRoutes(): Hono<AppEnv> {
       const outcome = await pullWorldIfBrigaded(tx, targetId, now);
       if (outcome.pulled) {
         const world = await tx.world.findUniqueOrThrow({ where: { id: targetId } });
-        await tellCreatorPulled(tx, world, (world.genLocale ?? "en") as LocaleKey);
+        await tellCreatorPulled(tx, world);
       }
       return { report, ...outcome };
     });

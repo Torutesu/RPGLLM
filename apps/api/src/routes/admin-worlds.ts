@@ -3,10 +3,11 @@ import { atHandle } from "../services/handles";
 import { ReviewWorldReqZ } from "@rpgllm/shared";
 import { testHooksEnabled } from "../env";
 import { fail, notFound, ok, parseBody } from "../http";
-import { localized, type LocaleKey } from "../services/locale";
+import { localized, roleFor, type LocaleKey } from "../services/locale";
 import { adminTokenMatches } from "../services/moderation";
 import { castCounts, creatorHandles, toApiWorldFull } from "../services/world-studio";
 import { REVIEW_QUEUE_DEFAULT_LIMIT, resolveWorldReports, reviewQueue } from "../services/world-moderation";
+import { tellCreator } from "../services/creator-notify";
 import { clearedAppeal } from "../services/world-appeal";
 import { claimWorldForReview, releasedClaim } from "../services/world-review-claim";
 import { REVIEW_EXCERPT_CHARS } from "../services/world-publish";
@@ -103,7 +104,9 @@ export function adminWorldRoutes(): Hono<AppEnv> {
           cast: cast
             .filter((ch) => ch.worldId === w.id)
             // Bare, like every other handle this API emits — the reviewer's client owns the "@".
-            .map((ch) => ({ handle: atHandle(ch.handle), displayName: ch.displayName, role: ch.role })),
+            // In the locale the world is reviewed in — an English reviewer reading a JA world reads
+            // the JA cast, which is the point of the queue being language-agnostic at all.
+            .map((ch) => ({ handle: atHandle(ch.handle), displayName: ch.displayName, role: roleFor(ch, locale) })),
           safety: w.safety,
           safetyNote: w.safetyNote,
           reportCount: entry.reporters,
@@ -210,6 +213,13 @@ export function adminWorldRoutes(): Hono<AppEnv> {
           },
       });
       await resolveWorldReports(tx, world.id, now, approved);
+      /**
+       * **The decision reaches the creator.** It used to reach nobody: approve/reject wrote the row
+       * and the creator found out by opening SCR-049 again. A world in review is a person waiting
+       * on an answer, so the answer is delivered — to the account, in the same transaction as the
+       * decision, whether or not they have ever made a persona (`services/creator-notify.ts`).
+       */
+      await tellCreator(tx, row, { kind: "reviewed", approved });
       return row;
     });
 

@@ -14,7 +14,14 @@ import type { Tx } from "../types";
  *     that caused it, so a notification can never exist for a row that was rolled back (and vice versa).
  */
 export interface NotifyInput {
-  personaId: string;
+  /**
+   * Exactly one of these two. `personaId` is an event inside one persona's story; `userId` is an
+   * event about the **account** — the worlds it wrote (`services/creator-notify.ts`). A creator
+   * reaches the studio before any persona exists, so an account-scoped event addressed to a persona
+   * has nowhere to land and used to be dropped on the floor (gtm.md 勝ち筋 A ①).
+   */
+  personaId?: string | null;
+  userId?: string | null;
   kind: NotificationKind;
   /** the character that did it; null for `milestone` / `unlock` / `digest` */
   actorId?: string | null;
@@ -28,7 +35,8 @@ export interface NotifyInput {
 export async function notify(tx: Tx | PrismaClient, input: NotifyInput): Promise<void> {
   await tx.notification.create({
     data: {
-      personaId: input.personaId,
+      personaId: input.personaId ?? null,
+      userId: input.userId ?? null,
       kind: input.kind,
       actorId: input.actorId ?? null,
       target: input.target ?? null,
@@ -46,7 +54,7 @@ export async function notify(tx: Tx | PrismaClient, input: NotifyInput): Promise
    * the worst case, cost one push — never a lost one.
    */
   const client = pushClient();
-  if (pushEnabled() && client) {
+  if (pushEnabled() && client && input.personaId) {
     void pushForNotification(client, {
       personaId: input.personaId,
       kind: input.kind,

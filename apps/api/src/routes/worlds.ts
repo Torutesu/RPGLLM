@@ -1,49 +1,59 @@
 import { Hono } from "hono";
 import { Prisma, type World } from "@prisma/client";
-import { AppealWorldReqZ, CreateWorldReqZ, PublishWorldReqZ, WORLD_STUDIO, type Locale } from "@rpgllm/shared";
+import {
+  AppealWorldReqZ, CreateWorldReqZ, PublishWorldReqZ, RemixWorldReqZ, WORLD_GENRES, WORLD_STUDIO,
+  type Locale, type WorldGenre,
+} from "@rpgllm/shared";
 import { requireAuth } from "../auth";
 import { worldBuildOnCreate } from "../env";
 import { fail, notFound, ok, parseBody, validationError } from "../http";
 import { runJobOnce } from "../jobs/registry";
 import { logLine } from "../middleware/request-log";
-import { loadDeepPremiseScreen } from "../llm-loader";
 import { requireActiveAccount } from "../services/account";
 import { atHandle, sameHandle } from "../services/handles";
-import { localized, type LocaleKey } from "../services/locale";
+import { localized, roleFor, type LocaleKey } from "../services/locale";
 import { toApiCharacter, toApiWorld } from "../services/serialize";
-import { ensureWallet } from "../services/wallet";
 import { getWorldSeed } from "../services/world-seeds";
 import {
-  GemsRequiredError, buildProgress, canStillPlay, castCounts, creatorHandles, dailyWorldLimit, decorate,
-  pickerWhere, slugifyPremise, spendGems, toApiWorldFull, uniqueSlug, worldsCreatedToday,
+  buildProgress, canPlay, canStillPlay, castCounts, creatorHandles, dailyWorldLimit, decorate,
+  pickerWhere, remixParents, toApiWorldFull, worldsCreatedToday,
 } from "../services/world-studio";
+import { createWorld, type CreateWorldInput } from "../services/world-create";
+import { freshWorlds } from "../services/world-fresh";
 import { setWorldVisibility } from "../services/world-publish";
 import { appealRejection } from "../services/world-appeal";
-import { tamePremise } from "../fake-world-seed";
 import type { AppEnv, Deps } from "../types";
 
-/** A premise is one line of prose; the world's working title is its first clause. */
-const titleFrom = (premise: string): string => {
-  const tamed = tamePremise(premise);
-  return ((tamed.split(/[,.;:—]/)[0] ?? tamed).trim() || tamed).slice(0, 60);
-};
-
-const bilingual = (text: string): Prisma.InputJsonValue => ({ en: text, ja: text });
-
-const shortId = (): string => Math.random().toString(36).slice(2, 7);
+const isWorldGenre = (g: string): g is WorldGenre => (WORLD_GENRES as readonly string[]).includes(g);
 
 const findWorld = (deps: Deps, id: string): Promise<World | null> =>
   deps.prisma.world.findFirst({ where: { OR: [{ id }, { slug: id }] } });
 
 /** One world in the studio's shape, with its cast count and credited handle filled in. */
 async function oneFull(deps: Deps, world: World, locale: LocaleKey, viewerId: string) {
-  const [counts, handles] = await Promise.all([
+  const [counts, handles, parents] = await Promise.all([
     castCounts(deps.prisma, [world.id]),
     creatorHandles(deps.prisma, world.createdBy ? [world.createdBy] : []),
+    remixParents(deps.prisma, [world], locale),
   ]);
   return toApiWorldFull(world, locale, viewerId, {
     castCount: counts.get(world.id) ?? 0,
     creatorHandle: world.createdBy ? (handles.get(world.createdBy) ?? null) : null,
+    remixOf: world.remixOfId ? (parents.get(world.remixOfId) ?? null) : null,
+  });
+}
+
+/** The one shape both doors onto the studio answer with. */
+const createdRes = (charged: number, remaining: number) => ({ gems: charged, remaining });
+
+/**
+ * Kicking the builder is an optimisation — somebody is watching a progress bar — never the
+ * contract: the scheduler runs `world-build` every minute whether or not this fires.
+ */
+function kickBuilder(deps: Deps): void {
+  if (!worldBuildOnCreate()) return;
+  void runJobOnce(deps, "world-build", { trigger: "create" }).catch(() => {
+    /* the world stays `generating`; the next tick, or the sweep, deals with it */
   });
 }
 
@@ -82,95 +92,65 @@ export function worldRoutes(): Hono<AppEnv> {
     if (!body.ok) return body.res;
     const deps = c.get("deps");
     const user = c.get("user");
-    const now = deps.clock.now();
-    const { genre, locale, visibility } = body.value;
-    /**
-     * `CreateWorldReqZ` measures the raw string, and the client trims before it measures — so ten
-     * spaces was a valid 8-character premise, and a 120-gem purchase that built a world out of
-     * nothing (QA-005). Trim on the side that takes the money.
-     */
-    const premise = body.value.premise.trim();
-    if (premise.length < 8) {
-      return fail("VALIDATION", "Give the world a little more to go on", 400);
-    }
 
-    // 1. Safety, before a single token is spent on generation — the premise ends up inside a system
-    //    prompt. Two layers: deterministic vocabulary always, and in live mode a light-tier model
-    //    classifier after it. They are ANDed, so the model can tighten the verdict and never loosen
-    //    it, and an outage degrades to the deterministic answer instead of closing the studio.
-    const screen = await loadDeepPremiseScreen(deps.gateway);
-    const verdict = await screen(premise, locale);
-    if (verdict.verdict === "block") {
-      logLine({ level: "warn", msg: "world.premise.blocked", userId: user.id, category: verdict.category ?? "unknown", layer: verdict.layer });
-      return fail("SAFETY_BLOCKED", `We can't build that one (${verdict.category ?? "policy"}).`, 422);
-    }
+    const outcome = await createWorld(deps, user, {
+      premise: body.value.premise,
+      genre: body.value.genre,
+      locale: body.value.locale as Locale,
+      visibility: body.value.visibility,
+    });
+    if (!outcome.ok) return fail(outcome.code, outcome.message, outcome.status);
 
-    // 2. The daily cap, counted from `World` rows: a refunded failure still used its slot, because
-    //    the cap is there to bound spend, not to guarantee three successes.
-    const subscription = await deps.prisma.subscription.findUnique({ where: { userId: user.id } });
-    const limit = dailyWorldLimit(subscription, now);
-    const today = await worldsCreatedToday(deps.prisma, user.id, now);
-    if (today >= limit) {
-      const headroom = limit < WORLD_STUDIO.DAILY_LIMIT_PLUS ? ` Plus raises it to ${WORLD_STUDIO.DAILY_LIMIT_PLUS}.` : "";
-      return fail("WORLD_LIMIT", `You've built ${limit} worlds today — that's the daily limit.${headroom}`, 429);
-    }
-
-    // 3. The price. Same 402 shape as running out of energy.
-    const { wallet } = await ensureWallet(deps.prisma, deps.clock, user.id);
-    if (wallet.gems < WORLD_STUDIO.GEM_COST) {
-      return fail("GEMS_REQUIRED", `Not enough gems — a world costs ${WORLD_STUDIO.GEM_COST}.`, 402);
-    }
-
-    // 4. Charge and enqueue, atomically. The slug comes from the premise so it can collide; the
-    //    unique index is the arbiter, and the whole transaction (the debit included) is retried.
-    const base = slugifyPremise(premise, genre);
-    const title = titleFrom(premise);
-    let created: { world: World; remaining: number } | null = null;
-    for (let attempt = 0; attempt < 3 && created === null; attempt += 1) {
-      const slug = await uniqueSlug(deps.prisma, base, shortId());
-      try {
-        created = await deps.prisma.$transaction(async (tx) => {
-          const remaining = await spendGems(tx, wallet.id, WORLD_STUDIO.GEM_COST, `world:${slug}`);
-          const world = await tx.world.create({
-            data: {
-              slug,
-              title: bilingual(title),
-              scenario: bilingual(tamePremise(premise)),
-              bible: bilingual(""),
-              bibleTokens: 0,
-              isPreset: false,
-              createdBy: user.id,
-              premise,
-              genre,
-              genLocale: locale as Locale,
-              status: "generating",
-              visibility,
-              createdAt: now,
-            },
-          });
-          return { world, remaining };
-        });
-      } catch (err: unknown) {
-        if (err instanceof GemsRequiredError) {
-          return fail("GEMS_REQUIRED", `Not enough gems — a world costs ${WORLD_STUDIO.GEM_COST}.`, 402);
-        }
-        if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") continue;
-        throw err;
-      }
-    }
-    if (created === null) return fail("INTERNAL", "Could not reserve a name for that world", 500);
-
-    // Kicking the builder here is an optimisation — somebody is watching a progress bar — never the
-    // contract: the scheduler runs `world-build` every minute whether or not this fires.
-    if (worldBuildOnCreate()) {
-      void runJobOnce(deps, "world-build", { trigger: "create" }).catch(() => {
-        /* the world stays `generating`; the next tick, or the sweep, deals with it */
-      });
-    }
-
+    kickBuilder(deps);
     return ok({
-      world: await oneFull(deps, created.world, user.locale as LocaleKey, user.id),
-      charged: { gems: WORLD_STUDIO.GEM_COST, remaining: created.remaining },
+      world: await oneFull(deps, outcome.world, user.locale as LocaleKey, user.id),
+      charged: createdRes(WORLD_STUDIO.GEM_COST, outcome.remaining),
+    }, 201);
+  });
+
+  /**
+   * **Circuit ④ — the conversion** (gtm.md 勝ち筋 A ④). SCR-050 → "make my own version".
+   *
+   * The hardest transition in any UGC product is consumer → author, and the reason is the blank
+   * page: "what world do you want?" is a question most players have no answer to. A player who has
+   * just spent an hour inside a world has an answer to a much smaller question — *what would I
+   * change?* This endpoint is that question, and nothing else: same 120 gems, same daily limit,
+   * same premise screen, same build job (`services/world-create.ts` is literally the same code).
+   * Cheaper to decide, not cheaper to make.
+   *
+   * **Which worlds may be remixed: exactly the ones the caller may play.** A public world, an
+   * unlisted one whose link they hold, a preset, or their own — `canPlay`, the same predicate that
+   * decides whether they could make a persona in it. Anything else 404s, because somebody else's
+   * private world does not exist to this caller and knowing its id must not change that.
+   *
+   * Genre and locale are inherited unless overridden: a remix of a JA idol world is a JA idol world
+   * unless the player says otherwise. The premise is always new — a remix with the same premise is
+   * a re-roll of the same world, which is a different (and much cheaper) product than this one.
+   */
+  app.post("/:id/remix", requireAuth, requireActiveAccount, async (c) => {
+    const body = await parseBody(c.req, RemixWorldReqZ);
+    if (!body.ok) return body.res;
+    const deps = c.get("deps");
+    const user = c.get("user");
+    const source = await findWorld(deps, c.req.param("id"));
+    if (!source || !canPlay(source, user.id)) return notFound("World");
+
+    const input: CreateWorldInput = {
+      premise: body.value.premise,
+      // A preset carries no genre of its own; `fame` is the same default the build job falls back
+      // to, so an inherited-genre remix of a preset is not a differently-shaped world.
+      genre: body.value.genre ?? (isWorldGenre(source.genre) ? source.genre : "fame"),
+      locale: (body.value.locale ?? source.genLocale ?? user.locale) as Locale,
+      visibility: body.value.visibility,
+      remixOf: source,
+    };
+    const outcome = await createWorld(deps, user, input);
+    if (!outcome.ok) return fail(outcome.code, outcome.message, outcome.status);
+
+    kickBuilder(deps);
+    return ok({
+      world: await oneFull(deps, outcome.world, user.locale as LocaleKey, user.id),
+      charged: createdRes(WORLD_STUDIO.GEM_COST, outcome.remaining),
     }, 201);
   });
 
@@ -193,18 +173,34 @@ export function worldRoutes(): Hono<AppEnv> {
   /**
    * SCR-050 — worlds made by players. Published + public only.
    *
-   * Ranked by plays **plus a decaying newcomer bonus**, so a world nobody has played yet still gets
-   * a fortnight on the shelf; ranked on plays alone, the first popular world would be permanently
-   * first and nothing new would ever be found. Paged by a keyset on `(score, id)` rather than an
-   * offset, so a world published mid-paging cannot duplicate or skip a card.
+   * Two lists, because one list cannot do both jobs.
+   *
+   * `worlds` is the ranking: plays **plus a decaying newcomer bonus**, keyset-paged on `(score, id)`
+   * rather than an offset so a world published mid-paging cannot duplicate or skip a card.
+   *
+   * `fresh` is the guaranteed slot (`services/world-fresh.ts`, gtm.md 勝ち筋 A ③): worlds shown
+   * because they are new and for no other reason. A ranking — any ranking, bonus or not — is a
+   * competition, and a new author's first world loses it; without a slot that rank cannot touch,
+   * the third circuit never closes and nobody writes a second world. The ranked query **excludes
+   * exactly the fresh ids**, on every page, so no world is ever in both lists.
+   *
+   * **No locale filter, deliberately, and there is a test that says so.** Every world carries both
+   * locales by construction (G9 always generates en and ja), which is the whole global claim —
+   * 世界は言語を超える. A shelf that quietly shows a Japanese player only Japanese-authored worlds
+   * would make the product's one structural advantage over Status invisible in the UI that is
+   * supposed to demonstrate it.
    */
   app.get("/public", requireAuth, async (c) => {
     const deps = c.get("deps");
     const user = c.get("user");
+    const locale = user.locale as LocaleKey;
     const now = deps.clock.now();
     const rawLimit = Number(c.req.query("limit") ?? 20);
     const limit = Number.isFinite(rawLimit) ? Math.min(50, Math.max(1, Math.trunc(rawLimit))) : 20;
     const cursor = decodeCursor(c.req.query("cursor"));
+
+    const fresh = await freshWorlds(deps.prisma, now);
+    const freshIds = fresh.map((w) => w.id);
 
     const rows = await deps.prisma.$queryRaw<(World & { score: number })[]>`
       WITH ranked AS (
@@ -214,6 +210,7 @@ export function worldRoutes(): Hono<AppEnv> {
                  AS score
           FROM "World" w
          WHERE w."status" = 'published' AND w."visibility" = 'public'
+           AND ${freshIds.length === 0 ? Prisma.sql`TRUE` : Prisma.sql`w."id" NOT IN (${Prisma.join(freshIds)})`}
       )
       SELECT * FROM ranked
        WHERE ${cursor === null
@@ -225,7 +222,10 @@ export function worldRoutes(): Hono<AppEnv> {
     const page = rows.slice(0, limit);
     const last = page.at(-1);
     return ok({
-      worlds: await decorate(deps.prisma, page, user.locale as LocaleKey, user.id),
+      worlds: await decorate(deps.prisma, page, locale, user.id),
+      // The strip belongs at the top of the shelf, so it is answered once: paging deeper into the
+      // ranking is not a request for it, and a client appending pages never repeats it.
+      fresh: cursor === null ? await decorate(deps.prisma, fresh, locale, user.id) : [],
       nextCursor: rows.length > limit && last ? encodeCursor(Number(last.score), last.id) : null,
     });
   });
@@ -249,7 +249,7 @@ export function worldRoutes(): Hono<AppEnv> {
           // Bare, like every other handle this API emits — the client owns the "@".
           handle: atHandle(ch.handle),
           displayName: ch.displayName,
-          role: ch.role,
+          role: roleFor(ch, locale),
           intro: seeded ? localized(seeded.intro, locale) : "",
         };
       }),

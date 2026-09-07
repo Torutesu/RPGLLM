@@ -20,11 +20,11 @@
 import type { Prisma, PrismaClient, World } from "@prisma/client";
 import { t, type Locale } from "@rpgllm/shared";
 import type { LocaleKey } from "./locale";
+import { tellCreator } from "./creator-notify";
 import { clearedAppeal, liveAppeal, type AppealCase } from "./world-appeal";
 import { activeClaim, releasedClaim, type ReviewClaim } from "./world-review-claim";
 import { worldModerationConfig } from "./world-moderation-config";
 import { logLine } from "../middleware/request-log";
-import { notify } from "./notify";
 import type { Tx } from "../types";
 
 const HOUR_MS = 60 * 60 * 1000;
@@ -107,24 +107,15 @@ export async function pullWorldIfBrigaded(tx: Tx, worldId: string, now: Date): P
 /**
  * Tell the creator their world was taken down for another look — the difference between "not looked
  * at yet" and "pulled" is the whole point of `WorldSummaryFullZ.pulled`, and they should not have to
- * poll for it. Best-effort, exactly like the build job's: notifications hang off a persona, and a
- * creator may not have one.
+ * poll for it.
+ *
+ * Addressed to the **account** (`services/creator-notify.ts`), which is what makes it reliable: it
+ * used to go to the creator's most recent persona, so a creator who had never made one — the
+ * ordinary case, since the studio is reachable before any persona exists — was told nothing at all
+ * when their live world came off the shelf.
  */
-export async function tellCreatorPulled(tx: Tx, world: World, locale: LocaleKey): Promise<void> {
-  if (!world.createdBy) return;
-  const persona = await tx.persona.findFirst({
-    where: { userId: world.createdBy },
-    orderBy: { createdAt: "desc" },
-    select: { id: true },
-  });
-  if (!persona) return;
-  await notify(tx, {
-    personaId: persona.id,
-    kind: "unlock",
-    target: `world:${world.id}`,
-    text: t(locale as Locale, "studioPulled"),
-    payload: { worldId: world.id, slug: world.slug, pulled: true },
-  });
+export async function tellCreatorPulled(tx: Tx, world: World): Promise<boolean> {
+  return await tellCreator(tx, world, { kind: "pulled" });
 }
 
 /* -------------------------------------------------------------- the decision ---- */

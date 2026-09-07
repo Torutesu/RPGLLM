@@ -310,5 +310,9 @@ export const en = {
   remixCount: "remixes",
   worldPlayedTitle: "Someone played your world",
   worldPlayedBody: "people have played it now",
+  studioApproved: "Your world is on the shelf",
+  studioApprovedBody: "A person read it and it is in Explore now",
+  worldReadyTitle: "Your world is ready",
+  worldPulledTitle: "Your world was taken down for another look",
 } as const;
 export type Strings = { [K in keyof typeof en]: (typeof en)[K] extends readonly string[] ? readonly string[] : string };

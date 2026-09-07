@@ -3,7 +3,7 @@ import type { z } from "zod";
 import type { CharacterZ, DMMessageZ, DMThreadZ, EventZ, PostZ, StatSnapshotZ, SubscriptionZ, WalletZ, WorldSummaryZ } from "@rpgllm/shared";
 import type { PlanId } from "@rpgllm/shared";
 import { atHandle } from "./handles";
-import { firstSentence, localized, type LocaleKey } from "./locale";
+import { firstSentence, localized, roleFor, type LocaleKey } from "./locale";
 import type { Metrics } from "./rng";
 
 export type ApiPost = z.infer<typeof PostZ>;
@@ -166,7 +166,7 @@ export function toApiCharacter(row: WorldCharacter, locale: LocaleKey, intro?: s
     id: row.id,
     handle: atHandle(row.handle),
     displayName: row.displayName,
-    role: row.role,
+    role: roleFor(row, locale),
     avatarUrl: row.avatarUrl,
     isPressAccount: row.isPressAccount,
     canBeFirstFollower: row.canBeFirstFollower,

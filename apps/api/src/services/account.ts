@@ -96,6 +96,12 @@ export async function purgeDeletedAccounts(prisma: PrismaClient, now: Date): Pro
     await tx.experimentAssignment.deleteMany({ where: { userId: { in: userIds } } });
     await tx.report.deleteMany({ where: { userId: { in: userIds } } });
     await tx.pushToken.deleteMany({ where: { userId: { in: userIds } } });
+    // Account-scoped notifications (a world of theirs was played, built, reviewed, pulled) and any
+    // creator handle they were still holding a reservation on. Both cascade from `User`; they are
+    // written out here for the same reason as everything else in this transaction — the order of a
+    // deletion should be readable, not inferred from the schema.
+    await tx.notification.deleteMany({ where: { userId: { in: userIds } } });
+    await tx.creatorHandleRelease.deleteMany({ where: { userId: { in: userIds } } });
     await tx.referral.deleteMany({ where: { OR: [{ inviterId: { in: userIds } }, { inviteeId: { in: userIds } }] } });
     result.generations = (await tx.generationLog.deleteMany({ where: { userId: { in: userIds } } })).count;
     result.users = (await tx.user.deleteMany({ where: { id: { in: userIds } } })).count;

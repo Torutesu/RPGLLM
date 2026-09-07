@@ -5,7 +5,7 @@ import { LOCALES, PACING, STATS, type G1Input } from "@rpgllm/shared";
 import type { Clock } from "../clock";
 import { logGeneration } from "../services/generation";
 import { normHandle } from "../services/handles";
-import { localized, type LocaleKey } from "../services/locale";
+import { localized, roleFor, type LocaleKey } from "../services/locale";
 import { seedFrom } from "../services/rng";
 
 /**
@@ -59,7 +59,7 @@ function ambientInput(
   const cast = characters.map((c) => ({
     handle: normHandle(c.handle),
     displayName: c.displayName,
-    role: c.role,
+    role: roleFor(c, locale),
     card: localized(c.card, locale),
     isPressAccount: c.isPressAccount,
   }));
@@ -154,7 +154,7 @@ const cardsFor = (characters: WorldCharacter[], locale: LocaleKey): G2Input["cas
   characters.map((c) => ({
     handle: normHandle(c.handle),
     displayName: c.displayName,
-    role: c.role,
+    role: roleFor(c, locale),
     card: localized(c.card, locale),
     isPressAccount: c.isPressAccount,
   }));

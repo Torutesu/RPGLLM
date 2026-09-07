@@ -6,7 +6,7 @@ import type { Clock } from "../clock";
 import { awayHours, isAway, lastActivityAt, newestUnseenDigest } from "../services/digest";
 import { logGeneration } from "../services/generation";
 import { normHandle } from "../services/handles";
-import { localized } from "../services/locale";
+import { localized, roleFor } from "../services/locale";
 import { digestText, dmText, notify } from "../services/notify";
 import { notifyUser } from "../services/push";
 import { computeMetrics, seedFrom } from "../services/rng";
@@ -188,7 +188,7 @@ async function dmFromFavourite(
     character: {
       handle: normHandle(character.handle),
       displayName: character.displayName,
-      role: character.role,
+      role: roleFor(character, ctx.locale),
       card: localized(character.card, ctx.locale),
       isPressAccount: character.isPressAccount,
     },

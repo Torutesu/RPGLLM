@@ -4,7 +4,7 @@ import type { DMStreamEvent, G4Input } from "@rpgllm/shared";
 import { dmStreamDelayMs } from "../env";
 import type { AppState, Deps } from "../types";
 import { logGeneration } from "./generation";
-import { localized } from "./locale";
+import { localized, roleFor } from "./locale";
 import { seedFrom } from "./rng";
 import { toApiMessage } from "./serialize";
 import { dmText, followText, notify } from "./notify";
@@ -49,7 +49,7 @@ export async function runDMStream(
     character: {
       handle: normHandle(thread.character.handle),
       displayName: thread.character.displayName,
-      role: thread.character.role,
+      role: roleFor(thread.character, ctx.locale),
       card: localized(thread.character.card, ctx.locale),
       isPressAccount: thread.character.isPressAccount,
     },

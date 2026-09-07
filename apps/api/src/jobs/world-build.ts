@@ -28,7 +28,7 @@ import { seedWorld } from "../seed";
 import { g9Of } from "../services/g9";
 import { logGeneration } from "../services/generation";
 import type { LocaleKey } from "../services/locale";
-import { notify } from "../services/notify";
+import { tellCreator } from "../services/creator-notify";
 import { seedFrom } from "../services/rng";
 import { setWorldVisibility } from "../services/world-publish";
 import { refundWorldOnce, worldBuildBatchSize, worldBuildTimeoutMs } from "../services/world-studio";
@@ -52,33 +52,6 @@ const localeOf = (world: World, fallback: LocaleKey): LocaleKey =>
 
 const genreOf = (world: World): WorldGenre => (world.genre || "fame") as WorldGenre;
 
-/**
- * The creator's most recent persona is where a notification can land — `Notification` hangs off a
- * persona, not a user. A brand-new account building its first world may not have one yet; the world
- * row's own `status` is the surface in that case, so this is best-effort by design.
- */
-async function tellCreator(
-  prisma: PrismaClient,
-  world: World,
-  locale: LocaleKey,
-  key: "studioReady" | "studioFailed" | "studioRejected",
-): Promise<void> {
-  if (!world.createdBy) return;
-  const persona = await prisma.persona.findFirst({
-    where: { userId: world.createdBy },
-    orderBy: { createdAt: "desc" },
-    select: { id: true },
-  });
-  if (!persona) return;
-  await notify(prisma, {
-    personaId: persona.id,
-    kind: "unlock",
-    target: `world:${world.id}`,
-    text: t(locale as Locale, key),
-    payload: { worldId: world.id, slug: world.slug },
-  });
-}
-
 /** Back to `draft`, gems returned once, creator told. Never throws. */
 export async function failWorld(
   prisma: PrismaClient,
@@ -90,7 +63,9 @@ export async function failWorld(
   const reason = t(locale as Locale, "studioFailedHint");
   const refunded = await prisma.$transaction(async (tx) => await refundWorldOnce(tx, world, now, reason));
   logLine({ level: "warn", msg: "world.build.failed", worldId: world.id, slug: world.slug, reason: detail, refunded });
-  if (refunded) await tellCreator(prisma, world, locale, "studioFailed");
+  // The creator is told whatever happens to their world, and told on the **account** — a first-time
+  // creator has no persona, and a refund nobody hears about is a refund that reads as a broken app.
+  if (refunded) await tellCreator(prisma, world, { kind: "built", ok: false });
   return refunded;
 }
 
@@ -143,7 +118,7 @@ async function settleVisibility(deps: Deps, world: World, locale: LocaleKey): Pr
     }
     if (outcome.kind === "blocked") {
       logLine({ level: "warn", msg: "world.build.gate_blocked", worldId: world.id, visibility: wanted });
-      await tellCreator(deps.prisma, world, locale, "studioRejected");
+      await tellCreator(deps.prisma, world, { kind: "reviewed", approved: false });
       return;
     }
     // Unreachable for a world that was `generating` a moment ago; logged rather than swallowed
@@ -228,7 +203,7 @@ async function buildOne(
   }
 
   logLine({ level: "info", msg: "world.build.ready", worldId: world.id, slug: world.slug });
-  await tellCreator(prisma, world, locale, "studioReady");
+  await tellCreator(prisma, world, { kind: "built", ok: true });
   // The world exists now, so the answer given on SCR-048 can finally be acted on. Read the row back
   // rather than trusting the pre-build copy: `seedWorld` has just rewritten most of it, and the
   // gate reads the *generated* bible and cast.

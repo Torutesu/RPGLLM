@@ -22,7 +22,7 @@
  * so the guards cannot drift apart from the transition they guard either.
  */
 import type { World, WorldCharacter, WorldVisibility } from "@prisma/client";
-import { localized, type LocaleKey } from "./locale";
+import { localized, roleFor, type LocaleKey } from "./locale";
 import { safetyGate } from "./safety";
 import { resubmitCooldownHours } from "./world-moderation";
 import { clearedAppeal } from "./world-appeal";
@@ -41,7 +41,7 @@ export function reviewText(
     localized(world.title, locale),
     localized(world.scenario, locale),
     localized(world.bible, locale).slice(0, REVIEW_EXCERPT_CHARS),
-    ...characters.map((ch) => `${ch.handle} (${ch.role}): ${localized(ch.card, locale)}`),
+    ...characters.map((ch) => `${ch.handle} (${roleFor(ch, locale)}): ${localized(ch.card, locale)}`),
   ].join("\n");
 }
 

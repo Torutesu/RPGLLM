@@ -3216,3 +3216,337 @@ exists, with a generated name for everyone it cannot serve.
    underlying shape as this bug (a user-level fact routed through a per-world row) but fixing it is
    a schema change to `Notification` and a client change, so it is left alone here. This is circuit
    ①「返り」 territory, not ②.
+
+---
+
+## Agent ROLE-LOCALE — the cast's role line, per locale (`packages/llm`)
+
+gtm.md 勝ち筋 B. A world authored in Japanese came back with Japanese cast intros and English role
+lines — "the frontrunner", "the analyst nobody asked for" — sitting next to 「放課後の屋上で…」. It
+was caught in a screenshot, not by a test. The cause was the contract: `CharacterCardZ.role` is one
+`string` for all locales while `card` and `intro` are `Record<Locale, string>`, so there was exactly
+one role line per character and it was written in whatever language the author happened to use.
+
+`packages/shared` (not owned here) had already added `roleLocalized: z.record(LocaleZ, z.string())`
+to the `WorldSeedZ` cast entry, optional and alongside `role`. This is the producer side of it.
+
+### What generates it
+
+- **G9a (concept, `high`)** is the only stage that produces a cast, so it is the only stage that can
+  produce a localized role. `G9ConceptCastZ.roleLocalized` is **optional on the wire** — a live model
+  that forgets a field must not cost the caller a whole `high`-tier concept call — and `repairCast`
+  then guarantees one for every member: the model's pair if it sent one, otherwise the archetype's
+  own Japanese. A JA half that comes back byte-equal to the EN line is treated as absent, which is
+  the specific failure being fixed. `role` is always set to the English half, so the two cannot drift.
+- **Replay / every stage's fallback** goes through `deterministicConcept`, where `role` is now
+  *derived* from `roleLocalized.en` rather than authored beside it. `Archetype.role` is gone;
+  `Archetype.roleLocalized` replaced it, with ten hand-written Japanese labels (「頼んでもいない解説役」,
+  「半歩だけ先にいる人」…) written as Japanese rather than converted from the English.
+- **Stages b–e** read the pair through `conceptBlock`, the per-world prefix they share, so the
+  bible, card and texture stages all see the Japanese label. G9c is additionally given
+  `role (en):` / `role (ja):` for the account it is writing, and G9e's roster line is rendered in
+  that call's own locale.
+- **Assembly** (`assemble.ts` → `worlds/build.ts`) always emits both locales, resolving through
+  `roleIn()` so a concept from any tier — including one with no localized pair at all — still
+  produces a two-locale seed.
+- **The three hand-authored worlds** each got eight pairs, written in both languages, using the
+  world's own Japanese vocabulary (magic-academy's `anti-Ledger organiser` is
+  「反・序列表の旗振り役」, matching 「序列表」 in that world's JA bible, not a transliterated "Ledger").
+
+### The cache prefix did not move — measured, not assumed
+
+`renderCastCards` still interpolates the single-language `role` into `system[1]`, deliberately. That
+string is the cross-user cached prefix (cost-architecture 3.1) and every byte of it is part of the
+cache key, so localizing the cast header there would silently invalidate the JA prefix of every
+world that has already shipped. Verified rather than trusted: sha256 of all six preset bibles
+(popstar-era / magic-academy / idol-survival × en, ja) and of a generated world's two bibles are
+byte-identical to `HEAD`, lengths unchanged (en 20,646 / 21,369 / 21,077; ja 9,510 / 9,654 / 9,575).
+`worlds.test.ts` now pins the invariant directly — rewriting or deleting `roleLocalized` must not
+change `renderBible` by one byte, in either locale.
+
+The prefix that *did* move is `conceptBlock`, the per-world prefix stages b–e share **within one
+studio run**: +102 to +105 characters, +52 to +54 tokens, ~3.9%, on all eight genres. That is
+written once per world and read by the eleven calls after the concept, so it is a fraction of a cent
+per world and it is what makes the bible and card stages write the JA card from the JA role. It is
+not a cross-user prefix and no shipped world's cache is affected.
+
+### The eval gate now catches this class of defect
+
+`eval-g9.ts` measured locale parity on five field families. The role line was not one of them, which
+is why a screenshot found this first. Two changes:
+
+1. **Every per-locale field of the seed is now paired**, not a sample: title, scenario, bible, each
+   cast member's role/card/intro, each persona's display name and bio, every event title, prompt,
+   choice **label** and outcome, the ambient pool, the fallback replies and the welcome posts.
+   Measured pairs per world went **50 → 98**. `eval-g9.test.ts` derives the expected count from the
+   world itself, so a field that stops being measured fails the test even as worlds change.
+2. **`rolesLocalized` is its own check**, because the aggregate would have shrugged: eight English
+   role lines are 8/98 = 0.082 of the pairs, *under* `MAX_JA_ECHO` (0.10). A world with the original
+   defect passes `japaneseIsJapanese` and fails `rolesLocalized`. Both directions are pinned in
+   `eval-g9.test.ts`.
+
+Measured on the 18 frozen G9 cases (8 genres × 2 locales + 2 hard cases), replay, no key, no cost:
+
+| metric | today |
+|---|---|
+| locale field pairs measured | 98 (was 50) |
+| `jaEchoesEn` | 0 on every case |
+| `jaCjkRatio` (whole JA blob) | 0.818 – 0.829 |
+| `jaRoleCjkRatio` (the eight role lines alone) | 0.974 – 1.000 |
+| `castRolesLocalized` | 8/8 on every case |
+| `localeGaps` | 0 |
+| failing checks | none (with a sibling, only `distinctFromSibling`, unchanged) |
+
+Preset worlds: `jaRoleCjkRatio` 0.966 – 0.986, 0/8 JA roles equal to their EN twin, 8/8
+`roleLocalized.en === role`. `packages/llm`: 446 tests pass (was 427), typecheck clean.
+
+### Cross-cutting — this does not reach a screen until `apps/api` carries it
+
+1. **`WorldCharacter` has no column for it.** `role` is `String` and `card` is `Json {en, ja}`;
+   `seed.ts` writes `role: member.role` and drops `roleLocalized` on the floor, so the seed's new
+   field currently stops at the database. Making the fix visible needs `roleLocalized Json?` on
+   `WorldCharacter`, `seed.ts` writing `member.roleLocalized`, and the read paths that already
+   localize `card` (`services/serialize.ts`, `persona.ts`, `story.ts`, `dm-stream.ts`,
+   `routes/worlds.ts`, `routes/generations.ts`, `jobs/*`) resolving `roleLocalized[locale] ?? role`
+   the same way. `roleIn` / `roleOf` are exported from `@rpgllm/llm` for exactly that.
+2. **`apps/mobile` needs no change** if the API keeps sending a single localized `role` on the wire
+   (`StudioCast.tsx`, `onboarding/first-follower.tsx`, `character/[handle].tsx`, `(tabs)/dms.tsx`
+   all render `character.role`). Localizing server-side is the smaller change and keeps the response
+   shape.
+3. **`apps/api/src/fake-world-seed.ts` builds cast entries by hand** and does not set the field. It
+   is test scaffolding, but it is the one other producer of cast rows.
+4. **The JA bible still says `## @handle — Name (the frontrunner)`.** That is the deliberate cost of
+   keeping `system[1]` byte-stable, and it is model-facing, not player-facing. Localizing it is a
+   one-time, planned prefix rotation of the JA half of every world — cheap (one cold cache write per
+   world per locale) but it should be a decision someone makes on purpose, before launch rather than
+   after. Note the same seam already exists for `displayName`, which is a single string too.
+5. **JA quality is still replay-only.** gtm.md flags this: nothing here proves a *live* model writes
+   a good Japanese role line, only that the contract, the prompts, the repair path and the gate all
+   carry one. `jaRoleCjkRatio` will measure the live output the moment there is a key.
+
+---
+
+## CIRCUITS-CLIENT — the four author circuits, client side (`apps/mobile` only)
+
+gtm.md §"勝ち筋 A の設計要件" — ①返り ②名前 ③初速 ④転換. Every id from `testids.ts` and every
+string from `i18n` verbatim; no new shared exports were needed. `pnpm --filter mobile typecheck`
+clean, `export:web` succeeds, driven in Chromium at 390×844 in EN and JA against a contract-shaped
+stub (the endpoints below had not landed in `apps/api` yet).
+
+### Where each circuit lives
+
+| Circuit | Surface | File |
+|---|---|---|
+| ① 返り | four notification kinds, `world:<id>` target | `app/notifications.tsx` |
+| ② 名前 | `/creator/[handle]`, the credit-as-link everywhere | `app/creator/[handle].tsx`, `src/components/CreatorLink.tsx` |
+| ② 名前 | naming yourself | `app/creator/rename.tsx`, entry in `app/settings.tsx` |
+| ③ 初速 | the "just built" rail, above the ranked shelf | `app/explore.tsx`, `src/components/FreshWorldCard.tsx` |
+| ④ 転換 | remix entry, remix mode, lineage | `app/world/[id].tsx`, `app/studio/index.tsx` |
+
+### Cross-cutting — asks for `packages/shared` / `apps/api`
+
+1. **No world response carries `genre` or `locale`.** `WorldSummaryFullZ` and `WorldDetailResZ`
+   expose neither, so the client cannot show *which* genre a remix inherited. `RemixWorldReqZ`
+   makes both optional, so the client omits them and the server inherits from the source; the
+   studio's remix mode therefore **removes** the two pickers rather than pre-selecting them —
+   rendering a picker whose value the request will not carry would be a lie. Adding `genre` to
+   `WorldSummaryFullZ` would let the remix screen show the inherited flavour as a settled chip.
+2. **`WorldDetailResZ` has no `remixOf` / `remixCount`.** They live only on `WorldSummaryFullZ`,
+   which today reaches a visitor only through the creator-only `/worlds/:id/status`. So on
+   `app/world/[id].tsx` a **visitor** sees neither the world's lineage nor its remix count — the
+   two facts circuit ④ exists to make public. Same class of gap as QA-002. Asked for: `remixOf`
+   and `remixCount` on `WorldDetailResZ.world`.
+3. **Only `world_played` has copy.** `worldPlayedTitle`/`worldPlayedBody` are composed client-side
+   (headline + the figure from `payload.playCount`); `world_ready`, `world_reviewed` and
+   `world_pulled` fall back to the server's `text`, so **the API must write those three in the
+   reader's locale** — a JA account currently sees English if the server writes English. Three
+   more i18n keys would move it client-side if preferred.
+4. **No `remixSourceLink` id.** `T.remixSource` is used by the studio's source panel. The world
+   page can be stacked *underneath* that screen (world → remix), so a derivative's "remixed from"
+   credit is deliberately non-interactive text rather than a second element carrying the same id.
+   A `remixSourceLink` id would let the lineage be walked back to the original.
+5. **Notification `payload` keys assumed.** `world_played` reads `playCount`/`plays`/`count` and
+   `worldTitle`/`title`, each type-checked before use; unknown shapes fall back to `text`. Worth
+   pinning in the notification contract.
+6. **`creatorSince` wraps to two lines in EN** ("CREATING SINCE") in the three-stat row at 390px.
+   Legible, but a shorter EN string would sit better. JA ("作りはじめた日") fits on one.
+
+### Client fixes made along the way
+
+- **`WorldCover` SVG `<defs>` ids were seeded from the world slug** (`src/components/WorldCard.tsx`),
+  so the same world rendered on two *mounted* screens produced duplicate document-global ids and
+  `url(#…)` resolved to whichever came first — a 76px thumbnail's gradient geometry painted into a
+  220px hero, i.e. a cover that renders black. Latent before, routine now that Explore → creator
+  page → world page can all show one world. Ids are now per-instance via `useId()`; the art is
+  still seeded from the slug and still deterministic. This also fixes the pre-existing
+  Explore → world-page hero case.
+- **`pushOnce` (`src/nav.ts`)** drops an identical push inside 700ms. Expo Router keeps stacked
+  screens mounted, so a double-tap mounts a route twice and every id on it matches twice.
+- **The world page's credit walks *back*** when it was opened from that creator's own page
+  (`from` param) instead of pushing a second `/creator/[handle]`.
+- **Settings deliberately does not link to your own creator page.** Both carry `T.creatorRename`;
+  a path between them would put that id on screen twice.
+- **The creator page follows `me.user.creatorHandle`** once it knows the page is yours, so walking
+  back from a rename does not re-read a handle that no longer exists.
+- Verified with a stack-wide duplicate-id sweep on every screen: no id resolves twice except
+  `report-world` and `creator-link`, which are per-card by design (the precedent `report-world`
+  already set) and are each scoped by their card wrapper (`community-world-<slug>`,
+  `fresh-world-<slug>`).
+
+### Not fixed (pre-existing, untouched)
+
+`app/studio/index.tsx`'s premise field draws a hairline between the input and its hint row on web.
+Present identically in the unmodified create mode; left alone rather than risk the studio E2E.
+
+### Circuit ③ — how the fresh rail reads differently from the ranked shelf
+
+Two shelves of the same card is noise, and a second shelf that looks like the first reads as a
+second ranking. `FreshWorldCard` disagrees with the ranked row on every axis that carries meaning:
+**shape** (a horizontal rail of portrait, cover-forward cards vs. a vertical list of 76px thumbnail
+rows), **the number** (the ranked row's number is `playCount` — that *is* the ranking; the fresh
+card refuses to print a play count at all and shows the world's **age** instead, so a world with
+four plays is not reading itself as a loser next to one with forty thousand), and **tone**
+(accent-lit with a spark, the app's existing grammar for "just happened", vs. a neutral surface).
+No rank ordinal, no status pill. It sits *above* the ranked shelf: a rail costs one screen-row and
+hands the page back, whereas below a long ranked list is the same as not existing.
+
+## CIRCUITS-API — the four author circuits, server side (`apps/api` only)
+
+`gtm.md` §勝ち筋 A の設計要件 says the loop needs four circuits closed and that three of them were
+missing. This is those three plus the amplifier, and the two cross-cutting things they turned up.
+
+### Schema delta (`20260907160000_author_circuits`, `20260907170000_character_role_localized`)
+
+| change | why |
+|---|---|
+| `Notification.personaId` → nullable, `Notification.userId` added (cascade from `User`) | Exactly one is set. A notification is either about one persona's story or about the **account** — and a creator reaches the studio before any persona exists, so an account-scoped event addressed to a persona had nowhere to land. |
+| `World.playsNotified` | watermark of the highest play milestone already announced; claimed with a conditional UPDATE so two simultaneous plays cannot ring the same rung twice |
+| `World.remixOfId` (self-relation, `SetNull`) + `World.remixCount` | ④; the count is denormalised because it is on every shelf card |
+| `User.creatorHandleRenamedAt` | the rename cooldown's clock |
+| `CreatorHandleRelease` (handle PK, userId, releasedAt) | a released creator handle is reserved, see below |
+| `WorldCharacter.roleLocalized Json?` | the coordinator's follow-on from `packages/llm`; nullable + fallback to `role`, so no backfill |
+
+No column was removed and nothing was made stricter; every existing row keeps working untouched.
+
+### ① The return signal — the threshold, and the inbox that was dropping events
+
+**The threshold is the first play, then a milestone ladder** (`services/world-plays.ts`: 1, 5, 10,
+25, 50, 100, 250, …). A play *is* a persona creation, so "notify on every play" is literally one
+notification per persona created in your world: the world that works buzzes its author to death and
+buries the only signal that changes behaviour. A **daily roll-up** was the other candidate and was
+rejected for the same reason in reverse — it delays the first play by up to 24 hours, and the
+decision to write a second world is made in the hour after the first one is read, not tomorrow.
+The author's own plays never notify (they still count: the shelf ranks on plays).
+
+**The inbox fix is a schema change, not a lookup change.** `tellCreator` and `tellCreatorPulled`
+both resolved the creator's *most recent persona*, so a creator who had never made one was told
+nothing when their world finished, failed or was pulled — and, worse, `GET /v1/notifications`
+404'd for them, so even a correctly written row would have been unreadable. Notifications are now
+addressed to the account (`personaId = null`, `userId` set), the inbox returns the account's rows
+alongside whichever persona's rows it is showing, and an account with no persona gets a 200 with
+its own rows instead of a 404. `services/creator-notify.ts` is the single writer; it returns false
+in exactly one case — the world has no creator (a preset, or a purged account).
+
+**Two events that were being dropped entirely, not just misaddressed**: the reviewer's decision
+(`POST /v1/admin/worlds/:id/review` told nobody at all — the creator found out by re-opening
+SCR-049) and the failed build for a creator with no persona.
+
+### ② The creator page, and what a rename is allowed to do
+
+`GET /v1/creators/:handle` lists **published + public worlds only, including to the creator
+themselves**. A profile that shows you more of yourself than it shows anyone else cannot be trusted
+to be what others see, and `/worlds/mine` is the surface that shows the rest. `worldCount` and
+`totalPlays` are counted over that same set, so the numbers add up to the cards underneath and a
+private draft cannot be inferred from a total.
+
+**Rename reclaim — the decision.** A released handle is **not** immediately available to anyone
+else: `CreatorHandleRelease` holds it for `CREATOR_HANDLE_RECLAIM_DAYS` (30), during which only its
+previous owner may take it back. The credit is a *link*; `/creator/@rina` is in share cards and
+screenshots, and if the name frees the moment its owner leaves it, the cheapest impersonation
+available is to watch for renames and step into the vacancy. Not permanent, because indefinite
+reservation is its own squatting mechanism. The check lives in `creator-handle.ts` and is applied
+on all three paths that write a handle (rename, first-persona adoption, minted placeholder) — a
+reservation only one path respects is not a reservation.
+
+**Rate of change.** The graduation out of a placeholder is free (`creatorHandleClaimedAt === null`);
+after it, `CREATOR_RENAME_COOLDOWN_DAYS` (30) with a 429 that says when. Asking for the name you
+already have is a no-op that costs no cooldown. Nothing is denormalised — the credit is
+`User.creatorHandle` resolved at read time and worlds are addressed by slug/id — so a rename is
+complete the instant it commits and no world's own link moves.
+
+### ③ The fresh slot, and why it is empty on a small shelf
+
+`services/world-fresh.ts`: recency only, **one world per creator**, a hard 48h window and 6 slots.
+Recency-only is what stops it compounding; the per-creator cap is what stops one prolific author
+owning the strip (which would be a second winner-take-all list with a different winner).
+
+**A world is never in both lists**: the ranked query excludes exactly the fresh ids, on every page,
+which it can do because the fresh set is a pure function of the database and the clock rather than
+of the page being asked for. `fresh` itself is answered on the first page only — the strip belongs
+at the top of the shelf and a client appending pages must not repeat it.
+
+**The floor (`WORLD_FRESH_MIN_SHELF`, 12) is the part worth arguing about.** Below it the strip is
+empty, because a shelf that fits on one screen buries nothing and moving six of its worlds into a
+separate rail would be theatre. It is also what makes this change invisible to the 367 tests that
+already existed: every one of them has ≤ 3 public worlds, so their ranked list is untouched. If the
+floor were 0, a brand-new published world would move out of `worlds` and into `fresh`, and several
+existing cases assert it is in `worlds` — that is behaviour those tests pin, and this is how it is
+kept rather than edited.
+
+### ④ Remix
+
+`POST /v1/worlds/:id/remix` and `POST /v1/worlds` are **the same function** with one extra argument
+(`services/world-create.ts`), so the premise screen, the daily cap, the 120 gems, the atomic
+charge-and-enqueue and the build job cannot drift apart between the two doors. Remixable = exactly
+`canPlay`: public, unlisted-with-the-link, a preset, or your own. Genre and locale are inherited
+unless overridden; a preset's empty genre falls back to `fame`, the same default the build job uses.
+
+**Cycles are impossible by construction, not by a check**: `remixOfId` is written once, at creation,
+and always points at a row that already exists — so the edge always runs new → old and the graph is
+a DAG however long the chain gets. The test walks the chain and asserts it terminates.
+
+### The locale seam on the shelf
+
+`GET /v1/worlds/public` did **not** filter by the caller's locale, and now there is a test that says
+so (an EN reader is served the JA-authored world and vice versa). Left as a standing assertion
+because the failure mode is silent and the claim it protects — 世界は言語を超える — is the whole of
+勝ち筋 B.
+
+### `roleLocalized` (folded in mid-pass, from the `packages/llm` agent)
+
+`WorldCharacter.roleLocalized Json?`, written by `seedWorld`, read through one helper
+(`services/locale.ts: roleFor`) so the next surface cannot forget it. Applied to `toApiCharacter`,
+the studio cast, and the review queue as asked — **and to the seven generator-input sites that were
+already localizing `card` next to a raw `role`** (`story`, `dm-stream`, `ambient-refill` ×2,
+`offline-director`, `evals`, `persona`, `world-publish`): an English role label inside a Japanese
+prompt is the same defect one layer further in. Null falls back to `role`, so untouched rows and
+seeds without the pair behave exactly as before.
+
+### Cross-cutting: needed in `packages/shared`, not written by this agent
+
+1. **i18n is missing one sentence.** There is no key for "your world was approved". The
+   `world_reviewed` notification currently reads `` `${t(locale,"explore")} — ${title}` `` →
+   *"Explore — New Academy"* / *"みつける — 放課後・学院"*, which is legible and is not a sentence.
+   A `studioApproved` (+ JA) would replace one line in `services/creator-notify.ts`. Rejection,
+   pull, ready and failed all had copy already.
+2. **`worldPlayedBody` is written for the plural.** *"10 people have played it now"* is right; the
+   first-play notification therefore uses `worldPlayedTitle` instead of composing a "1 person"
+   string. Fine as is — noted so nobody "fixes" the ladder into using one key.
+
+### Numbers
+
+367 API tests before, **389 after** (34 files), all green; typecheck clean; `prisma migrate diff`
+reports no drift. No existing test was edited, weakened or skipped. Two existing behaviours changed
+deliberately and are asserted in the new suite: world-lifecycle notifications are now
+account-scoped rows with `world_*` kinds (they were `unlock` rows on a persona), and the review
+decision now notifies at all.
+
+### Left open
+
+- The play ladder tops out at 100,000. A world past that gets no further signal; the next rung is a
+  product decision, not a code one.
+- `Notification` has no database CHECK enforcing "exactly one of `personaId`/`userId`" — Prisma
+  cannot express one and adding it in raw SQL would show up as schema drift. The invariant is held
+  by the two writers (`notify` / `tellCreator`) instead.
+- The fresh strip's window and slots are env-tunable (`WORLD_FRESH_WINDOW_HOURS`, `WORLD_FRESH_SLOTS`,
+  `WORLD_FRESH_MIN_SHELF`) precisely because 48h/6/12 are guesses for a product with no users.

@@ -3,7 +3,7 @@ import type { CharacterCard, G1Input, G1Output, PersonaState, WorldSeed } from "
 import { PACING, STATS } from "@rpgllm/shared";
 import { normHandle, sameHandle } from "./handles";
 import { blockedCharacterIds, withoutBlocked } from "./moderation";   // Agent G (S1-2)
-import { localized, type LocaleKey } from "./locale";
+import { localized, roleFor, type LocaleKey } from "./locale";
 import { followText, notify } from "./notify";
 import type { Tx } from "../types";
 import { getWorldSeed } from "./world-seeds";
@@ -46,7 +46,7 @@ export function castCards(ctx: StoryContext): CharacterCard[] {
   return ctx.characters.map((c) => ({
     handle: normHandle(c.handle),   // generators and fixtures use bare handles
     displayName: c.displayName,
-    role: c.role,
+    role: roleFor(c, ctx.locale),
     card: localized(c.card, ctx.locale),
     isPressAccount: c.isPressAccount,
   }));
