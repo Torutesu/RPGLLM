@@ -54,7 +54,25 @@ export function slugifyPremise(premise: string, fallback: string): string {
     .join("-")
     .slice(0, 48)
     .replace(/-+$/g, "");
-  return base.length >= 3 && !RESERVED.has(base) ? base : fallback;
+  if (base.length >= 3 && !RESERVED.has(base)) return base;
+  /**
+   * Nothing survived — a Japanese, Arabic, Thai or emoji-only premise (QA-005). Falling back to the
+   * bare genre put every non-Latin world of a genre on the same base slug, and the slug is what
+   * seeds the procedural cover art, so unrelated worlds came out looking alike and reading as
+   * `idol`, `idol-2`, `idol-3`. A short hash of the premise keeps them distinct and still
+   * deterministic; the same premise always lands on the same slug and the same art.
+   */
+  return `${fallback}-${premiseHash(premise)}`;
+}
+
+/** 6 chars of FNV-1a in base36 — enough to separate worlds, short enough to stay a readable slug. */
+function premiseHash(premise: string): string {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < premise.length; i += 1) {
+    h ^= premise.charCodeAt(i);
+    h = Math.imul(h, 0x01000193) >>> 0;
+  }
+  return (h >>> 0).toString(36).padStart(6, "0").slice(0, 6);
 }
 
 /**

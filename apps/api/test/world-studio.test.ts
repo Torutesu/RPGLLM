@@ -563,9 +563,27 @@ describe("the generated seed", () => {
 });
 
 describe("slugs", () => {
-  it("are kebab-case and fall back to the genre when the premise has no ASCII", () => {
+  it("are kebab-case", () => {
     expect(slugifyPremise("Seven rookies, one debut slot!", "idol")).toBe("seven-rookies-one-debut-slot");
-    expect(slugifyPremise("七人の新人、デビュー枠はひとつ", "idol")).toBe("idol");
+  });
+
+  /**
+   * QA-005: a premise with no ASCII used to fall back to the bare genre, so every Japanese, Arabic
+   * or emoji-only world of a genre shared one base slug — and the slug seeds the procedural cover
+   * art, so unrelated worlds came out looking alike. This test used to pin that behaviour.
+   */
+  it("stay distinct when the premise has no ASCII at all", () => {
+    const ja = slugifyPremise("七人の新人、デビュー枠はひとつ", "idol");
+    const ja2 = slugifyPremise("放課後の屋上で交わした約束", "idol");
+    const ar = slugifyPremise("سبعة متدربين ومكان واحد", "idol");
+
+    for (const slug of [ja, ja2, ar]) {
+      expect(slug.startsWith("idol-"), `${slug} must still say which genre it is`).toBe(true);
+      expect(slug).toMatch(/^[a-z0-9-]+$/);
+    }
+    expect(new Set([ja, ja2, ar]).size, "three different premises, three different slugs").toBe(3);
+    // Deterministic: the same premise always lands on the same slug, and so on the same cover art.
+    expect(slugifyPremise("七人の新人、デビュー枠はひとつ", "idol")).toBe(ja);
   });
 
   it("never collide, even when two premises reduce to the same words", async () => {

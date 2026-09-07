@@ -2952,3 +2952,16 @@ contracts were already in `packages/shared` and were implemented as written — 
 skipped; `tsc --noEmit` clean; `prisma migrate diff` reports no drift between the schema and the
 migrated database. The only edit outside those three new files on the test side is an additive
 `headers` option on `test/helpers.ts`'s `call()`, which is how a test says which reviewer it is.
+
+**Correction to §5 above (same agent, later in the pass).** WS-API's appeal endpoint landed while
+this was being written (`apps/api/src/services/world-appeal.ts`, `POST /:id/appeal` in
+`routes/worlds.ts`, and `canAppeal` / `appealed` on the serializer). The walkthrough was re-run
+**with nothing intercepted at all** — real signup → build → publish → admin reject → real
+`POST /v1/worlds/:id/appeal` **200** → real `canAppeal` / `appealed` off `/status` and
+`/worlds/mine` → a real second rejection through the admin route → real 409 on the resubmit. The
+client needed no change for the real endpoint: it already posted `{message}` and read both flags off
+the contract. Two behaviours of the real API confirmed the design rather than fighting it: an
+appeal moves the world to `review` (so `isAppealPending` is right to key on it), and the server
+**does not** hold an appeal behind the resubmit cooldown, which is why the appeal being the loud
+offer and the cooldown the quiet aside is the honest ordering — the appeal is genuinely available
+when the resubmit is not. Nothing in this feature is stubbed.

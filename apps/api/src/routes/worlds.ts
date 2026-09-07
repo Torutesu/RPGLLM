@@ -85,7 +85,16 @@ export function worldRoutes(): Hono<AppEnv> {
     const deps = c.get("deps");
     const user = c.get("user");
     const now = deps.clock.now();
-    const { premise, genre, locale, visibility } = body.value;
+    const { genre, locale, visibility } = body.value;
+    /**
+     * `CreateWorldReqZ` measures the raw string, and the client trims before it measures — so ten
+     * spaces was a valid 8-character premise, and a 120-gem purchase that built a world out of
+     * nothing (QA-005). Trim on the side that takes the money.
+     */
+    const premise = body.value.premise.trim();
+    if (premise.length < 8) {
+      return fail("VALIDATION", "Give the world a little more to go on", 400);
+    }
 
     // 1. Safety, before a single token is spent on generation — the premise ends up inside a system
     //    prompt. Two layers: deterministic vocabulary always, and in live mode a light-tier model
@@ -269,6 +278,27 @@ export function worldRoutes(): Hono<AppEnv> {
     if (!world || world.createdBy !== user.id) return notFound("World");
     if (world.status === "draft" || world.status === "generating") {
       return fail("VALIDATION", "That world hasn't finished building yet", 409);
+    }
+
+    /**
+     * **A takedown is not the creator's to undo** (QA-001).
+     *
+     * A world that reports pulled off the shelf is `review` with `pulledAt` set — not `rejected` —
+     * so it used to walk straight past the cooldown below, and `unlisted` would set it back to
+     * `published` and clear `pulledAt`. One request, dressed as a de-escalation ("I made it
+     * link-only"), and the world left the queue permanently with its complaints unresolved: no
+     * human would ever read it, anyone holding the id could still open it, and it could never be
+     * pulled again because pulling requires `public`.
+     *
+     * While a person still owes this world a decision, the only visibility change available is
+     * `private` — which takes it away from everyone, complaints intact.
+     */
+    if (world.pulledAt !== null && body.value.visibility !== "private") {
+      return fail(
+        "VALIDATION",
+        "This world was taken down after reports. A person is reading it — you can make it private, but not share it again.",
+        409,
+      );
     }
 
     /**

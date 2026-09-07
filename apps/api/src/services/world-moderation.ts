@@ -147,9 +147,17 @@ export function resolveWorldReports(tx: Tx, worldId: string, now: Date, approved
 
 /* --------------------------------------------------------------- the cooldown ---- */
 
-/** When a rejected world may be offered to Explore again, or null if it is not rejected. */
-export const resubmitAllowedAt = (world: Pick<World, "status" | "reviewedAt">): Date | null =>
-  world.status === "rejected" && world.reviewedAt !== null
+/**
+ * When a rejected world may be offered to Explore again, or null if no rejection is standing.
+ *
+ * Keyed on the **decision**, not on the world's current status (QA-004). Publishing a rejected
+ * world `private` rewrites `status` to `ready`, so reading `status === "rejected"` meant three
+ * requests with no waiting — public (refused), private (200), public (202) — and a reviewer's "no"
+ * cost the creator nothing. `rejectedReason` is written by a rejection and cleared by an approval,
+ * so it survives everything the creator can do on their own.
+ */
+export const resubmitAllowedAt = (world: Pick<World, "rejectedReason" | "reviewedAt">): Date | null =>
+  world.rejectedReason !== "" && world.reviewedAt !== null
     ? new Date(world.reviewedAt.getTime() + worldModerationConfig().resubmitCooldownHours * HOUR_MS)
     : null;
 
@@ -158,7 +166,7 @@ export const resubmitAllowedAt = (world: Pick<World, "status" | "reviewedAt">): 
  * not forever — but without a cooldown a creator bounces the same world off the queue continuously
  * and a reviewer's decision costs them nothing.
  */
-export function resubmitCooldownHours(world: Pick<World, "status" | "reviewedAt">, now: Date): number | null {
+export function resubmitCooldownHours(world: Pick<World, "rejectedReason" | "reviewedAt">, now: Date): number | null {
   const at = resubmitAllowedAt(world);
   if (at === null || now.getTime() >= at.getTime()) return null;
   return Math.max(1, Math.ceil((at.getTime() - now.getTime()) / HOUR_MS));
