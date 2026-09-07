@@ -3040,3 +3040,125 @@ availability and rejects a taken handle for another user" asserted precisely the
 the defect — a second account being refused `@taytay19`. It is now three cases covering what the
 rule actually is (two players may share a handle and see only their own feed; the cast still owns
 its handles, case- and `@`-insensitively; one player still cannot hold the same handle twice).
+
+## Agent FIX-CLIENT — the world page, the audience a world actually has, and a heading with something under it
+
+Three QA findings, client side only: **QA-002** (an unlisted world's share link was a dead end for
+everyone but its creator), the **client half of QA-003** (SCR-049 withdrew the only control that
+would move a world out of the state it was stuck in, and the badge named an audience the world did
+not have), and **QA-006** (Explore's "Trending now" was a heading over nothing). Nothing outside
+`apps/mobile/**` was touched.
+
+### 1. `app/world/[id].tsx` — the surface the share link was missing (QA-002)
+
+`share.ts` handed out `<origin>/studio/<id>`, and that route's only source is
+`GET /v1/worlds/:id/status`, which is creator-only by design — so every unlisted world ever shared
+answered its recipient with "Couldn't load". The API was never the problem: `GET /v1/worlds/:id`
+serves anyone who may play the world. So the fix is a route, not a permission.
+
+- **`/world/:id`** reads `GET /v1/worlds/:id` and shows the world the way its maker would introduce
+  it: the generated cover with the title in it, the scenario, the eight-strong cast, and one thing
+  to do — `studioPlay`, which enters the normal persona flow (`setDraft` → `/onboarding/persona`),
+  exactly as Explore's community cards did.
+- **`share.ts` now builds `/world/:id`.** The links already in circulation still work: `/studio/:id`
+  forwards a non-creator to the world page (see §3), so nothing that was shipped breaks.
+- **A destination, not a redirect.** The creator opening their own link gets the same page — that is
+  what they came to check — plus one ghost button back to the studio screen (`router.replace`, so
+  two screens carrying the same studio ids are never mounted at once).
+- **Explore's community cards now open it too**, instead of jumping straight into persona creation.
+  A world someone else made is introduced before it is joined, and it is the same page wherever you
+  met it. (No test drove that tap; E2E-034's report-from-the-card path is untouched.)
+- **Data seams, in one place** (`src/studio/useSharedWorld.ts`): the page asks for
+  `GET /v1/worlds/:id` *and*, once and without polling, `GET /v1/worlds/:id/status`. The second is
+  a bonus, never a gate — see the ask in §5.
+
+### 2. The state × visibility table (QA-003, client half)
+
+`World.visibility` is a wish; `World.status` is what happened to it. The API only lets anyone but
+the creator reach a world when `status === "published"` (`canPlay`), so **the audience in force is
+`visibility` when published and `private` otherwise** — that one line, now in
+`src/studio/audience.ts` with the whole table in its header, is what both the badge and the controls
+read. What changed, row by row:
+
+| status × visibility | before | now |
+|---|---|---|
+| ready + private | play / everyone / link / keep private | unchanged |
+| ready + **unlisted** | link button **hidden** (`visibility !== "unlisted"`), badge "ANYONE WITH THE LINK" over a link that 404s | link button offered, badge **JUST ME** |
+| ready + **public** | publish button **hidden** (`visibility !== "public"`), badge "EVERYONE" — QA-003b's stranded world | publish button offered, badge **JUST ME** |
+| review (queued or pulled) | no publish controls, keep-private withdraws | unchanged — it is the reviewer's move, and a pulled world must not republish (QA-001) |
+| published + unlisted | copy-link panel, ask-for-Explore, keep private | unchanged (the panel now keys off the audience in force, same result) |
+| published + public | link (demote) + keep private, badge EVERYONE | unchanged — the badge is honest here |
+| rejected | appeal / resubmit / play / my worlds | unchanged — never empty |
+| draft (dead build) / generating | retry / progress | unchanged |
+
+The rule this encodes: **no state withdraws the only affordance that would move a world out of it,
+and no badge claims an audience the world does not have.** The same badge is on SCR-050's cards, so
+the shelf stopped claiming EVERYONE too.
+
+WS-API's half landed while this was being written — a world created "Everyone" now finishes in
+`review` and an "unlisted" one `published` — so `ready + public` is no longer reachable at create
+time. **Every world built before that fix is still `ready` + `public`/`unlisted` in the database**,
+which is exactly what the client half is for; those rows were driven in Chromium (§4).
+
+### 3. `/studio/:id` for someone who is not the creator
+
+Two ways the screen knows, and it redirects to `/world/:id` on either: the status poll gave up and
+`GET /v1/worlds/:id` answers (today's path — one extra request, only on the failure path), or the
+status payload came back with `isMine: false`. The second matters for the day the endpoint opens up
+(§5): without it, a visitor would be shown "Share it with everyone" and "Keep it private" for a
+world the API will refuse them.
+
+### 4. Ids, copy, and what was measured
+
+- **No new test id and no new string.** The world page uses `studio-ready` for its content block and
+  `studio-play` for its action — `testids.ts` has no id for this surface, and those two are the
+  closest existing (they mean "a finished world, revealed, with its cast and its play button",
+  which is what this is from the other side of the link). QA-002's own E2E case already looks for
+  exactly those two at the share URL. **An id for the world page itself is the thing worth adding**
+  when `packages/shared` is open again — say `worldPage` / `worldPlay`.
+- The world page's status badge deliberately carries **no** `testID`: `studio-status-badge` belongs
+  to SCR-049, and the creator can reach the studio screen from this page.
+- Every id was counted in Chromium with the screens stacked: `studio-ready`, `studio-play`,
+  `studio-cast` and `studio-publish` each match **1**, including after the `/studio/:id` forward and
+  with the persona screen pushed on top.
+- Copy is all existing keys, EN and JA: `studioPlay`, `studioCastHeading`, `studioBy`, `studioPlays`,
+  `studioTitle`, `studioCommunity`, `loadFailed`, `retry`, and for Explore's empty state
+  `pickStory` / `tagline` / `enterWorld`.
+- `WorldHero` (`src/components/WorldHero.tsx`) is SCR-049's hero, extracted so the recipient of a
+  link sees the same picture the creator saw. No colour or type decision moved with it.
+
+### 5. Cross-cutting — for whoever owns `apps/api` and `packages/shared`
+
+1. **The world page cannot credit its creator or show a play count to the person the link was sent
+   to.** `GET /v1/worlds/:id` returns `WorldDetailResZ`, whose `world` is `WorldSummaryZ` — no
+   `creatorHandle`, no `playCount`, no `status`. Either would close it:
+   (a) let `GET /v1/worlds/:id/status` answer anyone who passes `canStillPlay` rather than only the
+   creator — which is what QA-002's own E2E case asserts
+   (`expect(status.status()).toBeLessThan(400)`), and it is a strictly smaller disclosure than
+   `GET /v1/worlds/:id` already makes; or (b) widen `WorldDetailResZ.world` to `WorldSummaryFullZ`.
+   **The client needs no change for (a)**: the page already asks for `/status` and fills in the
+   moment it answers. Proven in Chromium by intercepting only that one response (creator handle and
+   "128 plays" appear, and the visitor is still offered no creator control).
+2. **A recipient with no session loses the destination.** `/world/:id` needs a bearer, so a signed-out
+   visitor is sent to `/auth` and lands in the app, not in the world. There is no post-auth deep-link
+   return anywhere in this client; building one is a bigger change than this pass, and worth doing
+   for the same reason unlisted exists — the link is the distribution.
+3. **`e2e` annotations that are now stale** (not touched — `e2e/` is not mine): `QA-003a`, `QA-003b`
+   and `QA-006` in `tests/world-lifecycle.spec.ts` pass with these fixes plus WS-API's, so their
+   `test.fail()` lines now report as unexpected passes, which is the signal the file's own header
+   describes. `QA-002` still fails on **one** line — its direct assertion that
+   `GET /v1/worlds/:id/status` answers the recipient (§5.1) — while everything it asserts through
+   the UI now holds.
+
+### Verification
+
+`pnpm --filter mobile typecheck` clean; `pnpm --filter mobile export:web` succeeds. Driven in
+Chromium at 390×844, EN and JA, against an own stack (API :4300, own database; web export :8390 —
+nobody else's ports touched). Two accounts, real API throughout: creator builds → publishes
+`unlisted` → the copy-link panel hands out `/world/<id>` → a second account opens **that exact URL**
+→ the world page with its cast → "Play this world" → the persona flow. Plus: the old `/studio/<id>`
+link forwards, the creator's own link is not a dead end, the legacy `ready`+`public` and
+`ready`+`unlisted` rows both keep the control that fixes them and both badge as JUST ME, an approved
+world still says EVERYONE, a queued one offers no publish and keeps its withdrawal, and Explore with
+no persona says "Pick your story" / 「ストーリーを選ぶ」 under the heading instead of nothing.
+Screenshots: `/tmp/claude-0/-home-user-RPGLLM/eeac402b-8806-5fd2-846a-21bc19595131/scratchpad/fix/`.
