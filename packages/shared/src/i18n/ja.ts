@@ -288,4 +288,10 @@ export const ja: Strings = {
   studioPulled: "再確認のため一時的に非公開",
   studioPulledHint: "通報が一定数を超えたため、もう一度人が読んでいます。",
   studioResubmitWait: "再申請は明日からできます",
+  studioAppeal: "もう一度見てもらう",
+  studioAppealTitle: "どこが違うか教えてください",
+  studioAppealHint: "1通だけ、人が読みます。審査で見落とされた点を書いてください。この判断に対する異議は1回だけです。",
+  studioAppealSubmit: "送る",
+  studioAppealSent: "人が読みます",
+  studioAppealPending: "異議申し立ては審査待ちです",
 };

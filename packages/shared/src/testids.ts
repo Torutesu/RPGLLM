@@ -209,4 +209,10 @@ export const T = {
   worldReviewOverdue: "world-review-overdue",
   worldReviewReports: (id: string) => `world-review-reports-${id}`,
   reportWorld: "report-world",
+  worldReviewAppeal: (id: string) => `world-review-appeal-${id}`,
+  worldReviewClaim: (id: string) => `world-review-claim-${id}`,
+  studioAppeal: "studio-appeal",
+  studioAppealInput: "studio-appeal-input",
+  studioAppealSubmit: "studio-appeal-submit",
+  studioAppealSent: "studio-appeal-sent",
 } as const;

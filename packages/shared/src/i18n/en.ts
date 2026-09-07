@@ -287,5 +287,11 @@ export const en = {
   studioPulled: "Taken down for another look",
   studioPulledHint: "Enough players reported it that a person is reading it again.",
   studioResubmitWait: "You can submit this again tomorrow",
+  studioAppeal: "Ask for another look",
+  studioAppealTitle: "Tell us what we got wrong",
+  studioAppealHint: "One message, read by a person. Say what the reviewer missed — this is your one appeal for this decision.",
+  studioAppealSubmit: "Send it",
+  studioAppealSent: "A person will read it",
+  studioAppealPending: "Your appeal is in the queue",
 } as const;
 export type Strings = { [K in keyof typeof en]: (typeof en)[K] extends readonly string[] ? readonly string[] : string };

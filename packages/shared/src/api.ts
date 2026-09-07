@@ -524,6 +524,13 @@ export const WorldSummaryFullZ = WorldSummaryZ.extend({
    * "taken down for another look", so the two say different things on screen.
    */
   pulled: z.boolean().default(false),
+  /**
+   * Appeal state, from the creator's side. A rejection the creator believes was misread is the one
+   * case where "wait 24h and resubmit the same world" is the wrong answer, so `canAppeal` says
+   * whether saying so is still available and `appealed` says it has been used.
+   */
+  canAppeal: z.boolean().default(false),
+  appealed: z.boolean().default(false),
 });
 export const CreateWorldResZ = z.object({
   world: WorldSummaryFullZ,
@@ -560,7 +567,20 @@ export const WorldReviewQueueResZ = z.object({
     overdue: z.boolean(),
     /** what people said about it, newest first, so the reviewer reads the complaint not just the world */
     reports: z.array(z.object({ reason: z.string(), note: z.string(), createdAt: z.string() })),
+    /** the creator's case, when this is back in the queue because they appealed a rejection */
+    appeal: z.object({ message: z.string(), createdAt: z.string(), previousReason: z.string() }).nullable(),
+    /** who is looking at it right now, so two reviewers do not spend the same twenty minutes */
+    claimedBy: z.string().nullable(),
+    claimedUntil: z.string().nullable(),
   })),
   overdueCount: z.number().int(),
+  appealCount: z.number().int(),
 });
+
+/** A reviewer takes a world for `WORLD_MODERATION.CLAIM_MINUTES`; it returns to the queue after. */
+export const ClaimWorldResZ = z.object({ worldId: z.string(), claimedUntil: z.string(), claimedByYou: z.boolean() });
 export const ReviewWorldReqZ = z.object({ decision: z.enum(["approve", "reject"]), reason: z.string().max(300).default("") });
+
+/** SCR-049 → a rejected world's creator says the decision read it wrong. Once per rejection. */
+export const AppealWorldReqZ = z.object({ message: z.string().min(10).max(500) });
+export const AppealWorldResZ = z.object({ world: WorldSummaryFullZ });

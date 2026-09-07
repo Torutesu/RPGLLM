@@ -253,6 +253,28 @@ export const WORLD_MODERATION = {
   REVIEW_SLA_HOURS: 24,
   /** how long a rejected world's creator must wait before submitting it again */
   RESUBMIT_COOLDOWN_HOURS: 24,
+  /**
+   * Appeals per rejection. One, deliberately: an appeal is a creator saying "you read this wrong",
+   * which is worth a person's time exactly once per decision. More than that is a queue attack.
+   */
+  APPEALS_PER_REJECTION: 1,
+  /**
+   * How long one reviewer holds a world before it returns to the queue. Two people reviewing the
+   * same world is wasted time; a world stuck behind someone who closed their laptop is worse.
+   */
+  CLAIM_MINUTES: 20,
+} as const;
+
+/**
+ * Every `WORLD_MODERATION` number was chosen for a product with no users. These are the env keys
+ * that override them, so the thresholds can be re-derived from real report rates without a deploy
+ * — the defaults above are a starting guess, not a policy.
+ */
+export const WORLD_MODERATION_ENV = {
+  REPORTS_TO_PULL: "WORLD_REPORTS_TO_PULL",
+  REVIEW_SLA_HOURS: "WORLD_REVIEW_SLA_HOURS",
+  RESUBMIT_COOLDOWN_HOURS: "WORLD_RESUBMIT_COOLDOWN_HOURS",
+  CLAIM_MINUTES: "WORLD_CLAIM_MINUTES",
 } as const;
 
 export const WORLD_GENRES = ["fame", "academy", "idol", "office", "sports", "fantasy", "mystery", "slice_of_life"] as const;
