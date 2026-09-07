@@ -51,14 +51,40 @@ export function mediaFor(
   kind: string,
   parentId: string | null = null,
   feedCell = false,
+  /** the batch already decided this row carries a picture; only the picture is left to derive */
+  forced = false,
 ): PostMedia {
   if (kind === "user" || kind === "system") return NO_MEDIA;
   if (parentId !== null && !feedCell) return NO_MEDIA;
   const h = hashString(postId);
-  if (h % (kind === "news" ? NEWS_EVERY : MEDIA_EVERY) !== 0) return NO_MEDIA;
+  if (!forced && h % (kind === "news" ? NEWS_EVERY : MEDIA_EVERY) !== 0) return NO_MEDIA;
   const palette = paletteFor(kind);
   const mediaKind = palette[(h >>> 8) % palette.length] ?? palette[0]!;
   return { mediaKind, mediaSeed: (h >>> 3).toString(36) };
+}
+
+/**
+ * Which of `n` rows written together should carry a picture, when their ids do not exist yet.
+ *
+ * `mediaForBatch` guarantees the cadence over ids it can hash. A reply fan-out cannot use it: the
+ * rows are created one at a time so each can be streamed as it lands, so the media has to be
+ * decided *before* the id exists. Deciding by position, seeded from the parent whose id does
+ * exist, gives the same guarantee — `ceil(n / every)` carriers, the same ones every time for the
+ * same parent — without needing the children.
+ *
+ * Without this the fan-out was `mediaFor`'s coin flip per row: with three replies that is a 42%
+ * chance the whole burst is text, and a burst is exactly what a player sees right after posting.
+ */
+export function carrierIndices(parentId: string, n: number, every: number = MEDIA_EVERY): Set<number> {
+  const out = new Set<number>();
+  if (n <= 0) return out;
+  const carriers = Math.max(1, Math.ceil(n / Math.max(1, every)));
+  const seed = hashString(parentId);
+  // Ranked by a per-position hash so the choice is spread rather than always the first rows.
+  const ranked = Array.from({ length: n }, (_, i) => i)
+    .sort((a, b) => hashString(`${seed}:${a}`) - hashString(`${seed}:${b}`) || a - b);
+  for (const i of ranked.slice(0, carriers)) out.add(i);
+  return out;
 }
 
 /**

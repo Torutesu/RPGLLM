@@ -1,7 +1,7 @@
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { HEAT, MEDIA_EVERY, MEDIA_KINDS, TrendingResZ, hashString } from "@rpgllm/shared";
 import { heatFor } from "../src/services/heat";
-import { mediaFor, mediaForBatch } from "../src/services/media";
+import { carrierIndices, mediaFor, mediaForBatch } from "../src/services/media";
 import { castFollowers, crowdAbove, extractTopics } from "../src/services/trending";
 import { call, makeHarness, prisma, readSSE, resetDatabase, signupWithPersona, type Harness } from "./helpers";
 
@@ -270,6 +270,35 @@ describe("media cadence in a seeded batch", () => {
       const withPicture = [...media.values()].filter((m) => m.mediaKind !== null);
       expect(withPicture.length).toBeGreaterThan(0);
     }
+  });
+
+  it("a burst of replies is never all text either, however many of them there are", () => {
+    /*
+     * The same bug one layer over: a reply fan-out is written a row at a time so each can stream as
+     * it lands, which meant no batch to hash and a coin flip per row — with three replies, a 42%
+     * chance the whole burst is text, arriving exactly when the player has just posted and is
+     * watching. `carrierIndices` decides by position from the parent's id instead.
+     */
+    for (let trial = 0; trial < 200; trial += 1) {
+      for (const n of [1, 2, 3, 4, 5, 9]) {
+        const carriers = carrierIndices(`parent-${String(trial)}`, n);
+        expect(carriers.size, `n=${String(n)} must carry at least one picture`).toBeGreaterThan(0);
+        expect(carriers.size).toBe(Math.max(1, Math.ceil(n / MEDIA_EVERY)));
+        for (const i of carriers) expect(i).toBeLessThan(n);
+      }
+    }
+  });
+
+  it("picks the same rows for the same parent, and different ones for different parents", () => {
+    const a = [...carrierIndices("post-a", 8)].sort((x, y) => x - y);
+    expect([...carrierIndices("post-a", 8)].sort((x, y) => x - y), "a re-render draws the same feed").toEqual(a);
+    const differs = ["post-b", "post-c", "post-d", "post-e"]
+      .some((id) => [...carrierIndices(id, 8)].sort((x, y) => x - y).join() !== a.join());
+    expect(differs, "and the cadence is not the same four rows in every thread").toBe(true);
+  });
+
+  it("carries no picture where there is nothing to carry", () => {
+    expect(carrierIndices("post-a", 0).size).toBe(0);
   });
 
   it("keeps the one-in-four cadence and is stable across calls", () => {

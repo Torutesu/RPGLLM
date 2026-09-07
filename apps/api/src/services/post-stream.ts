@@ -5,7 +5,7 @@ import { postStreamDelayMs } from "../env";
 import type { AppState, Deps, Tx } from "../types";
 import { logGeneration } from "./generation";
 import { heatFor } from "./heat";
-import { mediaFor } from "./media";
+import { carrierIndices, mediaFor } from "./media";
 import { computeMetrics, seedFrom } from "./rng";
 import { metricsCausedBy, toApiPost, toApiSnapshot, toApiEvent, type PostRow } from "./serialize";
 import { generateEvent, ensureEvent, pendingEvent } from "./events";
@@ -26,6 +26,8 @@ async function createPostWithMetrics(
   extraMetrics: Record<string, unknown> = {},
   /** true when this row is shown as a feed cell even though it has a parent (a reply to the player) */
   feedCell = false,
+  /** the fan-out already decided this row carries a picture (see `carrierIndices`) */
+  forcedMedia = false,
 ): Promise<PostRow> {
   const created = await prisma.post.create({ data });
   const metrics = { ...computeMetrics(created.id, followers), ...extraMetrics };
@@ -35,7 +37,7 @@ async function createPostWithMetrics(
     where: { id: created.id },
     data: {
       metrics: metrics as unknown as Prisma.InputJsonValue,
-      ...mediaFor(created.id, created.kind, created.parentId, feedCell),
+      ...mediaFor(created.id, created.kind, created.parentId, feedCell, forcedMedia),
       heat: heatFor({ metrics, kind: created.kind, createdAt: created.createdAt, now: created.createdAt }),
     },
     include: { authorCharacter: true },
@@ -111,6 +113,9 @@ export async function materializeReplies(
   let likes = await deps.prisma.notification.count({
     where: { personaId: ctx.persona.id, kind: "like", target: `post:${post.id}` },
   });
+  // A burst of replies is scrolled past together, so its cadence is guaranteed the way the seeded
+  // feed's is — decided up front, by position, because the rows do not have ids yet.
+  const carriers = carrierIndices(post.id, output.replies.length);
   for (const [i, reply] of output.replies.entries()) {
     const character: WorldCharacter | undefined =
       characterByHandle(ctx.characters, reply.characterHandle) ?? ctx.characters[i % Math.max(1, ctx.characters.length)];
@@ -129,7 +134,7 @@ export async function materializeReplies(
         createdAt: deps.clock.now(),
         metrics: {},
         // A reaction to the player's post is a row in their feed, not a nested thread reply.
-      }, ctx.persona.followers, {}, true);
+      }, ctx.persona.followers, {}, true, carriers.has(i));
       if (notifiesPersona) {
         await notify(tx, {
           personaId: ctx.persona.id,
