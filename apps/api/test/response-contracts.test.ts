@@ -1,8 +1,9 @@
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 import {
-  CreatorProfileResZ, MeResZ, MyWorldsResZ, PublicWorldsResZ, WorldDetailResZ, WorldsResZ,
+  CreatorProfileResZ, MeResZ, ModerationMetricsResZ, MomentReelResZ, MyWorldsResZ, PublicWorldsResZ,
+  WorldDetailResZ, WorldsResZ,
 } from "@rpgllm/shared";
-import { call, makeHarness, resetDatabase, signup, type Harness } from "./helpers";
+import { call, makeHarness, prisma, readSSE, resetDatabase, signup, signupWithPersona, type Harness } from "./helpers";
 
 /**
  * The responses this service returns, parsed against the schemas `packages/shared` publishes.
@@ -80,5 +81,38 @@ describe("responses parse against the schemas packages/shared publishes", () => 
     expect(profile.isYou).toBe(true);
     expect(profile.worlds).toHaveLength(0);
     expect(profile.totalPlays).toBe(0);
+  });
+
+  it("GET /v1/moments/:slug/reel — the share target a recording is made from", async () => {
+    const fx = await signupWithPersona(h);
+    const created = await call<{ post: { id: string }; streamUrl: string }>(h, "POST", "/v1/posts", {
+      token: fx.token, body: { personaId: fx.personaId, text: "the album leaked", parentId: null },
+    });
+    await readSSE(h, created.data.streamUrl, fx.token);
+    const snapshot = await prisma.statSnapshot.findFirstOrThrow({ where: { cause: `post:${created.data.post.id}` } });
+    await prisma.statSnapshot.update({ where: { id: snapshot.id }, data: { auraDelta: 6 } });
+    const list = await call<{ moments: { shareSlug: string }[] }>(
+      h, "GET", `/v1/moments?personaId=${fx.personaId}`, { token: fx.token },
+    );
+
+    // No bearer: the reel is public exactly like the card it comes from.
+    const res = await call<unknown>(h, "GET", `/v1/moments/${list.data.moments[0]!.shareSlug}/reel`);
+    expect(res.status).toBe(200);
+    const reel = MomentReelResZ.parse(res.data);
+    expect(reel.beats.length).toBeGreaterThan(2);
+    expect(reel.durationMs).toBe(reel.beats.reduce((sum, b) => sum + b.holdMs, 0));
+    // `delta` is present on the stat beat and null everywhere else — the contract allows both, and
+    // a client that counts the number up depends on which is which.
+    expect(reel.beats.filter((b) => b.delta !== null).map((b) => b.kind)).toEqual(["stat"]);
+  });
+
+  it("GET /v1/admin/moderation/metrics, on a deployment nobody has used yet", async () => {
+    const res = await call<unknown>(h, "GET", "/v1/admin/moderation/metrics");
+    expect(res.status).toBe(200);
+    const parsed = ModerationMetricsResZ.parse(res.data);
+    // The nullable halves of the contract are exercised by the case that matters: the empty window.
+    expect(parsed.decisions.medianLatencyHours).toBeNull();
+    expect(parsed.decisions.p90LatencyHours).toBeNull();
+    expect(parsed.thresholds.reportsToPull).toBeGreaterThan(0);
   });
 });

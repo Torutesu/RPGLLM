@@ -3,6 +3,7 @@ import { requireAuth } from "../auth";
 import { notFound, ok } from "../http";
 import { personaFor } from "../services/digest";
 import { ensureMomentsFor, toApiMoment } from "../services/moment";
+import { buildReel } from "../services/reel";
 import type { AppEnv } from "../types";
 
 const PAGE = 20;
@@ -39,6 +40,22 @@ export function momentRoutes(): Hono<AppEnv> {
     const row = await deps.prisma.moment.findUnique({ where: { shareSlug: c.req.param("slug") } });
     if (!row) return notFound("Moment");
     return ok({ moment: toApiMoment(row) });
+  });
+
+  /**
+   * The reel (gtm.md §4) — the same moment as a timeline, **public for the same reason the card
+   * is**: it is the share target. A still cannot carry the turn, so this is what a TikTok/Shorts
+   * recording is made from, and the server owns the timing so that every viewer sees the same cut
+   * and a recording can never drift from the animation. See `services/reel.ts` for what earns a
+   * beat, how it is paced, and why it is deterministic.
+   */
+  app.get("/:slug/reel", async (c) => {
+    const deps = c.get("deps");
+    const row = await deps.prisma.moment.findUnique({ where: { shareSlug: c.req.param("slug") } });
+    if (!row) return notFound("Moment");
+    const reel = await buildReel(deps.prisma, row);
+    if (!reel) return notFound("Moment");
+    return ok(reel);
   });
 
   return app;

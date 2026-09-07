@@ -182,6 +182,15 @@ export function adminWorldRoutes(): Hono<AppEnv> {
     const now = deps.clock.now();
     const reviewer = reviewerId(c);
     const approved = body.value.decision === "approve";
+    /**
+     * **`reviewRequestedAt` survives the decision** (it used to be cleared by both branches).
+     * Without it a decided world remembers *that* it was reviewed and never *how long it waited*,
+     * and review latency — the number that says whether the SLA in `WORLD_MODERATION` is real —
+     * is unmeasurable after the fact (`services/moderation-metrics.ts`). Keeping it is invisible to
+     * every queue read: `waitingSince`, `isOverdue`, `worldModerationOps` and `reviewQueue` all
+     * filter on `status = "review"` first, and re-entering the queue (publish, appeal, pull) always
+     * rewrites the timestamp.
+     */
     const updated = await deps.prisma.$transaction(async (tx) => {
       const row = await tx.world.update({
         where: { id: world.id },
@@ -189,7 +198,7 @@ export function adminWorldRoutes(): Hono<AppEnv> {
           ? {
             // Back on the shelf, and no longer pulled: a person has now looked at it.
             status: "published", reviewedAt: now, reviewedBy: reviewer, rejectedReason: "",
-            pulledAt: null, reviewRequestedAt: null,
+            pulledAt: null,
             // An approval answers the appeal it was carrying, and there is no longer a rejection
             // to argue with — so the next one, if this world is ever rejected again, starts fresh.
             ...clearedAppeal,
@@ -204,7 +213,6 @@ export function adminWorldRoutes(): Hono<AppEnv> {
             reviewedBy: reviewer,
             rejectedReason: body.value.reason,
             pulledAt: null,
-            reviewRequestedAt: null,
             // **The appeal state is deliberately left standing.** A world rejected *again* after an
             // appeal has spent its appeal for that argument: `appealsUsed` stays at the limit, so
             // `canAppeal` is false and the creator's next step is the ordinary cooldown. A new

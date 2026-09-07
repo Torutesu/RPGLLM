@@ -3563,3 +3563,294 @@ decision now notifies at all.
   by the two writers (`notify` / `tellCreator`) instead.
 - The fresh strip's window and slots are env-tunable (`WORLD_FRESH_WINDOW_HOURS`, `WORLD_FRESH_SLOTS`,
   `WORLD_FRESH_MIN_SHELF`) precisely because 48h/6/12 are guesses for a product with no users.
+
+---
+
+## Agent REEL-API — `GET /v1/moments/:slug/reel`, `GET /v1/admin/moderation/metrics`
+
+Owned: `apps/api/**`. Contracts (`MomentReelResZ`, `ReelBeatZ`, `ReelBeatKindZ`,
+`ModerationMetricsResZ`) were already frozen in `packages/shared` and are not touched.
+
+### The reel — the judgement calls, and where they live
+
+`services/reel.ts` (the cut) + `services/reel-text.ts` (the clock). The route is public for the same
+reason `GET /v1/moments/:slug` is: it is the share target, and a reel nobody can open without an
+account is not a growth surface (gtm.md §4).
+
+**What earns a beat.** Not every reply. Candidates are the character replies to the post the swing
+came from, plus the press post that reported it, and they are scored:
+`0.5 × Post.heat + 40 (this character's opinion of you moved in this snapshot) + 35 (it moved *down*)
++ 10 (press)`. Heat is halved on purpose — at full weight "most liked" swamps "what the reply did",
+and the three most-liked replies are exactly the lukewarm cut this scoring exists to avoid. Then a
+**relative floor**: anything below 45% of the best candidate is dropped rather than padded in, so a
+weak third reaction is left out and the reel is two sharp beats instead of three flat ones.
+
+**Pacing.** A beat's hold is its own text's reading time — `480ms + 22ms per reading unit`, where a
+latin character is one unit and a CJK/kana/hangul character is **two**. That is the answer to "a
+200-character reply is not a 20-character one" and to "Japanese is not English at the same character
+count", and because it is measured per character rather than per locale it also handles a mixed line.
+The rate is a *skim* rate, not a comprehension rate: nine seconds cannot hold six beats and let
+anyone read a full post, so long text is truncated (`truncateToUnits`) rather than allowed to break
+the cut, and the whole text stays one tap away on the moment card.
+
+**The turn.** Order is not chronology: world → what you posted → the reactions **quietest first** →
+the numbers moving → the line that names it → the world's name. The sharpest reaction is the one
+that hands off to the punchline.
+
+**`durationMs ≤ 9,800ms` holds by construction, not by a compression pass.** The widest possible
+skeleton (setup + post + stat + headline + outro, each at its ceiling) is 8,000ms and a reply is
+admitted only while it fits in what is left — the first one trimmed to the remaining room if it must
+be. Change a ceiling in `REEL.HOLD` and re-check that sum.
+
+**Determinism** (the timing is a contract with a screen recording): every input is a stored row;
+`Post.heat` is read from the column and never recomputed against the clock; the candidate set is
+frozen at the snapshot's own timestamp, so a later `more-replies` pass cannot change a reel somebody
+already recorded (there is a test); every sort is a total order (score → createdAt → id); holds are
+integers accumulated so rounding cannot drift; and the language is the **owner's**, i.e. the language
+the posts in it were generated in — not the reader's, because a per-viewer reel is not a recording.
+
+### One deliberate behaviour change: `reviewRequestedAt` survives the decision
+
+`POST /v1/admin/worlds/:id/review` used to clear `reviewRequestedAt` on both branches, so a decided
+world remembered *that* it was reviewed and never *how long it waited* — review latency was
+unmeasurable after the fact, which makes `REVIEW_SLA_HOURS` unfalsifiable. It is now left standing.
+This is invisible to every queue read: `waitingSince`, `isOverdue`, `worldModerationOps` and
+`reviewQueue` all filter on `status = "review"` first, and re-entering the queue (publish, appeal,
+pull) always rewrites the timestamp. No existing test changed.
+
+### Moderation metrics — the definitions that had to be chosen
+
+- **Decisions** are `World` rows with `reviewedAt` in the window and a non-null `reviewedBy` (the
+  pre-publish safety gate notifies the creator but writes no reviewer, so machine refusals stay out
+  of a human throughput number). A world reviewed twice in the window counts **once** — the latest
+  decision — because there is no decision log.
+- **Approved vs rejected** is `status === "rejected" || rejectedReason !== ""`, the same field the
+  resubmit cooldown keys on. `ReviewWorldReqZ.reason` defaults to `""`, so a rejection filed with an
+  empty reason whose creator then republished it privately reads as an approval. That is the one
+  hole, and it is the cooldown's hole too.
+- **Latency** is `reviewedAt − reviewRequestedAt` (see above); worlds without a request timestamp
+  contribute no sample rather than a wrong one. **Percentiles over an empty window are `null`, never
+  `0`** — nobody reviewing anything is not "it took no time". Median is the middle (mean of two);
+  p90 is nearest-rank.
+- **Pulls** come from the `world_pulled` creator notification, not from `World.pulledAt`: the column
+  is cleared the moment a human decides, so the row remembers "is pulled" and never "was pulled".
+  The notification is durable, timestamped and written in the takedown's own transaction.
+  `pullsReapproved` is that log read forward to the next `world_reviewed` notification with
+  `approved: true` — a pull a person immediately reversed is the honest evidence that
+  `REPORTS_TO_PULL` is set too low.
+- **`perThousandPlays` is lifetime over lifetime.** A play leaves no timestamped row (`playCount` is
+  a counter), so a 7-day numerator over an all-time denominator would understate the rate by however
+  long the deployment has been running. Both sides cumulative is the comparison that means something.
+  Zero plays answers `0`, never `NaN`/`Infinity` (`safeRate` is the only division in the file).
+- **`estimatedReviewMinutes`** = worlds reviewed × `WORLD_REVIEW_MINUTES_PER_WORLD` (default **2**,
+  the working figure from gtm.md §2 「1 件 2 分としても」). An operator supplies what a review actually
+  costs them; a non-positive or absurd value (> 600) is a typo and the default stands.
+  **`generationCostUsd`** is summed from `GenerationLog` for exactly those worlds — never a constant.
+
+### Cross-cutting: needed elsewhere, not written by this agent
+
+1. **A `WorldReviewEvent` table** (world, reviewer, decision, requested-at, decided-at) would remove
+   three caveats at once: one-decision-per-world, the empty-reason hole in approved/rejected, and
+   the dependency on notification rows for the pull log. It is a schema change with a client-visible
+   admin surface attached, so it is proposed here rather than taken.
+2. **The reel has no i18n needs and takes none.** Every beat's text is data (world scenario, the
+   post, the replies, the moment headline, the world title); only the stat line uses i18n, and it
+   uses the existing `followers` / `aura` / `humor` keys. `reelTitle`/`reelHint`/`reelRecord` already
+   exist in `packages/shared` for the client's own chrome.
+3. **Plays are not a log.** Anything that wants "reports per thousand plays *this week*", or plays by
+   locale/time, needs a `WorldPlay` row. Today `World.playCount` is a counter and this endpoint says
+   so out loud rather than implying a window it does not have.
+
+### Numbers
+
+393 API tests before, **415 after** (37 files), all green; api typecheck clean; `prisma migrate diff`
+reports no drift (no schema change was made). No existing test was edited, weakened or skipped.
+
+### Left open
+
+- `MAX_REPLIES` is 3 and the reel usually fits two. Whether the third beat is worth the seconds is a
+  question for the first recordings, not for a constant — the floor and the ceilings are the knobs.
+- A moment caused by a drama event has no player post, so its reel opens on the world and goes
+  straight to the reactions frozen in the card's payload. It is shorter (≈4.5–7s) and that is the
+  honest cut for it; if event reels turn out to matter, the event's chosen choice label is the beat
+  to add.
+- The reel is served in the owner's locale. A JA world played by an EN reader shares as JA — correct
+  today, because the posts inside it are JA. The day worlds carry both locales end-to-end, a
+  `?locale=` variant would need its own recording contract (deterministic **per slug and locale**).
+
+---
+
+## Agent LIVE-HARNESS — the run somebody makes the morning a key arrives (`packages/llm`)
+
+Owned `packages/llm/**` only. `pnpm --filter llm test` **446 → 504**, nothing weakened; `tsc --noEmit`
+clean; `eslint packages/llm` unchanged at 10 pre-existing errors (`blueprint.ts:147`,
+`screen.ts:397`), **0 in anything added here**.
+
+Closes gap-analysis 「なお残るもの」①: *"本番 API キーが無いため、live の往復は未検証 … 評価表はコストに
+ついては正確、品質については盲目"*. It does not *verify* live — there is still no key in this
+environment and nothing here pretends otherwise. It builds the thing that does, and rehearses it.
+
+### The command
+
+```
+pnpm --filter llm verify:live                 # 18 worlds, 8 genres, both locales
+pnpm --filter llm verify:live --estimate-only # what it would cost. No key needed.
+pnpm --filter llm verify:live --stub          # the rehearsal. No key, no spend, no evidence.
+pnpm --filter llm verify:live --genres fame,idol --pairs 2 --max-usd 2 --timeout 300
+```
+
+It generates worlds through the real gateway, runs **the same G9 eval gate** over them (not a second
+implementation — `runEval(generator:"G9")`, worlds captured on the way past so nothing is generated
+twice), and writes a self-contained HTML report plus the raw JSON to `--out` (default
+`packages/llm/.verify/`, gitignored inside the package). Terminal output carries the same numbers.
+
+**Measured cost of a full run: $5.93 — $0.3296 per world.** That estimate is not a guess: the
+identical plan is executed in replay, free, and its token counts are priced at live rates
+(`priceOf` already prices replay usage against the would-be model id). It lands on gtm.md §2's
+$0.32 from an independent direction, which is the first corroboration that number has had.
+The report prints estimate against actual so the next operator knows how far off the estimator is.
+
+### Refusing rather than degrading
+
+No `ANTHROPIC_API_KEY` → exit 1, naming the variable, before anything is constructed. `LLM_MODE=replay`
+with a key → also refused: a "live" verification asked for in replay mode is the exact accident this
+exists to prevent. And after the run, `liveEvidenceOf(metas)` re-checks the receipts: **a run that
+claims live and contains a call with `stopReason:"replay"` or `model:"replay"` is stamped
+NOT A LIVE RUN in both renderers and exits 2.** A report that cannot be told apart from a replay
+report is worse than no report, so the harness does not trust its own flag — it checks.
+
+`--stub` is loud in the other direction: banner, `verify-stub-*` filenames, and the sentence
+"none of it is evidence about a model" in the HTML.
+
+### The three questions, and what each answer is worth
+
+| | measured | verdict |
+|---|---|---|
+| **1. Is the JA native or translated?** | CJK density, JA fields byte-identical to their EN twin, per-locale role lines, JA/EN bible token ratio | **`NEEDS A HUMAN`, by design** |
+| **2. Do two premises make two worlds?** | bible-line / cast-card / handle / display-name overlap between the two premises of each genre | pass/fail against the gate's 0.5 |
+| **3. Are eight characters eight people?** | pairwise overlap within a world, of *descriptions* (role+card+intro) and of *speech* (fallback lines, welcome post, ambient) | pass/fail against 0.35 |
+
+**Question 1 cannot be answered by a machine and the report says so instead of implying otherwise.**
+Every check above is passed by a competent *translation* of the English, which is precisely the
+failure being hunted. So the strongest verdict the harness will emit is `NEEDS A HUMAN`, and the
+deliverable is the HTML's last section: the JA and EN halves of up to three Japanese worlds, field by
+field, in two columns — title, scenario, bible opening, all eight cast role/card/first-post triples,
+three events with choices, ambient posts — with byte-identical rows highlighted red and a
+six-line Japanese checklist beside them (語順, 主語, 語尾の書き分け, カタカナ直訳, リズム, EN/JA が同じ出来事か).
+One screen, ten minutes, one person.
+
+**Question 2 is the headline, and it now has a control.** The report does not quote "replay shares
+0.70–0.80" from these notes — it *rebuilds the blueprint world from the same premise in the same run*
+and prints it in a grey column beside the live number, plus a floor (two worlds of *different*
+genres). The full stub run reproduces the documented blueprint figures exactly (0.70–0.80, mean 0.76;
+cross-genre 0.01–0.30), so the comparison is calibrated by construction rather than by memory.
+
+**Question 3 is new measurement.** `castDistinctnessOf` splits description from speech deliberately:
+eight distinct biographies whose *lines* are interchangeable is the same defect as a world with
+labels instead of authors, one level down, and only the speech half catches it. Latin text is
+compared by content word, Japanese by character bigram — one rule for both alphabets was the wrong
+answer and is not what ships.
+
+### Degrading honestly
+
+A refusal, a timeout, a fallback and a dented stage are **results**, in a ledger, with the run
+continuing:
+
+- `timeoutMs` per world (default 600s) — a hung call scores that case zero and appears as
+  `no-result`; the other seventeen still answer. (The abandoned promise cannot be cancelled behind
+  fourteen dependent calls, so it may still bill; the report says that rather than pretending.)
+- `concurrency` (default 2) — eighteen worlds is 252 dependent calls, and unbounded fan-out is a
+  rate-limit incident, not throughput.
+- If the gate itself throws, the report is still produced with the spend and the ledger intact:
+  by then the money is gone, and losing the receipt with the exception is the one failure a second
+  run cannot undo.
+- Exit codes: 0 answered, 1 refused before spending, 2 answered and an answer was **no**.
+
+### What the stub proves, and what it cannot
+
+`createStubLiveGateway` returns the deterministic blueprint put through the transformation a *good*
+live run would make — premise-derived handles and display names, most bible lines rewritten,
+per-character traits and verbal tics — with **live-shaped metas**: real model ids, `end_turn`, four
+token counts, real prices. Its cost lands within 4% of the estimator.
+
+It proves the harness: every measurement, rollup, threshold, renderer, refusal, timeout, fallback
+and exit code executes, and `authorship: 0` (the blueprint untouched) makes question 2 **fail**, so
+the headline number is shown to discriminate rather than merely to exist. It proves **nothing** about
+Claude — not the Japanese, not the divergence, not the cost of real output, which runs longer than
+the blueprint's. The stub is written to pass; a green stub report is a green *harness*.
+
+### Seams added to existing code (all optional, all no-ops when omitted)
+
+`EvalRunArgs` gains `onWorld`, `concurrency`, `timeoutMs`; `runEval` / `runEvalG9` take that type
+instead of an inline one. `mapPooled` and `settleWithin` live in `eval-core.ts`. Every existing
+caller (`apps/api/src/services/evals.ts`, `scripts/eval.mjs`) is unaffected — same behaviour, same
+signature, 446 pre-existing tests untouched.
+
+### For whoever owns the repo root
+
+- **`.gitignore`**: reports land in `packages/llm/.verify/`, ignored by a `.gitignore` *inside* the
+  package. Nothing needed at the root, noted only so the directory is not a surprise.
+- **CI**: `verify:live` is not wired into any workflow and should not be — it spends money. The
+  candidate is a manual/dispatch job with `--pairs 2 --max-usd 1`, treating exit 2 as red.
+
+---
+
+## Agent LIVE-HARNESS — the cast/creator handle collision (`packages/llm`)
+
+Closes the open item recorded by Agent CREATOR-ID §2.3: *"A cast handle generated after a creator
+handle exists can still collide with it … renaming a cast member would break every reference to them
+in the bible."*
+
+### The window
+
+That sentence is true after the bible is written and false for the ~8 seconds before it. A cast
+handle is chosen by **call 1 of 14** (the concept) and only written down by calls 2–14. Inside that
+window the name has no references anywhere and moving it costs nothing. So the fix is not a rename
+mechanism — it is a *hook placed in the right window*.
+
+`runG9` now takes optional hooks. `gateway.g9(input, { reserveCastHandles, onCastRenamed })`:
+
+1. concept names eight accounts;
+2. **`reserveCastHandles(handles)`** — one call, asynchronous, 2s timeout, supplied by apps/api;
+3. whatever comes back taken is re-minted by `mintCastHandles` (deterministic in `slug|seed`), every
+   `@mention` of the discarded name is rewritten across the concept, `avatarKey` follows;
+4. bible, cards, events and texture are written from the *final* names.
+
+**Zero extra model calls** (asserted: a build with a colliding handle still logs exactly 14), zero
+cost, and no stage ever sees the discarded name.
+
+### Why not make the namespaces disjoint by shape
+
+Considered and rejected, and the reasoning is in `cast-handles.ts` so it does not have to be
+rediscovered: a marker reliable enough to be an invariant (`_bot`, a reserved character, a fixed
+length) is loud enough to make every character read as a service account, and it cannot be applied
+backwards — the three hand-authored worlds and every world already generated carry unmarked handles
+quoted by name throughout their bibles, so the "invariant" would hold for new worlds only, which is
+not an invariant. The brief allowed "provably distinct **or** checkable against"; this is the second,
+plus the enumerable part of the first (below).
+
+### What apps/api must do — also carried in code as `CAST_HANDLE_CONTRACT`
+
+1. **Pass the hook.** One query per world build:
+   `SELECT "creatorHandle" FROM "User" WHERE "creatorHandle" IN ($8)` ∪ the same over
+   `CreatorHandleRelease` (a released handle is still reserved for 30 days — a cast member walking
+   into a vacancy is the same impersonation the reclaim window exists to prevent). Return bare,
+   lowercase. **Never throw**: a throwing, hanging or malformed hook is treated as "nothing is
+   reserved" and the model's own names stand, because a colliding handle is a display defect and a
+   lost world is a refunded 120 gems.
+2. **Keep `collidesWithCast`.** This closes the other direction only.
+3. **Reserve the deterministic space once.** `generatedHandleUniverse()` enumerates every handle the
+   blueprint can mint — all eight genre packs' character and press handles plus the seven preset
+   persona handles, ~70 names, all API-legal. A world that *falls back* mints from exactly that set
+   with no hook involved, so seeding those as unavailable creator handles is what makes the fallback
+   path safe too. That is the "provably distinct" half, for the half that can be enumerated.
+4. **Log the renames.** `onCastRenamed` reports what moved and why (`reserved` / `duplicate` /
+   `illegal`). Nothing downstream needs migrating — the old name never reached a row.
+
+Exports: `mintCastHandles`, `handleLadder`, `handleStem`, `askReserved`, `generatedHandleUniverse`,
+`CAST_HANDLE_CONTRACT`, `RESERVE_HANDLES_TIMEOUT_MS`, `resolveCastHandles`, and the widened
+`G9RunOptions`. Handle alternatives are human suffixes first (`_hq`, `_irl`, `_live`, …) then digits
+then a hash tail, rotated by world seed so two worlds moving the same `@rina` do not both land on
+`@rina_hq`; 23 tests cover the ladder, the reservation, the rewrite and a full gateway round trip
+asserting the discarded name survives nowhere in the cast, the fallback replies, the welcome posts,
+the ambient pool or either bible.

@@ -5,6 +5,7 @@ import { fail } from "./http";
 import { rateLimit, type RateLimitStore } from "./middleware/rate-limit";
 import { logError, requestLog } from "./middleware/request-log";
 import { accountRoutes } from "./routes/account";
+import { adminModerationRoutes } from "./routes/admin-moderation";
 import { adminWorldRoutes } from "./routes/admin-worlds";
 import { achievementRoutes } from "./routes/achievements";
 import { authRoutes } from "./routes/auth";
@@ -107,6 +108,8 @@ export function createApp(deps: Deps): Hono<AppEnv> {
   v1.route("/moderation", moderationRoutes());
   // World Studio (AIF-003): a human approves every public world. Same gate as the report queue.
   v1.route("/admin/worlds", adminWorldRoutes());
+  // The queue, measured: what the thresholds above are doing, so they can be re-derived (gtm.md §5).
+  v1.route("/admin/moderation", adminModerationRoutes());
   // Agent H (S2): retention & growth.
   v1.route("/digest", digestRoutes());
   v1.route("/memory", memoryRoutes());
