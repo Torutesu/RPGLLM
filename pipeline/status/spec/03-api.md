@@ -148,3 +148,26 @@ draft ──create──> generating ──成功──> ready ──publish(unl
 - **ジェムの入手経路**: ウォレット作成時に 120(`STARTER_GEMS`)、連続ログイン報酬、消耗型 IAP(`GEM_PACKS`)。
   初日に 1 個だけ作れる、が設計意図。
 - `POST /worlds` はユーザーが引ける中でいちばん高価な操作なので、レート制限は書き込み枠より厳しく取る。
+
+
+---
+
+## 共有ページ `/s/*`（unversioned, 認証なし, HTML）— 2026-09 追記
+
+読み手がクローラである唯一の面。`/v1` の下にいないのは、2026年にXへ貼られたリンクがAPI契約の第3版でも解決しなければならないから。
+実装: `apps/api/src/routes/share.ts`、`services/share-page.ts`（HTML）、`services/share-poster.ts`（PNG）。
+
+| メソッド | パス | 返すもの |
+|---|---|---|
+| GET | `/s/w/:idOrSlug` | ワールドのカード。`published` かつ `public`/`unlisted` のみ。`unlisted` は `noindex` |
+| GET | `/s/m/:slug` | モーメントのカード（`/v1/moments/:slug` と同じく公開） |
+| GET | `/s/c/:handle` | 作者ページのカード。公開ワールドだけを数え、削除済みアカウントは404 |
+| GET | `/s/w/:slug/poster.png` | 1200×630 の PNG。`WorldCover` と同じ構図・同じ乱数・同じ種 |
+| GET | `/s/m/:slug/poster.png` | 同上（種はワールド、ゲートはモーメント自身） |
+| GET | `/s/c/:handle/poster.png` | 同上（種は作者ハンドル＝アバターと同じパレット） |
+
+- `?lang=en|ja` が最優先、次に `Accept-Language`、既定は `en`。アプリは共有時に**送り手の言語**を付ける。
+- 画像は依存を増やさず `node:zlib` だけで生成する（真色8bit、`Up` フィルタ）。**文字は描かない** — フォントのラスタライズが要る。文言は `og:title`/`og:description` が運ぶ。
+- ポスターは行を引いてから描く。描画は約100msのCPUなので、存在しない種を描かせられる経路を作らない。
+- リダイレクトはしない。UAで出し分けるのはクローキングで、新しいクローラが出た日に壊れる。人には「開く」を1つ出す。
+- `PUBLIC_APP_URL`（着地点）、`PUBLIC_API_URL`（プロキシ配下のときだけ）、`PUBLIC_APP_NAME`（`og:site_name`）。

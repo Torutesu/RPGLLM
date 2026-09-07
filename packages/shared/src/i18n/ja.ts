@@ -332,4 +332,11 @@ export const ja: Strings = {
   reviewDigest: "先に見るべき点",
   reviewSampled: "抽出された全文精読",
   reviewNoPoints: "指摘なし — 自分で読んでください",
+  shareWorldKicker: "遊べるワールド",
+  shareMomentKicker: "誰かの物語の、ある瞬間",
+  shareCreatorKicker: "作者",
+  shareBy: "作",
+  shareOpen: "開く",
+  shareUnlisted: "リンクを知る人だけに公開",
+  shareCreatorWorlds: "公開中のワールド",
 };

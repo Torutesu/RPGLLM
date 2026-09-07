@@ -66,7 +66,8 @@ function ShelfRefusal({ text }: { text: string }) {
 export default function StudioWorldScreen() {
   const params = useLocalSearchParams<{ id?: string }>();
   const worldId = params.id ?? null;
-  const { t } = useT();
+  // `locale` rides along on the share link, so a link sent in Japanese unfurls in Japanese.
+  const { t, locale } = useT();
   const { setDraft, refreshMe } = useActions();
   const { me } = useAppState();
   const { data, phase, stale, reload } = useWorldStatus(worldId);
@@ -279,7 +280,7 @@ export default function StudioWorldScreen() {
 
   const copyLink = async () => {
     if (!world) return;
-    const didCopy = await shareWorldLink(worldShareUrl(world.id), world.title);
+    const didCopy = await shareWorldLink(worldShareUrl(world.id, locale), world.title);
     setCopied(didCopy);
   };
 
@@ -392,7 +393,7 @@ export default function StudioWorldScreen() {
                 <Pressable
                   onPress={() => void copyLink()}
                   accessibilityRole="button"
-                  accessibilityLabel={`${t("copyLink")} — ${worldShareUrl(world.id)}`}
+                  accessibilityLabel={`${t("copyLink")} — ${worldShareUrl(world.id, locale)}`}
                 >
                   {({ pressed }) => (
                     <PressScale pressed={pressed} to={0.99}>
@@ -410,7 +411,7 @@ export default function StudioWorldScreen() {
                       >
                         <Icon name="share" size={16} color={colors.accentHi} />
                         <Text numberOfLines={1} importantForAccessibility="no" style={[typo.meta, { color: colors.textDim, flex: 1 }]}>
-                          {worldShareUrl(world.id)}
+                          {worldShareUrl(world.id, locale)}
                         </Text>
                         <Text importantForAccessibility="no" style={[typo.label, { color: copied ? colors.positive : colors.accentHi }]}>
                           {copied ? t("copied") : t("copyLink")}

@@ -35,9 +35,9 @@ export const RC_ANDROID_KEY = process.env.EXPO_PUBLIC_RC_ANDROID_KEY ?? "";
 /** Expo project id — `getExpoPushTokenAsync` needs it in a bare/EAS build. See `docs/push.md`. */
 export const EXPO_PROJECT_ID = process.env.EXPO_PUBLIC_EXPO_PROJECT_ID ?? "";
 
-/**
- * Public origin of the web app, used to build share links. On web the page's own origin is always
- * right; on a device there is no origin, so `EXPO_PUBLIC_APP_URL` is the only way a shared link can
- * point at anything real. Keep it in step with the API's `PUBLIC_APP_URL`.
+/*
+ * There is no APP_ORIGIN any more. Share links used to be built here from `EXPO_PUBLIC_APP_URL`
+ * and pointed back at this app, which cannot answer a crawler — they now point at the API's `/s/*`
+ * pages, which can (`src/studio/share.ts`), so `API_ORIGIN` above is the only origin this client
+ * needs to know.
  */
-export const APP_ORIGIN = (process.env.EXPO_PUBLIC_APP_URL ?? "").replace(/\/+$/, "");

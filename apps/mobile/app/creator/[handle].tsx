@@ -11,6 +11,7 @@ import { SkeletonList } from "../../src/components/Skeleton";
 import { StudioWorldCard } from "../../src/components/StudioWorldCard";
 import { pushOnce } from "../../src/nav";
 import { useAppState, useT } from "../../src/state/store";
+import { creatorShareUrl, shareWorldLink } from "../../src/studio/share";
 import { rememberTrusted, wasEverTrusted } from "../../src/studio/trust";
 import { FadeSlideIn, Icon, typo } from "../../src/ui";
 
@@ -58,6 +59,8 @@ export default function CreatorPage() {
   const [phase, setPhase] = useState<"loading" | "ready" | "error">("loading");
   /** Has this device seen this creator trusted before? The one thing `trust` cannot say alone. */
   const [wasTrusted, setWasTrusted] = useState(false);
+  /** "Copied" is only true when the link really went to the clipboard, not when a sheet opened. */
+  const [copied, setCopied] = useState(false);
   const alive = useRef(true);
 
   /*
@@ -80,6 +83,12 @@ export default function CreatorPage() {
       if (alive.current) setPhase((p) => (p === "ready" ? p : "error"));
     }
   }, [handle]);
+
+  const shareProfile = useCallback(async () => {
+    if (!profile) return;
+    const didCopy = await shareWorldLink(creatorShareUrl(profile.handle, locale), `@${profile.handle}`);
+    setCopied(didCopy);
+  }, [profile, locale]);
 
   /**
    * Focus, not mount: `useFocusEffect` fires on the first render too, so this is the only read the
@@ -223,6 +232,22 @@ export default function CreatorPage() {
                   onPress={() => pushOnce("/creator/rename")}
                 />
               ) : null}
+
+              {/*
+               * A name worth crediting is a name worth sending someone. The link is the API's
+               * `/s/c/:handle`, which unfurls into a card; a link to this screen would preview as a
+               * bare URL, and a body of work nobody can pass on is where circuit ② stops.
+               *
+               * Offered on everybody's page, not just your own: recommending a creator to a friend
+               * is the reader's move, not the author's.
+               */}
+              <Button
+                testID={T.creatorShare}
+                label={copied ? t("copied") : t("share")}
+                variant="ghost"
+                icon="share"
+                onPress={() => void shareProfile()}
+              />
 
               {/* ---------------------------------------------------------------- the work ---- */}
               {profile.worlds.length === 0 ? (

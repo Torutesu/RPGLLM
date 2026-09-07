@@ -1,24 +1,34 @@
 import { Platform, Share } from "react-native";
-import { APP_ORIGIN, IS_WEB } from "../env";
+import type { Locale } from "@rpgllm/shared";
+import { API_ORIGIN } from "../env";
 
 /**
  * The link an unlisted world lives behind.
  *
- * An unlisted world is listed nowhere — the link *is* the distribution — so the URL has to be
- * openable by whoever receives it, which a bare path is not. On the web the page's own origin is
- * always right; on a device `EXPO_PUBLIC_APP_URL` is the only thing that can be shared off it.
- * Same shape as the moment share link (`components/MomentCard.tsx`).
+ * It points at the **API**, not at this app: `/s/w/:id` (`apps/api/src/routes/share.ts`) is
+ * server-rendered HTML with `og:` tags and a poster, and this app is a single-page bundle that
+ * answers a crawler with an empty div. A link that previews as a naked URL in the one place
+ * sharing happens — somebody else's feed or group chat — is a link nobody clicks, and an unlisted
+ * world has no other distribution at all.
  *
- * It points at `/world/:id` — the world page — and not at `/studio/:id`, the creator's own build
- * screen: that one reads a creator-only endpoint, so every link ever sent answered its recipient
- * with "Couldn't load" (QA-002). `/studio/:id` still forwards a visitor to the same place, so the
- * links already in circulation keep working.
+ * The share page then hands the recipient one large "Open it" into `/world/:id` here. That is one
+ * extra tap, deliberately: the alternative is serving crawlers a different page from people, which
+ * breaks the day a crawler changes its user agent and is cloaking besides.
+ *
+ * `?lang=` carries the *sharer's* language, so a link sent by a Japanese player unfurls in Japanese
+ * for whoever they sent it to. It is the only signal about the reader we have.
  */
-export function worldShareUrl(worldId: string): string {
-  const path = `/world/${encodeURIComponent(worldId)}`;
-  if (IS_WEB && typeof window !== "undefined" && window.location) return `${window.location.origin}${path}`;
-  if (APP_ORIGIN) return `${APP_ORIGIN}${path}`;
-  return path;
+export function worldShareUrl(worldId: string, locale?: Locale): string {
+  return `${API_ORIGIN}/s/w/${encodeURIComponent(worldId)}${locale ? `?lang=${locale}` : ""}`;
+}
+
+/**
+ * A creator's page, as a link (勝ち筋 A ②). Same `/s/*` reasoning: a name worth crediting is a name
+ * worth sending someone, and a link to a body of work that previews as a bare URL sends nobody.
+ */
+export function creatorShareUrl(handle: string, locale?: Locale): string {
+  const bare = handle.replace(/^@+/, "");
+  return `${API_ORIGIN}/s/c/${encodeURIComponent(bare)}${locale ? `?lang=${locale}` : ""}`;
 }
 
 /**

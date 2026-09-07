@@ -31,6 +31,23 @@ export const modelForTier = (tier: "light" | "mid" | "high"): string =>
     : tier === "mid" ? envStr("LLM_MODEL_MID", "claude-sonnet-5")
       : envStr("LLM_MODEL_LIGHT", "claude-haiku-4-5");
 
+/**
+ * Where the two halves of the product live, from the outside.
+ *
+ * `PUBLIC_APP_URL` is the Expo web app — where a person ends up. `PUBLIC_API_URL` is this service,
+ * and it only has to be set when the API is behind a proxy that rewrites the host: the share
+ * routes otherwise derive their own origin from the request, which is what makes them work in dev
+ * and under Playwright with no configuration at all.
+ *
+ * `PUBLIC_APP_NAME` is `og:site_name` — the word a stranger sees above the link preview. There is
+ * no name in `packages/shared` to read it from because **the product does not have one yet**
+ * (`app.json` says "status-clone"), and the share card is the first surface where that is a
+ * stranger's problem rather than ours. See `pipeline/status/gap-analysis.md`.
+ */
+export const publicAppUrl = (): string => envStr("PUBLIC_APP_URL", "").replace(/\/+$/, "") || "https://rpgllm.example";
+export const publicApiUrl = (): string => envStr("PUBLIC_API_URL", "").replace(/\/+$/, "");
+export const publicAppName = (): string => envStr("PUBLIC_APP_NAME", "RPGLLM");
+
 /** ---------- Agent F: environment posture ---------- */
 
 export const nodeEnv = (): string => envStr("NODE_ENV", "development");

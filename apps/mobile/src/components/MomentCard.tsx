@@ -1,8 +1,8 @@
 import React, { useState } from "react";
 import { Share, Text, View } from "react-native";
-import { T, colors, compactNumber, elevation, gradients, layout, radius, spacing } from "@rpgllm/shared";
+import { T, colors, compactNumber, elevation, gradients, layout, radius, spacing, type Locale } from "@rpgllm/shared";
 import type { Moment } from "../api/client";
-import { IS_WEB, APP_ORIGIN } from "../env";
+import { API_ORIGIN, IS_WEB } from "../env";
 import { useT } from "../state/store";
 import { Avatar } from "./Avatar";
 import { Button, Wordmark } from "./ui";
@@ -53,12 +53,13 @@ function readPersona(payload: Record<string, unknown>): PersonaBadge {
 
 const signed = (n: number): string => (n > 0 ? `+${n}` : String(n));
 
-export function shareUrlFor(slug: string): string {
-  if (IS_WEB && typeof window !== "undefined" && window.location) return `${window.location.origin}/moment/${slug}`;
-  // Agent P: a bare path is not shareable off the device. `EXPO_PUBLIC_APP_URL` (mirrors the API's
-  // PUBLIC_APP_URL) is what makes a shared moment openable by the person who receives it.
-  if (APP_ORIGIN) return `${APP_ORIGIN}/moment/${slug}`;
-  return `/moment/${slug}`;
+/**
+ * Where a shared moment points: the API's `/s/m/:slug`, which answers a crawler with `og:` tags and
+ * a poster, and hands a person an "Open it" into `/moment/:slug` here. Same reasoning, and the same
+ * one deliberate extra tap, as `src/studio/share.ts` — see the note there.
+ */
+export function shareUrlFor(slug: string, locale?: Locale): string {
+  return `${API_ORIGIN}/s/m/${encodeURIComponent(slug)}${locale ? `?lang=${locale}` : ""}`;
 }
 
 function DeltaTile({ label, value }: { label: string; value: number }) {
@@ -96,14 +97,14 @@ function DeltaTile({ label, value }: { label: string; value: number }) {
  * hierarchy is: brand, headline, the numbers that changed, who reacted, who you are.
  */
 export function MomentCard({ moment, onClose }: MomentCardProps) {
-  const { t } = useT();
+  const { t, locale } = useT();
   const [note, setNote] = useState<string | null>(null);
   const payload = moment.payload;
   const deltas = readDeltas(payload, "deltas");
   const after = readDeltas(payload, "after");
   const reactions = readReactions(payload).slice(0, 3);
   const persona = readPersona(payload);
-  const url = shareUrlFor(moment.shareSlug);
+  const url = shareUrlFor(moment.shareSlug, locale);
   const winning = deltas.followers + deltas.aura >= 0;
 
   const onShare = async () => {

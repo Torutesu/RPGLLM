@@ -209,7 +209,8 @@ test.describe("World lifecycle — hostile pass", () => {
       .not.toBeNull();
 
     await loginInBrowser(page, friend.jwt);
-    // The URL the share sheet hands out (apps/mobile/src/studio/share.ts).
+    // Where the share sheet's link ends up. It now points at the API's `/s/w/:id`, which is what
+    // makes it unfurl (E2E-044/045); this case is about the destination, so it goes there directly.
     await gotoApp(page, `/world/${world.id}`);
     await expect(page.getByTestId(T.worldPage), "a shared world must open, not fail to load")
       .toBeVisible({ timeout: 20_000 });

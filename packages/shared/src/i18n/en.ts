@@ -332,5 +332,17 @@ export const en = {
   reviewDigest: "What to look at",
   reviewSampled: "Drawn for a full read",
   reviewNoPoints: "Nothing flagged — read it yourself",
+  /**
+   * The share page a link unfurls into (`apps/api/src/routes/share.ts`). It is read by people who
+   * have never heard of this product, so the copy names the thing and asks for one tap — nothing
+   * else fits under a preview card.
+   */
+  shareWorldKicker: "A world you can play",
+  shareMomentKicker: "A moment from someone's story",
+  shareCreatorKicker: "A creator",
+  shareBy: "by",
+  shareOpen: "Open it",
+  shareUnlisted: "Shared by link",
+  shareCreatorWorlds: "public worlds",
 } as const;
 export type Strings = { [K in keyof typeof en]: (typeof en)[K] extends readonly string[] ? readonly string[] : string };

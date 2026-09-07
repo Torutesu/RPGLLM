@@ -4324,3 +4324,43 @@ an additive extra today — `MyWorldsResZ.parse()` strips it — so **`packages/
 `studioPublicCost` can interpolate the live number instead of the constant. Until then the standing
 note in that commit is still exactly right: nobody is charged a price they were not shown (the 402
 is authoritative), but they can be shown one that is not the price.
+
+---
+
+## 2026-09-07 — share pages (`/s/*`), cross-cutting notes
+
+The orchestrator wrote across three owned directories for this one, so the deviations are here.
+
+### 1. `packages/shared` — additive only, as required
+
+`i18n/{en,ja}.ts` gained seven `share*` keys and `testids.ts` gained `shareOpen` / `sharePoster`.
+Nothing was renamed or removed. The share page is the only screen in the product that is not React,
+and that is not a licence to hand-write English or a hex code into HTML: its copy comes from `t()`
+and its colour from `tokens.ts`, same as everything else.
+
+### 2. `apps/mobile` — `APP_ORIGIN` is gone, and `EXPO_PUBLIC_APP_URL` with it
+
+Share links used to be built in the client from the *app's* own origin, which is a single-page
+bundle: a crawler asking for `/world/:id` gets an empty root div, so every link a player ever sent
+previewed as a bare URL. They now point at `API_ORIGIN` + `/s/w/:id`, so the client no longer needs
+to know where the web app is at all — the API does, through `PUBLIC_APP_URL`, because it is the one
+building the "Open it" link. `.env.example` drops the client variable and documents the two new
+server ones (`PUBLIC_API_URL`, `PUBLIC_APP_NAME`).
+
+`e2e/playwright.config.ts` now passes `PUBLIC_APP_URL: WEB_URL` to the API it starts. Without it the
+share page's "Open it" points at the dev default (8081) while the export under test is on 8082, and
+E2E-045 would follow a link into nothing.
+
+### 3. `apps/api/src/services/referral.ts` — one definition of "where the web app is"
+
+`inviteLinkBase()` read `process.env.PUBLIC_APP_URL` directly with its own fallback, and the share
+pages needed the same value. It now delegates to `env.publicAppUrl()`, which is byte-identical in
+behaviour (same variable, same trailing-slash strip, same `https://rpgllm.example` placeholder).
+
+### 4. The poster carries no text, and that is a limitation rather than a choice
+
+`services/share-poster.ts` paints the world's cover at 1200×630 with `node:zlib` and no new
+dependency — but there is no font in it, so the artwork is all the image contains. The words ride in
+`og:title` / `og:description`, which every major unfurler renders beside the image. A card with the
+headline burned into it is a better card; getting there needs a rasteriser and, for `ja`, a CJK
+face. Written up in `gap-analysis.md` rather than papered over.

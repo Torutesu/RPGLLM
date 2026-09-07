@@ -1,6 +1,7 @@
 import type { PrismaClient, User } from "@prisma/client";
 import { REFERRAL } from "@rpgllm/shared";
 import type { Clock } from "../clock";
+import { publicAppUrl } from "../env";
 import { hashString } from "./rng";
 import { ensureWallet } from "./wallet";
 
@@ -15,11 +16,8 @@ const ALPHABET = "ABCDEFGHJKMNPQRSTVWXYZ23456789";
 /** How long after signup an account may still redeem an invite (a stale account cannot). */
 export const REDEEM_WINDOW_HOURS = 24;
 
-/** Where the invite link points. No env.ts entry (Agent F owns it), so this reads the var directly. */
-export const inviteLinkBase = (): string => {
-  const raw = process.env.PUBLIC_APP_URL ?? "";
-  return raw.length > 0 ? raw.replace(/\/+$/, "") : "https://rpgllm.example";
-};
+/** Where the invite link points — `env.publicAppUrl()`, which the share pages link to as well. */
+export const inviteLinkBase = (): string => publicAppUrl();
 
 export const inviteLink = (code: string): string => `${inviteLinkBase()}/invite?code=${encodeURIComponent(code)}`;
 

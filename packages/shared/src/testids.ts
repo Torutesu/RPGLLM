@@ -235,6 +235,7 @@ export const T = {
   creatorWorld: (slug: string) => `creator-world-${slug}`,
   creatorLink: "creator-link",
   creatorRename: "creator-rename",
+  creatorShare: "creator-share",
   creatorRenameInput: "creator-rename-input",
   creatorRenameSave: "creator-rename-save",
   // Circuit ③ — the slot a ranking cannot swallow
@@ -250,4 +251,7 @@ export const T = {
   studioAppealInput: "studio-appeal-input",
   studioAppealSubmit: "studio-appeal-submit",
   studioAppealSent: "studio-appeal-sent",
+  // The server-rendered share page — the only screen in this product that is not React.
+  shareOpen: "share-open",
+  sharePoster: "share-poster",
 } as const;

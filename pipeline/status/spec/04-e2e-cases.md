@@ -270,3 +270,19 @@
 - screens: [SCR-040]
 - steps: Given `MediaRecorder` の無いブラウザ / When モーメントを開く / Then 録画ボタンは**描画されず**（押せないボタンは無いより悪い）、`reelUnsupported` が出て、アニメーションと既存のカード共有は生きている
 - priority: P1
+
+## E2E-044: 共有されたリンクが、カードになって展開される
+- screens: [/s/w/:id]
+- steps: Given リンク限定で公開したワールドがある / When アプリが配る URL（`/s/w/:id`）をクローラとして1回だけ取得する / Then 最初のレスポンスに `og:title` / `og:description` / `twitter:card` が入っており、`og:image` は実在して、宣言どおりのサイズの本物の PNG である。unlisted は `noindex`（リンクが配布であって、検索結果は棚ではない）
+- priority: P0
+- note: `og:image` が404を指す壊れ方はブラウザでは完全に正常に見えるので、画像そのものを取得してヘッダを読んでいる
+
+## E2E-045: リンクを踏んだ人が、ワールドに着く
+- screens: [/s/w/:id, /world/:id]
+- steps: Given リンク限定のワールドと、それを受け取った別アカウント / When 共有ページを開いて「開く」を押す / Then ワールドページが表示され、遊ぶ導線が出ている（プレビューは着地点ではなく、1タップの中継である）
+- priority: P0
+
+## E2E-046: 誰にも見えないワールドは、展開もされない
+- screens: [/s/w/:id]
+- steps: Given ビルド直後の非公開ワールド / When 共有URLと画像URLを取得する / Then どちらも404で、404の本文も HTML かつ `noindex`（クローラは渡されたものを何でも描画する）
+- priority: P0

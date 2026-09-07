@@ -108,6 +108,10 @@ export default defineConfig({
         ADS_MODE: "test",
         LLM_REPLAY_LATENCY_MS: "0",
         JWT_SECRET: "test",
+        // Where `/s/*` sends a person after the link preview: the web export this run serves.
+        // Unset, the share page's "Open it" would point at the dev default (8081) and E2E-044
+        // would follow a link into nothing.
+        PUBLIC_APP_URL: WEB_URL,
         E2E_DB_MANAGED: TEST_DATABASE_MANAGED ? "1" : "0",
         ...(process.env.E2E_SKIP_DB ? { E2E_SKIP_DB: process.env.E2E_SKIP_DB } : {}),
       },

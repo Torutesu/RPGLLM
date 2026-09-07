@@ -39,6 +39,7 @@ import { statRoutes } from "./routes/stats";
 import { streakRoutes } from "./routes/streak";
 import { testHookRoutes } from "./routes/test-hooks";
 import { walletRoutes } from "./routes/wallet";
+import { shareRoutes } from "./routes/share";
 import { worldRoutes } from "./routes/worlds";
 import { setPushClient } from "./services/push";
 import type { AppEnv, AppState, Deps } from "./types";
@@ -129,6 +130,13 @@ export function createApp(deps: Deps): Hono<AppEnv> {
   // `POST /__test/run-job` — the manual scheduler; guards itself with testHooksEnabled().
   v1.route("/__test", jobRoutes());
   app.route("/v1", v1);
+
+  /**
+   * The share pages (task 45) — **not** under `/v1`, and not JSON. `/s/*` is a public HTML surface
+   * whose readers are crawlers and strangers, so it is versioned by nothing: a link posted to X in
+   * 2026 has to still resolve when the API is on its third contract. See `routes/share.ts`.
+   */
+  app.route("/s", shareRoutes());
 
   // Unversioned aliases so probes and the E2E harness can reach them either way.
   app.route("/health", healthRoutes());
