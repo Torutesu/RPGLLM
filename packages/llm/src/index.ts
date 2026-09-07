@@ -258,3 +258,40 @@ export {
   BATCH_JOBS,
   type BatchJobName,
 } from "./batch-jobs.js";
+
+/* The cast-handle namespace (build-notes, Agent CREATOR-ID §2.3). apps/api passes
+ * `reserveCastHandles` to `gateway.g9`; `CAST_HANDLE_CONTRACT` says what it must do. */
+export {
+  askReserved,
+  generatedHandleUniverse,
+  handleLadder,
+  handleStem,
+  mintCastHandles,
+  CAST_HANDLE_CONTRACT,
+  RESERVE_HANDLES_TIMEOUT_MS,
+  type CastHandleMint,
+  type CastHandleRename,
+  type ReserveCastHandles,
+} from "./cast-handles.js";
+export type { G9RunOptions } from "./gateway.js";
+export { resolveCastHandles, type CastRenameOutcome, type G9RunHooks } from "./generators/g9/index.js";
+
+/* The live verification harness. The CLI itself is `scripts/verify-live.mjs`; these are the
+ * pieces apps/api or a test can use without going through a terminal. */
+export {
+  castDistinctnessOf,
+  estimateRun,
+  liveEvidenceOf,
+  planRun,
+  preflightLive,
+  runVerification,
+  stageSpend,
+  createStubLiveGateway,
+  renderHtml,
+  renderText,
+  VerifyRefusal,
+  API_KEY_ENV,
+  type VerifyPlan,
+  type VerifyReport,
+  type CostEstimate,
+} from "./verify-live/index.js";

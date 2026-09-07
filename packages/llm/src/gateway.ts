@@ -29,7 +29,7 @@ import { g5 } from "./generators/g5.js";
 import { g7 } from "./generators/g7.js";
 import { g8 } from "./generators/g8.js";
 import { g10, type G10Input, type G10Output } from "./generators/g10.js";
-import { runG9, type G9Input } from "./generators/g9/index.js";
+import { runG9, type G9Input, type G9RunHooks } from "./generators/g9/index.js";
 import {
   g9Screen,
   replayG9Screen,
@@ -70,6 +70,13 @@ export interface GatewayOptions {
    */
   allocate?: (generator: GeneratorId, userId: string | null) => string | null;
 }
+
+/**
+ * `g9`'s options. The extra field is the seam that closes the cast/creator handle collision
+ * (`cast-handles.ts`): apps/api hands the studio a way to ask whether a proposed handle already
+ * belongs to somebody, and the studio moves it before any stage writes it down.
+ */
+export interface G9RunOptions extends RunOptions, G9RunHooks {}
 
 export interface RunOptions {
   /** overrides the variant's tier — used by the thumbs-down escalation path */
@@ -136,7 +143,7 @@ export interface Gateway {
    * wall-clock latency, `fallback` if any stage fell back). Never throws: a failed run returns
    * the deterministic world for `(slug, premise, genre, seed)` with `meta.fallback = true`.
    */
-  g9(input: G9Input, opts?: RunOptions): Promise<GenerationResult<WorldSeed>>;
+  g9(input: G9Input, opts?: G9RunOptions): Promise<GenerationResult<WorldSeed>>;
   /**
    * AIF-003 premise screen, layer 2. A ~250-token classifier on the light tier that runs only
    * after the deterministic `screenPremise` has allowed. Callers should use `screenPremiseDeep`,
@@ -498,7 +505,7 @@ export function createGateway(opts: GatewayOptions = {}): Gateway {
    * before a world (and often before a persona) exists, so its rows carry a null userId; apps/api
    * attaches the world and the wallet on its side.
    */
-  async function g9(input: G9Input, runOpts?: RunOptions): Promise<GenerationResult<WorldSeed>> {
+  async function g9(input: G9Input, runOpts?: G9RunOptions): Promise<GenerationResult<WorldSeed>> {
     return runG9(
       input,
       async ({ spec, variantId, tier, maxTokens, input: stageInput, replay, seed }) =>
@@ -512,6 +519,12 @@ export function createGateway(opts: GatewayOptions = {}): Gateway {
           { id: variantId, generator: "G9", tier: runOpts?.tier ?? tier, maxTokens },
         ),
       runOpts?.escalatedFrom ?? null,
+      {
+        ...(runOpts?.reserveCastHandles === undefined
+          ? {}
+          : { reserveCastHandles: runOpts.reserveCastHandles }),
+        ...(runOpts?.onCastRenamed === undefined ? {} : { onCastRenamed: runOpts.onCastRenamed }),
+      },
     );
   }
 

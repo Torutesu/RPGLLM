@@ -8,7 +8,9 @@ import {
   type Usage,
   type WorldSeed,
 } from "@rpgllm/shared";
+import type { ReserveCastHandles } from "../../cast-handles.js";
 import type { GeneratorSpec } from "../../types.js";
+import { resolveCastHandles, type CastRenameOutcome } from "./rename-cast.js";
 import { assembleWorld, deterministicWorld, type G9Parts } from "./assemble.js";
 import {
   g9Bible,
@@ -134,6 +136,16 @@ export function aggregateMeta(
   };
 }
 
+export interface G9RunHooks {
+  /**
+   * Names this world may not mint (creator handles, reserved releases). Called once, with the
+   * concept's eight proposed handles, before any other stage runs — see `rename-cast.ts`.
+   */
+  reserveCastHandles?: ReserveCastHandles;
+  /** Told what moved, if anything did. apps/api logs it against the world build. */
+  onCastRenamed?: (outcome: CastRenameOutcome) => void;
+}
+
 /**
  * Run the studio. `runStage` is supplied by the gateway (it owns mode, logging, pricing and the
  * replay clock); this function owns the dependency graph and the assembly.
@@ -142,6 +154,7 @@ export async function runG9(
   base: G9Input,
   runStage: G9StageRunner,
   escalatedFrom: string | null = null,
+  hooks: G9RunHooks = {},
 ): Promise<GenerationResult<WorldSeed>> {
   const startedAt = Date.now();
   const metas: GenerationMeta[] = [];
@@ -163,6 +176,18 @@ export async function runG9(
     }),
   );
 
+  // 1b — handle reconciliation. No model call: the only window in which a cast handle can be
+  // moved for free is between the concept naming it and the bible quoting it.
+  const rename = await resolveCastHandles(base, concept, hooks.reserveCastHandles);
+  const concept2 = rename.concept;
+  if (hooks.onCastRenamed !== undefined) {
+    try {
+      hooks.onCastRenamed(rename);
+    } catch {
+      // an observer must not cost the world its build
+    }
+  }
+
   // 2 — bible prose, one call per locale (high).
   const bibleResults = await Promise.all(
     LOCALES.map((locale) =>
@@ -171,7 +196,7 @@ export async function runG9(
         variantId: G9_VARIANT_IDS.bible,
         tier: g9Bible.defaultTier,
         maxTokens: g9Bible.maxTokens,
-        input: { base, concept, locale },
+        input: { base, concept: concept2, locale },
         replay: replayG9Bible,
         seed: stageSeed(base, `bible-${locale}`),
       }),
@@ -186,20 +211,20 @@ export async function runG9(
 
   // 3 — cast cards, fanned out one per character (mid). Same prefix on all eight.
   const cardResults = await Promise.all(
-    concept.cast.map((member) =>
+    concept2.cast.map((member) =>
       runStage({
         spec: g9Card,
         variantId: G9_VARIANT_IDS.cards,
         tier: g9Card.defaultTier,
         maxTokens: g9Card.maxTokens,
-        input: { base, concept, prose, handle: member.handle },
+        input: { base, concept: concept2, prose, handle: member.handle },
         replay: replayG9Card,
         seed: stageSeed(base, `card-${member.handle}`),
       }),
     ),
   );
   const cards: Record<string, G9CardOutput> = {};
-  concept.cast.forEach((member, i) => {
+  concept2.cast.forEach((member, i) => {
     const res = cardResults[i];
     if (res !== undefined) cards[member.handle] = take(res);
   });
@@ -211,7 +236,7 @@ export async function runG9(
       variantId: G9_VARIANT_IDS.castevents,
       tier: g9CastEvents.defaultTier,
       maxTokens: g9CastEvents.maxTokens,
-      input: { base, concept, prose },
+      input: { base, concept: concept2, prose },
       replay: replayG9CastEvents,
       seed: stageSeed(base, "castevents"),
     }),
@@ -225,7 +250,7 @@ export async function runG9(
         variantId: G9_VARIANT_IDS.texture,
         tier: g9Texture.defaultTier,
         maxTokens: g9Texture.maxTokens,
-        input: { base, concept, prose, locale },
+        input: { base, concept: concept2, prose, locale },
         replay: replayG9Texture,
         seed: stageSeed(base, `texture-${locale}`),
       }),
@@ -240,7 +265,7 @@ export async function runG9(
         : take(res);
   });
 
-  const parts: G9Parts = { base, concept, bible, cards, castEvents, texture };
+  const parts: G9Parts = { base, concept: concept2, bible, cards, castEvents, texture };
   let assembled: { seed: WorldSeed; valid: boolean };
   try {
     assembled = assembleWorld(parts);

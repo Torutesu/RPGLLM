@@ -1,0 +1,2 @@
+# Reports written by `pnpm --filter llm verify:live` (default --out).
+.verify/

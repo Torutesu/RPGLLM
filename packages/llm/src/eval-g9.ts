@@ -16,9 +16,12 @@ import {
   blendedScore,
   round,
   machineScoreOf,
+  mapPooled,
+  settleWithin,
   JUDGE_UNAVAILABLE,
   EVAL_PASS_SCORE,
   type EvalCaseRun,
+  type EvalRunArgs,
   type EvalCaseScore,
   type EvalRunResult,
   type MachineChecks,
@@ -553,10 +556,7 @@ function zeroRow(key: string, label: string): EvalCaseScore {
  * stage, and apps/api logs everything in `metas`, so returning the aggregate here would double the
  * studio's spend in the dashboard (build-notes G9 §4).
  */
-export async function runEvalG9(
-  gateway: Gateway,
-  args: { generator: string; variantId: string; cases: readonly EvalCaseRun[] },
-): Promise<EvalRunResult> {
+export async function runEvalG9(gateway: Gateway, args: EvalRunArgs): Promise<EvalRunResult> {
   const parsed: Array<{ run: EvalCaseRun; input: G9Input }> = [];
   const invalid: EvalCaseRun[] = [];
   for (const c of args.cases) {
@@ -565,13 +565,15 @@ export async function runEvalG9(
     else invalid.push(c);
   }
 
-  const built = await Promise.all(
-    parsed.map(({ input }) => gateway.g9(input, { variantId: args.variantId })),
+  const built = await mapPooled(parsed, args.concurrency ?? parsed.length, ({ input }) =>
+    settleWithin(gateway.g9(input, { variantId: args.variantId }), args.timeoutMs),
   );
   const worlds = new Map<string, { world: WorldSeed; meta: GenerationMeta }>();
   parsed.forEach(({ run }, i) => {
     const res = built[i];
-    if (res !== undefined) worlds.set(run.key, { world: res.output, meta: res.meta });
+    if (res === undefined || res === null) return;
+    worlds.set(run.key, { world: res.output, meta: res.meta });
+    args.onWorld?.(run.key, res.output, res.meta);
   });
 
   // A sibling per case: the next world of the same genre, from a different premise.

@@ -656,6 +656,14 @@ const PERSONA_TEMPLATES: readonly PersonaTemplate[] = [
   },
 ];
 
+/**
+ * The seven preset-persona handles the blueprint mints. Enumerated for `cast-handles.ts`:
+ * the deterministic (no-key / fallback) half of the generated namespace has to be listable, or
+ * apps/api cannot reserve it against creator handles.
+ */
+export const PRESET_PERSONA_HANDLES: readonly string[] = PERSONA_TEMPLATES.map((p) => p.handle);
+
+
 interface EventTemplate {
   title: Record<Locale, string>;
   prompt: Record<Locale, string>;

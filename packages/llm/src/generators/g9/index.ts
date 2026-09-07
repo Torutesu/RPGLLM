@@ -24,7 +24,8 @@ export {
   type PremiseScreenLayer,
   type PremiseModelStatus,
 } from "./screen-deep.js";
-export { runG9, aggregateMeta, type G9StageRunner } from "./orchestrator.js";
+export { runG9, aggregateMeta, type G9StageRunner, type G9RunHooks } from "./orchestrator.js";
+export { resolveCastHandles, type CastRenameOutcome } from "./rename-cast.js";
 export { assembleWorld, deterministicWorld, type G9Parts } from "./assemble.js";
 export {
   g9Bible,

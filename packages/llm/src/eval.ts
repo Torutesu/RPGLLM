@@ -21,6 +21,7 @@ import {
   MACHINE_WEIGHT,
   type EvalCaseRun,
   type EvalCaseScore,
+  type EvalRunArgs,
   type EvalRunResult,
   type MachineChecks,
 } from "./eval-core.js";
@@ -34,6 +35,7 @@ export {
   MACHINE_WEIGHT,
   type EvalCaseRun,
   type EvalCaseScore,
+  type EvalRunArgs,
   type EvalRunResult,
   type MachineChecks,
 };
@@ -122,10 +124,7 @@ export function judgeContext(input: G1Input): string {
  * one batch for the judge. Every case resolves — a failed generation scores 0 rather than
  * vanishing from the denominator.
  */
-export async function runEval(
-  gateway: Gateway,
-  args: { generator: string; variantId: string; cases: readonly EvalCaseRun[] },
-): Promise<EvalRunResult> {
+export async function runEval(gateway: Gateway, args: EvalRunArgs): Promise<EvalRunResult> {
   // The World Studio is fourteen dependent calls with a different output shape and a different
   // set of machine checks, so it has its own runner. Everything else about the run — the weights,
   // the pass bar, the result rows and the gate below — is shared.

@@ -1,4 +1,4 @@
-import type { GenerationMeta, Locale } from "@rpgllm/shared";
+import type { GenerationMeta, Locale, WorldSeed } from "@rpgllm/shared";
 import type { GJOutput } from "./generators/gj.js";
 
 /**
@@ -25,6 +25,74 @@ export interface EvalCaseRun {
 }
 
 export type MachineChecks = Record<string, boolean>;
+
+/**
+ * What a run is asked for. The last three fields exist for the live verification harness
+ * (`verify-live/`) and are no-ops when omitted, so every existing caller is unaffected:
+ *
+ *   onWorld      — hand the harness each world as it is built, so the report can measure the
+ *                  things the gate reduces to a boolean (how much two worlds of a genre share,
+ *                  whether eight characters sound like eight people) without paying to generate
+ *                  them a second time.
+ *   concurrency  — a live run of eighteen worlds is 252 dependent calls; unbounded fan-out is a
+ *                  rate-limit incident, not a throughput win.
+ *   timeoutMs    — a hung call must cost one case, not the whole run. A case that times out
+ *                  becomes a zero row exactly like a case that failed, which is the honest score.
+ */
+export interface EvalRunArgs {
+  generator: string;
+  variantId: string;
+  cases: readonly EvalCaseRun[];
+  onWorld?: (key: string, world: WorldSeed, meta: GenerationMeta) => void;
+  concurrency?: number;
+  timeoutMs?: number;
+}
+
+/** Run `worker` over `items`, at most `limit` at a time, preserving result order. */
+export async function mapPooled<T, R>(
+  items: readonly T[],
+  limit: number,
+  worker: (item: T, index: number) => Promise<R>,
+): Promise<R[]> {
+  const size = Number.isFinite(limit) && limit > 0 ? Math.floor(limit) : items.length;
+  if (size >= items.length) return Promise.all(items.map((item, i) => worker(item, i)));
+  const out = new Array<R>(items.length);
+  let next = 0;
+  const lane = async (): Promise<void> => {
+    for (;;) {
+      const i = next;
+      next += 1;
+      const item = items[i];
+      if (i >= items.length || item === undefined) return;
+      out[i] = await worker(item, i);
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(size, items.length) }, lane));
+  return out;
+}
+
+/**
+ * Resolve `p` within `ms`, or to `null`. The abandoned promise keeps running — there is nothing
+ * to cancel an in-flight HTTP request behind fourteen dependent calls — so a timed-out case may
+ * still bill for what it eventually returns. The report says so; silently waiting forever is the
+ * worse failure.
+ */
+export async function settleWithin<T>(p: Promise<T>, ms: number | undefined): Promise<T | null> {
+  if (ms === undefined || !Number.isFinite(ms) || ms <= 0) return p;
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      p,
+      new Promise<null>((resolve) => {
+        timer = setTimeout(() => {
+          resolve(null);
+        }, ms);
+      }),
+    ]);
+  } finally {
+    if (timer !== undefined) clearTimeout(timer);
+  }
+}
 
 export interface EvalCaseScore {
   key: string;
