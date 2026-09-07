@@ -13,10 +13,12 @@ import {
  * the two places `visibility` is written and then never honoured. Every case here is a finding
  * written up in `pipeline/status/qa-findings.md` with the transcript it came from.
  *
- * **The `test.fail()` cases are not broken tests — they are broken product, asserted.** Playwright
- * reports an unexpected *pass* as a failure, so the moment the orchestrator fixes one of these the
- * suite says so and the annotation comes off. Nothing here is weakened to go green (CLAUDE.md
- * rule 3); the assertions are what the product should do, stated plainly.
+ * Every case here was written as `test.fail()` first — broken product, asserted — and Playwright
+ * reports an unexpected *pass* as a failure, so fixing one made the suite say so and the annotation
+ * came off. All six are now ordinary regression guards. Nothing was weakened to go green
+ * (CLAUDE.md rule 3): QA-002 is the only assertion that changed, because the original guessed the
+ * fix would be to open the creator-only build screen to strangers, and the actual fix was a
+ * separate world page — so it now pins that, plus the credit, plus the old links still working.
  *
  * Setup runs over the API because none of these findings are about how the studio is driven — they
  * are about what the server allows once you are there — and the assertions come back through the UI
@@ -174,25 +176,45 @@ test.describe("World lifecycle — hostile pass", () => {
    * See qa-findings.md QA-002.
    */
   test("QA-002: the link an unlisted world lives behind opens for the person it is sent to", async ({ page, request }) => {
-    // Fails today: see qa-findings.md QA-002 — remove this line when the product is fixed.
-    test.fail();
     const author = await apiSignup(request);
     const world = await aBuiltWorld(request, author);
     await unwrap(await publish(request, author.jwt, world.id, "unlisted"), "publish unlisted");
 
-    // The URL the share sheet hands out (apps/mobile/src/studio/share.ts).
     const friend = await apiSignup(request);
-    const status = await request.get(apiUrl(`/v1/worlds/${world.id}/status`), {
+
+    /*
+     * The fix was a route, not a permission: `/v1/worlds/:id/status` stays creator-only — what a
+     * world is *waiting on* is the creator's business — and the share link now points at the world
+     * detail, which is the endpoint that answers anyone who may play it. Asserted here rather than
+     * assumed, because the original write-up guessed at the other fix.
+     */
+    const creatorOnly = await request.get(apiUrl(`/v1/worlds/${world.id}/status`), {
       headers: bearer(friend.jwt), failOnStatusCode: false,
     });
-    expect(status.status(), "the screen behind the share link must answer the recipient").toBeLessThan(400);
+    expect(creatorOnly.status(), "the build screen stays the creator's").toBe(404);
+
+    const detail = await request.get(apiUrl(`/v1/worlds/${world.id}`), {
+      headers: bearer(friend.jwt), failOnStatusCode: false,
+    });
+    const seen = await unwrap<{ world: { creatorHandle: string | null; playCount: number } }>(
+      detail, "GET /v1/worlds/:id as the recipient",
+    );
+    expect(seen.world.creatorHandle, "a world someone made is presented as someone's work")
+      .not.toBeNull();
 
     await loginInBrowser(page, friend.jwt);
-    await gotoApp(page, `/studio/${world.id}`);
-    await expect(page.getByTestId(T.studioReady), "a shared world must open, not fail to load")
+    // The URL the share sheet hands out (apps/mobile/src/studio/share.ts).
+    await gotoApp(page, `/world/${world.id}`);
+    await expect(page.getByTestId(T.worldPage), "a shared world must open, not fail to load")
       .toBeVisible({ timeout: 20_000 });
-    await expect(page.getByTestId(T.studioPlay), "and must offer the thing the link was sent for")
+    await expect(page.getByTestId(T.worldPlay), "and must offer the thing the link was sent for")
       .toBeVisible();
+    await expect(page.getByTestId(T.worldCredit), "and say whose world it is").toBeVisible();
+
+    // Links already sent out point at the old route; they must not become dead.
+    await gotoApp(page, `/studio/${world.id}`);
+    await expect(page.getByTestId(T.worldPage), "an already-shared link must keep working")
+      .toBeVisible({ timeout: 20_000 });
   });
 
   /* --------------------------------------------------------------- QA-003a ---- */
@@ -206,8 +228,6 @@ test.describe("World lifecycle — hostile pass", () => {
    * See qa-findings.md QA-003.
    */
   test("QA-003a: the visibility chosen when a world is created is the visibility it gets", async ({ request }) => {
-    // Fails today: see qa-findings.md QA-003 — remove this line when the product is fixed.
-    test.fail();
     const wantsExplore = await apiSignup(request);
     const forExplore = await aBuiltWorld(request, wantsExplore, "public");
     expect(forExplore.status, "a world created for everyone belongs in the review queue").toBe("review");
@@ -234,8 +254,6 @@ test.describe("World lifecycle — hostile pass", () => {
    * screen has no way forward.
    */
   test("QA-003b: a world created for everyone is never stranded without a way to publish it", async ({ page, request }) => {
-    // Fails today: see qa-findings.md QA-003 — remove this line when the product is fixed.
-    test.fail();
     const author = await apiSignup(request);
     const world = await aBuiltWorld(request, author, "public");
 
@@ -315,8 +333,6 @@ test.describe("World lifecycle — hostile pass", () => {
    * See qa-findings.md QA-006.
    */
   test("QA-006: Explore says something under every heading, even with no persona yet", async ({ page, request }) => {
-    // Fails today: see qa-findings.md QA-006 — remove this line when the product is fixed.
-    test.fail();
     const account = await apiSignup(request);
     await loginInBrowser(page, account.jwt);
     await gotoApp(page, "/explore");

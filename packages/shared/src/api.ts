@@ -58,7 +58,22 @@ export const WorldSummaryZ = z.object({ id: z.string(), slug: z.string(), title:
 export const WorldsResZ = z.array(WorldSummaryZ);
 export const CharacterZ = z.object({ id: z.string(), handle: z.string(), displayName: z.string(), role: z.string(), avatarUrl: z.string().nullable(), isPressAccount: z.boolean(), canBeFirstFollower: z.boolean(), intro: z.string() });
 export const PresetPersonaZ = z.object({ handle: z.string(), displayName: z.string(), bio: z.string(), avatarUrl: z.string().nullable() });
-export const WorldDetailResZ = z.object({ world: WorldSummaryZ, characters: z.array(CharacterZ), presetPersonas: z.array(PresetPersonaZ) });
+/**
+ * The world detail every player can read — including one they were sent a link to.
+ *
+ * `creatorHandle` and `playCount` are here because a world someone made has to be presented as
+ * *someone's work*: a credit that is only a string in the creator's own screen is not authorship.
+ * Both are null/0 for the presets, which nobody authored.
+ */
+export const WorldDetailResZ = z.object({
+  world: WorldSummaryZ.extend({
+    creatorHandle: z.string().nullable().default(null),
+    playCount: z.number().int().default(0),
+    isPreset: z.boolean().default(true),
+  }),
+  characters: z.array(CharacterZ),
+  presetPersonas: z.array(PresetPersonaZ),
+});
 
 /** ---------- Personas (SCR-005/006) ---------- */
 export const HandleCheckReqZ = z.object({ worldId: z.string(), handle: z.string() });

@@ -343,8 +343,16 @@ export function worldRoutes(): Hono<AppEnv> {
     if (!(await canStillPlay(deps.prisma, world, user.id))) return notFound("World");
     const characters = await deps.prisma.worldCharacter.findMany({ where: { worldId: world.id }, orderBy: { handle: "asc" } });
     const seed = await getWorldSeed(world.slug, deps.prisma);
+    // A world someone made is presented as *someone's* work, on the page a recipient of a share
+    // link lands on — a credit that only exists inside the creator's own screen is not authorship.
+    const handles = world.createdBy ? await creatorHandles(deps.prisma, [world.createdBy]) : null;
     return ok({
-      world: toApiWorld(world, locale),
+      world: {
+        ...toApiWorld(world, locale),
+        creatorHandle: world.createdBy ? (handles?.get(world.createdBy) ?? null) : null,
+        playCount: world.playCount,
+        isPreset: world.isPreset,
+      },
       characters: characters.map((ch) => {
         const seeded = seed?.cast.find((s) => sameHandle(s.handle, ch.handle));
         return toApiCharacter(ch, locale, seeded ? localized(seeded.intro, locale) : undefined);

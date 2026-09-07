@@ -81,40 +81,36 @@ export default function WorldPage() {
           ) : null}
 
           {world ? (
-            /*
-             * `studio-ready` is the id the suite already uses for "a finished world, revealed, with
-             * its cast and its play button" — which is exactly what this is, seen from the other
-             * side of the link. There is no id of its own for this page; see build-notes.
-             */
-            <View testID={T.studioReady} style={{ gap: spacing.xl }}>
+            <View testID={T.worldPage} style={{ gap: spacing.xl }}>
               <WorldHero slug={world.slug} title={world.title} height={COVER_H} />
 
               <View style={{ gap: spacing.sm }}>
                 <Text style={[typo.body, { color: colors.textDim }]}>{world.scenario}</Text>
                 {/*
-                 * Whose world this is, and how many people have been in it. Both come off the
-                 * studio record, which today only the creator may read — a visitor gets the world
-                 * without the numbers rather than a made-up one. See build-notes (QA-002).
+                 * Whose world this is, and how many people have been in it — off the world detail
+                 * itself, so a visitor who was sent a link sees the credit. The status badge stays
+                 * behind `full` (the creator-only record): what a world is *waiting on* is the
+                 * creator's business, whose world it is is everybody's.
                  */}
-                {full ? (
+                {world.isPreset ? null : (
                   <View style={{ flexDirection: "row", alignItems: "center", gap: spacing.md, flexWrap: "wrap" }}>
-                    <StudioStatusBadge status={full.status} visibility={full.visibility} />
-                    {full.creatorHandle ? (
-                      <Text style={[typo.count, { color: colors.textMuted }]}>
-                        {`${t("studioBy")} @${full.creatorHandle}`}
+                    {full ? <StudioStatusBadge status={full.status} visibility={full.visibility} /> : null}
+                    {world.creatorHandle ? (
+                      <Text testID={T.worldCredit} style={[typo.count, { color: colors.textMuted }]}>
+                        {`${t("studioBy")} @${world.creatorHandle}`}
                       </Text>
                     ) : null}
                     <View style={{ flexDirection: "row", alignItems: "center", gap: 3 }}>
                       <Icon name="person" size={12} color={colors.textMuted} />
                       <Text style={[typo.count, { color: colors.textMuted }]}>
-                        {`${compactNumber(full.playCount)} ${t("studioPlays")}`}
+                        {`${compactNumber(world.playCount)} ${t("studioPlays")}`}
                       </Text>
                     </View>
                   </View>
-                ) : null}
+                )}
               </View>
 
-              <Button testID={T.studioPlay} label={t("studioPlay")} icon="sparkle" onPress={play} />
+              <Button testID={T.worldPlay} label={t("studioPlay")} icon="sparkle" onPress={play} />
 
               <View style={{ gap: spacing.md }}>
                 <Text accessibilityRole="header" style={[typo.micro, { color: colors.textMuted }]}>

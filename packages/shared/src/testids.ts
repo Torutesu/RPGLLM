@@ -209,6 +209,10 @@ export const T = {
   worldReviewOverdue: "world-review-overdue",
   worldReviewReports: (id: string) => `world-review-reports-${id}`,
   reportWorld: "report-world",
+  // A world someone else made, opened from a share link or from Explore (QA-002).
+  worldPage: "world-page",
+  worldPlay: "world-play",
+  worldCredit: "world-credit",
   worldReviewAppeal: (id: string) => `world-review-appeal-${id}`,
   worldReviewClaim: (id: string) => `world-review-claim-${id}`,
   studioAppeal: "studio-appeal",
