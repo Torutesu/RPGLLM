@@ -38,9 +38,22 @@ const NEWS_EVERY = 2;
  * in this world), and neither do replies — a picture nested three levels into a thread is noise,
  * and leaving them out is what makes `MEDIA_EVERY` mean "one in four *cells you scroll past*"
  * rather than one in four rows in the table.
+ *
+ * The second exclusion has one exception, and it matters more than it looks. A character's reply to
+ * the player's own post **is** a feed cell — it is the main thing the feed is made of — so excluding
+ * it by `parentId !== null` (a rule written about thread nesting) meant that right after a burst of
+ * posting, when the player is most engaged, the whole visible page was the player's text plus
+ * replies to it and not one picture in any of it. `feedCell` says "this reply is shown as a row you
+ * scroll past", and those are eligible.
  */
-export function mediaFor(postId: string, kind: string, parentId: string | null = null): PostMedia {
-  if (kind === "user" || kind === "system" || parentId !== null) return NO_MEDIA;
+export function mediaFor(
+  postId: string,
+  kind: string,
+  parentId: string | null = null,
+  feedCell = false,
+): PostMedia {
+  if (kind === "user" || kind === "system") return NO_MEDIA;
+  if (parentId !== null && !feedCell) return NO_MEDIA;
   const h = hashString(postId);
   if (h % (kind === "news" ? NEWS_EVERY : MEDIA_EVERY) !== 0) return NO_MEDIA;
   const palette = paletteFor(kind);

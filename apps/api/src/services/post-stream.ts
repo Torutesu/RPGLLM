@@ -24,6 +24,8 @@ async function createPostWithMetrics(
   data: Prisma.PostUncheckedCreateInput,
   followers: number,
   extraMetrics: Record<string, unknown> = {},
+  /** true when this row is shown as a feed cell even though it has a parent (a reply to the player) */
+  feedCell = false,
 ): Promise<PostRow> {
   const created = await prisma.post.create({ data });
   const metrics = { ...computeMetrics(created.id, followers), ...extraMetrics };
@@ -33,7 +35,7 @@ async function createPostWithMetrics(
     where: { id: created.id },
     data: {
       metrics: metrics as unknown as Prisma.InputJsonValue,
-      ...mediaFor(created.id, created.kind, created.parentId),
+      ...mediaFor(created.id, created.kind, created.parentId, feedCell),
       heat: heatFor({ metrics, kind: created.kind, createdAt: created.createdAt, now: created.createdAt }),
     },
     include: { authorCharacter: true },
@@ -126,7 +128,8 @@ export async function materializeReplies(
         generationId,
         createdAt: deps.clock.now(),
         metrics: {},
-      }, ctx.persona.followers);
+        // A reaction to the player's post is a row in their feed, not a nested thread reply.
+      }, ctx.persona.followers, {}, true);
       if (notifiesPersona) {
         await notify(tx, {
           personaId: ctx.persona.id,
