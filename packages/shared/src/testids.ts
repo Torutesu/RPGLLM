@@ -213,6 +213,23 @@ export const T = {
   worldPage: "world-page",
   worldPlay: "world-play",
   worldCredit: "world-credit",
+  // Circuit ② — the creator as a place you can go
+  creatorPage: "creator-page",
+  creatorHandleText: "creator-handle",
+  creatorWorldCount: "creator-world-count",
+  creatorTotalPlays: "creator-total-plays",
+  creatorWorld: (slug: string) => `creator-world-${slug}`,
+  creatorLink: "creator-link",
+  creatorRename: "creator-rename",
+  creatorRenameInput: "creator-rename-input",
+  creatorRenameSave: "creator-rename-save",
+  // Circuit ③ — the slot a ranking cannot swallow
+  freshWorlds: "fresh-worlds",
+  freshWorld: (slug: string) => `fresh-world-${slug}`,
+  // Circuit ④ — making one out of one you played
+  remixOpen: "remix-open",
+  remixSource: "remix-source",
+  remixCreate: "remix-create",
   worldReviewAppeal: (id: string) => `world-review-appeal-${id}`,
   worldReviewClaim: (id: string) => `world-review-claim-${id}`,
   studioAppeal: "studio-appeal",

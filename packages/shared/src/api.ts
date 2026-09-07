@@ -49,6 +49,8 @@ export const MeResZ = z.object({
     email: z.string().nullable().default(null),
     /** S1-6 current consent, so the settings switch starts from the server value rather than a default. */
     analyticsConsent: z.boolean().default(false),
+    /** The name this account's worlds are credited to. Stable, unique, and renameable once claimed. */
+    creatorHandle: z.string().default(""),
   }),
   wallet: WalletZ, subscription: SubscriptionZ.nullable(), persona: PersonaZ.nullable(),
 });
@@ -328,7 +330,11 @@ export const CostSummaryResZ = z.object({
  * Engagement — notifications, streaks, achievements, trending
  * ========================================================== */
 
-export const NotificationKindZ = z.enum(["like", "reply", "follow", "mention", "dm", "milestone", "event", "digest", "unlock"]);
+export const NotificationKindZ = z.enum([
+  "like", "reply", "follow", "mention", "dm", "milestone", "event", "digest", "unlock",
+  /** Circuit ① — the author's return signal. A play count in a table is not a return signal. */
+  "world_played", "world_ready", "world_reviewed", "world_pulled",
+]);
 export const NotificationZ = z.object({
   id: z.string(),
   kind: NotificationKindZ,
@@ -546,6 +552,9 @@ export const WorldSummaryFullZ = WorldSummaryZ.extend({
    */
   canAppeal: z.boolean().default(false),
   appealed: z.boolean().default(false),
+  /** The world this one was remixed from, so a derivative credits what it came out of. */
+  remixOf: z.object({ id: z.string(), slug: z.string(), title: z.string(), creatorHandle: z.string().nullable() }).nullable().default(null),
+  remixCount: z.number().int().default(0),
 });
 export const CreateWorldResZ = z.object({
   world: WorldSummaryFullZ,
@@ -563,7 +572,44 @@ export const MyWorldsResZ = z.object({
   /** how many more this account may create today */
   remainingToday: z.number().int(),
 });
-export const PublicWorldsResZ = z.object({ worlds: z.array(WorldSummaryFullZ), nextCursor: z.string().nullable() });
+/**
+ * Explore's community shelf. `worlds` is the ranked list; `fresh` is the slot that exists so a
+ * ranking cannot become winner-take-all — worlds nobody has played yet, shown because they are new
+ * and for no other reason. Without it a new author's first world never reaches its first ten
+ * players and the whole creator loop dies at the third circuit.
+ */
+export const PublicWorldsResZ = z.object({
+  worlds: z.array(WorldSummaryFullZ),
+  fresh: z.array(WorldSummaryFullZ).default([]),
+  nextCursor: z.string().nullable(),
+});
+
+/* ---------- Circuit ②: the creator, as a place you can go ---------- */
+export const CreatorProfileResZ = z.object({
+  handle: z.string(),
+  isYou: z.boolean(),
+  worldCount: z.number().int(),
+  totalPlays: z.number().int(),
+  joinedAt: z.string(),
+  worlds: z.array(WorldSummaryFullZ),
+});
+
+/** Renaming the name your worlds are credited to. Same shape as a persona handle. */
+export const SetCreatorHandleReqZ = z.object({ handle: z.string().regex(/^[a-z0-9_]{3,15}$/) });
+export const SetCreatorHandleResZ = z.object({ creatorHandle: z.string() });
+
+/* ---------- Circuit ④: making a world out of one you played ---------- */
+/**
+ * A remix keeps the source world's genre and locale and takes a new premise — the cheapest possible
+ * consumer→author conversion, because the hardest parts of the blank page are already filled in.
+ * It costs the same as any other world; what is cheaper is the deciding, not the generating.
+ */
+export const RemixWorldReqZ = z.object({
+  premise: z.string().min(8).max(200),
+  genre: WorldGenreZ.optional(),
+  locale: LocaleZ.optional(),
+  visibility: WorldVisibilityZ.default("private"),
+});
 
 export const PublishWorldReqZ = z.object({ visibility: WorldVisibilityZ });
 export const PublishWorldResZ = z.object({ world: WorldSummaryFullZ, needsReview: z.boolean() });

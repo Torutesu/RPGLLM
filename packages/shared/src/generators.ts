@@ -175,7 +175,19 @@ export const WorldSeedZ = z.object({
   title: z.record(LocaleZ, z.string()),
   scenario: z.record(LocaleZ, z.string()),
   bible: z.record(LocaleZ, z.string()),          // full text incl. cast cards; >= 4096 tokens each
-  cast: z.array(CharacterCardZ.extend({ card: z.record(LocaleZ, z.string()), intro: z.record(LocaleZ, z.string()), canBeFirstFollower: z.boolean().default(true), avatarKey: z.string() })),
+  cast: z.array(CharacterCardZ.extend({
+    card: z.record(LocaleZ, z.string()),
+    intro: z.record(LocaleZ, z.string()),
+    /**
+     * The role line, per locale. Additive alongside `role`, which stays the single-language string
+     * every existing seed and prompt already uses — a JA world was coming back with Japanese intros
+     * and English roles, which is exactly the seam a product whose global claim is "worlds cross
+     * languages" cannot have. Consumers prefer this and fall back to `role`.
+     */
+    roleLocalized: z.record(LocaleZ, z.string()).optional(),
+    canBeFirstFollower: z.boolean().default(true),
+    avatarKey: z.string(),
+  })),
   presetPersonas: z.array(z.object({ handle: z.string(), displayName: z.record(LocaleZ, z.string()), bio: z.record(LocaleZ, z.string()), avatarKey: z.string() })),
   presetEvents: z.array(z.object({ title: z.record(LocaleZ, z.string()), prompt: z.record(LocaleZ, z.string()), choices: z.array(z.object({ label: z.record(LocaleZ, z.string()), outcomeText: z.record(LocaleZ, z.string()), statDeltas: StatDeltasZ })).length(3) })).min(5),
   fallbackReplies: z.record(z.string(), z.record(LocaleZ, z.array(z.string()).min(5))),   // handle -> locale -> 5 lines
