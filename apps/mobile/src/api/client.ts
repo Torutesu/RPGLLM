@@ -6,7 +6,7 @@ import {
   // S1 (Agent G): account deletion / export / consent and report / block.
   DeleteAccountResZ, CancelDeletionResZ, ExportDataResZ, ConsentResZ, ReportResZ, BlockedListResZ,
   // S2 (Agent H): digest / memory / moments / referral / profile / push.
-  DigestResZ, MarkDigestSeenResZ, MemoryLedgerResZ, MomentResZ, MomentListResZ, ReferralResZ,
+  DigestResZ, MarkDigestSeenResZ, MemoryLedgerResZ, MomentResZ, MomentListResZ, MomentReelResZ, ReferralResZ,
   RedeemReferralResZ, ProfileResZ, RegisterPushResZ,
   // Feed & discovery (Agent K): SCR-046 trending / explore, SCR-047 character profile.
   TrendingResZ, CharacterProfileResZ,
@@ -256,6 +256,16 @@ export const api = {
   sharedMoment: (slug: string) =>
     request(`/moments/${encodeURIComponent(slug)}`, { schema: MomentResZ, auth: false }),
 
+  /**
+   * The same moment as something that moves: a server-timed list of beats the client animates and
+   * records. Public like the card, and never global-error: the reel is an enhancement of a page
+   * that must still render its card if this 404s while the endpoint lands.
+   */
+  momentReel: (slug: string) =>
+    request(`/moments/${encodeURIComponent(slug)}/reel`, {
+      schema: MomentReelResZ, auth: false, globalErrors: false,
+    }),
+
   /** SCR-041 — invite a friend. */
   referral: () => request("/referral", { schema: ReferralResZ }),
   redeemReferral: (code: string) =>
@@ -379,6 +389,8 @@ export const api = {
 export type Digest = NonNullable<Awaited<ReturnType<typeof api.digest>>["digest"]>;
 export type MemoryLedger = Awaited<ReturnType<typeof api.memory>>;
 export type Moment = Awaited<ReturnType<typeof api.sharedMoment>>["moment"];
+export type MomentReel = Awaited<ReturnType<typeof api.momentReel>>;
+export type ReelBeat = MomentReel["beats"][number];
 export type Profile = Awaited<ReturnType<typeof api.profile>>;
 export type ReferralInfo = Awaited<ReturnType<typeof api.referral>>;
 export type Trending = Awaited<ReturnType<typeof api.trending>>;

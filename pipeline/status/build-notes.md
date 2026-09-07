@@ -3854,3 +3854,68 @@ then a hash tail, rotated by world seed so two worlds moving the same `@rina` do
 `@rina_hq`; 23 tests cover the ladder, the reservation, the rewrite and a full gateway round trip
 asserting the discarded name survives nowhere in the cast, the fallback replies, the welcome posts,
 the ambient pool or either bible.
+
+---
+
+## Agent REEL-CLIENT — the moment, as something that moves (`apps/mobile/src/reel/*`)
+
+GTM §4: the one large unbuilt thing before Phase 2 is that sharing is a **still card**. A screenshot
+of a drama beat has already spoiled the turn, and the turn is the content. So `/moment/[slug]` — the
+public share target, the page a stranger lands on — now carries a nine-second vertical reel above the
+card, and on the web it produces a **real video file**.
+
+### What is recorded, and why that decides the whole design
+
+`MediaRecorder` records a `MediaStream`. The only stream a page can make of its own pixels is
+`HTMLCanvasElement.captureStream()`; a DOM/React animation is not recordable without
+`getDisplayMedia`, which asks the player to pick a window and records their screen. So the reel is
+**drawn on a canvas in the first place**, backing store 1080×1920, and the preview the player watches
+*is that canvas*, scaled down by CSS. The file and the animation cannot drift because they are the
+same pixels.
+
+That rules out reusing `MomentCard`/`PostCell` for the composition, and native has no canvas at all.
+The answer is one scene graph, two painters:
+
+- `scene.ts` — `planReel(reel, labels, quality)` then `frameAt(plan, t) → ReelNode[]`: a flat list of
+  absolutely-placed primitives (rect, gradient, glow, dot, ring, orb, wordmark, one line of text) in
+  a fixed 1080×1920 space. Pure — no `Math.random`, no clock read, no device measurement. Text is
+  pre-wrapped by a deterministic advance-width estimator rather than by each medium's own metrics,
+  because two painters that disagree about line breaks are two different reels.
+- `paint.web.ts` — canvas 2D, including a port of the ten generated-avatar motifs from
+  `src/ui/Avatar.tsx` (an `<Svg>` cannot be drawn into a recordable canvas without serialising it
+  through an image every frame) and the `<Wordmark>` gradient.
+- `ReelStage.tsx` (native) — the same nodes as RN views, on the lighter scene budget.
+
+### Composition
+
+Progress rail + wordmark + world title (painted *above* the headline takeover, so a cropped repost
+still says where it came from) · identity hero · the post card landing with overshoot · replies
+arriving from alternating sides into a bottom-anchored stack that grows upward · three stat tiles
+that appear **empty with the post** and later *count* (an appearing number throws the moment away) ·
+a shockwave ring on the beat they land · headline takeover, line-staggered · brand end card.
+
+### Deviations / things the next agent should know
+
+1. **`GET /v1/moments/:slug/reel` is optional.** It is a second, `globalErrors: false`, unauthenticated
+   request; on any failure `reelFromMoment()` cuts the same shape from the `MomentResZ` payload on the
+   same 9 s clock. Two things the fallback genuinely cannot know and does not invent: the **world**
+   (the moment payload has none, so `worldTitle` is empty) and the **player's actual post** (the
+   payload keeps the narrative, not the text that caused it — the fallback uses the narrative minus
+   the sentence the headline already used). Both fill in for free when the endpoint lands.
+2. **Native records nothing.** `capabilities.ts` returns `canRecord() === false` on iOS/Android: there
+   is no `MediaRecorder` and no canvas, and a real encoder means Skia/AVFoundation/MediaCodec — a
+   dependency and a custom dev client, not a screen. Native gets the animated preview and the
+   `reelUnsupported` line; the card's own share is untouched. Same on any browser missing
+   `captureStream`, `MediaRecorder`, or a supported container (all three are checked separately).
+3. **The reel is mounted on `/moment/[slug]` only, and only while that screen is focused.** Expo Router
+   keeps stacked screens mounted, and this screen is a deep link, so a second copy would duplicate
+   `moment-reel` and its five controls. The feed's `ListHeaderComponent` moment card (SCR-040 inline)
+   deliberately has **no** reel: the frozen id set has no entry point for one, and adding a second
+   mount point re-opens the duplicate-id problem. **Open**: a player who just made a moment can only
+   reach its reel through the share link. An id for that entry point is the missing piece.
+4. **Two icons added** to `src/ui/Icon.tsx`: `play`, `download` (additive; `iconNames` is derived).
+5. **No new dependencies.** No audio track — the file is silent, which is what short-form is scrolled
+   as anyway; adding one would mean a second stream and a mixer.
+6. Measured in Chromium 1194 at 390×844: `video/mp4;codecs=avc1` is chosen ahead of WebM (far more
+   shareable), output **1080×1920, 9.13 s, ~4.5 MB**, fragmented MP4 (`ftyp/moov/moof+mdat`), decoded
+   and frame-grabbed to confirm. WebM is the fallback where MP4 recording is unsupported.
