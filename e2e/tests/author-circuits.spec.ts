@@ -91,9 +91,19 @@ async function aPublicWorld(
  */
 async function playWorld(page: Page, slug: string): Promise<void> {
   const presets = await worldPresets(page, slug);
-  await page.getByTestId(T.personaPreset(presets.personaHandle!)).click();
+  expect(presets.personaHandle, "the world must offer preset personas").not.toBeNull();
+  expect(presets.followerHandle, "and first followers").not.toBeNull();
+
+  // Each screen arrives on a transition and the one beneath stays mounted, so wait for the row to
+  // be there before pressing it rather than racing the animation into a "not stable" click.
+  const preset = page.getByTestId(T.personaPreset(presets.personaHandle!));
+  await expect(preset, "SCR-004 must offer the personas").toBeVisible({ timeout: 20_000 });
+  await preset.click();
   await page.getByTestId(T.personaContinue).click();
-  await page.getByTestId(T.follower(presets.followerHandle!)).click();
+
+  const follower = page.getByTestId(T.follower(presets.followerHandle!));
+  await expect(follower, "SCR-006 must offer the cast").toBeVisible({ timeout: 20_000 });
+  await follower.click();
   await page.getByTestId(T.enterWorld).click();
   await expect(page.getByTestId(T.feedList)).toBeVisible({ timeout: 20_000 });
 }

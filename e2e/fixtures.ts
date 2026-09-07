@@ -277,12 +277,13 @@ export async function worldPresets(page: Page, worldSlug: string): Promise<{ per
   const jwt = await browserToken(page);
   const headers = jwt ? bearer(jwt) : {};
   try {
-    const worlds = await page.request.get(apiUrl("/v1/worlds"), { headers, failOnStatusCode: false });
-    if (!worlds.ok()) return { personaHandle: null, followerHandle: null };
-    const list = ((await worlds.json()) as { data: { id: string; slug: string }[] }).data;
-    const world = list.find((w) => w.slug === worldSlug);
-    if (!world) return { personaHandle: null, followerHandle: null };
-    const detail = await page.request.get(apiUrl(`/v1/worlds/${world.id}`), { headers, failOnStatusCode: false });
+    /*
+     * Resolved straight off the detail endpoint, which takes a slug and answers anyone who may play
+     * the world. This used to scan `GET /v1/worlds` for the slug first — but that is the *picker*,
+     * which returns the presets plus your own worlds, so a visitor about to play somebody else's
+     * public world found nothing there and this returned nulls. The world was never the problem.
+     */
+    const detail = await page.request.get(apiUrl(`/v1/worlds/${worldSlug}`), { headers, failOnStatusCode: false });
     if (!detail.ok()) return { personaHandle: null, followerHandle: null };
     const d = ((await detail.json()) as { data: { characters: { handle: string; canBeFirstFollower: boolean }[]; presetPersonas: { handle: string }[] } }).data;
     const strip = (h: string) => h.replace(/^@/, "");

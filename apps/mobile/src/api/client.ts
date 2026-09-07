@@ -267,12 +267,18 @@ export const api = {
   /* ---------- Engagement surfaces (Agent L) ---------- */
 
   /** SCR-042 — notifications, newest first, id-cursored. */
-  notifications: (personaId: string, cursor?: string | null) =>
-    request("/notifications", { query: { personaId, cursor }, schema: NotificationsResZ }),
+  /**
+   * `personaId` is optional on purpose: a creator who has never made a persona still has an inbox
+   * (their worlds' `world_*` rows are addressed to the account), and naming no persona is how you
+   * ask for exactly those. Passing one that does not resolve is still a 404, so this omits rather
+   * than sends an empty string.
+   */
+  notifications: (personaId: string | null, cursor?: string | null) =>
+    request("/notifications", { query: { personaId: personaId ?? undefined, cursor }, schema: NotificationsResZ }),
   /** `ids: null` means "all" — one tap clears the badge. */
-  markNotificationsRead: (personaId: string, ids: string[] | null) =>
+  markNotificationsRead: (personaId: string | null, ids: string[] | null) =>
     request("/notifications/read", {
-      method: "POST", body: { ids }, query: { personaId }, schema: MarkNotificationsReadResZ,
+      method: "POST", body: { ids }, query: { personaId: personaId ?? undefined }, schema: MarkNotificationsReadResZ,
     }),
 
   /** The daily check-in. Idempotent: `/v1/me` may already have claimed today. */

@@ -734,8 +734,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     /* ---------------- Engagement surfaces (Agent L) ---------------- */
 
     const loadNotifications: Actions["loadNotifications"] = async () => {
-      const personaId = ref.current.me?.persona?.id;
-      if (!personaId) return;
+      // No persona is not an empty inbox. A creator's world was built, reviewed, pulled or played
+      // — those rows are addressed to the account, and bailing out here left the whole of circuit ①
+      // invisible to exactly the person it exists for.
+      const personaId = ref.current.me?.persona?.id ?? null;
       patch({ notifStatus: ref.current.notifications.length ? ref.current.notifStatus : "loading" });
       try {
         const res = await api.notifications(personaId, null);
@@ -751,9 +753,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     };
 
     const loadMoreNotifications: Actions["loadMoreNotifications"] = async () => {
-      const personaId = ref.current.me?.persona?.id;
+      const personaId = ref.current.me?.persona?.id ?? null;
       const cursor = ref.current.notifCursor;
-      if (!personaId || !cursor) return;
+      if (!cursor) return;
       try {
         const res = await api.notifications(personaId, cursor);
         const seen = new Set(ref.current.notifications.map((n) => n.id));
@@ -768,8 +770,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     };
 
     const markNotificationsRead: Actions["markNotificationsRead"] = async (ids) => {
-      const personaId = ref.current.me?.persona?.id;
-      if (!personaId) return;
+      const personaId = ref.current.me?.persona?.id ?? null;
       const at = new Date().toISOString();
       // Optimistic: the badge has to clear on the tap, not on the round trip.
       patch((s2) => ({
