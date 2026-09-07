@@ -118,13 +118,21 @@ describe("world seeds", () => {
   }
 
   /**
-   * `roleLocalized` rides in the seed but must never reach `system[1]`. That string is the
-   * cross-user cached prefix (cost-architecture 3.1) and every byte of it is part of the cache
-   * key, so localizing the cast header would silently move the prefix for every world already
-   * shipped. Measured here rather than assumed: change the localized role and the bible must not
-   * move by one byte, in either locale.
+   * **This assertion was inverted, deliberately, and it is worth saying why.**
+   *
+   * It used to pin that `roleLocalized` never reaches `system[1]`: that string is the cross-user
+   * cached prefix (cost-architecture 3.1), every byte is part of the cache key, and localizing the
+   * cast header moves the JA prefix for every world. True — and the consequence was that a
+   * Japanese world handed the generator a cast sheet whose role lines were in English, in the one
+   * market this product picked *because* it detects exactly that.
+   *
+   * So the header is localized now and the JA prefix rotates once. It costs one cache write per
+   * world, nothing has shipped, and the price of this rotation only goes up. What is pinned
+   * instead is the half that must still hold: the **EN** prefix does not move at all (because
+   * `roleLocalized.en === role` by construction), and the JA prefix moves **only** with the
+   * localized role and not with anything else.
    */
-  it("assembling roleLocalized does not move the cached bible prefix", () => {
+  it("localizes the cast header in JA, and leaves the EN prefix exactly where it was", () => {
     const source: WorldSource = {
       slug: "probe",
       difficulty: 1,
@@ -147,10 +155,26 @@ describe("world seeds", () => {
       ...source,
       cast: idolCast.map(({ roleLocalized: _drop, ...rest }) => rest),
     };
-    for (const locale of LOCALES) {
-      expect(renderBible(rewritten, locale)).toBe(renderBible(source, locale));
-      expect(renderBible(stripped, locale)).toBe(renderBible(source, locale));
+    // EN: untouched by either change, because the English half *is* `role`.
+    expect(renderBible(rewritten, "en")).toBe(renderBible(source, "en"));
+    expect(renderBible(stripped, "en")).toBe(renderBible(source, "en"));
+
+    // JA: the localized role is in the prefix, so rewriting it moves the prefix — that is the
+    // point — and the header carries the Japanese line rather than the English one.
+    expect(renderBible(rewritten, "ja")).not.toBe(renderBible(source, "ja"));
+    expect(renderBible(rewritten, "ja")).toContain("まったく別の肩書き");
+    for (const member of idolCast) {
+      const ja = member.roleLocalized?.ja;
+      if (ja !== undefined && ja !== member.role) {
+        expect(renderBible(source, "ja"), `@${member.handle}'s header must be Japanese`).toContain(ja);
+        expect(renderBible(source, "ja")).not.toContain(`(${member.role})`);
+      }
     }
+
+    // A world with no localized role at all still renders — it falls back to the single string.
+    expect(renderBible(stripped, "ja")).toBe(
+      renderBible({ ...source, cast: idolCast.map((c) => ({ ...c, roleLocalized: undefined })) }, "ja"),
+    );
   });
 
   it("popstar-era keeps the handles E2E-002 depends on", () => {

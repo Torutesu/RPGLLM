@@ -79,11 +79,21 @@ function renderCastCards(cast: readonly CastSource[], locale: Locale): string {
         c.canBeFirstFollower === false ? "not selectable as first follower" : null,
       ].filter((t): t is string => t !== null);
       const suffix = tags.length > 0 ? ` [${tags.join(" / ")}]` : "";
-      // Deliberately `c.role`, not the localized half: this string is `system[1]`, the cross-user
-      // cached prefix, and every byte of it is a cache key. Localizing the header here would move
-      // the JA prefix for every world that already shipped. `roleLocalized` rides alongside in the
-      // seed and is what the player-facing surfaces read. See build-notes G9 §roleLocalized.
-      return `## ${c.handle} — ${c.displayName} (${c.role})${suffix}\n${c.card[locale].trim()}`;
+      /*
+       * The localized half, and this was a deliberate change of mind.
+       *
+       * This string is `system[1]`, the cross-user cached prefix, so every byte is a cache key and
+       * localizing the header moves the JA prefix for every world. That was the reason to leave it
+       * — but the consequence was that a Japanese world described its cast to the model in English
+       * role lines: the generator writing Japanese replies was reading a half-English character
+       * sheet, in the one market chosen *because* it detects exactly that.
+       *
+       * The rotation costs one cache write per world, and nothing has shipped, so it costs nothing
+       * now and something later. `roleLocalized.en === role` by construction, so the EN prefix does
+       * not move at all.
+       */
+      const role = c.roleLocalized?.[locale] ?? c.role;
+      return `## ${c.handle} — ${c.displayName} (${role})${suffix}\n${c.card[locale].trim()}`;
     })
     .join("\n\n");
 }

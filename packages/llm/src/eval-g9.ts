@@ -219,6 +219,8 @@ export interface G9Metrics {
   jaEchoesEn: number;
   /** cast members whose JA role line exists, differs from the EN one and contains CJK */
   castRolesLocalized: number;
+  /** the same, measured on the rendered JA bible rather than on the field */
+  bibleRolesLocalized: number;
   /** CJK density of the eight JA role lines alone — the field the screenshot caught */
   jaRoleCjkRatio: number;
   premiseEchoes: number;
@@ -275,6 +277,20 @@ export function g9Metrics(input: G9Input, world: WorldSeed): G9Metrics {
     return ja.length > 0 && ja !== roleOf(c, "en").trim() && cjkRatio(ja) > 0;
   }).length;
 
+  /*
+   * The same question asked of the text instead of the field, because the first version of this
+   * check read `roleLocalized` and passed while the JA **bible** — the string the generator is
+   * actually handed — still carried the English role line in every cast header. A check that reads
+   * a different place than the model does is not a check.
+   */
+  const jaBible = world.bible.ja ?? "";
+  const bibleRolesLocalized = world.cast.filter((c) => {
+    const ja = roleOf(c, "ja").trim();
+    const en = roleOf(c, "en").trim();
+    if (ja.length === 0 || ja === en) return true; // nothing to localize; not a failure
+    return jaBible.includes(ja) && !jaBible.includes(`(${en})`);
+  }).length;
+
   return {
     bibleTokens: { en: estimateTokens(world.bible.en ?? ""), ja: estimateTokens(world.bible.ja ?? "") },
     cast: world.cast.length,
@@ -300,6 +316,7 @@ export function g9Metrics(input: G9Input, world: WorldSeed): G9Metrics {
     jaCjkRatio: cjkRatio(jaText),
     jaEchoesEn: pairs.length === 0 ? 1 : round(identical / pairs.length),
     castRolesLocalized,
+    bibleRolesLocalized,
     jaRoleCjkRatio: cjkRatio(jaRoles.join("")),
     premiseEchoes,
     scaffoldLeaks,
@@ -455,6 +472,9 @@ export function machineChecksG9(
     localeParity: m.localeGaps === 0,
     japaneseIsJapanese: m.jaCjkRatio >= MIN_JA_CJK_RATIO && m.jaEchoesEn <= MAX_JA_ECHO,
     rolesLocalized: m.castRolesLocalized === m.cast && m.jaRoleCjkRatio >= MIN_JA_CJK_RATIO,
+    // The field being right is not the same fact as the text being right, and the text is what the
+    // generator reads. This is the check that would have caught the header.
+    bibleRolesLocalized: m.bibleRolesLocalized === m.cast,
     // containment
     premiseContained: m.premiseEchoes === 0,
     noScaffoldLeak: m.scaffoldLeaks === 0 && m.templateSlots === 0,
@@ -524,6 +544,7 @@ const ZERO_CHECKS: MachineChecks = {
   localeParity: false,
   japaneseIsJapanese: false,
   rolesLocalized: false,
+  bibleRolesLocalized: false,
   premiseContained: false,
   noScaffoldLeak: false,
   distinctFromSibling: false,

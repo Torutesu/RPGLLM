@@ -286,6 +286,32 @@ describe("each machine check is load-bearing", () => {
   });
 
   /**
+   * And the same question asked of the text rather than the field.
+   *
+   * The first version of this fix left the JA **bible** rendering the English role line in every
+   * cast header — the field was right, the string the generator is handed was not, and
+   * `rolesLocalized` passed because it read the field. A check that looks somewhere other than
+   * where the model looks is not a check.
+   */
+  it("catches a JA bible whose cast headers are still in English, even when the field is right", () => {
+    const w = clone(baseWorld);
+    expect(checksOf(w).bibleRolesLocalized, "the fixture is correct to begin with").toBe(true);
+
+    // The exact defect that shipped: the field carries Japanese, the header carries English.
+    const en = w.cast.map((c) => c.roleLocalized?.en ?? c.role);
+    const ja = w.cast.map((c) => c.roleLocalized?.ja ?? c.role);
+    let bible = w.bible.ja ?? "";
+    for (const [i, jaRole] of ja.entries()) bible = bible.split(`(${jaRole})`).join(`(${en[i]!})`);
+    w.bible = { ...w.bible, ja: bible };
+
+    const m = g9Metrics(first.input, w);
+    expect(m.bibleRolesLocalized).toBeLessThan(m.cast);
+    expect(checksOf(w).bibleRolesLocalized).toBe(false);
+    // The field-level check is blind to it, which is the whole reason this one exists.
+    expect(checksOf(w).rolesLocalized).toBe(true);
+  });
+
+  /**
    * The other half of the fix: the parity measurement now covers *every* per-locale field, not
    * the five it happened to list. Each field mutated here was invisible to the check before.
    */
