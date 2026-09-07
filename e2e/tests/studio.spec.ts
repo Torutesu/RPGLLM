@@ -2,7 +2,7 @@ import { expect, test, type APIRequestContext, type Page } from "@playwright/tes
 import { T, WORLD_MODERATION, WORLD_STUDIO, strings } from "@rpgllm/shared";
 import {
   apiSignup, apiUrl, bearer, gotoApp, loginInBrowser, resetDb, ROUTES, setLlmMode,
-  unwrap, wallet, worldPresets, type Account,
+  setGems, unwrap, wallet, worldPresets, type Account,
 } from "../fixtures";
 
 /**
@@ -187,12 +187,30 @@ test.describe("World Studio", () => {
     await loginInBrowser(page, account.jwt);
     const world = await buildAWorld(page, request, account);
 
+    /*
+     * The shelf costs gems on top of the build and a starter wallet buys exactly one world, so this
+     * tops up over the API. E2E-030 owns the refusal; this case is about what a person does with
+     * the submission.
+     *
+     * **No reload.** Reloading and clicking immediately fires the publish before the boot has read
+     * the token out of storage, and the request goes out unauthenticated — a 401 that looks exactly
+     * like a 402, because the world simply stays `ready` either way. The screen's wallet is stale
+     * after this, which is fine: the server has the gems, and the button does not gate on the
+     * client's copy.
+     */
+    await setGems(request, account.jwt, WORLD_MODERATION.PUBLIC_SUBMIT_GEMS * 4);
     await page.getByTestId(T.studioPublish).click();
     await expect(page.getByTestId(T.studioStatusBadge), "the world must say it is being read")
       .toBeVisible({ timeout: 15_000 });
 
-    const mine = await myWorlds(request, account.jwt);
-    expect(mine[0]?.status, "public publishes to a queue, never to Explore").toBe("review");
+    /*
+     * Polled, not read once. The badge turns over as soon as the client has its answer, and the
+     * server's write lands a beat later — reading the shelf on the same tick caught the world
+     * mid-flight and called it `ready`. The assertion is unchanged; only the impatience is gone.
+     */
+    await expect
+      .poll(async () => (await myWorlds(request, account.jwt))[0]?.status, { timeout: 15_000 })
+      .toBe("review");
 
     // A second player cannot find it while it waits.
     const stranger = await apiSignup(request);
@@ -281,6 +299,8 @@ test.describe("World Studio", () => {
     await loginInBrowser(page, author.jwt);
     const world = await buildAWorld(page, request, author);
 
+    // The shelf costs gems on top of the build; the 402 is E2E-030's business, not this case's.
+    await setGems(request, author.jwt, WORLD_MODERATION.PUBLIC_SUBMIT_GEMS * 4);
     await call(request, author.jwt, "POST", `/v1/worlds/${world.id}/publish`, { visibility: "public" });
     await call(request, author.jwt, "POST", `/v1/admin/worlds/${world.id}/review`, { decision: "approve", reason: "" });
 
@@ -330,6 +350,8 @@ test.describe("World Studio", () => {
     await loginInBrowser(page, author.jwt);
     const world = await buildAWorld(page, request, author);
 
+    // The shelf costs gems on top of the build; the 402 is E2E-030's business, not this case's.
+    await setGems(request, author.jwt, WORLD_MODERATION.PUBLIC_SUBMIT_GEMS * 4);
     await call(request, author.jwt, "POST", `/v1/worlds/${world.id}/publish`, { visibility: "public" });
     await call(request, author.jwt, "POST", `/v1/admin/worlds/${world.id}/review`, {
       decision: "reject", reason: "Reads as an existing show with the names changed.",

@@ -4,6 +4,7 @@ import { router, useFocusEffect } from "expo-router";
 import { T, colors, layout, spacing } from "@rpgllm/shared";
 import { api, type WorldFull } from "../../src/api/client";
 import { Button, HeaderBar, Screen } from "../../src/components/ui";
+import { rememberShelfFee } from "../../src/studio/shelf-fee";
 import { Empty } from "../../src/components/Empty";
 import { SkeletonList } from "../../src/components/Skeleton";
 import { StudioWorldCard } from "../../src/components/StudioWorldCard";
@@ -29,6 +30,7 @@ export default function MyWorlds() {
       const res = await api.myWorlds();
       setWorlds(res.worlds);
       setRemaining(res.remainingToday);
+      rememberShelfFee(res.publicSubmitGems);
       setStatus("ready");
     } catch {
       // Nothing invented: if the list cannot be read the screen says so and offers a retry.

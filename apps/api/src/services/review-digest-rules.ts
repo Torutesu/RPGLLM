@@ -90,9 +90,30 @@ export function cjkRatio(text: string): number {
  * text says "Hogwarts". **Framing** ("based on", "in the style of", パロディ) is medium: it is a
  * legitimate thing to write and also exactly how a derivative announces itself.
  */
-const FRANCHISE = /\b(?:hogwarts|jedi|sith|pok[eé]mon|pikachu|marvel|avengers|spider-?man|batman|superman|naruto|sasuke|goku|dragon ball|sailor moon|demon slayer|jujutsu kaisen|attack on titan|one piece|luffy|hatsune miku|studio ghibli|totoro|disney|pixar|nintendo|mario|zelda|minecraft|fortnite|roblox|taylor swift|beyonc[eé]|bts|blackpink|k-?pop demon hunters)\b|(?:ハリー・?ポッター|ポケモン|ナルト|ドラゴンボール|セーラームーン|鬼滅の刃|呪術廻戦|進撃の巨人|ワンピース|初音ミク|ジブリ|ディズニー|マリオ|ゼルダ)/i;
+const FRANCHISE = /\b(?:hogwarts|jedi|sith|pok[eé]mon|pikachu|marvel|avengers|spider-?man|batman|superman|naruto|sasuke|goku|dragon ball|sailor moon|demon slayer|jujutsu kaisen|attack on titan|luffy|hatsune miku|studio ghibli|totoro|disney|pixar|nintendo|mario|zelda|minecraft|fortnite|roblox|taylor swift|beyonc[eé]|bts|blackpink|k-?pop demon hunters)\b|(?:ハリー・?ポッター|ポケモン|ナルト|ドラゴンボール|セーラームーン|鬼滅の刃|呪術廻戦|進撃の巨人|ワンピース|初音ミク|ジブリ|ディズニー|マリオ|ゼルダ)/i;
 const HOMAGE = /\b(?:based on|inspired by|in the style of|reminiscent of|an? homage to|the same universe as|thinly veiled|serial numbers)\b|(?:をモデルに|パロディ|オマージュ|そっくり)/i;
-const REAL_WORLD = /\b(?:real[\s-]?life|actual|the real)\s+(?:celebrit|person|people|politician|president|singer|actor|idol)|[™®]|(?:実在の(?:人物|有名人|芸能人|企業))/i;
+/**
+ * **The ambiguity guard** (`pipeline/status/build-notes.md` §6, `AMBIGUOUS_ENTITY_TERMS` in
+ * `@rpgllm/llm`). Pointing entity vocabulary at 60 kB of generated prose instead of at a
+ * 200-character premise raised a false `original` hit on **every one of eighteen** blueprint worlds,
+ * from ordinary English: `"one piece"` in "the one piece of history that", `"twice"` in "this has
+ * gone badly twice", and `"real person"` from G9's own bible rule line — *"Never import a real
+ * person, brand or existing work"* — which the studio writes into every world it builds.
+ *
+ * A digest that raises a point on every world is the noise this file exists not to be. Two guards:
+ *
+ *  - the ambiguous nouns are simply **not on the franchise list** above — a name here has to be one
+ *    nothing else uses;
+ *  - `REAL_WORLD` matches only an **assertion**, never the bare noun. "実在の人物をモデルに" is a
+ *    claim about a character; "実在の人物への言及" is *G9's own prohibition*, in the JA bible of
+ *    every world the studio builds, and matching the bare 実在の人物 raised an `original` point on
+ *    every Japanese world. The same is true of "Never import a real person" in the EN half, which
+ *    is why `real person` needs "real-life" or "based on the real" in front of it to count.
+ *
+ * There is a regression case for both strings in `test/review-digest.test.ts`, and the mirror of
+ * this list lives in `@rpgllm/llm` (`AMBIGUOUS_ENTITY_TERMS`); a term added here needs one there.
+ */
+const REAL_WORLD = /\b(?:real[\s-]?life|the real)\s+(?:celebrit|person|people|politician|president|singer|actor|idol)|\b(?:based on|starring|featuring|modelled on|modeled on)\s+(?:the\s+)?real\b|[™®]|(?:実在の(?:人物|有名人|芸能人|企業)を(?:モデル|元)に)/i;
 
 /**
  * `age` — 13+ in spirit. The block gate already refused the explicit cases; what is left for a

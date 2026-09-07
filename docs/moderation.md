@@ -102,15 +102,48 @@ and must never be described to a player as a deletion.
 
 ## 7. Appeals
 
-There is no appeal endpoint yet — a creator's only recourse is to fix the world and resubmit. This
-is a known gap: a reject with a bad reason currently has no path back other than the cooldown.
-Before this feature carries real volume, decide who reads appeals and how a creator asks for one.
+A rejected world's creator gets **one appeal per decision** (`POST /v1/worlds/:id/appeal`). It puts
+the world back in your queue carrying their message *and the reason it was rejected for*, so you are
+reading a decision being argued with rather than a fresh submission. Appeals are free — §4 tells you
+to reject when unsure, so some of them are ours to have got wrong, and charging for that would be
+the wrong incentive in both directions.
 
-## 8. What this document does not cover
+An appeal you also reject ends it: another only becomes available if the creator does a genuine
+resubmit and that is rejected again.
+
+**Read the appeal before the world**, the same way you read complaints before a pulled world. If the
+creator is right, approving is the correct outcome and costs nothing but your five minutes.
+
+## 8. Two things on a queue card that are not verdicts
+
+**The digest ("What to look at").** Some cards carry extracted points against the five rules in §3,
+each quoting the passage it came from, marked low / medium / high confidence. It is **advice**. It
+cannot approve, reject or skip anything, and an empty digest means nothing was extracted — not that
+the world is fine. Every point cites a passage precisely so you can check it rather than believe it:
+a summary you have to trust has not saved you time, it has moved the risk onto you.
+
+The rule it is weakest on is `original`, which is the rule you are most needed for. A model can tell
+you *what a world resembles* — a name you can go and search — but it cannot establish that a world
+is a copy. Treat "reads like X with the names changed" as a lead, never as a finding.
+
+**"Drawn for a full read".** A creator with a clean record has their submissions **sampled**: most
+go live without a person, and some are drawn at random for a full read. A card marked this way is
+one of the drawn ones. It is not a suspicion — the draw is random and unpredictable to the creator —
+and it is the whole reason the queue is a length one person can work. Read it exactly as carefully
+as any other card; a sampled queue only works if the sample is read properly.
+
+A creator loses sampling on a rejection, and it is suspended while any of their worlds is off the
+shelf under reports. Their first submission after earning it is always read in full.
+
+## 9. What this document does not cover
 
 - **Post- and DM-level reports** (`GET /v1/moderation/reports`) — the older surface, separate queue.
 - **Who the reviewers are.** No rota, no training set, no second-reader rule for borderline calls.
   A queue with an SLA and nobody rostered against it is a number that goes up.
+- **What this costs.** `GET /v1/admin/moderation/metrics` prices it: reviewer minutes, what they
+  cost at your rate, how many submissions sampling took off your desk and what that was worth. The
+  arithmetic behind §8 is in `pipeline/status/gtm.md` §2 — a review costs fifteen times what
+  generating the world cost, which is why not every world can be read by a person.
 - **Volume.** Every threshold here was chosen for a product with no users yet. Re-derive
   `REPORTS_TO_PULL` from real report rates before launch: three distinct reporters is deliberately
   jumpy, and it is the right setting only while a false pull costs one reviewer five minutes.

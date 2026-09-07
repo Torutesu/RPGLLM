@@ -30,9 +30,13 @@
  *         left with less than the free answer;
  *       - it is not there at all (an older `@rpgllm/llm`) → the local extraction.
  *
- * The model half is asked for **only when a person is actually going to read the world** — never
+ * **The model half is asked for only when a person is actually going to read the world** — never
  * for a submission the sampling draw sent straight to the shelf. Paying a model to advise a
- * reviewer who does not exist is the cost this whole feature is here to remove.
+ * reviewer who does not exist is the cost this whole feature is here to remove. The package's
+ * *offline* half is free (`build-notes.md` §8.2: ~30 ms, no gateway), so a sampled submission still
+ * gets it — through the same entry point, with the gateway's mode reported as `replay`, which is
+ * how `reviewDigest` is told to skip the call. A world that goes live unread and is later pulled
+ * therefore arrives in the queue with a real digest rather than with nothing.
  */
 import type { Gateway } from "@rpgllm/llm";
 import { ReviewDigestZ } from "@rpgllm/shared";
@@ -106,10 +110,20 @@ export function localDigest(
 export interface BuildDigestOptions {
   /** true when this world is in the queue because the sampling draw put it there */
   sampled: boolean;
-  /** false for a submission nobody will read — the model half is not worth paying for */
+  /** false for a submission nobody will read — the **model** half is not worth paying for */
   enrich: boolean;
   actorId: string | null;
 }
+
+/**
+ * The gateway with its mode reported as `replay`, which is how `@rpgllm/llm`'s `reviewDigest` is
+ * asked for the offline measurement and no model call. `g9Digest` is still passed through: it is
+ * simply never reached, and a wrapper that dropped it would fail the package's own probe.
+ */
+const offlineOnly = (gateway: Gateway): unknown => ({
+  mode: () => "replay",
+  g9Digest: (input: unknown) => (gateway as unknown as { g9Digest: (i: unknown) => unknown }).g9Digest(input),
+});
 
 /**
  * The digest as stored on the row. Never throws and never blocks a submission: a generator that is
@@ -124,7 +138,6 @@ export async function buildDigest(
 ): Promise<ReviewDigest> {
   const at = deps.clock.now().toISOString();
   const local = localDigest(world, characters, at, opts.sampled);
-  if (!opts.enrich) return local;
 
   const generate = await loadDigestFn(deps.gateway);
   if (!generate) return local;
@@ -134,7 +147,7 @@ export async function buildDigest(
   if (!seed) return local;
 
   try {
-    const result = await generate(deps.gateway, {
+    const result = await generate(opts.enrich ? deps.gateway : offlineOnly(deps.gateway), {
       world: seed,
       premise: world.premise,
       genre: (world.genre || "fame") as WorldGenre,

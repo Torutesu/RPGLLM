@@ -12,6 +12,7 @@ import { ShelfPrice } from "../../src/components/ShelfPrice";
 import { WorldCover } from "../../src/components/WorldCard";
 import { useActions, useAppState, useT } from "../../src/state/store";
 import { GENRES, GENRE_LABEL, GENRE_TINT, VISIBILITIES, VISIBILITY_HINT, VISIBILITY_LABEL } from "../../src/studio/labels";
+import { rememberShelfFee } from "../../src/studio/shelf-fee";
 import { FadeSlideIn, Gradient, Icon, PressScale, typo } from "../../src/ui";
 
 /**
@@ -218,6 +219,7 @@ export default function StudioCreate() {
   const [error, setError] = useState<string | null>(null);
   /** `null` = the server has not told us yet; the chip stays hidden rather than inventing a number. */
   const [remaining, setRemaining] = useState<number | null>(null);
+  const [serverShelfFee, setServerShelfFee] = useState<number | undefined>(undefined);
   const mounted = useRef(true);
 
   const gems = me?.wallet.gems ?? 0;
@@ -234,7 +236,9 @@ export default function StudioCreate() {
    * short. A world built for 120 whose shelf fee then fails silently is exactly the toll this
    * charge must not become.
    */
-  const shelfFee = visibility === "public" ? WORLD_MODERATION.PUBLIC_SUBMIT_GEMS : 0;
+  // The server's figure once it has answered; the shipped constant until then.
+  const feeInForce = serverShelfFee ?? WORLD_MODERATION.PUBLIC_SUBMIT_GEMS;
+  const shelfFee = visibility === "public" ? feeInForce : 0;
   const poorForShelf = !poor && gems < WORLD_STUDIO.GEM_COST + shelfFee;
   const capped = remaining !== null && remaining <= 0;
 
@@ -260,7 +264,12 @@ export default function StudioCreate() {
   const loadRemaining = useCallback(async () => {
     try {
       const mine = await api.myWorlds();
-      if (mounted.current) setRemaining(mine.remainingToday);
+      if (mounted.current) {
+        setRemaining(mine.remainingToday);
+        // The fee in force on this deployment, rather than the constant this build shipped with.
+        setServerShelfFee(mine.publicSubmitGems);
+        rememberShelfFee(mine.publicSubmitGems);
+      }
     } catch {
       if (mounted.current) setRemaining(null);
     }
@@ -499,7 +508,7 @@ export default function StudioCreate() {
             {visibility === "public" ? (
               <FadeSlideIn distance={8}>
                 <View style={{ paddingHorizontal: spacing.md, paddingTop: spacing.xxs }}>
-                  <ShelfPrice gems={null} tone="quiet" identified={false} />
+                  <ShelfPrice gems={null} tone="quiet" identified={false} fee={feeInForce} />
                 </View>
               </FadeSlideIn>
             ) : null}

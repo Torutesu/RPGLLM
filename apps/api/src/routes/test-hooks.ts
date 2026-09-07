@@ -1,4 +1,5 @@
 import { Hono } from "hono";
+import { z } from "zod";
 import type { Prisma } from "@prisma/client";
 import { TestLlmModeReqZ, TestSetEnergyReqZ, TestTimeTravelReqZ, type GeneratorId } from "@rpgllm/shared";
 import { requireAuth } from "../auth";
@@ -7,6 +8,12 @@ import { metricsCausedBy } from "../services/serialize";
 import { ensureWallet } from "../services/wallet";
 import { seedDatabase } from "../seed";
 import type { AppEnv } from "../types";
+
+/**
+ * Local rather than in `packages/shared`: a fixture knob for the harness is not part of the API
+ * anyone ships against, and `/__test/*` is mounted only when `TEST_HOOKS=1`.
+ */
+const TestSetGemsReqZ = z.object({ gems: z.number().int().min(0).max(100_000) });
 
 const GENERATORS: readonly string[] = ["G1", "G2", "G3", "G4", "G5", "G7", "G8", "G9", "G10", "GJ"];
 
@@ -123,6 +130,28 @@ export function testHookRoutes(): Hono<AppEnv> {
       createdAt: r.createdAt.toISOString(),
     }));
     return ok({ logs });
+  });
+
+  /**
+   * Gems, for a harness that needs to reach a screen behind a price.
+   *
+   * `WORLD_STUDIO.STARTER_GEMS` is exactly one world, so an account that has built one has an empty
+   * wallet — and asking for a place on Explore now costs `WORLD_MODERATION.PUBLIC_SUBMIT_GEMS` on
+   * top of it (gtm.md §2 exit 1, `services/world-submit-fee.ts`). Without this, an end-to-end case
+   * that wants to exercise *review* has to exercise the 402 first, which is a different case.
+   *
+   * Deliberately a **set**, not a grant: a test that wants an empty wallet asks for `0` and gets a
+   * wallet with no gems in it, which is the other half of the same feature. No ledger row is
+   * written — this is a fixture, not a purchase, and the metrics count ledger rows.
+   */
+  app.post("/set-gems", requireAuth, async (c) => {
+    const body = await parseBody(c.req, TestSetGemsReqZ);
+    if (!body.ok) return body.res;
+    const deps = c.get("deps");
+    const user = c.get("user");
+    const { wallet } = await ensureWallet(deps.prisma, deps.clock, user.id);
+    const updated = await deps.prisma.wallet.update({ where: { id: wallet.id }, data: { gems: body.value.gems } });
+    return ok({ gems: updated.gems });
   });
 
   app.post("/set-energy", requireAuth, async (c) => {

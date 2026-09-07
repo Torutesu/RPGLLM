@@ -1,9 +1,13 @@
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 import {
   CreatorProfileResZ, MeResZ, ModerationMetricsResZ, MomentReelResZ, MyWorldsResZ, PublicWorldsResZ,
-  WorldDetailResZ, WorldsResZ,
+  PublishWorldResZ, WORLD_MODERATION, WorldDetailResZ, WorldReviewQueueResZ, WorldsResZ,
 } from "@rpgllm/shared";
-import { call, makeHarness, prisma, readSSE, resetDatabase, signup, signupWithPersona, type Harness } from "./helpers";
+import { runJobOnce, type JobDeps } from "../src/jobs/registry";
+import {
+  call, grantShelfGems, makeHarness, prisma, readSSE, resetDatabase, signup, signupWithPersona,
+  type Harness,
+} from "./helpers";
 
 /**
  * The responses this service returns, parsed against the schemas `packages/shared` publishes.
@@ -21,9 +25,11 @@ import { call, makeHarness, prisma, readSSE, resetDatabase, signup, signupWithPe
  */
 
 let h: Harness;
+let deps: JobDeps;
 
 beforeAll(() => {
   h = makeHarness();
+  deps = { prisma: h.prisma, gateway: h.gateway, clock: h.clock };
 });
 
 beforeEach(async () => {
@@ -104,6 +110,59 @@ describe("responses parse against the schemas packages/shared publishes", () => 
     // `delta` is present on the stat beat and null everywhere else — the contract allows both, and
     // a client that counts the number up depends on which is which.
     expect(reel.beats.filter((b) => b.delta !== null).map((b) => b.kind)).toEqual(["stat"]);
+  });
+
+  /**
+   * The three exits of gtm.md §2 added four shapes between them: `charged` on a publish, `trust` on
+   * a creator's own profile, and `digest` + `creatorTrust` on a queue card. Each one is nullable or
+   * defaulted in the contract, so a client that never sees one is fine — which is exactly why a
+   * test that only asserts behaviour would never notice one of them going out malformed.
+   */
+  it("the publish response, the queue card and the creator's own profile, once a world is submitted", async () => {
+    const { token, userId } = await signup(h);
+    const created = await call<{ world: { id: string } }>(h, "POST", "/v1/worlds", {
+      token,
+      body: {
+        premise: "Seven rookies, one debut slot, and a leaked group chat",
+        genre: "idol", locale: "en", visibility: "private",
+      },
+    });
+    expect(created.status).toBe(201);
+    expect((await runJobOnce(deps, "world-build", { trigger: "test" })).error).toBeNull();
+    const worldId = created.data.world.id;
+    await grantShelfGems(userId);
+
+    // `PublishWorldResZ.charged` — what the shelf cost.
+    const published = await call<unknown>(h, "POST", `/v1/worlds/${worldId}/publish`, {
+      token, body: { visibility: "public" },
+    });
+    expect(published.status).toBe(202);
+    const publishRes = PublishWorldResZ.parse(published.data);
+    expect(publishRes.needsReview).toBe(true);
+    expect(publishRes.charged.gems).toBe(WORLD_MODERATION.PUBLIC_SUBMIT_GEMS);
+
+    // `WorldReviewQueueResZ` with `digest` and `creatorTrust` on the card.
+    const queue = await call<unknown>(h, "GET", "/v1/admin/worlds/review");
+    expect(queue.status).toBe(200);
+    const parsedQueue = WorldReviewQueueResZ.parse(queue.data);
+    const card = parsedQueue.worlds.find((w) => w.id === worldId);
+    expect(card).toBeDefined();
+    expect(card?.creatorTrust, "the reviewer sees the creator's standing").not.toBeNull();
+    expect(card?.creatorTrust?.trusted).toBe(false);
+    // The digest is advice and may be absent; when present it parses as `ReviewDigestZ`.
+    expect(card?.digest === null || Array.isArray(card?.digest?.points)).toBe(true);
+    expect(card?.digest?.sampled ?? false).toBe(false);
+
+    // `CreatorProfileResZ.trust` — present for the creator themselves…
+    const me = MeResZ.parse((await call<unknown>(h, "GET", "/v1/me", { token })).data);
+    const mine = await call<unknown>(h, "GET", `/v1/creators/${me.user.creatorHandle}`, { token });
+    const own = CreatorProfileResZ.parse(mine.data);
+    expect(own.trust).toEqual({ approvals: 0, trusted: false, toTrusted: WORLD_MODERATION.TRUST_APPROVALS });
+
+    // …and null on anybody else's view of them.
+    const stranger = await signup(h);
+    const theirs = await call<unknown>(h, "GET", `/v1/creators/${me.user.creatorHandle}`, { token: stranger.token });
+    expect(CreatorProfileResZ.parse(theirs.data).trust).toBeNull();
   });
 
   it("GET /v1/admin/moderation/metrics, on a deployment nobody has used yet", async () => {

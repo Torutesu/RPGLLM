@@ -126,6 +126,20 @@ export async function resetDb(request: APIRequestContext): Promise<void> {
   expect(res.status(), "POST /v1/__test/reset (API needs TEST_HOOKS=1)").toBeLessThan(400);
 }
 
+/**
+ * Fund a wallet directly. The shelf fee (gtm.md §2 exit 1) means a starter wallet buys exactly one
+ * world and no shelf, so a case that wants to exercise *review* has to top up first — otherwise it
+ * exercises the 402, which is a different case and already has one. A set, not a grant, and it
+ * writes no ledger row: this is a fixture, not a purchase, and the moderation metrics count ledger
+ * rows.
+ */
+export async function setGems(request: APIRequestContext, jwt: string, gems: number): Promise<void> {
+  const res = await request.post(apiUrl("/v1/__test/set-gems"), {
+    headers: bearer(jwt), data: { gems }, failOnStatusCode: false,
+  });
+  await unwrap(res, "POST /v1/__test/set-gems");
+}
+
 export async function setEnergy(request: APIRequestContext, jwt: string, energy: number): Promise<void> {
   const res = await request.post(apiUrl("/v1/__test/set-energy"), {
     headers: bearer(jwt), data: { energy }, failOnStatusCode: false,

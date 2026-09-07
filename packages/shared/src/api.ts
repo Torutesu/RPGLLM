@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { LocaleZ, StatDeltasZ } from "./generators";
-import { PLANS } from "./constants";
+import { PLANS, WORLD_MODERATION } from "./constants";
 
 /** ---------- Common ---------- */
 export const ErrorCodeZ = z.enum([
@@ -692,6 +692,12 @@ export const MyWorldsResZ = z.object({
   worlds: z.array(WorldSummaryFullZ),
   /** how many more this account may create today */
   remainingToday: z.number().int(),
+  /**
+   * The shelf fee **in force on this deployment**, not the constant the client shipped with. The
+   * fee is env-tunable so it can move without a deploy, which means a client rendering its own
+   * constant can show a price that is not the price.
+   */
+  publicSubmitGems: z.number().int().default(WORLD_MODERATION.PUBLIC_SUBMIT_GEMS),
 });
 /**
  * Explore's community shelf. `worlds` is the ranked list; `fresh` is the slot that exists so a

@@ -1,5 +1,5 @@
 import { beforeAll, beforeEach, afterEach, describe, expect, it } from "vitest";
-import { WORLD_MODERATION } from "@rpgllm/shared";
+import { WORLD_MODERATION, WORLD_MODERATION_ENV } from "@rpgllm/shared";
 import { runJobOnce, type JobDeps } from "../src/jobs/registry";
 import { median, percentile, reviewMinutesPerWorld, safeRate } from "../src/services/moderation-metrics";
 import { call, grantShelfGems, makeHarness, prisma, resetDatabase, signup, type Harness } from "./helpers";
@@ -40,7 +40,17 @@ interface Metrics {
     medianLatencyHours: number | null; p90LatencyHours: number | null;
   };
   reports: { open: number; last7d: number; perThousandPlays: number; pullsLast7d: number; pullsReapproved: number };
-  economics: { worldsReviewedLast7d: number; estimatedReviewMinutes: number; generationCostUsd: number };
+  economics: {
+    worldsReviewedLast7d: number; estimatedReviewMinutes: number; generationCostUsd: number;
+    reviewCostUsd: number; reviewHourlyUsd: number; minutesPerWorld: number;
+  };
+  sampling: {
+    trustApprovals: number; trustSampleEvery: number; shelfFeeGems: number; trustedCreators: number;
+    submissionsLast7d: number; sampledAwayLast7d: number; readByAHumanLast7d: number;
+    sampledShare: number; reviewMinutesAvoided: number; reviewCostAvoidedUsd: number;
+    sampledAwayAllTime: number; gemsChargedLast7d: number; gemsRefundedLast7d: number;
+    queuedWithDigest: number;
+  };
 }
 
 beforeAll(() => {
@@ -225,6 +235,96 @@ describe("the queue, measured", () => {
 
     const m = (await metrics()).data;
     expect(m.reports.perThousandPlays).toBe(0.5);
+  });
+});
+
+/* ------------------------------------------------- the load the exits removed ---- */
+
+/**
+ * gtm.md §2 exists because of one number: $5.00 of human time per public world, $30,000 a month at
+ * 200 submissions a day. The point of all three exits is that number going down — **and if it
+ * cannot be seen going down, none of this was engineering.** So this is the case that says the
+ * surface can see it.
+ */
+describe("what the three exits actually removed", () => {
+  it("counts submissions nobody read, and prices them at the configured rate", async () => {
+    // Every submission is drawn: trust changes nothing, and the saving is honestly zero.
+    restoreEnv = withEnv({ [WORLD_MODERATION_ENV.TRUST_SAMPLE_EVERY]: "1" });
+    const { token, userId } = await signup(h);
+    let n = 0;
+    const build = async (): Promise<string> => {
+      n += 1;
+      const created = await call<{ world: { id: string } }>(h, "POST", "/v1/worlds", {
+        token,
+        body: { premise: `A rival bakery on the ${n}th street corner`, genre: "idol", locale: "en", visibility: "private" },
+      });
+      expect(created.status).toBe(201);
+      expect((await runJobOnce(deps, "world-build", { trigger: "test" })).error).toBeNull();
+      // The daily cap is a spend limit; this case needs more worlds than one day allows.
+      await prisma.world.updateMany({ where: { createdBy: userId }, data: { createdAt: new Date(h.clock.now().getTime() - 2 * 86_400_000) } });
+      await grantShelfGems(userId, 4);
+      return created.data.world.id;
+    };
+    const submit = (id: string) => call<{ needsReview: boolean }>(h, "POST", `/v1/worlds/${id}/publish`, { token, body: { visibility: "public" } });
+
+    // Earn trust the long way — every one of these is a human read, and is counted as one.
+    for (let i = 0; i < WORLD_MODERATION.TRUST_APPROVALS; i += 1) {
+      const id = await build();
+      expect((await submit(id)).data.needsReview).toBe(true);
+      await decide(id, "approve");
+    }
+    // …plus the guaranteed read the first submission after graduating gets.
+    await submit(await build());
+
+    const before = (await metrics()).data;
+    expect(before.sampling.trustedCreators).toBe(1);
+    expect(before.sampling.sampledAwayLast7d, "at sample-every 1, nothing is sampled away").toBe(0);
+    expect(before.sampling.sampledShare).toBe(0);
+    expect(before.sampling.reviewCostAvoidedUsd).toBe(0);
+    expect(before.sampling.submissionsLast7d).toBe(WORLD_MODERATION.TRUST_APPROVALS + 1);
+    expect(before.sampling.readByAHumanLast7d).toBe(WORLD_MODERATION.TRUST_APPROVALS + 1);
+    expect(before.sampling.gemsChargedLast7d).toBe(WORLD_MODERATION.PUBLIC_SUBMIT_GEMS * (WORLD_MODERATION.TRUST_APPROVALS + 1));
+    expect(before.sampling.queuedWithDigest, "every queued world carries advice").toBeGreaterThan(0);
+    // What the queue cost: minutes at the rate an operator supplies.
+    expect(before.economics.reviewCostUsd)
+      .toBeCloseTo((before.economics.estimatedReviewMinutes / 60) * before.economics.reviewHourlyUsd, 2);
+
+    // Now turn the sampling on. The same creator, the same worlds, and no reviewer.
+    restoreEnv?.();
+    restoreEnv = withEnv({ [WORLD_MODERATION_ENV.TRUST_SAMPLE_EVERY]: "100000" });
+    const away = [await build(), await build()];
+    for (const id of away) expect((await submit(id)).data.needsReview).toBe(false);
+
+    const after = (await metrics()).data;
+    expect(after.sampling.sampledAwayLast7d).toBe(2);
+    expect(after.sampling.sampledAwayAllTime).toBe(2);
+    expect(after.sampling.submissionsLast7d).toBe(WORLD_MODERATION.TRUST_APPROVALS + 3);
+    expect(after.sampling.readByAHumanLast7d).toBe(WORLD_MODERATION.TRUST_APPROVALS + 1);
+    expect(after.sampling.sampledShare).toBeCloseTo(2 / (WORLD_MODERATION.TRUST_APPROVALS + 3), 4);
+
+    // The dollars. Two twenty-minute reads that did not happen, at the rate in force.
+    const minutes = 2 * reviewMinutesPerWorld();
+    expect(after.sampling.reviewMinutesAvoided).toBe(minutes);
+    expect(after.sampling.reviewCostAvoidedUsd)
+      .toBeCloseTo((minutes / 60) * after.economics.reviewHourlyUsd, 2);
+    expect(after.sampling.reviewCostAvoidedUsd, "the number this whole pass exists to move").toBeGreaterThan(0);
+
+    // And the thresholds that produced it are named next to it, so the figure can be checked.
+    expect(after.sampling.trustSampleEvery).toBe(100000);
+    expect(after.sampling.trustApprovals).toBe(WORLD_MODERATION.TRUST_APPROVALS);
+    expect(after.sampling.shelfFeeGems).toBe(WORLD_MODERATION.PUBLIC_SUBMIT_GEMS);
+  });
+
+  it("nets a refunded submission out of what the shelf collected", async () => {
+    const { token, worldId } = await submittedWorld("A lighthouse keeper with a podcast");
+    const m0 = (await metrics()).data;
+    expect(m0.sampling.gemsChargedLast7d).toBe(WORLD_MODERATION.PUBLIC_SUBMIT_GEMS);
+    expect(m0.sampling.gemsRefundedLast7d).toBe(0);
+
+    // Withdrawn before anyone opened it: the fee bought nothing and went back.
+    await call(h, "POST", `/v1/worlds/${worldId}/publish`, { token, body: { visibility: "private" } });
+    const m1 = (await metrics()).data;
+    expect(m1.sampling.gemsRefundedLast7d).toBe(WORLD_MODERATION.PUBLIC_SUBMIT_GEMS);
   });
 });
 

@@ -64,8 +64,14 @@ export const refundable = (world: ChargeTarget): boolean =>
  * The patch that ends a standing charge without paying it back: the reviewer read the world, which
  * is what was bought. Applied by **both** decisions, so a creator cannot withdraw a decided world
  * and be refunded for a read that happened.
+ *
+ * `publishSubmittedAt` is deliberately **left standing** — for the same reason the review decision
+ * stopped clearing `reviewRequestedAt`. It is not part of the charge; it is the record that this
+ * world was submitted at all, and it is the denominator every number in the `sampling` block of
+ * `GET /v1/admin/moderation/metrics` divides by. Clearing it on the decision would make the load
+ * this pass removes unmeasurable the moment anybody worked the queue.
  */
-export const consumedCharge = { publishChargeGems: 0, publishSubmittedAt: null } as const;
+export const consumedCharge = { publishChargeGems: 0 } as const;
 
 /**
  * Take the fee inside the caller's transaction — the same transaction that puts the world in the

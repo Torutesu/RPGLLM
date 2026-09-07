@@ -69,11 +69,17 @@ async function buildOnce(): Promise<void> {
 /** signup → create → build. The world every downstream case starts from. */
 async function readyWorld(opts: { visibility?: string; premise?: string } = {}) {
   const { token, userId } = await signup(h);
+  /*
+   * Funded before the create, not between the create and the build.
+   *
+   * Choosing `public` on SCR-048 *is* choosing to publish — the build job walks the finished world
+   * through the same shelf charge — so the server prices that create at build + shelf and refuses
+   * it up front. Granting afterwards was too late, and the create 402'd. That ordering is the whole
+   * point of exit 1: the money question is asked once, before anything is spent.
+   */
+  await grantShelfGems(userId, 4);
   const created = await createWorld(token, opts.premise ?? PREMISE, opts.visibility ?? "private");
   expect(created.status).toBe(201);
-  // The shelf costs gems on top of the world (gtm.md §2 exit 1) and the build job settles a
-  // create-time `public` before this returns, so the wallet is funded before it runs.
-  await grantShelfGems(userId, 4);
   await buildOnce();
   const world = await prisma.world.findUniqueOrThrow({ where: { id: created.data.world.id } });
   return { token, userId, world, created };
@@ -571,6 +577,8 @@ describe("the visibility chosen on SCR-048 is the visibility the world gets", ()
 
   it("a build that fails never asks the gate anything and refunds as before", async () => {
     const { token, userId } = await signup(h);
+    // A create-for-everyone is priced at build + shelf, so fund it the way a player would have.
+    await grantShelfGems(userId, 1);
     const created = await createWorld(token, PREMISE, "public");
     expect(created.status).toBe(201);
     h.gateway.failNext(1);
@@ -579,7 +587,8 @@ describe("the visibility chosen on SCR-048 is the visibility the world gets", ()
     const row = await prisma.world.findUniqueOrThrow({ where: { id: created.data.world.id } });
     expect(row.status).toBe("draft");
     expect(row.refundedAt).not.toBeNull();
-    expect(await gemsOf(userId)).toBe(WORLD_STUDIO.GEM_COST);
+    // The build is refunded; the shelf was never charged, because nothing reached a shelf.
+    expect(await gemsOf(userId)).toBe(WORLD_STUDIO.GEM_COST + WORLD_MODERATION.PUBLIC_SUBMIT_GEMS);
     expect(g8Calls(), "there is no generated world to gate").toBe(0);
   });
 });

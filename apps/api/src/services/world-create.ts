@@ -24,6 +24,7 @@ import { ensureWallet } from "./wallet";
 import {
   GemsRequiredError, dailyWorldLimit, slugifyPremise, spendGems, uniqueSlug, worldsCreatedToday,
 } from "./world-studio";
+import { publicSubmitGems } from "./world-submit-fee";
 
 type WorldVisibility = z.infer<typeof WorldVisibilityZ>;
 
@@ -90,8 +91,21 @@ export async function createWorld(
 
   // 3. The price. Same 402 shape as running out of energy.
   const { wallet } = await ensureWallet(deps.prisma, deps.clock, user.id);
-  if (wallet.gems < WORLD_STUDIO.GEM_COST) {
-    return { ok: false, code: "GEMS_REQUIRED", message: `Not enough gems — a world costs ${WORLD_STUDIO.GEM_COST}.`, status: 402 };
+  /**
+   * Choosing "Everyone" here is choosing to publish, because the build job walks the finished world
+   * through the very same visibility transition — shelf fee included. So the price of *this* create
+   * is the build plus the shelf, and asking for the build alone was the hole: a player spent 120
+   * gems on a world they had told us to put in Explore, the settle 402'd inside a background job
+   * where nobody was listening, and the world landed quietly private. That is QA-003's stranded
+   * world wearing new clothes, and it is worse, because this time we took the money first.
+   */
+  const shelf = visibility === "public" ? publicSubmitGems() : 0;
+  const price = WORLD_STUDIO.GEM_COST + shelf;
+  const shortOfGems = shelf > 0
+    ? `Not enough gems — a world costs ${WORLD_STUDIO.GEM_COST} and the shelf costs ${shelf}.`
+    : `Not enough gems — a world costs ${WORLD_STUDIO.GEM_COST}.`;
+  if (wallet.gems < price) {
+    return { ok: false, code: "GEMS_REQUIRED", message: shortOfGems, status: 402 };
   }
 
   // 4. Charge and enqueue, atomically. The slug comes from the premise so it can collide; the
@@ -133,7 +147,7 @@ export async function createWorld(
       });
     } catch (err: unknown) {
       if (err instanceof GemsRequiredError) {
-        return { ok: false, code: "GEMS_REQUIRED", message: `Not enough gems — a world costs ${WORLD_STUDIO.GEM_COST}.`, status: 402 };
+        return { ok: false, code: "GEMS_REQUIRED", message: shortOfGems, status: 402 };
       }
       if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") continue;
       throw err;

@@ -7,6 +7,7 @@ import { Button, HeaderBar, Screen } from "../../src/components/ui";
 import { Aurora } from "../../src/components/Brand";
 import { AppealForm, AppealStatus } from "../../src/components/StudioAppeal";
 import { ShelfPrice, shortForShelf } from "../../src/components/ShelfPrice";
+import { shelfFee } from "../../src/studio/shelf-fee";
 import { StudioCast } from "../../src/components/StudioCast";
 import { StudioProgress } from "../../src/components/StudioProgress";
 import { StudioStatusBadge } from "../../src/components/StudioWorldCard";
@@ -443,10 +444,10 @@ export default function StudioWorldScreen() {
                       borderRadius: radius.md,
                       backgroundColor: colors.cardHi,
                       borderWidth: 1,
-                      borderColor: shortForShelf(gems) ? `${colors.danger}66` : colors.border,
+                      borderColor: shortForShelf(gems, shelfFee()) ? `${colors.danger}66` : colors.border,
                     }}
                   >
-                    <ShelfPrice gems={gems} />
+                    <ShelfPrice gems={gems} fee={shelfFee()} />
                     {publishError?.shelf ? <ShelfRefusal text={publishError.text} /> : null}
                     <Button
                       testID={T.studioPublish}
@@ -552,11 +553,11 @@ export default function StudioWorldScreen() {
                             borderRadius: radius.md,
                             backgroundColor: colors.cardHi,
                             borderWidth: 1,
-                            borderColor: shortForShelf(gems) ? `${colors.danger}66` : colors.border,
+                            borderColor: shortForShelf(gems, shelfFee()) ? `${colors.danger}66` : colors.border,
                           }
                     }
                   >
-                    <ShelfPrice gems={gems} tone={quietResubmit ? "quiet" : "loud"} />
+                    <ShelfPrice gems={gems} tone={quietResubmit ? "quiet" : "loud"} fee={shelfFee()} />
                     {publishError?.shelf ? <ShelfRefusal text={publishError.text} /> : null}
                     <Button
                       testID={T.studioPublish}

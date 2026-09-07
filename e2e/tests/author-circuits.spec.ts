@@ -1,8 +1,8 @@
 import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
-import { T, WORLD_STUDIO } from "@rpgllm/shared";
+import { T, WORLD_MODERATION, WORLD_STUDIO } from "@rpgllm/shared";
 import {
   apiSignup, apiUrl, bearer, gotoApp, loginInBrowser, resetDb, ROUTES, setLlmMode,
-  unwrap, worldPresets, type Account,
+  setGems, unwrap, worldPresets, type Account,
 } from "../fixtures";
 
 /**
@@ -69,6 +69,9 @@ async function aPublicWorld(
   const world = (await myWorlds(request, author.jwt)).find((w) => w.status === "ready");
   expect(world, "the build must finish").toBeDefined();
 
+  // The shelf costs gems on top of the build (gtm.md §2 exit 1) and a starter wallet buys exactly
+  // one world. Topping up here so these cases exercise *review* — the 402 has its own case.
+  await setGems(request, author.jwt, WORLD_MODERATION.PUBLIC_SUBMIT_GEMS * 4);
   await unwrap(
     await request.post(apiUrl(`/v1/worlds/${world!.id}/publish`), {
       headers: bearer(author.jwt), data: { visibility: "public" }, failOnStatusCode: false,

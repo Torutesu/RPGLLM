@@ -21,8 +21,8 @@ import { Icon, typo } from "../ui";
  */
 
 /** True when the wallet is known and is short of the shelf price. Unknown is never "short". */
-export const shortForShelf = (gems: number | null): boolean =>
-  gems !== null && gems < WORLD_MODERATION.PUBLIC_SUBMIT_GEMS;
+export const shortForShelf = (gems: number | null, fee: number = WORLD_MODERATION.PUBLIC_SUBMIT_GEMS): boolean =>
+  gems !== null && gems < fee;
 
 /**
  * `identified` exists because this surface is stated on **two** screens — SCR-049's publish row and
@@ -36,20 +36,28 @@ export function ShelfPrice({
   gems,
   tone = "loud",
   identified = true,
+  fee,
 }: {
   gems: number | null;
   tone?: "loud" | "quiet";
   identified?: boolean;
+  /**
+   * The fee **this deployment** charges, when the caller has heard it from the server. The fee is
+   * env-tunable so it can move without a deploy; falling back to the constant means a client that
+   * has not asked shows the price it shipped with, which is right until an operator changes it.
+   */
+  fee?: number;
 }) {
   const { t } = useT();
-  const short = shortForShelf(gems);
+  const price: number = fee ?? WORLD_MODERATION.PUBLIC_SUBMIT_GEMS;
+  const short = shortForShelf(gems, price);
   const quiet = tone === "quiet";
 
   return (
     <View
       testID={identified ? T.studioPublicCost : T.studioPublicCostCreate}
       accessibilityRole="text"
-      accessibilityLabel={`${t("studioPublicCost")} ${String(WORLD_MODERATION.PUBLIC_SUBMIT_GEMS)}. ${t("studioPublicCostHint")}`}
+      accessibilityLabel={`${t("studioPublicCost")} ${String(price)}. ${t("studioPublicCostHint")}`}
       style={{ gap: spacing.xxs }}
     >
       <View style={{ flexDirection: "row", alignItems: "center", gap: spacing.sm }}>
@@ -58,7 +66,7 @@ export function ShelfPrice({
           importantForAccessibility="no"
           style={[quiet ? typo.caption : typo.metaStrong, { color: quiet ? colors.textDim : colors.text, flex: 1 }]}
         >
-          {`${t("studioPublicCost")} ${String(WORLD_MODERATION.PUBLIC_SUBMIT_GEMS)}`}
+          {`${t("studioPublicCost")} ${String(price)}`}
         </Text>
         {/* The wallet, so "can I afford this" is answerable here. Absent rather than guessed. */}
         {gems !== null ? (

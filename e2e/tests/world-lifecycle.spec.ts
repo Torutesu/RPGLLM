@@ -2,8 +2,7 @@ import { expect, test, type APIRequestContext } from "@playwright/test";
 import { T, WORLD_MODERATION, WORLD_STUDIO } from "@rpgllm/shared";
 import {
   apiSignup, apiUrl, bearer, gotoApp, loginInBrowser, resetDb, setLlmMode, unwrap, wallet,
-  type Account,
-} from "../fixtures";
+  type Account, setGems,} from "../fixtures";
 
 /**
  * QA-001..QA-006 — the world lifecycle, attacked rather than demonstrated.
@@ -98,6 +97,13 @@ const reportWorld = (request: APIRequestContext, jwt: string, worldId: string) =
 
 /** A built, `ready`, private world belonging to `account`. The shortest way to a real world. */
 async function aBuiltWorld(request: APIRequestContext, account: Account, visibility = "private"): Promise<StudioWorld> {
+  /*
+   * Funded *before* the create, not after the build. Choosing "Everyone" at create time is choosing
+   * to publish — the build job walks the finished world through the same shelf charge — so the
+   * server now prices this create at build + shelf and refuses it up front. Topping up afterwards
+   * was too late, and that is exactly the bug this ordering caught.
+   */
+  await setGems(request, account.jwt, WORLD_MODERATION.PUBLIC_SUBMIT_GEMS * 6);
   const res = await createWorld(request, account.jwt, { visibility });
   expect(res.status(), "POST /v1/worlds must accept a plain premise").toBe(201);
   await buildWorlds(request);

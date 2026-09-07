@@ -4048,3 +4048,279 @@ Two things that agent recorded, both now closed in `packages/shared` + `apps/mob
 so nobody is charged a price they were not shown — but they can be shown a price that is not the
 price. The fix is for the server to tell the client the fee in force (a `config` block on
 `GET /v1/me` is the obvious place); it is an API change and an agent held that directory.
+
+---
+
+## Agent DIGEST-LLM — the review digest (`ReviewDigestZ`), `packages/llm`
+
+gtm.md §2: reviewing a world costs fifteen times what generating one costs, because a person spends
+twenty minutes on it. docs/moderation.md §1 says what the three automated gates decided ("block or
+not") and §3 says what none of them can — the five rules a reviewer is actually deciding. This is
+the generator that puts those five in front of the reviewer, with the passage attached, before they
+open the world.
+
+**Files** (all `packages/llm/**`, nothing outside it was touched):
+`generators/g9/digest-offline.ts` (the deterministic half), `generators/g9/digest.ts` (the prompt,
+the spec, the enforcement), `generators/g9/digest-run.ts` (`reviewDigest()` — the three result
+shapes), `eval-cases-digest.ts` + `eval-digest.ts` (the gate),
+`verify-live/digest-stub.ts` (the live-shaped stub), `digest.test.ts`, `eval-digest.test.ts`.
+`gateway.ts` gains `g9Digest`. **578 llm tests pass** (504 before, 74 added); llm and api typechecks
+clean; `eslint` reports 0 errors on the new files.
+
+### 1. For apps/api — how to call it, and what to store
+
+```ts
+import { reviewDigest } from "@rpgllm/llm";
+
+const res = await reviewDigest(gateway, {
+  world,                       // the WorldSeed as generated
+  premise, genre, locale,      // the creator's own inputs
+  sampled,                     // see §2
+  at: clock.now().toISOString(),   // REQUIRED — nothing in packages/llm reads a clock
+});
+// store res.digest on the world row; it is exactly `ReviewDigestZ | null`
+```
+
+`reviewDigest` never throws and never rejects. **Call it once, when the world enters the queue**, not
+per queue read — it is a `mid`-tier model call. It is off the creator's path (the submission does not
+wait on it), so a null digest is recoverable by re-running it later.
+
+**Three states, and they mean different things. Please do not collapse them:**
+
+| stored | means | the queue row / SCR should say |
+|---|---|---|
+| `digest = null` | nothing looked at this world | "no digest" — the world is unread by anything |
+| `digest.points = []`, `generatedAt = null` | it ran and extracted nothing | "nothing extracted" — **not** a pass |
+| `digest.points` non-empty, `generatedAt` set | it ran and found things | the list |
+
+`generatedAt` is null exactly when `points` is empty, enforced in `toReviewDigest` and checked by the
+gate (`emptyIsExplicit`, an absolute check). That is deliberate: it makes it impossible for a surface
+to print a reassuring timestamp over an empty list. **A client that treats an empty digest as falsy
+and hides the row has re-introduced the risk this whole thing exists to remove** — the empty state is
+a state to render, and the copy for it should say the reviewer still reads the world.
+
+`res` also carries, for logging only (not part of the contract): `model`
+(`skipped | ok | empty | error`), `meta`, `measuredCount`, `modelCount`, `shownCount`, and
+`coverage` (`excerptChars` / `worldChars` / `passages`). Logging `model` is worth it — a run of
+`error` in the dashboard is a light-tier outage, and a run of `empty` is a prompt regression.
+
+### 2. `sampled` — my reading of the field, please confirm
+
+`ReviewDigestZ.sampled` is not set by this package's own judgement. I read it as the API's
+`WORLD_MODERATION.TRUST_SAMPLE_EVERY` decision — a trusted creator's world drawn for a full read
+anyway — and `reviewDigest` takes it as an argument and carries it through unchanged. It rides
+*inside* the digest rather than beside it so no surface can render the shortcut without the flag that
+says not to take it. If the field was meant as "the digest read a sample of the world rather than all
+of it", say so in a note and I will invert it; that fact is currently reported as `coverage` instead
+(the model sees ~9 kB of a ~61 kB world — see §5).
+
+### 3. GeneratorId
+
+`GeneratorIdZ` is frozen and has no digest id, so — exactly as `g9Screen` already does — the call
+logs under `GeneratorId "G9"` with its own `variantId` **`G9-digest@v1"`**, distinct from the five
+studio stages and from `G9-screen@v1`. The cost dashboard splits it on `variantId`. No change to
+`packages/shared` was needed or made.
+
+### 4. What the digest will and will not say — for whoever writes SCR copy
+
+- It is **advice, never a verdict**. There is no verdict field, no score, and no ordering that means
+  "worse". A point whose `concern` reaches for a decision (`approve`, `reject`, `safe to publish`,
+  `no action needed`, …) is *deleted* in `postprocess` and fails the gate. **Please do not add a UI
+  affordance that turns a point into a decision** (a "reject with this reason" button pre-filled from
+  a `concern` would do exactly that).
+- **Every point quotes the world.** `evidence` is verified against the world text and an unfindable
+  quote is dropped before storage. The UI should show `evidence` next to `concern` and, ideally, make
+  it searchable in the bible — the value is that the reviewer *checks* rather than believes.
+- `concern` is **English in both locales**, on purpose: gtm.md §B's operational claim is that one
+  reviewer pool reads both locales because the bible exists in both. Quoted `evidence` stays in the
+  language it was written in. If the reviewer pool turns out to be JA-only, a JA prefix is a
+  fifteen-line change; say so.
+- `confidence`: `high` = the quoted passage contains the thing; `medium` = it shows it in context;
+  `low` = a lead the digest cannot check. `original` can only be `high` on a literal entity match —
+  a model's resemblance judgement is capped at `medium` and demoted to `low` unless it names what it
+  resembles. Rendering the three levels identically would waste the only calibration there is.
+
+### 5. Numbers, measured today (replay + stub, no API key anywhere in this repo)
+
+- Cached prefix (the policy, identical for every world in the fleet): **926 + 243 tokens**.
+  Uncached excerpt: **~8.7–9.1 kB ≈ 3.2–3.5 k tokens** of a **~61 kB** world seed.
+- Stub-priced at `mid`: **$0.0107–0.0135 per world** (the first call of a process pays the cache
+  write). Against `PUBLIC_SUBMIT_GEMS = 60` and a twenty-minute human read, that is noise. The
+  `DIGEST_EXCERPT` constants are the knob if it ever stops being noise.
+- Offline half: **~30 ms per world**, zero cost, and **zero points on all eighteen blueprint worlds**.
+- Gate, in replay (deterministic half only): **12/12 cases pass, mean 100, recall 1.00,
+  precision 1.00, quiet 3/3 clean worlds.**
+
+### 6. A finding that is not about this feature
+
+Pointing `screenPremise` at 60 kB of generated prose instead of at a 200-character premise raised a
+`real_person` hit on **every one of the eighteen blueprint worlds**, from three ordinary English
+strings on its entity list:
+
+- `"twice"` — the group, and the adverb, in "this has gone badly twice";
+- `"one piece"` — the manga, and the noun phrase, in "the one piece of history that";
+- `"real person"` — **G9's own bible rule line**, "Never import a real person, brand or existing work",
+  which the studio writes into every world it builds.
+
+I did **not** touch `screen.ts`: the premise screen is right to be broad about a sentence somebody
+chose to write, and this is a different question asked of a different length of text. The digest
+confirms a `real_person` hit by masking those terms and screening again
+(`AMBIGUOUS_ENTITY_TERMS` in `digest-offline.ts`). Two things follow that are somebody else's call:
+
+1. If anything else ever runs the premise screen over generated text, it needs the same guard.
+2. The JA bible's cast headers carry the **English** role line (`## handle — Name (the analyst nobody
+   asked for)`) even though `roleLocalized.ja` is correct. `eval-g9`'s `rolesLocalized` check reads
+   `roleLocalized` and so does not see it. It is inside `renderProse` in `blueprint.ts`; I left it
+   alone rather than move a pinned G9 fixture, but it is the same defect class §3.4 is about.
+
+### 7. Open
+
+- **The stub proves the plumbing, not the model.** `createStubDigestGateway` runs the real prompt,
+  the real `postprocess` and real prices, and can be told to misbehave so every drop path executes —
+  but its "resemblance" points are string surgery and it says the same three things about every
+  world, clean ones included (its precision is 0.31 and that number is a property of the stub). No
+  claim in this note is evidence about Claude's actual recall on `original` or its ear for
+  translationese. Those are the first two things to measure when a key arrives.
+- **`original` recall is unmeasured.** Every planted `original` case is a *named* franchise, which
+  the offline half catches; the paraphrase case — the one a reviewer actually needs — has no case in
+  the set because scoring it would require a ground truth only a person can supply. Adding two or
+  three human-labelled paraphrase worlds is the highest-value thing left.
+- **No `verify:live` wiring.** The digest is not in `scripts/verify-live.mjs`'s plan yet; a run there
+  would be the cheapest way to get the two numbers above.
+
+### 8. Addendum — the seam to `apps/api` is already live, and verified
+
+`apps/api/src/services/review-digest.ts` landed in parallel (commit `5ed70f3`) and feature-detects
+exactly this entry point: `mod.reviewDigest` plus `typeof gateway.g9Digest === "function"`. Both are
+now present, and the shapes agree on every field — `{world, premise, genre, locale, sampled, at}` in,
+`{digest, model, meta}` out, `sampled` read the same way by both sides, `generatedAt` null exactly
+when `points` is empty. Verified by running the API's own `digestFnFrom` against the real package in
+replay: it resolves, and the digests it gets back parse as `ReviewDigestZ` (clean world → 0 points;
+`planted:original:franchise` → 1 `original`/`high` quoting the Hogwarts line; `planted:locales:roles`
+→ 2 `locales`/`high`). `meta` is null offline, so the API's `isMeta` guard correctly logs nothing
+when no call was made.
+
+Two things the API agent should know now that both halves exist:
+
+1. **There are two deterministic extractors.** `review-digest-rules.ts` works from the `World` row
+   and needs no stored `WorldSeed`; `packages/llm`'s `measuredPoints` works from the seed and reads
+   ~530 quotable passages including the ambient pool, the fallback replies and the welcome posts. The
+   API's preference order is right (local floor, package answer when a seed exists). If the local
+   rules ever raise an `original` point from a vocabulary list, please apply the guard in §6 —
+   `AMBIGUOUS_ENTITY_TERMS` is exported from `@rpgllm/llm` for exactly that.
+2. **`enrich: false` never reaches this package at all**, so a sampled-straight-to-shelf world also
+   skips the package's free measured half. That is a defensible trade, but it is worth knowing that
+   the free half is free: `measuredPoints(seed)` is ~30 ms and no gateway. If you want it on the
+   cheap path, `reviewDigest` with a `mode() === "replay"` gateway returns exactly the measured
+   digest and makes no call.
+
+---
+
+## Agent MOD-ECON — the three exits out of "$5.00 of human time per public world" (gtm.md §2)
+
+`apps/api/**` only. Contracts in `packages/shared` were already frozen for this and are used as
+shipped: `WORLD_MODERATION.PUBLIC_SUBMIT_GEMS / TRUST_APPROVALS / TRUST_SAMPLE_EVERY /
+TRUST_RESET_ON_REJECT`, the three new `WORLD_MODERATION_ENV` keys, `ReviewDigestZ`, `ReviewPointZ`,
+`CreatorTrustZ`, `PublishWorldResZ.charged`, `CreatorProfileResZ.trust`, and `digest` /
+`creatorTrust` on the review queue. Nothing in `packages/shared` was edited.
+
+### 1. What changed, in one line each
+
+- **Exit 1** `services/world-submit-fee.ts` — publishing `public` costs `PUBLIC_SUBMIT_GEMS` (60).
+  Affordability is checked **before** the gate (an unaffordable request must not cost tokens); the
+  charge is taken **after** it, in the same transaction as the row (nobody pays to be told no).
+  402 `GEMS_REQUIRED` when short. Refunded when withdrawn before any reviewer claimed it.
+- **Exit 2** `services/creator-trust.ts` — after `TRUST_APPROVALS` clean approvals, submissions are
+  sampled: one in `TRUST_SAMPLE_EVERY` is read, the rest go live unread (200, not 202).
+- **Exit 3** `services/review-digest.ts` + `review-digest-rules.ts` — a `ReviewDigestZ` per public
+  submission, computed once and stored on the row, read (never recomputed) by the queue.
+
+### 2. Cross-cutting needs — for whoever owns these directories
+
+1. **`e2e/` — 11 cases now fail on a 402, and they need one line each.** Every fixture that builds a
+   world and then publishes it `public` has an empty wallet by construction (`STARTER_GEMS` is
+   exactly one world), so it now gets `402 GEMS_REQUIRED`. I added **`POST /v1/__test/set-gems`**
+   (`{ "gems": n }`, `TEST_HOOKS=1` only, no ledger row — it is a fixture, not a purchase) so the
+   fix is one call before the publish. Affected: `studio.spec.ts` E2E-031/034/035,
+   `author-circuits.spec.ts` E2E-036…040, `world-lifecycle.spec.ts` QA-001/003a/004. The API suite
+   uses the equivalent `grantShelfGems()` in `test/helpers.ts`. **Do not lower the fee to make these
+   pass** — the 402 is the feature, and it has its own cases in `test/world-submit-fee.test.ts`.
+2. **`packages/shared` — `ModerationMetricsResZ` is now behind the response.** The endpoint returns
+   an additive `sampling` block and three more keys under `economics` (`reviewCostUsd`,
+   `reviewHourlyUsd`, `minutesPerWorld`). `ModerationMetricsResZ.parse()` strips them, exactly like
+   `total`/`nextCursor` on the review queue, so nothing breaks — but the numbers that say whether
+   any of this worked are invisible to a typed client until the schema catches up. Shapes are in
+   `services/moderation-metrics.ts` (`ModerationMetrics["sampling"]`).
+3. **`apps/mobile` — `PublishWorldResZ.charged.gems` can be negative.** It is the wallet movement
+   this call caused: `+60` for a submission, `0` for private/unlisted, and **`-60`** when a queued
+   world is withdrawn and its fee comes back. `remaining` alone cannot tell a creator the gems came
+   home. Render a negative as a refund, not as a charge.
+4. **`docs/moderation.md` needs §3.5 and §9.** The runbook does not yet say that a reviewer's queue
+   card carries a digest (advice, never a verdict — §3's five rules, with the passage and a
+   confidence) or that some cards are there because a trusted creator's submission was *drawn*
+   (`digest.sampled`). §7 ("there is no appeal endpoint yet") is also stale — there is one, and it
+   is deliberately free while a resubmit is not.
+
+### 3. Two existing test assertions were changed, and why
+
+Neither is a weakened case; both now pin a *new and better* fact. Nothing was skipped or deleted.
+
+- `world-studio.test.ts` → "keeps a world the gate blocks at create time" asserted
+  `gemsOf(userId) === 0`. A blocked world now also proves the **shelf fee was not taken**, so it
+  asserts the funded balance is untouched: "the world was paid for; the review it never got was not".
+- `moderation-metrics.test.ts` → the `economics` `toEqual` gained the three new keys.
+
+Every other change to an existing test file is a fixture funding a wallet (`grantShelfGems`), with
+no assertion touched.
+
+### 4. Schema delta (`20260907190000_review_economics`)
+
+`User`: `trustApprovals`, `trustSubmissions`, `trustResetAt`.
+`World`: `publishChargeGems`, `publishSubmittedAt`, `reviewDigest` (jsonb), `reviewDigestAt`,
+`sampledAwayAt` (+ index). `prisma migrate diff` reports no drift.
+
+Two of these are load-bearing in a way that is easy to undo by accident:
+
+- **`publishSubmittedAt` survives the review decision.** It is not part of the charge; it is the
+  record that the world was submitted at all, and it is the denominator every number in the
+  `sampling` block divides by. `consumedCharge` clears only `publishChargeGems` — for the same
+  reason the decision stopped clearing `reviewRequestedAt`.
+- **`sampledAwayAt` is never cleared**, unlike `pulledAt`. "How many submissions went live unread"
+  is the measurement this whole pass exists to produce.
+
+### 5. New env keys (not in `WORLD_MODERATION_ENV`, so not contract)
+
+- `WORLD_TRUST_SAMPLE_SECRET` — keys the sampling HMAC. Unset it is a per-process random value,
+  which is enough: the draw is evaluated once at submission and stored. Set it to reproduce a draw
+  across restarts during an incident review.
+- `WORLD_REVIEW_HOURLY_USD` (default 15, gtm.md §2) — what an hour of a reviewer costs. It is the
+  multiplier on every dollar figure the metrics surface reports, which is why the response names it.
+
+### 6. `fake-gateway.ts` gained `g9Digest`
+
+`Gateway` in `@rpgllm/llm` now requires it (the digest generator landed while this was in flight),
+so the API's stand-in did not compile. It answers with **no points** deliberately: `reviewDigest`
+never calls it in replay mode, so the only paths that reach it are live and fail, and a fake that
+invented contested points would put words a model never said in front of a reviewer.
+
+### 7. Acted on §8 of the digest note above
+
+- **§8.2 — the free measured half is now on the cheap path too.** `enrich: false` no longer skips
+  the package; it calls the same entry point through a wrapper whose `mode()` is `replay`, so a
+  sampled-away world still gets `measuredPoints` for nothing. A world that goes live unread and is
+  later pulled therefore reaches the queue with a real digest instead of with the local floor.
+- **§6 — the ambiguity finding applied to the local rules, and it was a live bug.** The local
+  extraction's `original` rule fired on **every Japanese world**: G9's own bible prohibition line
+  「禁止: 実在の人物への言及」 contains the bare noun. `REAL_WORLD` now matches only an *assertion*
+  (「実在の人物をモデルに」, "based on the real", a trademark symbol), `one piece` is off the
+  franchise list, and both strings have a regression case.
+
+### 8. Answering `5ed70f3` — "the fix is the server telling the client the fee in force"
+
+`GET /v1/worlds/mine` now returns **`publicSubmitGems`**: the fee resolved from
+`WORLD_PUBLIC_SUBMIT_GEMS` over the shipped default, on the screen the Share button lives on. It is
+an additive extra today — `MyWorldsResZ.parse()` strips it — so **`packages/shared` needs
+`publicSubmitGems: z.number().int()` on `MyWorldsResZ`** before the client can read it, and then
+`studioPublicCost` can interpolate the live number instead of the constant. Until then the standing
+note in that commit is still exactly right: nobody is charged a price they were not shown (the 402
+is authoritative), but they can be shown one that is not the price.

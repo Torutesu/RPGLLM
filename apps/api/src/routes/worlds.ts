@@ -21,6 +21,7 @@ import {
 import { createWorld, type CreateWorldInput } from "../services/world-create";
 import { freshWorlds } from "../services/world-fresh";
 import { setWorldVisibility } from "../services/world-publish";
+import { publicSubmitGems } from "../services/world-submit-fee";
 import { appealRejection } from "../services/world-appeal";
 import type { AppEnv, Deps } from "../types";
 
@@ -167,6 +168,16 @@ export function worldRoutes(): Hono<AppEnv> {
     return ok({
       worlds: await decorate(deps.prisma, worlds, user.locale as LocaleKey, user.id),
       remainingToday: Math.max(0, dailyWorldLimit(subscription, now) - today),
+      /**
+       * **The price of the shelf, in force right now** — an additive extra
+       * (`MyWorldsResZ.parse()` strips it until `packages/shared` carries the field; see
+       * `build-notes.md`). `WORLD_PUBLIC_SUBMIT_GEMS` exists so the fee can move without a deploy,
+       * and until the client can read it here it renders the shipped constant — so an overridden
+       * fee shows the old number on the Share button. Nobody is *charged* a price they were not
+       * shown, because the 402 is authoritative; but they can be shown a price that is not the
+       * price, and this is the half of that fix the server owns.
+       */
+      publicSubmitGems: publicSubmitGems(),
     });
   });
 
