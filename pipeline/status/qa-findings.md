@@ -10,7 +10,14 @@ scratch spec was deleted; the findings worth guarding are now cases in
 `e2e/tests/world-lifecycle.spec.ts`. Screenshots referenced below are under
 `/tmp/claude-0/-home-user-RPGLLM/eeac402b-8806-5fd2-846a-21bc19595131/scratchpad/qa/`.
 
-**Nothing in `apps/` or `packages/` was touched.** Two other agents were editing
+**Status as of hand-off.** The orchestrator picked these up while the pass was still running and
+closed three of them in `9ffc2b2` ("Build appeals and review claims, and close three QA findings"):
+**QA-001, QA-004 and QA-005 are fixed and now pass as ordinary regression guards** — their
+`test.fail()` annotations have been removed. **QA-002, QA-003a, QA-003b and QA-006 are still open**
+and remain `test.fail()`. Re-running `npx playwright test tests/world-lifecycle.spec.ts` is the
+check: an "Expected to fail, but passed" is the signal to drop the annotation on the next one.
+
+**Nothing in `apps/` or `packages/` was touched by this pass.** Two other agents were editing
 `apps/api/src/routes/worlds.ts`, `services/world-moderation.ts` and `app/studio/[id].tsx` while this
 pass ran (the appeals + review-claim work). Findings QA-001..QA-004 are all in code paths that pass
 did not change, but the orchestrator should re-run the new cases after it lands.
@@ -19,20 +26,21 @@ did not change, but the orchestrator should re-run the new cases after it lands.
 
 ## Ranked findings
 
-| # | Severity | One line |
-|---|----------|----------|
-| QA-001 | **High** | A world that reports pulled off the shelf escapes moderation for good by republishing it as `unlisted`. |
-| QA-002 | **High** | The share link for an unlisted world is dead for everyone but its creator. |
-| QA-003 | **High** | SCR-048's "Who can play?" picker is inert, and picking "Everyone" strands the world with no way to publish it. |
-| QA-004 | Medium | The rejection cooldown is bypassable in two calls (private, then public). |
-| QA-005 | Low | A whitespace-only premise passes validation and costs 120 gems; every non-Latin premise gets the genre as its slug. |
-| QA-006 | Low | Explore renders a bare "Trending now" heading — no content, no empty state — for an account with no persona. |
+| # | Severity | State | One line |
+|---|----------|-------|----------|
+| QA-001 | **High** | **fixed** | A world that reports pulled off the shelf escaped moderation for good by republishing it as `unlisted`. |
+| QA-002 | **High** | open | The share link for an unlisted world is dead for everyone but its creator. |
+| QA-003 | **High** | open | SCR-048's "Who can play?" picker is inert, and picking "Everyone" strands the world with no way to publish it. |
+| QA-004 | Medium | **fixed** | The rejection cooldown was bypassable in two calls (private, then public). |
+| QA-005 | Low | **fixed** | A whitespace-only premise passed validation and cost 120 gems. |
+| QA-006 | Low | open | Explore renders a bare "Trending now" heading — no content, no empty state — for an account with no persona. |
 
 ---
 
 ## QA-001 — a pulled world escapes moderation by going `unlisted` (High)
 
-**Guarded by** `QA-001` in `e2e/tests/world-lifecycle.spec.ts` (currently `test.fail()`).
+**FIXED** in `9ffc2b2`. **Guarded by** `QA-001` in `e2e/tests/world-lifecycle.spec.ts`, now a plain
+passing regression guard. The transcript below is the behaviour before the fix.
 
 `POST /v1/worlds/:id/publish` refuses a resubmit only when `world.status === "rejected"`
 (`resubmitCooldownHours`). A world that three distinct reporters just pulled is `status: "review"`
@@ -75,7 +83,7 @@ resubmit; and `private` should not clear the open reports either.
 
 ## QA-002 — the unlisted share link is dead for the recipient (High)
 
-**Guarded by** `QA-002` in `e2e/tests/world-lifecycle.spec.ts` (currently `test.fail()`).
+**OPEN.** **Guarded by** `QA-002` in `e2e/tests/world-lifecycle.spec.ts` (`test.fail()` until fixed).
 
 `apps/mobile/src/studio/share.ts` builds the link as `<origin>/studio/<worldId>`. That route is
 `apps/mobile/app/studio/[id].tsx`, whose only data source is `useWorldStatus` →
@@ -118,7 +126,8 @@ a recipient can play. Every unlisted world shipped so far is unshareable.
 
 ## QA-003 — the create-time visibility picker does nothing, and "Everyone" strands the world (High)
 
-**Guarded by** `QA-003a` and `QA-003b` in `e2e/tests/world-lifecycle.spec.ts` (both `test.fail()`).
+**OPEN.** **Guarded by** `QA-003a` and `QA-003b` in `e2e/tests/world-lifecycle.spec.ts` (both
+`test.fail()` until fixed).
 
 SCR-048 offers three radio rows — 自分だけ / リンクを知っている人 / みんな, testids
 `studio-visibility-{private,unlisted,public}` — and `POST /v1/worlds` writes the chosen value onto
@@ -164,7 +173,8 @@ withdraws the button that would fix it. It is also the most likely thing a first
 
 ## QA-004 — the rejection cooldown is bypassable in two calls (Medium)
 
-**Guarded by** `QA-004` in `e2e/tests/world-lifecycle.spec.ts` (currently `test.fail()`).
+**FIXED** in `9ffc2b2`. **Guarded by** `QA-004` in `e2e/tests/world-lifecycle.spec.ts`, now a plain
+passing regression guard. The transcript below is the behaviour before the fix.
 
 E2E-035 asserts a turned-down world cannot be bounced straight back at the queue, and the direct path
 is correctly refused. But `resubmitCooldownHours` keys on `world.status === "rejected"`, and
@@ -192,7 +202,8 @@ is reachable from the UI too — the ghost "Keep it to myself" button on SCR-049
 
 ## QA-005 — a whitespace premise is a valid 120-gem purchase; non-Latin premises all share a slug (Low)
 
-**Guarded by** `QA-005` in `e2e/tests/world-lifecycle.spec.ts` (currently `test.fail()`).
+**FIXED** in `9ffc2b2`. **Guarded by** `QA-005` in `e2e/tests/world-lifecycle.spec.ts`, now a plain
+passing regression guard. The transcript below is the behaviour before the fix.
 
 `CreateWorldReqZ` is `z.string().min(8).max(200)` on the raw string. The client guards with
 `premise.trim()`, the server does not.
@@ -223,7 +234,7 @@ things fall through.
 
 ## QA-006 — Explore's "Trending now" is a heading over nothing when there is no persona (Low, cosmetic)
 
-**Guarded by** `QA-006` in `e2e/tests/world-lifecycle.spec.ts` (currently `test.fail()`).
+**OPEN.** **Guarded by** `QA-006` in `e2e/tests/world-lifecycle.spec.ts` (`test.fail()` until fixed).
 
 `ExploreScreen`'s `load()` returns early when `personaId` is null, so `trending` stays `null` forever.
 The empty-state card is gated on `trending && trending.topics.length === 0`, which never becomes

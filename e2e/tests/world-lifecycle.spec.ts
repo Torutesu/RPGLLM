@@ -133,8 +133,6 @@ test.describe("World lifecycle — hostile pass", () => {
    * nowhere else until a person has looked at it.
    */
   test("QA-001: a world reports pulled off the shelf cannot be republished out of the queue", async ({ request }) => {
-    // Fails today: see qa-findings.md QA-001 — remove this line when the product is fixed.
-    test.fail();
     const author = await apiSignup(request);
     const world = await aLiveWorld(request, author);
 
@@ -267,8 +265,6 @@ test.describe("World lifecycle — hostile pass", () => {
    * See qa-findings.md QA-004.
    */
   test("QA-004: a turned-down world cannot launder its cooldown through `private`", async ({ request }) => {
-    // Fails today: see qa-findings.md QA-004 — remove this line when the product is fixed.
-    test.fail();
     const author = await apiSignup(request);
     const world = await aBuiltWorld(request, author);
     await unwrap(await publish(request, author.jwt, world.id, "public"), "publish public");
@@ -295,8 +291,6 @@ test.describe("World lifecycle — hostile pass", () => {
    * See qa-findings.md QA-005.
    */
   test("QA-005: a premise with nothing in it is refused before it costs a gem", async ({ request }) => {
-    // Fails today: see qa-findings.md QA-005 — remove this line when the product is fixed.
-    test.fail();
     const account = await apiSignup(request);
     const before = (await wallet(request, account.jwt)).gems;
     expect(before, "a new account starts with exactly one world's worth").toBe(WORLD_STUDIO.STARTER_GEMS);
