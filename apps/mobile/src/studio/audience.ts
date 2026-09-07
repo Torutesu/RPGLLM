@@ -40,10 +40,6 @@ export type WorldState = Pick<WorldFull, "status" | "visibility">;
 export const audienceInForce = (world: WorldState): WorldVisibility =>
   world.status === "published" ? world.visibility : "private";
 
-/** True when the row claims an audience it does not have, so the screen owes an explanation. */
-export const audienceIsAWish = (world: WorldState): boolean =>
-  world.visibility !== audienceInForce(world);
-
 /**
  * A world that is finished and not with a reviewer: the two states where its creator, not the
  * queue, decides who can play it.

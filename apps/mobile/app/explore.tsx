@@ -3,7 +3,6 @@ import { Pressable, ScrollView, Text, View } from "react-native";
 import { router } from "expo-router";
 import { HEAT, T, colors, compactNumber, identityFor, layout, radius, spacing } from "@rpgllm/shared";
 import { useActions, useAppState, useT } from "../src/state/store";
-import type { PersonaDraft } from "../src/state/store";
 import { Card, HeaderBar, Screen, SectionHeader } from "../src/components/ui";
 import { Avatar } from "../src/components/Avatar";
 import { titleFromSlug } from "../src/components/WorldChip";
@@ -181,7 +180,7 @@ function RisingRail({ rising }: { rising: Trending["risingCharacters"] }) {
 
 export default function ExploreScreen() {
   const { me, worlds } = useAppState();
-  const { loadWorlds, setDraft } = useActions();
+  const { loadWorlds } = useActions();
   const { t } = useT();
   const personaId = me?.persona?.id ?? null;
   const [trending, setTrending] = useState<Trending | null>(null);
@@ -225,19 +224,13 @@ export default function ExploreScreen() {
     };
   }, []);
 
-  /** A community world enters the normal flow: pick it, make a persona, play. */
-  const enterCommunityWorld = (w: WorldFull) => {
-    const draft: PersonaDraft = {
-      worldId: w.id,
-      worldSlug: w.slug,
-      handle: "",
-      displayName: "",
-      bio: "",
-      avatarUrl: null,
-      voiceNotes: "",
-    };
-    setDraft(draft);
-    router.push({ pathname: "/onboarding/persona", params: { worldId: w.id } });
+  /**
+   * A world someone else made opens on its own page first — cover, premise, cast, whose it is —
+   * and the persona flow starts from there. It is the same destination the share link lands on
+   * (`app/world/[id].tsx`), so a community world is one thing wherever you met it.
+   */
+  const openCommunityWorld = (w: WorldFull) => {
+    router.push({ pathname: "/world/[id]", params: { id: w.id } });
   };
 
   const worldSlug = me?.persona?.worldSlug ?? "";
@@ -267,7 +260,23 @@ export default function ExploreScreen() {
               }}
             />
           ))}
-          {trending && trending.topics.length === 0 ? (
+          {/*
+            What is trending is a question about *a world you are in*, and `/v1/trending` needs a
+            persona to answer it. An account that has not entered one yet — every account between
+            sign-up and its first world — used to get the heading and nothing at all under it, which
+            reads as a render failure rather than as empty (QA-006). It gets the one thing that
+            would fill it instead: a story to pick.
+          */}
+          {!personaId ? (
+            <Empty
+              compact
+              icon="search"
+              title={t("pickStory")}
+              body={t("tagline")}
+              actionLabel={t("enterWorld")}
+              onAction={() => router.push("/onboarding/scenario")}
+            />
+          ) : failed || (trending && trending.topics.length === 0) ? (
             <View style={{ paddingHorizontal: spacing.lg }}>
               <Card tone="outline" style={{ alignItems: "center", gap: spacing.sm }}>
                 <Icon name="search" size={22} color={colors.textMuted} />
@@ -297,7 +306,7 @@ export default function ExploreScreen() {
                */
               canReport
               testID={T.communityWorldCard(w.slug)}
-              onPress={() => enterCommunityWorld(w)}
+              onPress={() => openCommunityWorld(w)}
             />
           ))}
           {community !== null && community.length === 0 ? (

@@ -9,7 +9,7 @@ import { castCounts, creatorHandles, toApiWorldFull } from "../services/world-st
 import { REVIEW_QUEUE_DEFAULT_LIMIT, resolveWorldReports, reviewQueue } from "../services/world-moderation";
 import { clearedAppeal } from "../services/world-appeal";
 import { claimWorldForReview, releasedClaim } from "../services/world-review-claim";
-import { REVIEW_EXCERPT_CHARS } from "./worlds";
+import { REVIEW_EXCERPT_CHARS } from "../services/world-publish";
 import type { AppEnv } from "../types";
 
 /** Who is reviewing, as their own client says it. Not authentication — see the note below. */

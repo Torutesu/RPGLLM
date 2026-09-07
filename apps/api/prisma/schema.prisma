@@ -140,7 +140,11 @@ model Persona {
   notifications      Notification[]
   achievementUnlocks AchievementUnlock[]
 
-  @@unique([worldId, handle])
+  /// この game は single-player: Persona は (user, world) ごとで、他人の Persona は決して見えない。
+  /// したがってハンドルは「そのワールドの中で、その人にとって」一意であればよい。
+  /// world 全体で一意にすると、二度と出会わない他人同士が名前を取り合うことになる(QA-003 の隣)。
+  /// なお cast (WorldCharacter) との衝突は別問題で、services/persona-handle.ts が防いでいる。
+  @@unique([worldId, userId, handle])
 }
 
 /// teardown: World

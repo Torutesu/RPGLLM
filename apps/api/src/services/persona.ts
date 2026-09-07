@@ -5,6 +5,7 @@ import type { z } from "zod";
 import type { Deps } from "../types";
 import { logGeneration } from "./generation";
 import { normHandle, sameHandle } from "./handles";
+import { resolveHandle } from "./persona-handle";
 import { localized, type LocaleKey } from "./locale";
 import { mediaForBatch } from "./media";
 import { computeMetrics, hashString, seededRandom, seedFrom } from "./rng";
@@ -27,12 +28,18 @@ export async function createPersonaWithFeed(deps: Deps, user: User, req: CreateP
   // AIF-003: knowing the id of somebody else's private world must not be enough to play it.
   if (!canPlay(world, user.id)) return { ok: false, code: "NOT_FOUND", message: "World not found" };
 
-  const handle = normHandle(req.handle);
-  const taken = await deps.prisma.persona.findUnique({ where: { worldId_handle: { worldId: world.id, handle } } });
-  if (taken) {
-    if (taken.userId === user.id) return { ok: true, persona: taken, feedReady: true };
-    return { ok: false, code: "HANDLE_TAKEN", message: "That handle is taken in this world" };
+  /**
+   * A handle is the player's within this world, not the world's (see `persona-handle.ts`): another
+   * account playing the same world as `@rina` is somebody this player will never meet, and cannot
+   * be the reason they are refused a name. Only two answers are still "no": the cast owns it, or
+   * this player already has it — and that second one is a retry, not a refusal.
+   */
+  const claim = await resolveHandle(deps.prisma, world.id, user.id, req.handle);
+  if (claim.state === "mine") return { ok: true, persona: claim.persona, feedReady: true };
+  if (claim.state === "cast") {
+    return { ok: false, code: "HANDLE_TAKEN", message: "Someone in this world already goes by that" };
   }
+  const handle = claim.handle;
 
   const characters = await deps.prisma.worldCharacter.findMany({ where: { worldId: world.id }, orderBy: { handle: "asc" } });
   const firstFollower = characters.find((c) => c.id === req.firstFollowerId)

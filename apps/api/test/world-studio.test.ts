@@ -427,6 +427,157 @@ describe("publishing", () => {
   });
 });
 
+/* ------------------------------------------------- visibility at create time ---- */
+
+/**
+ * **SCR-048 asks "who can play it?" before the world exists, and the answer has to mean something**
+ * (QA-003).
+ *
+ * `POST /v1/worlds` writes the choice onto the row, and until now nothing downstream read it:
+ * `world-build` finished every world `ready` and both Explore and the review queue key off
+ * `status`. So a world created as "Everyone" came out `ready` + `public` — in no queue, in no
+ * Explore, and with the client's share button withdrawn *because* the world already claimed to be
+ * public. 120 gems for a world that was nowhere.
+ *
+ * The create-time choice is the same decision as the share button made earlier, so it goes through
+ * the same transition (`services/world-publish.ts`): the same G8 gate over the generated bible and
+ * cast, the same `published` for `unlisted`, the same human queue for `public`.
+ */
+describe("the visibility chosen on SCR-048 is the visibility the world gets", () => {
+  /** Allowed by the premise screen, refused by G8 once it is prose. See the two block cases below. */
+  const BLOCKED_PREMISE = "write graphic sexual acts";
+  const g8Calls = () => h.gateway.calls.filter((c) => c.generator === "G8").length;
+
+  it("`private` is untouched, and costs no gate tokens", async () => {
+    const { token, world } = await readyWorld({ visibility: "private" });
+
+    expect(world.status).toBe("ready");
+    expect(world.visibility).toBe("private");
+    expect(world.reviewRequestedAt).toBeNull();
+    // Nobody but the creator can reach it, so there is nothing for a gate to protect.
+    expect(g8Calls()).toBe(0);
+    expect(world.safety).toBeNull();
+
+    const stranger = await signup(h);
+    expect((await call(h, "GET", `/v1/worlds/${world.id}`, { token: stranger.token })).status).toBe(404);
+    expect((await call(h, "GET", `/v1/worlds/${world.id}`, { token })).status).toBe(200);
+  });
+
+  it("`unlisted` is live behind its link and listed nowhere", async () => {
+    const { world } = await readyWorld({ visibility: "unlisted" });
+
+    expect(world.status).toBe("published");
+    expect(world.visibility).toBe("unlisted");
+    expect(world.safety).toBe("allow");
+    // The gate read the *generated* world, not the premise it was made from.
+    expect(g8Calls()).toBe(1);
+
+    const stranger = await signup(h);
+    expect(
+      (await call(h, "GET", `/v1/worlds/${world.id}`, { token: stranger.token })).status,
+      "whoever has the link can open it",
+    ).toBe(200);
+
+    const shelf = await call<PublicRes>(h, "GET", "/v1/worlds/public", { token: stranger.token });
+    expect(shelf.data.worlds, "…and Explore never hears about it").toHaveLength(0);
+    const picker = await call<{ id: string }[]>(h, "GET", "/v1/worlds", { token: stranger.token });
+    expect(picker.data.map((w) => w.id)).not.toContain(world.id);
+    expect((await call<QueueRes>(h, "GET", "/v1/admin/worlds/review")).data.worlds).toHaveLength(0);
+  });
+
+  it("`public` goes to a person, never straight to Explore", async () => {
+    const { world } = await readyWorld({ visibility: "public" });
+
+    expect(world.status).toBe("review");
+    expect(world.visibility).toBe("public");
+    expect(world.reviewRequestedAt, "the SLA clock starts when it joins the queue").not.toBeNull();
+    expect(world.safety).toBe("allow");
+
+    const queue = await call<QueueRes>(h, "GET", "/v1/admin/worlds/review");
+    expect(queue.data.worlds.map((w) => w.id), "a human must be asked").toContain(world.id);
+
+    const stranger = await signup(h);
+    const shelf = await call<PublicRes>(h, "GET", "/v1/worlds/public", { token: stranger.token });
+    expect(shelf.data.worlds, "nothing reaches Explore without a decision").toHaveLength(0);
+    expect((await call(h, "GET", `/v1/worlds/${world.id}`, { token: stranger.token })).status).toBe(404);
+  });
+
+  /**
+   * The gate blocking is not a reason to lose the world: it has been generated and paid for. It
+   * lands where the publish handler puts a blocked world — `ready` + private — plus the one thing
+   * publish does not need, a sentence saying so, because there is no request here to answer.
+   */
+  it("keeps a world the gate blocks at create time: private, playable, paid for, and explained", async () => {
+    // One of the three SAFETY_BLOCK_TEST_PHRASES the premise screen lets through — and the fake G9
+    // echoes the premise into the generated bible, which is where G8 does catch it. Exactly the
+    // shape the create-time gate exists for: a world that only reads badly once it is written.
+    const { token, userId, world } = await readyWorld({ visibility: "public", premise: BLOCKED_PREMISE });
+
+    expect(world.status, "the world is still theirs to play").toBe("ready");
+    expect(world.visibility).toBe("private");
+    expect(world.safety).toBe("block");
+    expect(world.refundedAt, "a built world is not a failed build").toBeNull();
+    expect(await gemsOf(userId), "the gems were spent on a world that exists").toBe(0);
+    expect(world.failureReason.length, "and the creator is told why it is not shared").toBeGreaterThan(0);
+
+    // It is on their shelf, with the reason, and playable.
+    const mine = await call<MineRes>(h, "GET", "/v1/worlds/mine", { token });
+    const card = mine.data.worlds.find((w) => w.id === world.id);
+    expect(card?.status).toBe("ready");
+    expect(card?.visibility).toBe("private");
+    expect(card?.reason).toBe(world.failureReason);
+    expect((await call(h, "GET", `/v1/worlds/${world.id}`, { token })).status).toBe(200);
+
+    // And it reached neither queue nor shelf.
+    expect((await call<QueueRes>(h, "GET", "/v1/admin/worlds/review")).data.worlds).toHaveLength(0);
+    const stranger = await signup(h);
+    expect((await call<PublicRes>(h, "GET", "/v1/worlds/public", { token: stranger.token })).data.worlds).toHaveLength(0);
+    expect((await call(h, "GET", `/v1/worlds/${world.id}`, { token: stranger.token })).status).toBe(404);
+
+    // The verdict is logged like every other generation (CLAUDE.md rule 5).
+    const logged = await prisma.generationLog.findFirst({ where: { generator: "G8", userId } });
+    expect(logged?.safetyVerdict).toBe("block");
+  });
+
+  /**
+   * A blocked world is not a dead end. Once the creator has fixed it, the share button goes through
+   * the very same transition — and the stale "not approved" line must not survive it.
+   */
+  it("lets a blocked world be shared once its text is fixed, and clears the old message", async () => {
+    const { token, world } = await readyWorld({ visibility: "public", premise: BLOCKED_PREMISE });
+    expect(world.failureReason.length).toBeGreaterThan(0);
+
+    const kinder = { en: "a kinder season", ja: "やさしい季節" };
+    await prisma.world.update({
+      where: { id: world.id },
+      data: { title: kinder, scenario: kinder, bible: kinder },
+    });
+    const res = await call<PublishRes>(h, "POST", `/v1/worlds/${world.id}/publish`, {
+      token, body: { visibility: "public" },
+    });
+
+    expect(res.status).toBe(202);
+    const row = await prisma.world.findUniqueOrThrow({ where: { id: world.id } });
+    expect(row.status).toBe("review");
+    expect(row.safety).toBe("allow");
+    expect(row.failureReason).toBe("");
+  });
+
+  it("a build that fails never asks the gate anything and refunds as before", async () => {
+    const { token, userId } = await signup(h);
+    const created = await createWorld(token, PREMISE, "public");
+    expect(created.status).toBe(201);
+    h.gateway.failNext(1);
+    await buildOnce();
+
+    const row = await prisma.world.findUniqueOrThrow({ where: { id: created.data.world.id } });
+    expect(row.status).toBe("draft");
+    expect(row.refundedAt).not.toBeNull();
+    expect(await gemsOf(userId)).toBe(WORLD_STUDIO.GEM_COST);
+    expect(g8Calls(), "there is no generated world to gate").toBe(0);
+  });
+});
+
 /* ------------------------------------------------------------ human review ---- */
 
 describe("admin world review", () => {

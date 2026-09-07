@@ -2,7 +2,7 @@ import { Hono } from "hono";
 import { CreatePersonaReqZ, HandleCheckReqZ } from "@rpgllm/shared";
 import { requireAuth } from "../auth";
 import { fail, notFound, ok, parseBody, parseQuery } from "../http";
-import { normHandle } from "../services/handles";
+import { resolveHandle } from "../services/persona-handle";
 import { createPersonaWithFeed } from "../services/persona";
 import { toApiPersona } from "../services/serialize";
 import type { AppEnv } from "../types";
@@ -10,14 +10,19 @@ import type { AppEnv } from "../types";
 export function personaRoutes(): Hono<AppEnv> {
   const app = new Hono<AppEnv>();
 
+  /**
+   * SCR-006's live check. "Available" means *available to you*: another player's `@rina` in the same
+   * world is somebody this account will never see, so it is not a reason to refuse the name
+   * (`services/persona-handle.ts`). The two answers that still mean no are the world's own cast —
+   * two `@rina` in one feed make reply targeting ambiguous — and a handle this player already has.
+   */
   app.get("/check", requireAuth, async (c) => {
     const q = parseQuery({ worldId: c.req.query("worldId"), handle: c.req.query("handle") }, HandleCheckReqZ);
     if (!q.ok) return q.res;
     const deps = c.get("deps");
-    const taken = await deps.prisma.persona.findUnique({
-      where: { worldId_handle: { worldId: q.value.worldId, handle: normHandle(q.value.handle) } },
-    });
-    return ok({ available: !taken });
+    const user = c.get("user");
+    const claim = await resolveHandle(deps.prisma, q.value.worldId, user.id, q.value.handle);
+    return ok({ available: claim.state === "free" });
   });
 
   app.post("/", requireAuth, async (c) => {

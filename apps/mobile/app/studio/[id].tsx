@@ -1,18 +1,19 @@
 import React, { useEffect, useState } from "react";
 import { Pressable, ScrollView, Text, View } from "react-native";
-import { router, useLocalSearchParams } from "expo-router";
-import { T, colors, compactNumber, font, layout, radius, spacing } from "@rpgllm/shared";
+import { Redirect, router, useLocalSearchParams } from "expo-router";
+import { T, colors, compactNumber, layout, radius, spacing } from "@rpgllm/shared";
 import { api, ApiError, type WorldFull, type WorldVisibility } from "../../src/api/client";
 import { Button, HeaderBar, Screen } from "../../src/components/ui";
-import { Aurora, FILL } from "../../src/components/Brand";
+import { Aurora } from "../../src/components/Brand";
 import { AppealForm, AppealStatus } from "../../src/components/StudioAppeal";
 import { StudioCast } from "../../src/components/StudioCast";
 import { StudioProgress } from "../../src/components/StudioProgress";
 import { StudioStatusBadge } from "../../src/components/StudioWorldCard";
-import { WorldCover } from "../../src/components/WorldCard";
+import { WorldHero } from "../../src/components/WorldHero";
 import { useActions, useT } from "../../src/state/store";
 import { useWorldStatus } from "../../src/studio/useWorldStatus";
 import { rejectedStep } from "../../src/studio/appeal";
+import { canAskForEveryone, canPutBehindLink, isLiveBehindLink } from "../../src/studio/audience";
 import { isFailedBuild, isPlayable } from "../../src/studio/labels";
 import { isResubmitCooldown } from "../../src/studio/report";
 import { shareWorldLink, worldShareUrl } from "../../src/studio/share";
@@ -30,39 +31,6 @@ import { Burst, FadeSlideIn, Icon, PressScale, typo } from "../../src/ui";
  */
 
 const COVER_H = 220;
-
-/**
- * The cover develops as the world builds: the scrim over the generated art thins with `progress`,
- * so the picture arriving *is* the progress bar's second voice. `veil` is 0 once it is ready.
- */
-function Hero({ world, veil }: { world: WorldFull; veil: number }) {
-  const dim = veil > 0.02;
-  return (
-    <View style={{ height: COVER_H, borderRadius: radius.xl, overflow: "hidden", borderWidth: 1, borderColor: colors.border }}>
-      <WorldCover slug={world.slug} height={COVER_H} />
-      {dim ? <View pointerEvents="none" style={[FILL, { backgroundColor: colors.scrim, opacity: veil }]} /> : null}
-      {!dim ? (
-        <View style={[FILL, { justifyContent: "flex-end", padding: spacing.lg, gap: spacing.xs }]}>
-          <Text
-            numberOfLines={2}
-            style={[
-              typo.title,
-              {
-                color: colors.text,
-                fontSize: font.xl,
-                textShadowColor: "rgba(0,0,0,0.6)",
-                textShadowRadius: 14,
-                textShadowOffset: { width: 0, height: 2 },
-              },
-            ]}
-          >
-            {world.title}
-          </Text>
-        </View>
-      ) : null}
-    </View>
-  );
-}
 
 function Meta({ world }: { world: WorldFull }) {
   const { t } = useT();
@@ -99,6 +67,13 @@ export default function StudioWorldScreen() {
   const [appealBusy, setAppealBusy] = useState(false);
   const [appealError, setAppealError] = useState<string | null>(null);
   const [appealSent, setAppealSent] = useState(false);
+  /**
+   * Somebody else's world, opened at the creator's URL. `GET /:id/status` is creator-only, so this
+   * screen used to be a dead end for every link that was ever shared (QA-002). When the world
+   * answers the *recipient's* endpoint, the visitor belongs on the world page — and the links
+   * already in circulation, which all point here, go on working.
+   */
+  const [visitor, setVisitor] = useState(false);
 
   const world = published ?? data?.world ?? null;
   const ready = world !== null && isPlayable(world.status);
@@ -107,6 +82,36 @@ export default function StudioWorldScreen() {
   useEffect(() => {
     if (ready) setBurst((n) => n + 1);
   }, [ready]);
+
+  /*
+   * The poll has given up and there is nothing on screen. Before saying "Couldn't load", ask the
+   * one question that separates "this world is not yours" from "this world is not there":
+   * `GET /v1/worlds/:id` answers anyone who may play it. One request, only on the failure path.
+   */
+  useEffect(() => {
+    if (phase !== "error" || world || !worldId) return;
+    let alive = true;
+    void api
+      .world(worldId)
+      .then(() => {
+        if (alive) setVisitor(true);
+      })
+      .catch(() => {
+        /* genuinely not there — the error state below is the honest answer */
+      });
+    return () => {
+      alive = false;
+    };
+  }, [phase, world, worldId]);
+
+  /*
+   * Someone else's world is never shown the creator's controls, however it was reached. Two ways
+   * to know: the status endpoint refused us and the world answers the recipient's one (`visitor`),
+   * or it answered and says the world is not ours — which is what happens the day `/:id/status`
+   * opens up to whoever may play a world. Either way the world page is the right screen.
+   */
+  const notMine = world !== null && !world.isMine;
+  if ((visitor || notMine) && worldId) return <Redirect href={{ pathname: "/world/[id]", params: { id: worldId } }} />;
 
   /**
    * Two different "no". `draft` is a build that died — the server refunds and drops the world back
@@ -249,8 +254,12 @@ export default function StudioWorldScreen() {
           ) : null}
 
           {world ? (
-            <Hero
-              world={world}
+            <WorldHero
+              slug={world.slug}
+              title={world.title}
+              height={COVER_H}
+              /* The cover develops as the world builds: the scrim thins with `progress`, so the
+                 picture arriving *is* the progress bar's second voice. 0 once it is ready. */
               veil={ready ? 0 : buildFailed || reviewRejected ? 0.8 : 0.86 - 0.5 * Math.max(0, Math.min(1, data?.progress ?? 0))}
             />
           ) : null}
@@ -328,8 +337,9 @@ export default function StudioWorldScreen() {
                 </Text>
               ) : null}
 
-              {/* Live behind the link: the link is the whole point, so it is on screen, not in a menu. */}
-              {world.visibility === "unlisted" && world.status === "published" ? (
+              {/* Live behind the link: the link is the whole point, so it is on screen, not in a
+                  menu — and it only appears once the link actually resolves for its recipient. */}
+              {isLiveBehindLink(world) ? (
                 <Pressable
                   onPress={() => void copyLink()}
                   accessibilityRole="button"
@@ -362,9 +372,16 @@ export default function StudioWorldScreen() {
                 </Pressable>
               ) : null}
 
+              {/*
+                What a world may still be asked to do, read off the audience it actually has rather
+                than the one its row claims (`studio/audience.ts`). The rule the old conditions
+                broke: no state may withdraw the only control that moves a world out of it — a
+                `ready` world that says "public" and sits in no queue is exactly that state, and it
+                keeps the button that sends it to a reviewer (QA-003b).
+              */}
               <View style={{ gap: spacing.sm }}>
                 <Button testID={T.studioPlay} label={t("studioPlay")} icon="sparkle" onPress={play} />
-                {world.status !== "review" && world.visibility !== "public" ? (
+                {canAskForEveryone(world) ? (
                   <Button
                     testID={T.studioPublish}
                     label={t("studioPublish")}
@@ -374,7 +391,7 @@ export default function StudioWorldScreen() {
                     onPress={() => void publish("public")}
                   />
                 ) : null}
-                {world.visibility !== "unlisted" && world.status !== "review" ? (
+                {canPutBehindLink(world) ? (
                   <Button
                     label={t("studioVisibilityUnlisted")}
                     icon="eye"

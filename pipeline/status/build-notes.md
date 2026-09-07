@@ -2965,3 +2965,78 @@ appeal moves the world to `review` (so `isAppealPending` is right to key on it),
 **does not** hold an appeal behind the resubmit cooldown, which is why the appeal being the loud
 offer and the cooldown the quiet aside is the honest ordering — the appeal is genuinely available
 when the resubmit is not. Nothing in this feature is stubbed.
+
+---
+
+## Agent FIX-API — QA-003 (create-time visibility) and the persona-handle constraint
+
+Owned `apps/api/**` only. Nothing in `packages/shared`, `packages/llm`, `apps/mobile` or `e2e` was
+touched.
+
+### 1. One visibility transition, two doors (QA-003)
+
+SCR-048's "Who can play it?" and SCR-049's share button are the **same decision made at different
+times**, so there is now exactly one implementation of it: `apps/api/src/services/world-publish.ts`.
+
+- `setWorldVisibility(deps, world, visibility, ctx)` owns `private → ready`, `unlisted → G8 →
+  published`, `public → G8 → review`, and the blocked branch (`ready` + private, verdict recorded).
+- `refuseVisibility(world, visibility, now)` owns *when* a world may change hands at all — the
+  not-yet-built 409, the pulled-world refusal (QA-001) and the resubmit cooldown (QA-004). Both
+  callers go through it, so the guards cannot drift from the transition they guard.
+- `reviewText` / `REVIEW_EXCERPT_CHARS` moved out of `routes/worlds.ts` into that service (both
+  callers need them); `routes/admin-worlds.ts` now imports them from there.
+- `POST /v1/worlds/:id/publish` is now only an HTTP adapter over the outcome, and
+  `jobs/world-build.ts` calls the same function once the world exists (`settleVisibility`).
+
+**On a create-time block** the world is *not* lost and the gems are *not* refunded — it was built
+and paid for. It lands `ready` + private with `safety: "block"`, the standing `safetyNote`, and a
+user-facing sentence in `failureReason` (surfaced as `WorldSummaryFullZ.reason`, which SCR-049
+already renders). The creator is notified, and SCR-049 offers the share button again because the
+world no longer claims to be public. A gate *error* does the same minus the message: private, logged,
+retryable from the button. `safetyGate`'s `userId` widened to `string | null` so a world whose
+creator is gone still logs its generation.
+
+### 2. Persona handles are per player, not per world
+
+`Persona @@unique([worldId, handle])` → `@@unique([worldId, userId, handle])`, migration
+`20260907120000_persona_handle_per_player`. The new index is strictly weaker than the old one, so no
+existing row can violate it and none is rewritten; the SQL is `IF EXISTS` / `IF NOT EXISTS` so it is
+re-runnable.
+
+`apps/api/src/services/persona-handle.ts` is the single answer to "may I take this handle here":
+`free` / `cast` / `mine`. Both `GET /v1/personas/check` and `createPersonaWithFeed` use it. The
+**cast collision is now enforced for the first time** — nothing prevented a player calling themselves
+`@rina` in a world whose cast has `@rina`, which would have put two of them in one feed and made
+`story.ts`'s parent-author-by-handle resolution ambiguous. It spans two tables (cast handles are
+stored with a leading `@`, persona handles without), so it cannot be an index.
+
+### Cross-cutting, for whoever owns these
+
+- **`packages/shared` i18n has no key for "built, but not shareable".** The create-time block reuses
+  `studioRejected` + `studioRejectedHint` ("Not approved for Explore" / "It's still yours to play in
+  private."), which is accurate but was written for a *human* rejection. A `studioBlocked` pair would
+  read better on SCR-049 and in the notification.
+- **`e2e/tests/world-lifecycle.spec.ts` QA-003a and QA-003b should now pass** and their `test.fail()`
+  annotations need dropping. I did not touch `e2e/`. The same assertions are pinned API-side in
+  `test/world-studio.test.ts` ("the visibility chosen on SCR-048 is the visibility the world gets").
+- **QA-002 is untouched and still open**: the unlisted share link points at `/studio/<id>`, a
+  creator-only screen. That is a client routing fix. It now matters more, because `unlisted` is
+  reachable from create time as well as from the share button.
+- **`GET /v1/worlds/:id` hands every player the same `presetPersonas` handles.** With the old
+  world-wide index that made the most likely first pick the most likely collision; it is now
+  harmless, but worth knowing the suggestion list is shared.
+- **Not fixed, deliberately:** two concurrent `POST /v1/personas` from the *same* user with the same
+  handle and different idempotency keys still race to a P2002 rather than a 409. That race predates
+  this pass (it was a read-then-write check before, too) and the idempotency key covers the retry
+  path the client actually uses.
+
+### Verification
+
+`pnpm --filter api test`: **343 → 352 passing**, nothing weakened or skipped; `tsc --noEmit` clean;
+`eslint` 0 errors; `prisma migrate diff` reports no drift.
+
+One existing case changed rather than being added to: `test/persona.test.ts`'s "reports handle
+availability and rejects a taken handle for another user" asserted precisely the behaviour QA calls
+the defect — a second account being refused `@taytay19`. It is now three cases covering what the
+rule actually is (two players may share a handle and see only their own feed; the cast still owns
+its handles, case- and `@`-insensitively; one player still cannot hold the same handle twice).

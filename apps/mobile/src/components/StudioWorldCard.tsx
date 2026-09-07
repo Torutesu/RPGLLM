@@ -4,6 +4,7 @@ import { T, colors, compactNumber, elevation, radius, spacing } from "@rpgllm/sh
 import type { WorldBuildStatus, WorldFull, WorldVisibility } from "../api/client";
 import { useT } from "../state/store";
 import { isAppealPending } from "../studio/appeal";
+import { audienceInForce } from "../studio/audience";
 import { STATUS_LABEL, STATUS_TINT, VISIBILITY_LABEL, isBuilding } from "../studio/labels";
 import { isReportableWorld } from "../studio/report";
 import { Icon, PressScale, Shimmer, typo } from "../ui";
