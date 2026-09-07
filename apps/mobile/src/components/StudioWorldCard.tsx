@@ -3,6 +3,7 @@ import { Pressable, Text, View } from "react-native";
 import { T, colors, compactNumber, elevation, radius, spacing } from "@rpgllm/shared";
 import type { WorldBuildStatus, WorldFull, WorldVisibility } from "../api/client";
 import { useT } from "../state/store";
+import { isAppealPending } from "../studio/appeal";
 import { STATUS_LABEL, STATUS_TINT, VISIBILITY_LABEL, isBuilding } from "../studio/labels";
 import { isReportableWorld } from "../studio/report";
 import { Icon, PressScale, Shimmer, typo } from "../ui";
@@ -96,6 +97,12 @@ export function StudioWorldCard({
   const { t } = useT();
   const building = isBuilding(world.status);
   const pulled = world.pulled && world.status === "review";
+  /*
+   * A world back in the queue on the creator's own say-so. "In review" is true but it is not the
+   * fact the creator came to the shelf to check — they want to know their appeal is still alive,
+   * so the card carries the state rather than making them open the world to find out.
+   */
+  const appealPending = isAppealPending(world);
   const reportable = canReport && isReportableWorld(world);
   /*
    * While a world builds the server has no title yet, so it echoes the premise — which made the
@@ -128,7 +135,13 @@ export function StudioWorldCard({
       <Pressable
         onPress={onPress}
         accessibilityRole="button"
-        accessibilityLabel={[world.title, t(pulled ? "studioPulled" : STATUS_LABEL[world.status]), credit ?? "", plays]
+        accessibilityLabel={[
+          world.title,
+          t(pulled ? "studioPulled" : STATUS_LABEL[world.status]),
+          appealPending ? t("studioAppealPending") : "",
+          credit ?? "",
+          plays,
+        ]
           .filter(Boolean)
           .join(". ")}
       >
@@ -182,6 +195,14 @@ export function StudioWorldCard({
                   <Text numberOfLines={2} importantForAccessibility="no" style={[typo.caption, { color: colors.textDim }]}>
                     {t("studioPulledHint")}
                   </Text>
+                ) : null}
+                {appealPending ? (
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: spacing.xs }}>
+                    <Icon name="clock" size={11} color={colors.warning} />
+                    <Text numberOfLines={1} importantForAccessibility="no" style={[typo.caption, { color: colors.warning, flex: 1 }]}>
+                      {t("studioAppealPending")}
+                    </Text>
+                  </View>
                 ) : null}
                 {world.status === "rejected" && world.reason ? (
                   <Text numberOfLines={2} importantForAccessibility="no" style={[typo.caption, { color: colors.danger }]}>

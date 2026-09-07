@@ -5,12 +5,14 @@ import { T, colors, compactNumber, font, layout, radius, spacing } from "@rpgllm
 import { api, ApiError, type WorldFull, type WorldVisibility } from "../../src/api/client";
 import { Button, HeaderBar, Screen } from "../../src/components/ui";
 import { Aurora, FILL } from "../../src/components/Brand";
+import { AppealForm, AppealStatus } from "../../src/components/StudioAppeal";
 import { StudioCast } from "../../src/components/StudioCast";
 import { StudioProgress } from "../../src/components/StudioProgress";
 import { StudioStatusBadge } from "../../src/components/StudioWorldCard";
 import { WorldCover } from "../../src/components/WorldCard";
 import { useActions, useT } from "../../src/state/store";
 import { useWorldStatus } from "../../src/studio/useWorldStatus";
+import { rejectedStep } from "../../src/studio/appeal";
 import { isFailedBuild, isPlayable } from "../../src/studio/labels";
 import { isResubmitCooldown } from "../../src/studio/report";
 import { shareWorldLink, worldShareUrl } from "../../src/studio/share";
@@ -92,6 +94,11 @@ export default function StudioWorldScreen() {
   const [copied, setCopied] = useState(false);
   /** Set once the server has refused a resubmit, so the button that cannot work stops being offered. */
   const [resubmitWait, setResubmitWait] = useState(false);
+  /** The appeal: closed until asked for, and gone for good once it has been spent. */
+  const [appealOpen, setAppealOpen] = useState(false);
+  const [appealBusy, setAppealBusy] = useState(false);
+  const [appealError, setAppealError] = useState<string | null>(null);
+  const [appealSent, setAppealSent] = useState(false);
 
   const world = published ?? data?.world ?? null;
   const ready = world !== null && isPlayable(world.status);
@@ -114,6 +121,22 @@ export default function StudioWorldScreen() {
    * the difference, so `pulled` says the second one out loud instead of hiding inside "In review".
    */
   const pulled = world?.status === "review" && world.pulled;
+  /**
+   * An appeal that a person has not answered yet. The world is back in `review` — which is why
+   * this has to be read off the world and not off a toast: a creator who closed the app and came
+   * back is owed the same sentence.
+   */
+  const appealPending = world ? (world.appealed || appealSent) && world.status === "review" : false;
+
+  /**
+   * The single next step a rejection is owed, and the two knobs the ranking turns: while an unspent
+   * appeal is on screen it takes the accent, so the resubmit drops to a ghost and its cooldown
+   * refusal drops to a muted caption instead of a second alarm.
+   */
+  const step = world ? rejectedStep(world, { appealSent, resubmitRefused: resubmitWait }) : null;
+  const quietResubmit = step === "appeal";
+  const showResubmit = !resubmitWait && (step === "appeal" || step === "resubmit");
+  const showResubmitWait = resubmitWait && step !== "appealPending";
 
   /** No world yet and the poll gave up: the screen shows the failure, not a bar that never moves. */
   const showBuilding = world ? !ready && !buildFailed && !reviewRejected : phase !== "error";
@@ -164,6 +187,29 @@ export default function StudioWorldScreen() {
       return false;
     } finally {
       setPublishBusy(null);
+    }
+  };
+
+  /**
+   * The one message. It is spent on the 200, so everything that can be checked before the call is
+   * checked before the call: the 10–500 range is the form's, not the server's, and the button is
+   * the only way in. The response carries the world back in `review`, which is the whole point —
+   * the screen stops arguing about the rejection and starts saying "someone is reading it".
+   */
+  const sendAppeal = async (message: string) => {
+    if (!world) return;
+    setAppealError(null);
+    setAppealBusy(true);
+    try {
+      const res = await api.appealWorld(world.id, message);
+      setPublished(res.world);
+      setAppealSent(true);
+      setAppealOpen(false);
+    } catch (e) {
+      const err = e instanceof ApiError ? e : null;
+      setAppealError(err?.isSafety ? t("studioPremiseBlocked") : t("loadFailed"));
+    } finally {
+      setAppealBusy(false);
     }
   };
 
@@ -232,7 +278,7 @@ export default function StudioWorldScreen() {
               <View style={{ gap: spacing.sm }}>
                 <View style={{ alignSelf: "flex-start" }}>
                   {/* No confetti over a takedown: the burst belongs to the reveal, not to this. */}
-                  {pulled ? null : <Burst trigger={burst} color={colors.accentHi} size={60} />}
+                  {pulled || appealPending ? null : <Burst trigger={burst} color={colors.accentHi} size={60} />}
                   <Text
                     accessibilityRole="header"
                     accessibilityLiveRegion="polite"
@@ -261,6 +307,9 @@ export default function StudioWorldScreen() {
                   <Icon name="shield" size={16} color={colors.danger} />
                   <Text style={[typo.meta, { color: colors.textDim, flex: 1 }]}>{t("studioPulledHint")}</Text>
                 </View>
+              ) : appealPending ? (
+                /* It is in review *because the creator said so* — the SLA line would bury that. */
+                <AppealStatus sent={appealSent} />
               ) : world.status === "review" ? (
                 <Text style={[typo.meta, { color: colors.warning }]}>{t("studioInReviewHint")}</Text>
               ) : null}
@@ -354,25 +403,45 @@ export default function StudioWorldScreen() {
               {world.reason ? <Text style={[typo.meta, { color: colors.danger }]}>{world.reason}</Text> : null}
               <Button testID={T.studioPlay} label={t("studioPlay")} onPress={play} />
               {/*
-                Turned down is not forever: the world can go back to the queue once the cooldown is
-                up. Until the server says no, the offer stands; the moment it does, the offer is
-                withdrawn and replaced by the reason — a button that can only fail is worse than
-                no button.
+                Two answers to one rejection, ranked rather than shouted (see src/studio/appeal.ts).
+                "Send it back" is the same world hoping for a different reviewer; the appeal is the
+                creator saying the decision misread it — which is a live possibility, because the
+                runbook tells reviewers to reject when unsure. So while an appeal is available it
+                takes the accent and the cooldown gives up its warning voice; once it is spent, the
+                resubmit is the only story left and gets the volume back.
               */}
-              {resubmitWait ? (
-                <View
-                  style={{ flexDirection: "row", alignItems: "center", gap: spacing.sm, paddingTop: spacing.xxs }}
-                >
-                  <Icon name="clock" size={15} color={colors.warning} />
-                  <Text
-                    accessibilityRole="alert"
-                    accessibilityLiveRegion="polite"
-                    style={[typo.meta, { color: colors.warning, flex: 1 }]}
-                  >
-                    {t("studioResubmitWait")}
-                  </Text>
-                </View>
-              ) : (
+              {step === "appealPending" ? (
+                <AppealStatus sent={appealSent} />
+              ) : null}
+
+              {step === "appeal" ? (
+                appealOpen ? (
+                  <AppealForm
+                    busy={appealBusy}
+                    error={appealError}
+                    onSubmit={(message) => void sendAppeal(message)}
+                    onCancel={() => {
+                      setAppealOpen(false);
+                      setAppealError(null);
+                    }}
+                  />
+                ) : (
+                  <Button
+                    testID={T.studioAppeal}
+                    label={t("studioAppeal")}
+                    icon="message"
+                    variant="secondary"
+                    onPress={() => setAppealOpen(true)}
+                  />
+                )
+              ) : null}
+
+              {/*
+                The same world, again. Offered until the server refuses it — and never at the same
+                weight as an unspent appeal, so a creator who wants to write is not competing with
+                a button, and a creator who does not is never locked out either.
+              */}
+              {showResubmit ? (
                 <>
                   {publishError ? (
                     <Text accessibilityRole="alert" accessibilityLiveRegion="polite" style={[typo.meta, { color: colors.danger }]}>
@@ -383,12 +452,30 @@ export default function StudioWorldScreen() {
                     testID={T.studioPublish}
                     label={t("studioPublish")}
                     icon="share"
-                    variant="secondary"
+                    variant={quietResubmit ? "ghost" : "secondary"}
                     loading={publishBusy === "public"}
                     onPress={() => void publish("public")}
                   />
                 </>
-              )}
+              ) : null}
+
+              {showResubmitWait ? (
+                <View
+                  style={{ flexDirection: "row", alignItems: "center", gap: spacing.sm, paddingTop: spacing.xxs }}
+                >
+                  <Icon name="clock" size={15} color={quietResubmit ? colors.textMuted : colors.warning} />
+                  <Text
+                    accessibilityRole={quietResubmit ? "text" : "alert"}
+                    accessibilityLiveRegion={quietResubmit ? "none" : "polite"}
+                    style={[
+                      quietResubmit ? typo.caption : typo.meta,
+                      { color: quietResubmit ? colors.textMuted : colors.warning, flex: 1 },
+                    ]}
+                  >
+                    {t("studioResubmitWait")}
+                  </Text>
+                </View>
+              ) : null}
               <Button
                 testID={T.studioKeepPrivate}
                 label={t("studioMyWorlds")}

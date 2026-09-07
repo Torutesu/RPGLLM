@@ -196,6 +196,22 @@ model World {
   /// 審査待ち行列に入った時刻(公開申請、または自動取り下げ)。待ち時間と SLA はここから測る
   reviewRequestedAt DateTime?
 
+  /// 却下への異議申し立て(WORLD_MODERATION.APPEALS_PER_REJECTION)。
+  /// appealsUsed は「いま争われている却下」に対して使った回数で、正規の再申請・自動取り下げ・承認で 0 に戻る。
+  /// 却下のたびに 1 回だけ、が「一度きり」の意味。
+  appealsUsed       Int       @default(0)
+  /// 行列に入っている異議の申し立て時刻。null = 生の申請(または異議は決着済み)
+  appealedAt        DateTime?
+  /// 創作者の言い分。審査カードにそのまま出る
+  appealMessage     String    @default("")
+  /// その異議が争っている却下理由のコピー。審査者に「新規申請」ではなく「判断への反論」を見せるため
+  appealReason      String    @default("")
+
+  /// 審査の一時確保(リース)。claimedUntil を過ぎれば自動的に空く = ロックではない。
+  /// 二人が同じ 20 分を使わないためだけの仕組みで、閉じたノートPCの後ろで世界が詰まってはいけない
+  claimedBy         String?
+  claimedUntil      DateTime?
+
   characters  WorldCharacter[]
   personas    Persona[]
   ambientPool AmbientPost[]

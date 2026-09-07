@@ -18,8 +18,11 @@
  *     the report queue, never on a takedown trigger.
  */
 import type { Prisma, PrismaClient, World } from "@prisma/client";
-import { WORLD_MODERATION, t, type Locale } from "@rpgllm/shared";
+import { t, type Locale } from "@rpgllm/shared";
 import type { LocaleKey } from "./locale";
+import { clearedAppeal, liveAppeal, type AppealCase } from "./world-appeal";
+import { activeClaim, releasedClaim, type ReviewClaim } from "./world-review-claim";
+import { worldModerationConfig } from "./world-moderation-config";
 import { logLine } from "../middleware/request-log";
 import { notify } from "./notify";
 import type { Tx } from "../types";
@@ -35,7 +38,7 @@ export const waitingHours = (world: Pick<World, "reviewRequestedAt" | "createdAt
   Math.round(Math.max(0, now.getTime() - waitingSince(world).getTime()) / HOUR_MS * 10) / 10;
 
 export const isOverdue = (world: Pick<World, "reviewRequestedAt" | "createdAt">, now: Date): boolean =>
-  waitingHours(world, now) > WORLD_MODERATION.REVIEW_SLA_HOURS;
+  waitingHours(world, now) > worldModerationConfig().reviewSlaHours;
 
 /** True once a world was live and reports took it back off the shelf. `WorldSummaryFullZ.pulled`. */
 export const isPulled = (world: Pick<World, "pulledAt">): boolean => world.pulledAt !== null;
@@ -87,14 +90,16 @@ export async function pullWorldIfBrigaded(tx: Tx, worldId: string, now: Date): P
   // Presets are ours — a report on one is for a human to read, never a takedown trigger. And only
   // a world actually *in Explore* can be taken out of it: unlisted is a link, not a shelf.
   const eligible = !world.isPreset && world.status === "published" && world.visibility === "public";
-  if (!eligible || reporters < WORLD_MODERATION.REPORTS_TO_PULL) return { reporters, pulled: false };
+  if (!eligible || reporters < worldModerationConfig().reportsToPull) return { reporters, pulled: false };
 
   const claimed = await tx.world.updateMany({
     // `status` in the WHERE is what makes this idempotent under a lost race.
     where: { id: worldId, status: "published", visibility: "public", isPreset: false },
     // Visibility stays `public`: this world's answer to "may it be listed" has not changed, only
     // "has a person looked at it lately". Approving puts it straight back on the shelf.
-    data: { status: "review", pulledAt: now, reviewRequestedAt: now },
+    // A pull is a new review cycle nobody asked for, so it arrives unclaimed and with no appeal
+    // attached: whatever rejection an old appeal argued with is not what this world is here for.
+    data: { status: "review", pulledAt: now, reviewRequestedAt: now, ...clearedAppeal, ...releasedClaim },
   });
   return { reporters, pulled: claimed.count > 0 };
 }
@@ -145,7 +150,7 @@ export function resolveWorldReports(tx: Tx, worldId: string, now: Date, approved
 /** When a rejected world may be offered to Explore again, or null if it is not rejected. */
 export const resubmitAllowedAt = (world: Pick<World, "status" | "reviewedAt">): Date | null =>
   world.status === "rejected" && world.reviewedAt !== null
-    ? new Date(world.reviewedAt.getTime() + WORLD_MODERATION.RESUBMIT_COOLDOWN_HOURS * HOUR_MS)
+    ? new Date(world.reviewedAt.getTime() + worldModerationConfig().resubmitCooldownHours * HOUR_MS)
     : null;
 
 /**
@@ -169,21 +174,34 @@ export function resubmitCooldownHours(world: Pick<World, "status" | "reviewedAt"
 export interface WorldModerationOps {
   /** worlds in the queue right now */
   inReview: number;
-  /** …of which have waited longer than WORLD_MODERATION.REVIEW_SLA_HOURS */
+  /** …of which have waited longer than the SLA in force */
   overdueReviews: number;
   /** …of which are there because players reported them, not because a creator asked */
   pulledWorlds: number;
+  /** …of which are there because a creator is arguing with a rejection */
+  appealedWorlds: number;
+  /** …of which a reviewer currently holds. A number that never falls is a stuck reviewer. */
+  claimedWorlds: number;
   /** open reports against worlds, whatever their state */
   openWorldReports: number;
   /** the oldest wait in the queue, in hours (0 when the queue is empty) */
   oldestWaitHours: number;
+  /**
+   * The thresholds **actually in force**, resolved from `WORLD_MODERATION_ENV` over the shipped
+   * defaults. An operator who overrode one on this deploy can see here whether the override took,
+   * without reading the process environment of a box they may not be able to log into.
+   */
   slaHours: number;
   reportsToPull: number;
+  resubmitCooldownHours: number;
+  claimMinutes: number;
+  appealsPerRejection: number;
 }
 
 export async function worldModerationOps(prisma: PrismaClient, now: Date): Promise<WorldModerationOps> {
-  const overdueBefore = new Date(now.getTime() - WORLD_MODERATION.REVIEW_SLA_HOURS * HOUR_MS);
-  const [inReview, overdueReviews, pulledWorlds, openWorldReports, oldest] = await Promise.all([
+  const config = worldModerationConfig();
+  const overdueBefore = new Date(now.getTime() - config.reviewSlaHours * HOUR_MS);
+  const [inReview, overdueReviews, pulledWorlds, appealedWorlds, claimedWorlds, openWorldReports, oldest] = await Promise.all([
     prisma.world.count({ where: { status: "review" } }),
     prisma.world.count({
       where: {
@@ -195,6 +213,9 @@ export async function worldModerationOps(prisma: PrismaClient, now: Date): Promi
       },
     }),
     prisma.world.count({ where: { status: "review", pulledAt: { not: null } } }),
+    prisma.world.count({ where: { status: "review", appealedAt: { not: null } } }),
+    // A lapsed lease is not a claim: `claimedUntil` in the past is an unclaimed world.
+    prisma.world.count({ where: { status: "review", claimedUntil: { gt: now } } }),
     prisma.report.count({ where: { target: "world", status: "open" } }),
     prisma.world.findFirst({
       where: { status: "review" },
@@ -206,10 +227,15 @@ export async function worldModerationOps(prisma: PrismaClient, now: Date): Promi
     inReview,
     overdueReviews,
     pulledWorlds,
+    appealedWorlds,
+    claimedWorlds,
     openWorldReports,
     oldestWaitHours: oldest ? waitingHours(oldest, now) : 0,
-    slaHours: WORLD_MODERATION.REVIEW_SLA_HOURS,
-    reportsToPull: WORLD_MODERATION.REPORTS_TO_PULL,
+    slaHours: config.reviewSlaHours,
+    reportsToPull: config.reportsToPull,
+    resubmitCooldownHours: config.resubmitCooldownHours,
+    claimMinutes: config.claimMinutes,
+    appealsPerRejection: config.appealsPerRejection,
   };
 }
 
@@ -227,13 +253,15 @@ export async function worldModerationOps(prisma: PrismaClient, now: Date): Promi
 export async function sweepWorldModeration(prisma: PrismaClient, now: Date): Promise<WorldModerationOps> {
   const ops = await worldModerationOps(prisma, now);
   // Quiet while there is nothing to do — this runs every minute.
-  if (ops.overdueReviews > 0 || ops.pulledWorlds > 0) {
+  if (ops.overdueReviews > 0 || ops.pulledWorlds > 0 || ops.appealedWorlds > 0) {
     logLine({
       level: "warn",
       msg: "world.review.backlog",
       inReview: ops.inReview,
       overdue: ops.overdueReviews,
       pulled: ops.pulledWorlds,
+      appealed: ops.appealedWorlds,
+      claimed: ops.claimedWorlds,
       openReports: ops.openWorldReports,
       oldestWaitHours: ops.oldestWaitHours,
       slaHours: ops.slaHours,
@@ -258,12 +286,18 @@ export interface QueueEntry {
   overdue: boolean;
   pulled: boolean;
   reports: QueueComplaint[];
+  /** the creator's case, when this world is here because they appealed a rejection */
+  appeal: AppealCase | null;
+  /** the reviewer holding it right now, or null — a lapsed lease is not a claim */
+  claim: ReviewClaim | null;
 }
 
 export interface ReviewQueue {
   entries: QueueEntry[];
   /** overdue across the **whole** queue, not just this page — an ops number, not a page number */
   overdueCount: number;
+  /** appeals across the whole queue: people waiting on a decision that has already been made once */
+  appealCount: number;
   total: number;
   nextOffset: number | null;
 }
@@ -271,20 +305,29 @@ export interface ReviewQueue {
 interface QueueRow extends World { reporters: number }
 
 /**
- * The queue, worst thing first.
+ * The queue, worst thing first — for the reviewer who is asking.
  *
- * Order: pulled-and-reported before never-reviewed, more reporters before fewer, then oldest wait
- * first, then id so the page boundary is stable. A world that players took off the shelf is by
- * definition live content somebody is objecting to right now; a first submission is nobody's
- * emergency.
+ * Three tiers, in this order:
+ *
+ *  1. **Not held by somebody else.** A world another reviewer is reading in this moment ranks
+ *     *last*, not hidden: hiding it would make the queue's length depend on who is looking, and
+ *     would hide a stale claim exactly when someone needs to notice it. The lease expires by
+ *     itself, so a world only stays down here for `CLAIM_MINUTES`.
+ *  2. **Somebody is waiting on you**: a world players pulled off the shelf, and a world whose
+ *     creator appealed. Both are a person already on the other end of a decision — a pulled world
+ *     is live content being objected to now, an appeal is a creator told "no" once and asking a
+ *     human to look again. A first submission is nobody's emergency, so it sorts below both.
+ *  3. Then more reporters before fewer, oldest wait first, and id so a page boundary is stable.
  */
 export async function reviewQueue(
   prisma: PrismaClient,
   now: Date,
-  opts: { limit?: number; offset?: number } = {},
+  opts: { limit?: number; offset?: number; reviewer?: string } = {},
 ): Promise<ReviewQueue> {
   const limit = Math.min(REVIEW_QUEUE_MAX_LIMIT, Math.max(1, Math.trunc(opts.limit ?? REVIEW_QUEUE_DEFAULT_LIMIT)));
   const offset = Math.max(0, Math.trunc(opts.offset ?? 0));
+  // No reviewer identity means every live claim is somebody else's — which is the honest answer.
+  const reviewer = opts.reviewer ?? "";
 
   const rows = await prisma.$queryRaw<QueueRow[]>`
     SELECT w.*, COALESCE(r."reporters", 0) AS "reporters"
@@ -294,7 +337,9 @@ export async function reviewQueue(
           FROM "Report" WHERE "target" = 'world' AND "status" = 'open' GROUP BY "targetId"
       ) r ON r."targetId" = w."id"
      WHERE w."status" = 'review'
-     ORDER BY (w."pulledAt" IS NOT NULL) DESC,
+     ORDER BY COALESCE(w."claimedUntil" > ${now}::timestamp
+                       AND w."claimedBy" IS DISTINCT FROM ${reviewer}, false) ASC,
+              (w."pulledAt" IS NOT NULL OR w."appealedAt" IS NOT NULL) DESC,
               COALESCE(r."reporters", 0) DESC,
               COALESCE(w."reviewRequestedAt", w."createdAt") ASC,
               w."id" ASC
@@ -331,8 +376,11 @@ export async function reviewQueue(
       overdue: isOverdue(row, now),
       pulled: isPulled(row),
       reports: byWorld.get(row.id) ?? [],
+      appeal: liveAppeal(row),
+      claim: activeClaim(row, now),
     })),
     overdueCount: ops.overdueReviews,
+    appealCount: ops.appealedWorlds,
     total,
     nextOffset: rows.length > limit ? offset + limit : null,
   };

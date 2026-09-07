@@ -1,9 +1,9 @@
 import { Hono } from "hono";
 import { Prisma, type World } from "@prisma/client";
-import { CreateWorldReqZ, PublishWorldReqZ, WORLD_STUDIO, type Locale } from "@rpgllm/shared";
+import { AppealWorldReqZ, CreateWorldReqZ, PublishWorldReqZ, WORLD_STUDIO, type Locale } from "@rpgllm/shared";
 import { requireAuth } from "../auth";
 import { worldBuildOnCreate } from "../env";
-import { fail, notFound, ok, parseBody } from "../http";
+import { fail, notFound, ok, parseBody, validationError } from "../http";
 import { runJobOnce } from "../jobs/registry";
 import { logLine } from "../middleware/request-log";
 import { loadDeepPremiseScreen } from "../llm-loader";
@@ -19,6 +19,8 @@ import {
   pickerWhere, slugifyPremise, spendGems, toApiWorldFull, uniqueSlug, worldsCreatedToday,
 } from "../services/world-studio";
 import { resubmitCooldownHours } from "../services/world-moderation";
+import { appealRejection, clearedAppeal } from "../services/world-appeal";
+import { releasedClaim } from "../services/world-review-claim";
 import { tamePremise } from "../fake-world-seed";
 import type { AppEnv, Deps } from "../types";
 
@@ -292,8 +294,12 @@ export function worldRoutes(): Hono<AppEnv> {
         where: { id: world.id },
         // Pulling a world back also withdraws it from the queue, or from Explore — including a
         // world reports took off the shelf: it is no longer waiting on anyone. Its reports stay
-        // open, so the complaint history survives the creator making it private.
-        data: { visibility: "private", status: "ready", pulledAt: null, reviewRequestedAt: null },
+        // open, so the complaint history survives the creator making it private. Whoever had
+        // claimed it is reading a world that left the queue, so the lease goes too.
+        data: {
+          visibility: "private", status: "ready", pulledAt: null, reviewRequestedAt: null,
+          ...clearedAppeal, ...releasedClaim,
+        },
       });
       return ok({ world: await oneFull(deps, updated, locale, user.id), needsReview: false });
     }
@@ -329,9 +335,57 @@ export function worldRoutes(): Hono<AppEnv> {
         // fresh submission is never a takedown, whatever this world's history is.
         ...(unlisted ? { reviewRequestedAt: null } : { reviewRequestedAt: deps.clock.now() }),
         pulledAt: null,
+        // A genuine resubmit is a new review cycle, so the appeal budget starts again: whatever
+        // rejection an earlier appeal argued with is not the decision this world now carries. It
+        // also arrives unclaimed — nobody is holding a world that was not in the queue.
+        ...clearedAppeal,
+        ...releasedClaim,
       },
     });
     return ok({ world: await oneFull(deps, updated, locale, user.id), needsReview: !unlisted }, unlisted ? 200 : 202);
+  });
+
+  /**
+   * SCR-049 → appeal. **The one thing a rejected creator could not do.**
+   *
+   * The runbook tells reviewers to reject when unsure (`docs/moderation.md` §4), which is right and
+   * which produces some wrong rejections on purpose. Before this, the only answer to one was to
+   * wait out `RESUBMIT_COOLDOWN_HOURS` and resubmit the same world hoping for a different reviewer
+   * — arguing with a decision by pretending not to be.
+   *
+   * So: once per rejection (`WORLD_MODERATION.APPEALS_PER_REJECTION`), the creator writes one
+   * message and the world goes back in the queue carrying it **and the reason it was rejected for**,
+   * ranked with the pulled worlds because both mean a person is waiting on an answer.
+   *
+   * Deliberately not charged, not rate-limited beyond the ordinary write budget, and **not subject
+   * to the resubmit cooldown**: an appeal is not a resubmit. Making someone wait a day to say "you
+   * misread this" is the same wrong answer, delivered slowly.
+   */
+  app.post("/:id/appeal", requireAuth, requireActiveAccount, async (c) => {
+    const body = await parseBody(c.req, AppealWorldReqZ);
+    if (!body.ok) return body.res;
+    const deps = c.get("deps");
+    const user = c.get("user");
+    const locale = user.locale as LocaleKey;
+    const world = await findWorld(deps, c.req.param("id"));
+    // Somebody else's world does not exist here, exactly as everywhere else in the studio.
+    if (!world || world.createdBy !== user.id) return notFound("World");
+    if (world.status !== "rejected") {
+      return fail("VALIDATION", "There's no decision to appeal on that world", 409);
+    }
+    // `AppealWorldReqZ` is min(10) on the raw string; a person reads this one, so the length that
+    // matters is what survives trimming.
+    const message = body.value.message.trim();
+    if (message.length < 10) return validationError("message: an appeal needs a sentence");
+
+    const appealed = await appealRejection(deps.prisma, world, message, deps.clock.now());
+    // Null means the guard in the WHERE refused it: already appealed, or two appeals raced and this
+    // is the one that lost. Same answer either way — the budget for this decision is spent.
+    if (appealed === null) {
+      return fail("ALREADY_DONE", "You've already appealed this decision — a person is reading it.", 409);
+    }
+    logLine({ level: "info", msg: "world.appeal.filed", worldId: appealed.id, userId: user.id });
+    return ok({ world: await oneFull(deps, appealed, locale, user.id) });
   });
 
   app.get("/:id", requireAuth, async (c) => {

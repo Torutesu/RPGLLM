@@ -9,6 +9,7 @@ import type { Prisma, PrismaClient, Subscription, World } from "@prisma/client";
 import { WORLD_STUDIO, type WorldSummaryFullZ } from "@rpgllm/shared";
 import type { z } from "zod";
 import { entitlementsFor } from "./entitlements";
+import { canAppeal, hasAppealed } from "./world-appeal";
 import { localized, type LocaleKey } from "./locale";
 import type { Tx } from "../types";
 import { envNum } from "../env";
@@ -192,6 +193,11 @@ export function toApiWorldFull(
     // "Taken down for another look" is a different thing to say than "not looked at yet", and the
     // status is `review` for both — so the difference lives here (WORLD_MODERATION).
     pulled: world.pulledAt !== null,
+    // What a rejected world's creator may still do about it. `canAppeal` is the offer (their own
+    // world, rejected, budget unspent); `appealed` says the standing decision has already been
+    // argued with, so a world back in `review` with `appealed` is an appeal being read right now.
+    canAppeal: canAppeal(world, viewerId),
+    appealed: hasAppealed(world),
   };
 }
 

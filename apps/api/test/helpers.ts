@@ -45,9 +45,10 @@ export async function call<T = unknown>(
   h: Harness,
   method: string,
   path: string,
-  opts: { token?: string; body?: unknown } = {},
+  /** `headers` is for the ones that are not a session: `x-reviewer`, `x-admin-token`. */
+  opts: { token?: string; body?: unknown; headers?: Record<string, string> } = {},
 ): Promise<JsonResponse<T>> {
-  const headers: Record<string, string> = {};
+  const headers: Record<string, string> = { ...opts.headers };
   if (opts.token) headers["authorization"] = `Bearer ${opts.token}`;
   if (opts.body !== undefined) headers["content-type"] = "application/json";
   const res = await h.app.request(path, {

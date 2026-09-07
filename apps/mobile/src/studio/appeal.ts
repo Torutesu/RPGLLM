@@ -30,9 +30,12 @@ export const isAppealValid = (raw: string): boolean => {
  * - `resubmit`      — no appeal left, so the standing offer is the same world, again.
  * - `resubmitWait`  — the server has refused that resubmit; the cooldown gets the sentence.
  *
- * The appeal outranks the cooldown deliberately. While an appeal is available it is the whole next
- * step, so `studioResubmitWait` never appears beside `studioAppeal` — the creator is told one
- * thing to do, not handed two half-offers and asked to referee them.
+ * The appeal outranks the cooldown, and the screen renders that rank rather than both at once.
+ * While `appeal` is the step the resubmit is still reachable — a creator who accepts the decision
+ * and simply wants another roll must not be forced to write a letter first — but it drops to a
+ * ghost, and a cooldown refusal underneath it drops to muted caption instead of the warning line.
+ * One accented offer, one quiet door. Once the appeal is spent or was never offered, the resubmit
+ * takes the volume back and `studioResubmitWait` is the loud sentence it is today.
  */
 export type RejectedStep = "appeal" | "appealPending" | "resubmit" | "resubmitWait";
 

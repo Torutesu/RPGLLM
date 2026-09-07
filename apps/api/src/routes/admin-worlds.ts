@@ -7,8 +7,15 @@ import { localized, type LocaleKey } from "../services/locale";
 import { adminTokenMatches } from "../services/moderation";
 import { castCounts, creatorHandles, toApiWorldFull } from "../services/world-studio";
 import { REVIEW_QUEUE_DEFAULT_LIMIT, resolveWorldReports, reviewQueue } from "../services/world-moderation";
+import { clearedAppeal } from "../services/world-appeal";
+import { claimWorldForReview, releasedClaim } from "../services/world-review-claim";
 import { REVIEW_EXCERPT_CHARS } from "./worlds";
 import type { AppEnv } from "../types";
+
+/** Who is reviewing, as their own client says it. Not authentication — see the note below. */
+const REVIEWER_HEADER = "x-reviewer";
+const REVIEWER_ID_MAX = 64;
+const DEFAULT_REVIEWER = "admin";
 
 /**
  * Human review of worlds asking to go public, and of worlds the players took back off the shelf
@@ -21,9 +28,20 @@ import type { AppEnv } from "../types";
  *
  * Rejecting does not delete anything. The world stops being listed and goes back to being what it
  * was before the creator asked to share it: theirs, private, and playable.
+ *
+ * **Who is reviewing.** The gate is one shared token, so the API cannot tell two reviewers apart on
+ * its own; the client says who it is in `x-reviewer` and that string is what a claim is held by and
+ * what `reviewedBy` records. It is a name for coordination, not an authorisation: anyone past the
+ * admin gate can send any name, and a claim is a lease that expires anyway. When the header is
+ * absent everyone is `admin`, which is honest — a deployment that cannot name its reviewers gets a
+ * queue that cannot tell them apart, rather than a false sense that it can.
  */
 export function adminWorldRoutes(): Hono<AppEnv> {
   const app = new Hono<AppEnv>();
+
+  /** Max 64 chars of whatever the reviewer's client calls them. Empty header → one shared name. */
+  const reviewerId = (c: { req: { header(name: string): string | undefined } }): string =>
+    (c.req.header(REVIEWER_HEADER) ?? "").trim().slice(0, REVIEWER_ID_MAX) || DEFAULT_REVIEWER;
 
   app.use("*", async (c, next) => {
     const header = c.req.header("authorization") ?? "";
@@ -36,11 +54,16 @@ export function adminWorldRoutes(): Hono<AppEnv> {
    * The queue — worst thing first, with enough of the world in it that a human can actually judge.
    *
    * Ordering is the difference between a queue and a pile: a world players pulled off the shelf is
-   * live content somebody is objecting to *now*, so it sorts above a first submission; more
-   * reporters above fewer; then the longest wait. Each card carries the complaints themselves
-   * (newest first), because "why is this here" is not answerable from the world alone, and how long
-   * it has waited against `WORLD_MODERATION.REVIEW_SLA_HOURS`. `overdueCount` is over the whole
-   * queue, not this page. Paged with `?limit=` and `?cursor=` (an offset — the order is a ranking,
+   * live content somebody is objecting to *now*, and an appealed world is a creator who was told
+   * "no" once and is waiting on a person to look again — both sort above a first submission; more
+   * reporters above fewer; then the longest wait. A world another reviewer has claimed sorts
+   * *last* rather than disappearing, so a stale claim is visible instead of silently shrinking
+   * everyone else's queue.
+   *
+   * Each card carries the complaints themselves (newest first), because "why is this here" is not
+   * answerable from the world alone; an appealed card also carries the creator's message and the
+   * reason they are arguing with. `overdueCount` and `appealCount` are over the whole queue, not
+   * this page — both are "how many people are waiting on us", which is not a page-sized question. Paged with `?limit=` and `?cursor=` (an offset — the order is a ranking,
    * not a keyset).
    */
   app.get("/review", async (c) => {
@@ -51,6 +74,8 @@ export function adminWorldRoutes(): Hono<AppEnv> {
     const queue = await reviewQueue(deps.prisma, now, {
       limit: Number.isFinite(rawLimit) ? rawLimit : REVIEW_QUEUE_DEFAULT_LIMIT,
       offset: Number.isFinite(rawCursor) ? rawCursor : 0,
+      // Whose claims count as "somebody else's" — the only per-reviewer thing about the queue.
+      reviewer: reviewerId(c),
     });
 
     const worlds = queue.entries.map((e) => e.world);
@@ -85,13 +110,55 @@ export function adminWorldRoutes(): Hono<AppEnv> {
           waitingHours: entry.waitingHours,
           overdue: entry.overdue,
           reports: entry.reports,
+          // A queue card for an appeal shows the decision being argued with, not just the world.
+          appeal: entry.appeal,
+          // A lapsed lease is reported as no lease at all — nobody is holding this world.
+          claimedBy: entry.claim?.by ?? null,
+          claimedUntil: entry.claim?.until.toISOString() ?? null,
         };
       }),
       overdueCount: queue.overdueCount,
+      appealCount: queue.appealCount,
       // Additive extras (`WorldReviewQueueResZ.parse()` strips them): what a reviewer needs to page.
       total: queue.total,
       nextCursor: queue.nextOffset === null ? null : String(queue.nextOffset),
     });
+  });
+
+  /**
+   * **A lease on a world, not a lock** (`WORLD_MODERATION.CLAIM_MINUTES`).
+   *
+   * Reading a world properly is twenty minutes — bible, cast, both locales, the complaints — and
+   * two reviewers spending the same twenty minutes is the waste this closes. What it must never do
+   * is strand a world behind somebody who closed their laptop, so the claim expires on its own,
+   * re-claiming extends it, deciding releases it, and a claimed world stays in the queue (ranked
+   * last) where anyone can still see it.
+   *
+   * Two reviewers claiming at the same instant is settled by the database, not by a read: the
+   * winner is whoever's conditional UPDATE lands first, and the loser is told who has it and for
+   * how long. A 409, not a 200 with a flag — a client that only checks the status must not walk
+   * away believing it holds a world it does not.
+   */
+  app.post("/:id/claim", async (c) => {
+    const deps = c.get("deps");
+    const now = deps.clock.now();
+    const reviewer = reviewerId(c);
+    const id = c.req.param("id");
+    const world = await deps.prisma.world.findFirst({ where: { OR: [{ id }, { slug: id }] } });
+    if (!world) return notFound("World");
+    if (world.status !== "review") return fail("VALIDATION", "That world is not awaiting review", 409);
+
+    const outcome = await claimWorldForReview(deps.prisma, world.id, reviewer, now);
+    if (!outcome.ok) {
+      if (outcome.conflict === null) return fail("VALIDATION", "That world is not awaiting review", 409);
+      const minutes = Math.max(1, Math.ceil((outcome.conflict.until.getTime() - now.getTime()) / 60_000));
+      return fail(
+        "ALREADY_DONE",
+        `${outcome.conflict.by} is reviewing that world — it frees up in ${minutes} ${minutes === 1 ? "minute" : "minutes"}.`,
+        409,
+      );
+    }
+    return ok({ worldId: world.id, claimedUntil: outcome.until.toISOString(), claimedByYou: true });
   });
 
   /**
@@ -110,6 +177,7 @@ export function adminWorldRoutes(): Hono<AppEnv> {
     if (world.status !== "review") return fail("VALIDATION", "That world is not awaiting review", 409);
 
     const now = deps.clock.now();
+    const reviewer = reviewerId(c);
     const approved = body.value.decision === "approve";
     const updated = await deps.prisma.$transaction(async (tx) => {
       const row = await tx.world.update({
@@ -117,8 +185,12 @@ export function adminWorldRoutes(): Hono<AppEnv> {
         data: approved
           ? {
             // Back on the shelf, and no longer pulled: a person has now looked at it.
-            status: "published", reviewedAt: now, reviewedBy: "admin", rejectedReason: "",
+            status: "published", reviewedAt: now, reviewedBy: reviewer, rejectedReason: "",
             pulledAt: null, reviewRequestedAt: null,
+            // An approval answers the appeal it was carrying, and there is no longer a rejection
+            // to argue with — so the next one, if this world is ever rejected again, starts fresh.
+            ...clearedAppeal,
+            ...releasedClaim,
           }
           : {
             status: "rejected",
@@ -126,10 +198,15 @@ export function adminWorldRoutes(): Hono<AppEnv> {
             // rejected world to the account that made it.
             visibility: "private",
             reviewedAt: now,
-            reviewedBy: "admin",
+            reviewedBy: reviewer,
             rejectedReason: body.value.reason,
             pulledAt: null,
             reviewRequestedAt: null,
+            // **The appeal state is deliberately left standing.** A world rejected *again* after an
+            // appeal has spent its appeal for that argument: `appealsUsed` stays at the limit, so
+            // `canAppeal` is false and the creator's next step is the ordinary cooldown. A new
+            // appeal only becomes available if a genuine resubmit is rejected again.
+            ...releasedClaim,
           },
       });
       await resolveWorldReports(tx, world.id, now, approved);
