@@ -281,6 +281,81 @@ export const MomentResZ = z.object({
 });
 export const MomentListResZ = z.object({ moments: z.array(MomentResZ.shape.moment) });
 
+/* ---------- The reel: a moment as something that moves ---------- */
+/**
+ * A still card cannot carry "this world is interesting" onto TikTok or Shorts — the thing that is
+ * good about a drama beat is the *turn*, and a screenshot has already spoiled it. So a moment also
+ * comes back as a timeline the client can animate and record.
+ *
+ * The server owns the timing, not the client, for two reasons: every viewer of a shared reel sees
+ * the same cut, and a recorded video and the on-screen animation cannot drift apart.
+ */
+export const ReelBeatKindZ = z.enum(["setup", "post", "reply", "stat", "headline", "outro"]);
+export const ReelBeatZ = z.object({
+  kind: ReelBeatKindZ,
+  /** ms from the start of the reel */
+  at: z.number().int().min(0),
+  holdMs: z.number().int().min(0),
+  handle: z.string().nullable().default(null),
+  displayName: z.string().nullable().default(null),
+  text: z.string(),
+  /** for `stat`: what moved and by how much, so the number can count rather than appear */
+  delta: z.object({ followers: z.number().int(), aura: z.number().int(), humor: z.number().int() }).nullable().default(null),
+});
+export const MomentReelResZ = z.object({
+  slug: z.string(),
+  worldTitle: z.string(),
+  worldSlug: z.string(),
+  personaHandle: z.string(),
+  creatorHandle: z.string().nullable().default(null),
+  durationMs: z.number().int(),
+  beats: z.array(ReelBeatZ),
+});
+
+/* ---------- Moderation, measured ---------- */
+/**
+ * Every `WORLD_MODERATION` number was picked for a product with no users. This is what makes them
+ * re-derivable: the queue as it actually behaves, next to the thresholds actually in force.
+ */
+export const ModerationMetricsResZ = z.object({
+  thresholds: z.object({
+    reportsToPull: z.number().int(),
+    reviewSlaHours: z.number().int(),
+    resubmitCooldownHours: z.number().int(),
+    claimMinutes: z.number().int(),
+  }),
+  queue: z.object({
+    waiting: z.number().int(),
+    overdue: z.number().int(),
+    appeals: z.number().int(),
+    pulled: z.number().int(),
+    oldestWaitingHours: z.number(),
+  }),
+  decisions: z.object({
+    last7d: z.number().int(),
+    approved: z.number().int(),
+    rejected: z.number().int(),
+    approvalRate: z.number(),
+    medianLatencyHours: z.number().nullable(),
+    p90LatencyHours: z.number().nullable(),
+  }),
+  reports: z.object({
+    open: z.number().int(),
+    last7d: z.number().int(),
+    /** the number the pull threshold should actually be derived from */
+    perThousandPlays: z.number(),
+    pullsLast7d: z.number().int(),
+    /** pulls a human then re-approved: how often the threshold is wrong */
+    pullsReapproved: z.number().int(),
+  }),
+  /** what one reviewed world costs to review, at the rate an operator supplies */
+  economics: z.object({
+    worldsReviewedLast7d: z.number().int(),
+    estimatedReviewMinutes: z.number(),
+    generationCostUsd: z.number(),
+  }),
+});
+
 /** S2-5 Referral. */
 export const ReferralResZ = z.object({
   code: z.string(),

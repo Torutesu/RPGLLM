@@ -315,4 +315,11 @@ export const ja: Strings = {
   studioApprovedBody: "人が読んで、発見タブに並びました",
   worldReadyTitle: "世界ができました",
   worldPulledTitle: "再確認のため一時的に非公開になりました",
+  reelTitle: "動画にする",
+  reelHint: "9秒・縦。スクショではなく、展開そのもの。",
+  reelPlay: "プレビュー",
+  reelRecord: "動画を保存",
+  reelRendering: "書き出し中…",
+  reelReady: "保存しました",
+  reelUnsupported: "この端末では動画を書き出せません。カードは共有できます",
 };

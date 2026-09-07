@@ -314,5 +314,12 @@ export const en = {
   studioApprovedBody: "A person read it and it is in Explore now",
   worldReadyTitle: "Your world is ready",
   worldPulledTitle: "Your world was taken down for another look",
+  reelTitle: "Make it a video",
+  reelHint: "Nine seconds, vertical. The turn, not the screenshot.",
+  reelPlay: "Preview",
+  reelRecord: "Save video",
+  reelRendering: "Recording…",
+  reelReady: "Saved",
+  reelUnsupported: "This device can't record video — the card still shares",
 } as const;
 export type Strings = { [K in keyof typeof en]: (typeof en)[K] extends readonly string[] ? readonly string[] : string };

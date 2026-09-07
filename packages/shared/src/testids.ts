@@ -125,6 +125,13 @@ export const T = {
   // SCR-040 shareable moment
   momentCard: "moment-card",
   momentShare: "moment-share",
+  // The reel — a moment that moves, and the file you can take away
+  momentReel: "moment-reel",
+  momentReelPlay: "moment-reel-play",
+  momentReelRecord: "moment-reel-record",
+  momentReelProgress: "moment-reel-progress",
+  momentReelDownload: "moment-reel-download",
+  momentReelUnsupported: "moment-reel-unsupported",
   momentClose: "moment-close",
   // SCR-041 referral
   referralOpen: "referral-open",
