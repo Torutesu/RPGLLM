@@ -135,8 +135,9 @@ export default function StudioWorldScreen() {
    */
   const step = world ? rejectedStep(world, { appealSent, resubmitRefused: resubmitWait }) : null;
   const quietResubmit = step === "appeal";
-  const showResubmit = !resubmitWait && (step === "appeal" || step === "resubmit");
-  const showResubmitWait = resubmitWait && step !== "appealPending";
+  // An open form is one task. The other door is still there when it closes, but not over its shoulder.
+  const showResubmit = !resubmitWait && !appealOpen && (step === "appeal" || step === "resubmit");
+  const showResubmitWait = resubmitWait && !appealOpen && step !== "appealPending";
 
   /** No world yet and the poll gave up: the screen shows the failure, not a bar that never moves. */
   const showBuilding = world ? !ready && !buildFailed && !reviewRejected : phase !== "error";
