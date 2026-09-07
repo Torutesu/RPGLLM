@@ -13,7 +13,7 @@ import {
   // Engagement (Agent L): notifications / streak / achievements.
   NotificationsResZ, MarkNotificationsReadResZ, StreakResZ, AchievementsResZ,
   // World Studio (SCR-048/049/050): create a world from one line, watch it build, publish it.
-  CreateWorldResZ, WorldStatusResZ, PublishWorldResZ, MyWorldsResZ, PublicWorldsResZ,
+  CreateWorldResZ, WorldStatusResZ, PublishWorldResZ, MyWorldsResZ, PublicWorldsResZ, AppealWorldResZ,
   type ErrorCode, type Locale, type PlanId, type ReportReason, type WorldGenre,
 } from "@rpgllm/shared";
 import { API_BASE, g } from "../env";
@@ -309,6 +309,15 @@ export const api = {
   publishWorld: (id: string, visibility: "private" | "unlisted" | "public") =>
     request(`/worlds/${encodeURIComponent(id)}/publish`, {
       method: "POST", body: { visibility }, schema: PublishWorldResZ, globalErrors: false,
+    }),
+  /**
+   * A rejected world's creator says the decision read it wrong. Once per rejection, 10–500 chars,
+   * and the refusals are the screen's own business: 409 = the appeal is spent, 404 = no such
+   * world. Nothing here may raise the energy modal.
+   */
+  appealWorld: (id: string, message: string) =>
+    request(`/worlds/${encodeURIComponent(id)}/appeal`, {
+      method: "POST", body: { message }, schema: AppealWorldResZ, globalErrors: false,
     }),
   /** SCR-050 — the player's own worlds, plus how many builds are left today. */
   myWorlds: () => request("/worlds/mine", { schema: MyWorldsResZ, globalErrors: false }),
