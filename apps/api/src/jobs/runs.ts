@@ -2,15 +2,16 @@
  * Run history for the background jobs, and the Postgres advisory lock that keeps two workers (or a
  * worker and a redeploy) from running the same job at the same time.
  *
- * **Why raw SQL.** The run log has to be visible to a *different process* than the one that wrote
- * it — the worker runs the jobs, `GET /v1/jobs` reads them from the API — so it cannot live in
- * memory. `apps/api/prisma/schema.prisma` is not mine to edit this pass (build-notes: the
- * orchestrator owns it), so the table is created idempotently with `CREATE TABLE IF NOT EXISTS`
- * and read/written through parameterised raw queries. It is a plain table with no foreign keys;
- * the exact model to paste into `schema.prisma` when the orchestrator next touches it is in
- * `docs/deploy.md` §6 — after that, delete `ensureJobRunTable` and use `prisma.jobRun`.
+ * The run log has to be visible to a *different process* than the one that wrote it — the worker
+ * runs the jobs, `GET /v1/jobs` reads them from the API — so it cannot live in memory. It was a
+ * table this file created at runtime with `CREATE TABLE IF NOT EXISTS` and read back with raw SQL,
+ * because the schema was frozen for that pass; `prisma migrate dev` therefore wanted to drop it
+ * on sight, which is a loaded gun pointed at the run history of every deployment.
+ *
+ * The model and its migration exist now, so this file is ordinary Prisma. The one piece of raw SQL
+ * left is `pg_try_advisory_xact_lock`, which has no Prisma equivalent and is the whole point of
+ * `withJobLock`.
  */
-import { randomUUID } from "node:crypto";
 import type { PrismaClient } from "@prisma/client";
 
 export interface JobRunRow {
@@ -27,30 +28,6 @@ export interface JobRunRow {
   host: string | null;
 }
 
-const DDL = [
-  `CREATE TABLE IF NOT EXISTS "JobRun" (
-     "id" TEXT PRIMARY KEY,
-     "job" TEXT NOT NULL,
-     "startedAt" TIMESTAMP(3) NOT NULL,
-     "finishedAt" TIMESTAMP(3),
-     "ok" BOOLEAN NOT NULL DEFAULT false,
-     "processed" INTEGER NOT NULL DEFAULT 0,
-     "error" TEXT,
-     "trigger" TEXT NOT NULL DEFAULT 'schedule',
-     "host" TEXT
-   )`,
-  `CREATE INDEX IF NOT EXISTS "JobRun_job_startedAt_idx" ON "JobRun" ("job", "startedAt" DESC)`,
-] as const;
-
-const ready = new WeakSet<PrismaClient>();
-
-/** Kept for a deployment that predates the migration; a no-op once Prisma owns the table. */
-export async function ensureJobRunTable(prisma: PrismaClient): Promise<void> {
-  if (ready.has(prisma)) return;
-  for (const stmt of DDL) await prisma.$executeRawUnsafe(stmt);
-  ready.add(prisma);
-}
-
 /** Truncate a failure so one enormous stack cannot bloat every `GET /v1/jobs`. */
 const MAX_ERROR_CHARS = 500;
 export const shortError = (err: unknown): string => {
@@ -65,12 +42,11 @@ export async function startRun(
   trigger: string,
   host: string | null,
 ): Promise<string> {
-  await ensureJobRunTable(prisma);
-  const id = randomUUID();
-  await prisma.$executeRaw`
-    INSERT INTO "JobRun" ("id", "job", "startedAt", "ok", "processed", "trigger", "host")
-    VALUES (${id}, ${job}, ${startedAt}, false, 0, ${trigger}, ${host})`;
-  return id;
+  const row = await prisma.jobRun.create({
+    data: { job, startedAt, ok: false, processed: 0, trigger, host },
+    select: { id: true },
+  });
+  return row.id;
 }
 
 export async function finishRun(
@@ -79,34 +55,36 @@ export async function finishRun(
   finishedAt: Date,
   result: { ok: boolean; processed: number; error: string | null },
 ): Promise<void> {
-  await prisma.$executeRaw`
-    UPDATE "JobRun"
-       SET "finishedAt" = ${finishedAt}, "ok" = ${result.ok}, "processed" = ${result.processed}, "error" = ${result.error}
-     WHERE "id" = ${id}`;
+  await prisma.jobRun.update({
+    where: { id },
+    data: { finishedAt, ok: result.ok, processed: result.processed, error: result.error },
+  });
 }
 
-/** Newest run per job, in one query (`DISTINCT ON` does the grouping in Postgres, not in Node). */
+/**
+ * Newest run per job. `DISTINCT ON` has no Prisma expression, and `findMany` + group-in-Node over
+ * the whole history is not the same query — so this reads the most recent runs (bounded) and keeps
+ * the first per job. The table is pruned to `JOB_RUN_RETENTION_DAYS`, and there are seven jobs, so
+ * the bound is generous by two orders of magnitude.
+ */
 export async function latestRuns(prisma: PrismaClient): Promise<Map<string, JobRunRow>> {
-  await ensureJobRunTable(prisma);
-  const rows = await prisma.$queryRaw<JobRunRow[]>`
-    SELECT DISTINCT ON ("job") "id", "job", "startedAt", "finishedAt", "ok", "processed", "error", "trigger", "host"
-      FROM "JobRun"
-     ORDER BY "job", "startedAt" DESC`;
-  return new Map(rows.map((r) => [r.job, r]));
+  const rows = await prisma.jobRun.findMany({ orderBy: [{ startedAt: "desc" }, { id: "desc" }], take: 500 });
+  const out = new Map<string, JobRunRow>();
+  for (const r of rows) if (!out.has(r.job)) out.set(r.job, r);
+  return out;
 }
 
 /** Recent runs of one job, newest first — the detail view behind `GET /v1/jobs?job=`. */
 export async function recentRuns(prisma: PrismaClient, job: string, limit: number): Promise<JobRunRow[]> {
-  await ensureJobRunTable(prisma);
-  return await prisma.$queryRaw<JobRunRow[]>`
-    SELECT "id", "job", "startedAt", "finishedAt", "ok", "processed", "error", "trigger", "host"
-      FROM "JobRun" WHERE "job" = ${job} ORDER BY "startedAt" DESC LIMIT ${limit}`;
+  return await prisma.jobRun.findMany({
+    where: { job }, orderBy: [{ startedAt: "desc" }, { id: "desc" }], take: limit,
+  });
 }
 
 /** House-keeping so the log cannot grow without bound (called by `purge-login-codes`). */
 export async function pruneRuns(prisma: PrismaClient, before: Date): Promise<number> {
-  await ensureJobRunTable(prisma);
-  return await prisma.$executeRaw`DELETE FROM "JobRun" WHERE "startedAt" < ${before}`;
+  const { count } = await prisma.jobRun.deleteMany({ where: { startedAt: { lt: before } } });
+  return count;
 }
 
 /**

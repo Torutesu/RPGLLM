@@ -11,7 +11,7 @@ import { DEV_EMAIL_CODE, TEST_AD_TOKEN } from "@rpgllm/shared";
 import { consumeCode, issueCode, setMailSender, type EmailCodeStore, type MailSender } from "../src/auth-codes";
 import { productionConfigProblems, assertProductionConfig } from "../src/config-guard";
 import { budgetFor, take, type RateLimitStore } from "../src/middleware/rate-limit";
-import { setAdMobVerifierKeys, StaticVerifierKeys, verifyAdMobSSV } from "../src/services/ad-verify";
+import { GoogleVerifierKeys, setAdMobVerifierKeys, StaticVerifierKeys, verifyAdMobSSV } from "../src/services/ad-verify";
 import { call, makeHarness, resetDatabase, signup, type Harness } from "./helpers";
 
 let h: Harness;
@@ -130,7 +130,20 @@ describe("S0-1 one-time email codes", () => {
 /* ------------------------------------------------------- S0-2 config guard ---- */
 
 describe("S0-2 production config guard", () => {
-  const prod = { NODE_ENV: "production", JWT_SECRET: "x".repeat(48), BILLING_MODE: "revenuecat", ADS_MODE: "admob" };
+  /**
+   * A deployment that would actually be safe to boot. It grew in the production-readiness pass:
+   * the four original settings were never enough to *run* the product, only enough to stop it
+   * being trivially exploitable — a service with all four right could still serve fixtures to
+   * paying users, mail nobody a login code and give no reviewer a way in.
+   */
+  const prod = {
+    NODE_ENV: "production", JWT_SECRET: "x".repeat(48), BILLING_MODE: "revenuecat", ADS_MODE: "admob",
+    LLM_MODE: "live", ANTHROPIC_API_KEY: "sk-ant-xxx", CORS_ORIGINS: "https://app.example.com",
+    ADMIN_TOKEN: "y".repeat(32), PUBLIC_APP_URL: "https://app.example.com",
+    REVENUECAT_WEBHOOK_SECRET: "z".repeat(32),
+    MAIL_PROVIDER: "resend", MAIL_API_KEY: "re_xxx", MAIL_FROM: "hello@example.com",
+    LLM_DAILY_BUDGET_USD: "250",
+  };
 
   it("accepts a hardened production env", () => {
     expect(productionConfigProblems(prod)).toEqual([]);
@@ -152,12 +165,40 @@ describe("S0-2 production config guard", () => {
       [{ ADS_MODE: "test" }, /ADS_MODE/],
       [{ BILLING_MODE: undefined }, /BILLING_MODE is not set/],
       [{ ADS_MODE: undefined }, /ADS_MODE is not set/],
+      // Broken rather than exploitable, and every one of them boots silently without this guard.
+      [{ LLM_MODE: "replay" }, /canned fixtures/],
+      [{ LLM_MODE: undefined }, /canned fixtures/],
+      [{ ANTHROPIC_API_KEY: undefined }, /without ANTHROPIC_API_KEY/],
+      [{ CORS_ORIGINS: "https://app.example.com,*" }, /CORS_ORIGINS contains \*/],
+      [{ CORS_ORIGINS: undefined }, /CORS_ORIGINS is not set/],
+      [{ ADMIN_TOKEN: undefined }, /no reviewer can reach the moderation queue/],
+      [{ PUBLIC_APP_URL: undefined }, /placeholder host/],
+      [{ REVENUECAT_WEBHOOK_SECRET: undefined }, /forged webhook/],
+      [{ MAIL_PROVIDER: undefined }, /nobody can sign in/],
+      [{ MAIL_PROVIDER: "console" }, /nobody can sign in/],
+      [{ MAIL_PROVIDER: "sendmail" }, /not a provider this build can talk to/],
+      [{ MAIL_API_KEY: undefined }, /MAIL_API_KEY is not set/],
+      [{ MAIL_FROM: undefined }, /MAIL_FROM is not set/],
+      [{ LLM_DAILY_BUDGET_USD: undefined }, /LLM_DAILY_BUDGET_USD is not set/],
+      [{ LLM_DAILY_BUDGET_USD: "0" }, /neither a positive number nor/],
+      [{ LLM_DAILY_BUDGET_USD: "lots" }, /neither a positive number nor/],
     ];
     for (const [patch, matcher] of cases) {
       const env = { ...prod, ...patch };
       expect(productionConfigProblems(env).join("\n"), JSON.stringify(patch)).toMatch(matcher);
       expect(() => { assertProductionConfig(env); }, JSON.stringify(patch)).toThrow(/insecure configuration/);
     }
+  });
+
+  /** Saying "no ceiling" out loud is allowed; leaving the question unanswered is not. */
+  it("accepts an explicitly unlimited budget", () => {
+    expect(productionConfigProblems({ ...prod, LLM_DAILY_BUDGET_USD: "unlimited" })).toEqual([]);
+  });
+
+  /** `ADMIN_TOKENS` (per-reviewer secrets) satisfies the same requirement as the shared one. */
+  it("accepts per-reviewer admin tokens in place of the shared one", () => {
+    const { ADMIN_TOKEN: _drop, ...rest } = prod;
+    expect(productionConfigProblems({ ...rest, ADMIN_TOKENS: `rina:${"y".repeat(32)}` })).toEqual([]);
   });
 
   it("also treats APP_ENV=production as production", () => {
@@ -284,6 +325,108 @@ describe("S0-6 ad reward verification", () => {
     } finally {
       setAdMobVerifierKeys(new (class { get() { return Promise.resolve(null); } })());
     }
+  });
+
+  /**
+   * The replay hole. A signature proves a callback was genuine *once*; nothing in it says this is
+   * not the fourth time we have seen it. Before `AdRedemption`, one captured callback from your
+   * own device minted energy to the daily cap, every day, forever.
+   */
+  it("grants a verified callback once and refuses the replay", async () => {
+    const account = await signup(h);
+    const { publicKey, privateKey } = generateKeyPairSync("ec", { namedCurve: "prime256v1" });
+    const now = Date.now();
+    const signed = `ad_network=1&reward_amount=1&reward_item=energy&timestamp=${now}`
+      + `&transaction_id=tx-replay&user_id=${account.userId}&key_id=1`;
+    const sig = createSign("SHA256").update(signed, "utf8").sign(privateKey).toString("base64url");
+    const callback = `https://api.example.com/ssv?${signed}&signature=${sig}`;
+
+    restore = withEnv({ ADS_MODE: "admob" });
+    setAdMobVerifierKeys(new StaticVerifierKeys({ "1": publicKey.export({ type: "spki", format: "pem" }).toString() }));
+    try {
+      const first = await call<{ energy: number }>(h, "POST", "/v1/wallet/ad-reward", {
+        token: account.token, body: { adToken: callback },
+      });
+      expect(first.status, "the genuine callback pays out").toBe(200);
+
+      const second = await call(h, "POST", "/v1/wallet/ad-reward", { token: account.token, body: { adToken: callback } });
+      expect(second.status, "and the identical one does not").toBe(409);
+      expect(second.error?.code).toBe("ALREADY_DONE");
+
+      // The rollback matters as much as the refusal: no energy, and no phantom ad against the cap.
+      const wallet = await call<{ energy: number; adRewardsToday: number }>(h, "GET", "/v1/wallet", { token: account.token });
+      expect(wallet.data.adRewardsToday, "a refused replay is not an ad watched").toBe(1);
+    } finally {
+      setAdMobVerifierKeys(new (class { get() { return Promise.resolve(null); } })());
+    }
+  });
+
+  /** A callback that cannot be deduplicated is refused rather than granted once and hoped about. */
+  it("refuses a verified callback that carries no transaction id", async () => {
+    const { publicKey, privateKey } = generateKeyPairSync("ec", { namedCurve: "prime256v1" });
+    const now = Date.now();
+    const signed = `ad_network=1&reward_amount=1&reward_item=energy&timestamp=${now}&user_id=u1&key_id=1`;
+    const sig = createSign("SHA256").update(signed, "utf8").sign(privateKey).toString("base64url");
+    setAdMobVerifierKeys(new StaticVerifierKeys({ "1": publicKey.export({ type: "spki", format: "pem" }).toString() }));
+    try {
+      const verdict = await verifyAdMobSSV(`https://x/ssv?${signed}&signature=${sig}`, { expectedUserId: "u1", nowMs: now });
+      expect(verdict.ok).toBe(false);
+      expect(verdict.reason).toBe("no_transaction_id");
+    } finally {
+      setAdMobVerifierKeys(new (class { get() { return Promise.resolve(null); } })());
+    }
+  });
+
+  /**
+   * The key set. Fetched on a miss rather than on a timer, because a rotation is only ever visible
+   * as a `key_id` we do not have — and rate-limited, so an unknown id cannot be turned into an
+   * outbound request amplifier.
+   */
+  describe("the published verifier key set", () => {
+    const keyBody = (): { keys: { keyId: string; pem: string }[] } => {
+      const { publicKey } = generateKeyPairSync("ec", { namedCurve: "prime256v1" });
+      return { keys: [{ keyId: "77", pem: publicKey.export({ type: "spki", format: "pem" }).toString() }] };
+    };
+
+    it("fetches on a miss, caches the hit, and does not refetch inside the floor", async () => {
+      let fetches = 0;
+      let now = 1_000_000;
+      const fetchImpl = (async () => {
+        fetches += 1;
+        return new Response(JSON.stringify(keyBody()), { status: 200 });
+      }) as unknown as typeof fetch;
+      const keys = new GoogleVerifierKeys({ fetchImpl, minRefreshMs: 60_000, nowMs: () => now });
+
+      expect(await keys.get("77")).not.toBeNull();
+      expect(fetches).toBe(1);
+      expect(await keys.get("77"), "a hit never touches the network").not.toBeNull();
+      expect(fetches).toBe(1);
+
+      // An unknown id inside the floor must not become a request per attempt.
+      expect(await keys.get("nope")).toBeNull();
+      expect(await keys.get("nope")).toBeNull();
+      expect(fetches, "the refresh floor holds").toBe(1);
+
+      now += 61_000;
+      expect(await keys.get("nope")).toBeNull();
+      expect(fetches, "and lifts").toBe(2);
+    });
+
+    it("keeps the last good copy when the fetch fails", async () => {
+      let now = 1_000_000;
+      let fail = false;
+      const fetchImpl = (async () => {
+        if (fail) throw new Error("gstatic is down");
+        return new Response(JSON.stringify(keyBody()), { status: 200 });
+      }) as unknown as typeof fetch;
+      const keys = new GoogleVerifierKeys({ fetchImpl, minRefreshMs: 1, nowMs: () => now });
+
+      expect(await keys.get("77")).not.toBeNull();
+      fail = true;
+      now += 10_000;
+      // A blip at Google must not stop every ad reward in the product.
+      expect(await keys.get("77"), "the cached key still verifies").not.toBeNull();
+    });
   });
 });
 

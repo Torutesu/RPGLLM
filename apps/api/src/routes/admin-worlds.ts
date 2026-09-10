@@ -4,6 +4,7 @@ import { ReviewWorldReqZ } from "@rpgllm/shared";
 import { testHooksEnabled } from "../env";
 import { fail, notFound, ok, parseBody } from "../http";
 import { localized, roleFor, type LocaleKey } from "../services/locale";
+import { identifyAdmin, reviewerNameFor } from "../services/admin-identity";
 import { adminTokenMatches } from "../services/moderation";
 import { castCounts, creatorHandles, toApiWorldFull } from "../services/world-studio";
 import { REVIEW_QUEUE_DEFAULT_LIMIT, resolveWorldReports, reviewQueue } from "../services/world-moderation";
@@ -15,9 +16,8 @@ import { creditApproval, resetTrust } from "../services/creator-trust";
 import { consumedCharge } from "../services/world-submit-fee";
 import type { AppEnv } from "../types";
 
-/** Who is reviewing, as their own client says it. Not authentication — see the note below. */
+/** A label, honoured only where there is no per-reviewer credential to name — see the note below. */
 const REVIEWER_HEADER = "x-reviewer";
-const REVIEWER_ID_MAX = 64;
 const DEFAULT_REVIEWER = "admin";
 
 /**
@@ -32,24 +32,36 @@ const DEFAULT_REVIEWER = "admin";
  * Rejecting does not delete anything. The world stops being listed and goes back to being what it
  * was before the creator asked to share it: theirs, private, and playable.
  *
- * **Who is reviewing.** The gate is one shared token, so the API cannot tell two reviewers apart on
- * its own; the client says who it is in `x-reviewer` and that string is what a claim is held by and
- * what `reviewedBy` records. It is a name for coordination, not an authorisation: anyone past the
- * admin gate can send any name, and a claim is a lease that expires anyway. When the header is
- * absent everyone is `admin`, which is honest — a deployment that cannot name its reviewers gets a
- * queue that cannot tell them apart, rather than a false sense that it can.
+ * **Who is reviewing.** The name comes from **the credential that authenticated the request**
+ * (`services/admin-identity.ts`): with `ADMIN_TOKENS` each reviewer holds their own secret, so
+ * `reviewedBy` and every claim are attributable to a person and the `x-reviewer` header is
+ * ignored — a name the caller chooses is not an audit trail, and this queue carries an SLA and
+ * takedown decisions.
+ *
+ * A deployment still using the single shared `ADMIN_TOKEN` has no person to name, and says so:
+ * the decision is recorded as `shared:<whatever the client called itself>`. That is deliberately
+ * greppable. A queue that cannot name its reviewers should look like one, rather than carry a
+ * column of names that anyone past the gate could have typed.
  */
 export function adminWorldRoutes(): Hono<AppEnv> {
   const app = new Hono<AppEnv>();
 
-  /** Max 64 chars of whatever the reviewer's client calls them. Empty header → one shared name. */
+  /** The secret this request presented, in either of the two places a reviewer's client puts it. */
+  const presentedSecret = (c: { req: { header(name: string): string | undefined } }): string | undefined => {
+    const header = c.req.header("authorization") ?? "";
+    return header.toLowerCase().startsWith("bearer ") ? header.slice(7).trim() : c.req.header("x-admin-token");
+  };
+
+  /**
+   * Who this decision belongs to. Resolved per request from the credential rather than stored on
+   * the context: it is two string comparisons, and a second source of truth for "who is this"
+   * is exactly the kind of thing that ends up disagreeing with the gate.
+   */
   const reviewerId = (c: { req: { header(name: string): string | undefined } }): string =>
-    (c.req.header(REVIEWER_HEADER) ?? "").trim().slice(0, REVIEWER_ID_MAX) || DEFAULT_REVIEWER;
+    reviewerNameFor(identifyAdmin(presentedSecret(c)), c.req.header(REVIEWER_HEADER) ?? "", DEFAULT_REVIEWER);
 
   app.use("*", async (c, next) => {
-    const header = c.req.header("authorization") ?? "";
-    const presented = header.toLowerCase().startsWith("bearer ") ? header.slice(7).trim() : c.req.header("x-admin-token");
-    if (!testHooksEnabled() && !adminTokenMatches(presented)) return fail("UNAUTHORIZED", "Admin only", 401);
+    if (!testHooksEnabled() && !adminTokenMatches(presentedSecret(c))) return fail("UNAUTHORIZED", "Admin only", 401);
     await next();
   });
 

@@ -4364,3 +4364,40 @@ dependency — but there is no font in it, so the artwork is all the image conta
 `og:title` / `og:description`, which every major unfurler renders beside the image. A card with the
 headline burned into it is a better card; getting there needs a rasteriser and, for `ja`, a CJK
 face. Written up in `gap-analysis.md` rather than papered over.
+
+---
+
+## 2026-09-10 — production-readiness pass, cross-cutting notes
+
+### 1. `packages/shared` — additive only
+
+`i18n/{en,ja}.ts` gained five `mailCode*` keys (the sign-in email is copy, and copy comes from
+i18n even when the renderer is an email client) and `testids.ts` gained `creatorShare`. Nothing
+renamed, nothing removed.
+
+### 2. `apps/api/prisma/schema.prisma` — one new model
+
+`AdRedemption` (+ the `User.adRedemptions` back-relation), migration
+`20260910120000_ad_redemption`, written by hand rather than by `migrate dev`: the development
+database has drift from earlier passes and `migrate dev` wanted to reset it, which would have been
+a much larger change than the one being made. The migration is plain `CREATE TABLE` + indexes and
+is exercised by every test run, since the harness migrates a fresh database per run.
+
+### 3. `services/moderation.ts` and `routes/cost.ts` now delegate their gate
+
+Both had their own copy of "is this the admin token" — one of them with `===` on a secret. Both
+now call `adminAuthorized()` in `services/admin-identity.ts`, so per-reviewer credentials work on
+every admin surface and the comparison is constant-time in one place. `adminToken()` is re-exported
+from `services/moderation.ts` so existing importers are unaffected.
+
+### 4. The gateway is wrapped, in both processes
+
+`withBudget` (`services/budget.ts`) wraps the gateway in `index.ts` **and** `worker.ts`. Anything
+that acquires a gateway some third way would escape the ceiling — there is no such path today, and
+CLAUDE.md rule 5 is what keeps it that way.
+
+### 5. `docs/deploy.md` was wrong about push receipts
+
+It said the sweep was a no-op until somebody added a line to `services/push.ts`. That line has
+existed since Agent O's pass (`recordPushTickets`). Corrected. A stale runbook outlives the code it
+described, and this one was telling an operator that a working feature was broken.

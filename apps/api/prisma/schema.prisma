@@ -125,6 +125,7 @@ model User {
   worldsCreated          World[]                @relation("worldCreator")
   notifications          Notification[]
   handleReleases         CreatorHandleRelease[]
+  adRedemptions          AdRedemption[]
 
   @@unique([authProvider, authSubject])
   @@index([deletedAt])
@@ -902,4 +903,18 @@ model CreatorHandleRelease {
   releasedAt DateTime @default(now())
 
   @@index([userId])
+}
+
+/// 広告報酬の引き換え。AdMob の SSV コールバックは署名が正しくても **1 回しか使えない**:
+/// 記録していなかった間は、有効なコールバックを 1 本手に入れた誰でも、同じ URL を投げ続けて
+/// エネルギーを無限に鋳造できた。`transactionId` の一意制約がその唯一の防壁で、
+/// 付与と同じトランザクションで書かれる(片方だけ成立する隙間を作らないため)。
+model AdRedemption {
+  id            String   @id @default(cuid())
+  transactionId String   @unique
+  userId        String
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt     DateTime @default(now())
+
+  @@index([userId, createdAt])
 }

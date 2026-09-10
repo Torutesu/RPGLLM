@@ -339,4 +339,9 @@ export const ja: Strings = {
   shareOpen: "開く",
   shareUnlisted: "リンクを知る人だけに公開",
   shareCreatorWorlds: "公開中のワールド",
+  mailCodeSubject: "サインインコード",
+  mailCodeIntro: "このコードを入力してサインインしてください。",
+  mailCodeExpiry: "分で期限切れになり、使えるのは一度だけです。",
+  mailCodeExpiryLead: "あと",
+  mailCodeIgnore: "心当たりがなければ、このメールは無視して大丈夫です。コードが無ければ誰もサインインできません。",
 };

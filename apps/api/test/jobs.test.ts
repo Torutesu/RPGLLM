@@ -2,8 +2,8 @@ import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { JOBS } from "@rpgllm/shared";
 import { cronMatches, nextCronRun, nextRunAtFor, parseCron } from "../src/jobs/cron";
 import { findJob, resolveJobName, runDefinitionOnce, runJobOnce, type JobDeps } from "../src/jobs/registry";
-import { ensurePushTicketTable, recordPushTickets, sweepPushReceipts } from "../src/jobs/push-receipts";
-import { ensureJobRunTable, lockKeyFor, recentRuns, withJobLock } from "../src/jobs/runs";
+import { recordPushTickets, sweepPushReceipts } from "../src/jobs/push-receipts";
+import { lockKeyFor, recentRuns, withJobLock } from "../src/jobs/runs";
 import { call, makeHarness, prisma, resetDatabase, signupWithPersona, type Harness } from "./helpers";
 
 let h: Harness;
@@ -12,8 +12,6 @@ let deps: JobDeps;
 beforeAll(async () => {
   h = makeHarness();
   deps = { prisma: h.prisma, gateway: h.gateway, clock: h.clock };
-  await ensureJobRunTable(prisma);
-  await ensurePushTicketTable(prisma);
 });
 beforeEach(async () => {
   await resetDatabase();

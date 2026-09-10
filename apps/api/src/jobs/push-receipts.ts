@@ -12,33 +12,11 @@
  * out `PUSH_RECEIPT_DELAY_MS`, asks Expo about the settled tickets, prunes any token that comes
  * back `DeviceNotRegistered`, and drops tickets older than Expo keeps receipts for.
  */
-import { randomUUID } from "node:crypto";
 import type { PrismaClient } from "@prisma/client";
 import { envNum } from "../env";
 import { logLine } from "../middleware/request-log";
 import { BATCH, DEVICE_GONE, PUSH_RECEIPTS_ENDPOINT, pruneTokens, pushEnabled } from "../services/push";
 import { shortError } from "./runs";
-
-/** Prisma owns this table now (migration `job_runs_and_push_tickets`); the DDL stays only so a
- * worker started against an older database still comes up. */
-const DDL = [
-  `CREATE TABLE IF NOT EXISTS "PushTicket" (
-     "id" TEXT PRIMARY KEY,
-     "ticketId" TEXT NOT NULL UNIQUE,
-     "token" TEXT NOT NULL,
-     "sentAt" TIMESTAMP(3) NOT NULL,
-     "checkedAt" TIMESTAMP(3)
-   )`,
-  `CREATE INDEX IF NOT EXISTS "PushTicket_checkedAt_sentAt_idx" ON "PushTicket" ("checkedAt", "sentAt")`,
-] as const;
-
-const ready = new WeakSet<PrismaClient>();
-
-export async function ensurePushTicketTable(prisma: PrismaClient): Promise<void> {
-  if (ready.has(prisma)) return;
-  for (const stmt of DDL) await prisma.$executeRawUnsafe(stmt);
-  ready.add(prisma);
-}
 
 /** How long a ticket has to settle before its receipt is worth reading. */
 export const receiptDelayMs = (): number => envNum("PUSH_RECEIPT_DELAY_MS", 15 * 60 * 1000);
@@ -60,15 +38,13 @@ export async function recordPushTickets(
   now: Date,
 ): Promise<number> {
   if (tickets.length === 0) return 0;
-  await ensurePushTicketTable(prisma);
-  let written = 0;
-  for (const t of tickets) {
-    written += await prisma.$executeRaw`
-      INSERT INTO "PushTicket" ("id", "ticketId", "token", "sentAt")
-      VALUES (${randomUUID()}, ${t.ticketId}, ${t.token}, ${now})
-      ON CONFLICT ("ticketId") DO NOTHING`;
-  }
-  return written;
+  // One statement, and a duplicate ticket id is not an error: the same send retried is the
+  // ordinary case, not an exception to report.
+  const { count } = await prisma.pushTicket.createMany({
+    data: tickets.map((t) => ({ ticketId: t.ticketId, token: t.token, sentAt: now })),
+    skipDuplicates: true,
+  });
+  return count;
 }
 
 interface ExpoReceipt {
@@ -101,19 +77,20 @@ export async function sweepPushReceipts(
   now: Date,
   opts: { fetchImpl?: typeof fetch } = {},
 ): Promise<ReceiptSweepResult> {
-  await ensurePushTicketTable(prisma);
   const result: ReceiptSweepResult = { checked: 0, pruned: 0, dropped: 0 };
 
   // Expired tickets go whether or not push is on: they can never be answered again.
-  result.dropped += await prisma.$executeRaw`
-    DELETE FROM "PushTicket" WHERE "sentAt" < ${new Date(now.getTime() - receiptTtlMs())}`;
+  result.dropped += (await prisma.pushTicket.deleteMany({
+    where: { sentAt: { lt: new Date(now.getTime() - receiptTtlMs()) } },
+  })).count;
   if (!pushEnabled()) return result;
 
-  const due = await prisma.$queryRaw<PushTicketRow[]>`
-    SELECT "ticketId", "token", "sentAt" FROM "PushTicket"
-     WHERE "checkedAt" IS NULL AND "sentAt" <= ${new Date(now.getTime() - receiptDelayMs())}
-     ORDER BY "sentAt" ASC
-     LIMIT ${receiptsPerRun()}`;
+  const due = await prisma.pushTicket.findMany({
+    where: { checkedAt: null, sentAt: { lte: new Date(now.getTime() - receiptDelayMs()) } },
+    orderBy: { sentAt: "asc" },
+    take: receiptsPerRun(),
+    select: { ticketId: true, token: true, sentAt: true },
+  });
   if (due.length === 0) return result;
 
   const doFetch = opts.fetchImpl ?? fetch;
@@ -147,11 +124,7 @@ export async function sweepPushReceipts(
 
   if (dead.length > 0) result.pruned = await pruneTokens(prisma, [...new Set(dead)]);
   if (answered.length > 0) {
-    // A list parameter, not an interpolated string: `= ANY($1::text[])` keeps it one bind.
-    result.dropped += await prisma.$executeRawUnsafe(
-      `DELETE FROM "PushTicket" WHERE "ticketId" = ANY($1::text[])`,
-      answered,
-    );
+    result.dropped += (await prisma.pushTicket.deleteMany({ where: { ticketId: { in: answered } } })).count;
   }
   return result;
 }

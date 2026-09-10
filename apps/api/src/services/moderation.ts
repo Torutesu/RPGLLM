@@ -5,7 +5,7 @@
  * a client-supplied "this is what they said" is worthless to a reviewer and trivially forged.
  */
 import type { Prisma, PrismaClient, Report, ReportTarget } from "@prisma/client";
-import { envStr } from "../env";
+import { adminAuthorized } from "./admin-identity";
 import { canStillPlay } from "./world-studio";
 import type { Tx } from "../types";
 
@@ -108,12 +108,10 @@ export function createReport(prisma: PrismaClient | Tx, data: Prisma.ReportUnche
 }
 
 /**
- * The admin queue read is gated: `TEST_HOOKS=1` (local + E2E) or a matching `ADMIN_TOKEN`
- * bearer/`x-admin-token` header. `env.ts` belongs to Agent F, so the variable is read here.
+ * The admin queue read is gated: `TEST_HOOKS=1` (local + E2E), a per-reviewer secret from
+ * `ADMIN_TOKENS`, or the shared `ADMIN_TOKEN`. `services/admin-identity.ts` owns the comparison —
+ * which is also where the `===` this used to do became a constant-time compare, because `===` on
+ * a secret leaks its prefix to anyone who can time the request.
  */
-export const adminToken = (): string => envStr("ADMIN_TOKEN", "");
-
-export function adminTokenMatches(presented: string | undefined): boolean {
-  const expected = adminToken();
-  return expected.length > 0 && presented === expected;
-}
+export { adminToken } from "./admin-identity";
+export const adminTokenMatches = (presented: string | undefined): boolean => adminAuthorized(presented);

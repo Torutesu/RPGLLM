@@ -344,5 +344,16 @@ export const en = {
   shareOpen: "Open it",
   shareUnlisted: "Shared by link",
   shareCreatorWorlds: "public worlds",
+  /**
+   * The sign-in email. It is the only copy in this product that reaches somebody who is not
+   * looking at a screen we drew, so it says one thing and asks for nothing: no link to click
+   * (a code cannot be phished out of a mail client the way a login link can), no marketing.
+   * The number of minutes is rendered beside `mailCodeExpiry`, because the TTL is env-tunable.
+   */
+  mailCodeSubject: "Your sign-in code",
+  mailCodeIntro: "Enter this code to sign in.",
+  mailCodeExpiry: "minutes, and it can only be used once.",
+  mailCodeExpiryLead: "It expires in",
+  mailCodeIgnore: "If you didn't ask for this, you can ignore this email — nobody can sign in without the code.",
 } as const;
 export type Strings = { [K in keyof typeof en]: (typeof en)[K] extends readonly string[] ? readonly string[] : string };

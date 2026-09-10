@@ -65,6 +65,12 @@ when any of these is wrong. `.env.example` is development-only and is not read w
 | `ANTHROPIC_API_KEY` | real key | required by `LLM_MODE=live` |
 | `LLM_MODEL_HIGH/MID/LIGHT` | `claude-opus-5` / `claude-sonnet-5` / `claude-haiku-4-5` | never hardcoded in call sites |
 | `CORS_ORIGINS` | comma-separated app origins | `*` is only kept while `TEST_HOOKS=1` (S0-5) |
+| `PUBLIC_APP_URL` | the web app's origin | invites and every share card's "Open it" are built from it; unset, they point at the placeholder host `rpgllm.example` |
+| `ADMIN_TOKEN` **or** `ADMIN_TOKENS` | a secret / `name:secret` pairs | with neither, no reviewer can reach the moderation queue and no world ever reaches Explore |
+| `REVENUECAT_WEBHOOK_SECRET` | the shared secret | required when `BILLING_MODE=revenuecat`: the webhook is the one unauthenticated request that grants entitlements |
+| `MAIL_PROVIDER` | `resend` or `postmark` | `console` prints the sign-in code to the log — nobody can sign in, and every credential is in the log pipeline |
+| `MAIL_API_KEY` / `MAIL_FROM` | the provider key / a verified sender | the provider refuses every send without them |
+| `LLM_DAILY_BUDGET_USD` | a positive number, or `unlimited` | the day's ceiling. No cap is allowed; *not deciding* is not |
 
 Optional, with safe defaults:
 
@@ -80,7 +86,10 @@ Optional, with safe defaults:
 | `REQUEST_LOG` | `1` | JSON access log with `x-request-id` |
 | `HEALTH_DB_TIMEOUT_MS` | `1500` | `SELECT 1` budget for `/v1/health` |
 | `SHUTDOWN_GRACE_MS` | `10000` | SIGTERM → let in-flight SSE finish → `prisma.$disconnect()` → exit 0 |
-| `ADMIN_TOKEN` | unset | `x-admin-token` for `/v1/cost` **and `/v1/jobs`**; unset means nobody but `TEST_HOOKS` |
+| `ADMIN_TOKENS` | unset | per-reviewer `name:secret` pairs; see §4 "Who reviewed this" |
+| `LLM_BUDGET_REFRESH_MS` | `20000` | how long the day's spend total is cached; the overshoot ceiling is (spend rate × this) |
+| `MAIL_REPLY_TO` / `MAIL_TIMEOUT_MS` | unset / `8000` | sign-in email |
+| `ADMOB_VERIFIER_KEYS_JSON` | unset | pin the SSV key set (`{"<key_id>":"<pem>"}`) instead of fetching Google's |
 | `SCHEDULER_TICK_MS` | `30000` | worker: how often it looks for a due job |
 | `JOB_TIMEOUT_MS` | `600000` | worker: how long one job may hold its advisory lock |
 | `JOBS_DISABLED` | empty | comma-separated job names the worker skips (still runnable by hand) |
@@ -107,10 +116,28 @@ Optional, with safe defaults:
   restart and work across instances, so the API scales out. Expired and consumed rows are swept by
   the `purge-login-codes` job — if you do not deploy the worker, run it from cron
   (`POST /v1/jobs/run {"job":"purge-login-codes"}`) or the table grows forever.
-- **Email delivery** is `ConsoleMailSender` — codes are printed to the log. A real provider must be
-  wired via `setMailSender()` before a public launch.
-- **Ad rewards** in `ADS_MODE=admob` require the AdMob verifier key set to be configured
-  (`setAdMobVerifierKeys`), otherwise `verifyAdMobSSV` fails closed and no reward is granted.
+- **Email delivery** goes through `MAIL_PROVIDER` (`apps/api/src/services/mail.ts`): one JSON POST
+  to Resend or Postmark, no SDK. A send that fails makes `POST /v1/auth/email/start` answer **502**
+  rather than `{sent:true}` — a person told to check their inbox will check it for a long time.
+  The code is never logged and never put in a link. `console` is dev-only and the boot gate says so.
+- **Ad rewards** in `ADS_MODE=admob` verify the SSV signature against Google's published key set,
+  which is fetched on a cache miss and kept across a failed refresh (`ADMOB_VERIFIER_KEYS_JSON`
+  pins it instead). Each callback's `transaction_id` is recorded in `AdRedemption` **inside the
+  granting transaction**, so a replayed callback answers 409 and grants nothing; a verified
+  callback that carries no transaction id is refused, because a reward that cannot be deduplicated
+  can be replayed.
+- **The day's LLM ceiling** (`LLM_DAILY_BUDGET_USD`, `apps/api/src/services/budget.ts`) wraps the
+  gateway in both processes. Past it every generator throws, which every call site already handles
+  as an outage: the player gets a fallback reply and their energy back. It counts `live` spend only
+  — an imaginary budget is not a reason for a real outage — and reads the day's total from
+  `GenerationLog`, the same rows the invoice is reconciled against. `GET /v1/cost/live` reports
+  `budget: { limitUsd, spentUsd, remainingUsd, exhausted }`; a day that trips logs
+  `msg:"llm.budget.exhausted"` **once**, so alert on that line.
+- **Who reviewed this.** `ADMIN_TOKENS=rina:secret1,koji:secret2` gives every reviewer a revocable
+  credential, and the name written to `World.reviewedBy` (and held by a review claim) comes from
+  the secret that matched — the `x-reviewer` header is ignored. With the shared `ADMIN_TOKEN` there
+  is no person to name, so decisions are recorded as `shared:<label>`: a queue that cannot name its
+  reviewers looks like one instead of carrying names anybody past the gate could have typed.
 
 ## 5. The worker
 
@@ -145,10 +172,9 @@ memory, so an API instance picks up promotions at its next restart (or the next 
 itself) — the arms move slowly by design (500 calls minimum before a promotion), so that is fine.
 
 **Push receipts.** Expo fills delivery receipts in asynchronously, so the read inside `sendPush`
-almost always comes back empty. The 15-minute pass re-reads settled ticket ids and deletes every
-token reported `DeviceNotRegistered`. **It needs one line in `services/push.ts`** to record the
-ticket ids it reads — see `apps/api/src/jobs/push-receipts.ts` and build-notes "Agent O"; until that
-lands the sweep is a no-op over an empty table.
+almost always comes back empty. `sendPush` records its ticket ids (`recordPushTickets`) and the
+15-minute pass re-reads the settled ones, deletes every token reported `DeviceNotRegistered`, and
+forgets tickets older than Expo's 24-hour retention.
 
 **Only one instance of a job runs at a time.** Each run takes a Postgres *advisory* lock keyed on
 the job name (`pg_try_advisory_xact_lock`, `apps/api/src/jobs/runs.ts`), so a second worker, an
@@ -177,48 +203,19 @@ curl -H "x-admin-token: $ADMIN_TOKEN" -X POST https://api.example.com/v1/jobs/ru
 `GET /v1/jobs` answers `JobsResZ`: every job with its cron line, whether it is enabled, its last run
 (start, finish, processed count, error) and when it is next due.
 
-## 6. The `JobRun` table (a known piece of schema debt)
+## 6. Schema debt: paid
 
-The run log has to be readable from a different process than the one that wrote it, and
-`prisma/schema.prisma` was frozen for this pass, so `apps/api/src/jobs/runs.ts` creates it with
-`CREATE TABLE IF NOT EXISTS` on first use and reads it with parameterised raw SQL. It is a plain
-table with no foreign keys and no Prisma model. Nothing breaks — but `prisma migrate dev` will want
-to drop it, because the schema does not mention it.
+`JobRun` and `PushTicket` used to be created at runtime with `CREATE TABLE IF NOT EXISTS` and read
+with raw SQL, because the schema was frozen for that pass — which meant `prisma migrate dev` wanted
+to drop them on sight. The models and their migration exist now
+(`20260904110536_job_runs_and_push_tickets`), and `jobs/runs.ts` / `jobs/push-receipts.ts` use
+`prisma.jobRun` / `prisma.pushTicket`; `ensureJobRunTable()` and `ensurePushTicketTable()` are gone.
 
-`apps/api/src/jobs/push-receipts.ts` creates a second one, `PushTicket`, the same way and for the
-same reason.
+The one piece of raw SQL left in the job machinery is `pg_try_advisory_xact_lock`, which has no
+Prisma equivalent and is the whole point of `withJobLock`.
 
-**The fix, next time the schema is touched:** add the models, generate the migration, then delete
-`ensureJobRunTable()` / `ensurePushTicketTable()` and replace the raw queries with `prisma.jobRun` /
-`prisma.pushTicket`.
+`AdRedemption` (`20260910120000_ad_redemption`) is the nonce table behind the ad-reward grant.
 
-```prisma
-/// スケジューラの実行履歴 (docs/deploy.md §6)
-model JobRun {
-  id         String    @id @default(cuid())
-  job        String
-  startedAt  DateTime
-  finishedAt DateTime?
-  ok         Boolean   @default(false)
-  processed  Int       @default(0)
-  error      String?
-  trigger    String    @default("schedule")
-  host       String?
-
-  @@index([job, startedAt])
-}
-
-/// Expo のチケット→レシート照合 (docs/deploy.md §6)
-model PushTicket {
-  id        String    @id @default(cuid())
-  ticketId  String    @unique
-  token     String
-  sentAt    DateTime
-  checkedAt DateTime?
-
-  @@index([checkedAt, sentAt])
-}
-```
 
 ## 7. Release checklist
 
@@ -226,6 +223,9 @@ model PushTicket {
 2. Roll the **API** — health check `/v1/health` (`db:"ok"`, 503 when the database is unreachable).
 3. Roll the **worker** — check `GET /v1/jobs`: every job should show a recent `lastRun.ok = true`
    (or a `nextRunAt` in the future if it has not been due yet).
-4. Smoke: sign in with a real email code (`POST /v1/auth/email/start` → the address receives it —
-   `ConsoleMailSender` prints it to the log until a real `MailSender` is wired), post once, and
-   confirm a `GenerationLog` row with a non-zero cost.
+4. Smoke: sign in with a real email code (`POST /v1/auth/email/start` → **the address receives
+   it**; a provider failure answers 502, so a 200 here means it was really handed over), post once,
+   and confirm a `GenerationLog` row with a non-zero cost.
+5. Read `GET /v1/cost/live` once: `budget.limitUsd` is the ceiling you set and `budget.exhausted`
+   is false. Alert on `msg:"llm.budget.exhausted"` and on `msg:"mail.send.failed"` — the first
+   means the product is serving fallbacks, the second means nobody can sign in.

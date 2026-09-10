@@ -1,16 +1,20 @@
 import { serve } from "@hono/node-server";
 import { PrismaClient } from "@prisma/client";
 import { createApp } from "./app";
+import { setMailSender } from "./auth-codes";
 import { createClock } from "./clock";
 import { assertProductionConfig } from "./config-guard";
 import { loadEnvFile } from "./env-file";
 import { loadGateway } from "./llm-loader";
 import {
-  adsMode, authDevCodeEnabled, billingMode, corsAllowAll, corsOrigins, isProduction, llmMode, nodeEnv,
-  port, rateLimitEnabled, shutdownGraceMs, testHooksEnabled,
+  adsMode, authCodeTtlMs, authDevCodeEnabled, billingMode, corsAllowAll, corsOrigins, isProduction,
+  llmMode, nodeEnv, port, rateLimitEnabled, shutdownGraceMs, testHooksEnabled,
 } from "./env";
 import { logLine } from "./middleware/request-log";
+import { GoogleVerifierKeys, StaticVerifierKeys, setAdMobVerifierKeys } from "./services/ad-verify";
 import { banditAllocate, refreshAllocatorSnapshot } from "./services/bandit";
+import { dailyBudgetUsd, withBudget } from "./services/budget";
+import { mailProvider, mailSenderFromEnv } from "./services/mail";
 
 async function main(): Promise<void> {
   const applied = loadEnvFile();
@@ -35,15 +39,60 @@ async function main(): Promise<void> {
   if (source === "fake") {
     console.warn("[api] running with the built-in FakeGateway — @rpgllm/llm is not implemented yet");
   }
-  const app = createApp({ prisma, gateway, clock });
+  /**
+   * Email delivery. `mailSenderFromEnv` returns null for `MAIL_PROVIDER=console`, which leaves the
+   * log-printing default in place — fine in dev, and refused outright in production by
+   * `assertProductionConfig` above, so a launch cannot happen with nobody able to sign in.
+   *
+   * The locale lookup is what makes a returning Japanese player get a Japanese email: the address
+   * is all we know at `POST /auth/email/start`, and for anyone who has signed in before it is
+   * enough. A first-time address has no row and gets `en`.
+   */
+  const mail = mailSenderFromEnv({
+    ttlMinutes: Math.round(authCodeTtlMs() / 60_000),
+    localeFor: async (email: string) => {
+      const row = await prisma.user.findUnique({ where: { email }, select: { locale: true } }).catch(() => null);
+      return row?.locale === "ja" ? "ja" : "en";
+    },
+  });
+  if (mail) setMailSender(mail);
+
+  /**
+   * AdMob reward verification. Without a key set `verifyAdMobSSV` fails closed and no ad ever pays
+   * out — which is safe, and is also the entire free-energy loop silently switched off. An
+   * operator-pinned key set (`ADMOB_VERIFIER_KEYS_JSON`) wins where one is given, because an
+   * air-gapped deployment cannot reach gstatic; otherwise the published set is fetched lazily.
+   */
+  if (adsMode() !== "test") {
+    const pinned = process.env["ADMOB_VERIFIER_KEYS_JSON"] ?? "";
+    if (pinned) {
+      try {
+        setAdMobVerifierKeys(new StaticVerifierKeys(JSON.parse(pinned) as Record<string, string>));
+      } catch (err: unknown) {
+        // Fail closed and say so: a malformed pin must not silently become "fetch from Google".
+        logLine({ level: "error", msg: "api.admob.keys.invalid", error: String(err).slice(0, 200) });
+      }
+    } else {
+      setAdMobVerifierKeys(new GoogleVerifierKeys());
+    }
+  }
+
+  /**
+   * The day's ceiling (`services/budget.ts`). Wrapping the gateway is what makes this total: every
+   * LLM call in the product goes through it by rule, so there is no second path that spends money
+   * without passing here — including the jobs, which wrap it the same way in `worker.ts`.
+   */
+  const metered = withBudget(gateway, prisma, () => clock.now());
+  const app = createApp({ prisma, gateway: metered, clock });
   const p = port();
 
   logLine({
     level: "info", msg: "api.start", nodeEnv: nodeEnv(), production: isProduction(),
     envFiles: applied, llm: `${gateway.mode()} (${source})`, envLlmMode: llmMode(),
-    billing: billingMode(), ads: adsMode(), testHooks: testHooksEnabled(),
+    billing: billingMode(), ads: adsMode(), mail: mailProvider(), testHooks: testHooksEnabled(),
     devLoginCode: authDevCodeEnabled(), rateLimit: rateLimitEnabled(), banditArms: arms,
     cors: corsAllowAll() ? "*" : corsOrigins().join(","), port: p,
+    dailyBudgetUsd: dailyBudgetUsd() ?? "unlimited",
   });
 
   const server = serve({ fetch: app.fetch, port: p }, () => console.log(`api listening on :${p}`));

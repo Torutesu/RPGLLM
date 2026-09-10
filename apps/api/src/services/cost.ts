@@ -18,6 +18,7 @@
  * for, so it still belongs in the denominator of $/action.
  */
 import { Prisma, type PrismaClient } from "@prisma/client";
+import { budgetStatus, type BudgetStatus } from "./budget";
 import { worldModerationOps, type WorldModerationOps } from "./world-moderation";
 import { championVariants } from "@rpgllm/llm";
 import { BATCH_DISCOUNT, COST_DASHBOARD, PRICING, type CostSummaryResZ } from "@rpgllm/shared";
@@ -519,6 +520,12 @@ export interface CostLive {
   /** the review backlog right now — a probe that reads this one payload sees it too */
   moderation: WorldModerationOps;
   thresholds: typeof COST_ALARMS;
+  /**
+   * The day's ceiling and how much of it is gone (`services/budget.ts`). It belongs on the *live*
+   * payload rather than the summary because it is the thing you look at during an incident: an
+   * `exhausted: true` here is the answer to "why is everyone suddenly getting fallback replies".
+   */
+  budget: BudgetStatus;
 }
 
 export async function costLive(prisma: PrismaClient, now: Date, windowMs = 3_600_000): Promise<CostLive> {
@@ -536,5 +543,6 @@ export async function costLive(prisma: PrismaClient, now: Date, windowMs = 3_600
     alarms: report.alarms,
     moderation: report.moderation,
     thresholds: report.thresholds,
+    budget: await budgetStatus(prisma, now),
   };
 }

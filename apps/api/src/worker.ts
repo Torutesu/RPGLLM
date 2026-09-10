@@ -25,6 +25,7 @@
 import { PrismaClient } from "@prisma/client";
 import { createClock, type Clock } from "./clock";
 import { assertProductionConfig } from "./config-guard";
+import { withBudget } from "./services/budget";
 import { envNum, isProduction, llmMode, nodeEnv } from "./env";
 import { loadEnvFile } from "./env-file";
 import { nextCronRun, parseCron, type CronExpression } from "./jobs/cron";
@@ -32,7 +33,6 @@ import {
   disabledJobs, jobDefinitions, jobEnabled, jobTimeoutMs, resolveJobName, runJobOnce,
   type JobDeps, type JobDefinition,
 } from "./jobs/registry";
-import { ensureJobRunTable } from "./jobs/runs";
 import { loadGateway } from "./llm-loader";
 import { logLine } from "./middleware/request-log";
 
@@ -93,8 +93,12 @@ async function main(): Promise<void> {
   const prisma = new PrismaClient();
   const clock: Clock = createClock();
   const { gateway, source } = await loadGateway();
-  const deps: JobDeps = { prisma, gateway, clock };
-  await ensureJobRunTable(prisma);
+  /**
+   * The same ceiling the API enforces. The jobs are the half that can spend without anybody
+   * watching — an offline-director run covers every absent player at once — so a budget the
+   * worker did not honour would be a budget with a hole the size of the batch tier.
+   */
+  const deps: JobDeps = { prisma, gateway: withBudget(gateway, prisma, () => clock.now()), clock };
 
   const selected = selectJobs(args.once && args.onceJobs.length > 0 ? args.onceJobs : args.jobs);
   if (selected.length === 0) {

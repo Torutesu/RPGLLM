@@ -1,7 +1,7 @@
 import { Hono } from "hono";
-import { timingSafeEqual } from "node:crypto";
 import { COST_DASHBOARD } from "@rpgllm/shared";
-import { testHooksEnabled, adminToken } from "../env";
+import { testHooksEnabled } from "../env";
+import { adminAuthorized } from "../services/admin-identity";
 import { fail, ok } from "../http";
 import { costLive, costReport, costWindow } from "../services/cost";
 import type { AppEnv } from "../types";
@@ -15,29 +15,19 @@ import type { AppEnv } from "../types";
  * **Access.** These endpoints expose spend and user counts for the whole product, so they are not
  * behind `requireAuth` (any signed-up user would qualify) — they are admin-only:
  *   - open while `TEST_HOOKS=1` (vitest + Playwright), or
- *   - `x-admin-token` equal to the `ADMIN_TOKEN` env var (which must be set and non-empty).
+ *   - `x-admin-token` equal to a per-reviewer secret in `ADMIN_TOKENS`, or to the shared
+ *     `ADMIN_TOKEN` (either must be set and non-empty).
  * Anything else answers **404**, the same body `app.notFound` produces, so an unauthenticated
  * scanner cannot tell the route exists. `ADMIN_TOKEN` is read lazily through `env.ts` here
  * rather than added to `src/env.ts`, which Agent F owns.
  */
 
 
-/** Constant-time compare that does not leak the length through an early return. */
-function tokenMatches(presented: string, expected: string): boolean {
-  if (expected === "" || presented === "") return false;
-  const a = Buffer.from(presented, "utf8");
-  const b = Buffer.from(expected, "utf8");
-  if (a.length !== b.length) {
-    // still burn a comparison so the failure costs the same as a wrong-value one
-    timingSafeEqual(b, b);
-    return false;
-  }
-  return timingSafeEqual(a, b);
-}
-
 export function costAccessAllowed(presentedToken: string | undefined): boolean {
   if (testHooksEnabled()) return true;
-  return tokenMatches(presentedToken ?? "", adminToken());
+  // Per-reviewer secrets (`ADMIN_TOKENS`) open this too: an operator who can be revoked
+  // individually is the point, and the cost dashboard is read by the same people.
+  return adminAuthorized(presentedToken);
 }
 
 export function costRoutes(): Hono<AppEnv> {

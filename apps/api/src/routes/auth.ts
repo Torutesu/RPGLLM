@@ -5,6 +5,7 @@ import { requireAuth, signSession } from "../auth";
 import { constantTimeEqual, mailSender, normalizeEmail, type VerifyResult } from "../auth-codes";
 import { authCodeMaxAttempts, authCodeTtlMs, authDevCodeEnabled } from "../env";
 import { fail, ok, parseBody } from "../http";
+import { logLine } from "../middleware/request-log";
 import { createUserWithCreatorHandle } from "../services/creator-handle";
 import { consumeLoginCode, issueLoginCode } from "../services/login-codes";
 import { createWallet } from "../services/wallet";
@@ -27,7 +28,18 @@ export function authRoutes(): Hono<AppEnv> {
     const deps = c.get("deps");
     const email = normalizeEmail(body.value.email);
     const code = await issueLoginCode(deps.prisma, email, deps.clock.now(), authCodeTtlMs());
-    await mailSender().sendLoginCode(email, code);
+    /*
+     * `sent: true` has to mean it. When the provider is down, answering "check your inbox" leaves
+     * someone watching an empty one and re-requesting a code that will never arrive; a failure the
+     * client can see is a failure the client can retry. The issued row stays — it expires on its
+     * own, and keeping it means a retry does not race the previous code.
+     */
+    try {
+      await mailSender().sendLoginCode(email, code);
+    } catch (err: unknown) {
+      logLine({ level: "error", msg: "auth.code.undelivered", error: String(err).slice(0, 200) });
+      return fail("INTERNAL", "We couldn't send that code. Try again in a moment.", 502);
+    }
     return ok({ sent: true });
   });
 
