@@ -19,8 +19,13 @@ import { call, makeHarness, prisma, resetDatabase, signup, type Harness } from "
 
 let h: Harness;
 
-beforeAll(() => { h = makeHarness(); });
-beforeEach(async () => { await resetDatabase(); h.gateway.setMode("replay"); });
+beforeAll(() => {
+  h = makeHarness();
+});
+beforeEach(async () => {
+  await resetDatabase();
+  h.gateway.setMode("replay");
+});
 
 interface DetailRes {
   world: { id: string; slug: string };
@@ -50,7 +55,10 @@ describe("a cast member's role is localized", () => {
     const row = await prisma.worldCharacter.findFirstOrThrow({
       where: { worldId: world.id, handle: `@${handle}` },
     });
-    expect(row.roleLocalized, "the pair reaches the database, not just the seed file").toEqual({ en: EN_ROLE, ja: JA_ROLE });
+    expect(row.roleLocalized, "the pair reaches the database, not just the seed file").toEqual({
+      en: EN_ROLE,
+      ja: JA_ROLE,
+    });
 
     const japanese = await signup(h, { locale: "ja" });
     const ja = await call<DetailRes>(h, "GET", `/v1/worlds/${world.id}`, { token: japanese.token });
@@ -78,14 +86,25 @@ describe("a cast member's role is localized", () => {
     const world = await prisma.world.findUniqueOrThrow({ where: { slug: "role-locale-review" } });
     await prisma.world.update({
       where: { id: world.id },
-      data: { status: "review", visibility: "public", isPreset: false, genLocale: "ja", reviewRequestedAt: h.clock.now() },
+      data: {
+        status: "review",
+        visibility: "public",
+        isPreset: false,
+        genLocale: "ja",
+        reviewRequestedAt: h.clock.now(),
+      },
     });
 
     const queue = await call<{ worlds: { id: string; cast: { handle: string; role: string }[] }[] }>(
-      h, "GET", "/v1/admin/worlds/review",
+      h,
+      "GET",
+      "/v1/admin/worlds/review",
     );
     const card = queue.data.worlds.find((w) => w.id === world.id);
     expect(card, "the world is in the queue").toBeDefined();
-    expect(card?.cast.some((c) => c.role === JA_ROLE), "an English reviewer reads the JA cast of a JA world").toBe(true);
+    expect(
+      card?.cast.some((c) => c.role === JA_ROLE),
+      "an English reviewer reads the JA cast of a JA world",
+    ).toBe(true);
   });
 });

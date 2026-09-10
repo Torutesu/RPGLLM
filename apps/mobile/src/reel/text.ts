@@ -20,7 +20,6 @@ export const FACE_FAMILY: Record<Face, { bold: string; regular: string }> = {
 export const familyFor = (face: Face, bold: boolean): string =>
   bold ? FACE_FAMILY[face].bold : FACE_FAMILY[face].regular;
 
-
 const CJK = /[\u2E80-\u9FFF\uAC00-\uD7AF\u3000-\u303F\uFF00-\uFF60]/;
 const CJK_BREAK_AFTER = "、。，．！？：；」』）】";
 

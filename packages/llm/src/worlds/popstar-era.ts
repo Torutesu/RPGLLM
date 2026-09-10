@@ -260,8 +260,20 @@ const source: WorldSource = {
       ja: ["👀", "了解", "まってその言い方", "進むよ", "冷静ではいられない"],
     },
     "@thescoop": {
-      en: ["Developing.", "Noted, per two people familiar.", "File that away.", "No comment from the artist's camp.", "We are told there is more."],
-      ja: ["続報あり。", "関係者2名によると、と記録しておく。", "覚えておくといい。", "アーティスト側のコメントはなし。", "まだ続きがあると聞いている。"],
+      en: [
+        "Developing.",
+        "Noted, per two people familiar.",
+        "File that away.",
+        "No comment from the artist's camp.",
+        "We are told there is more.",
+      ],
+      ja: [
+        "続報あり。",
+        "関係者2名によると、と記録しておく。",
+        "覚えておくといい。",
+        "アーティスト側のコメントはなし。",
+        "まだ続きがあると聞いている。",
+      ],
     },
     "@ninaonmain": {
       en: ["cute.", "interesting choice", "sure.", "we'll see", "i've heard the demo"],
@@ -272,16 +284,40 @@ const source: WorldSource = {
       ja: ["そこは残そう", "Bルーム来なよ", "それがレコードだよ", "正直、悪くない", "ブリッジはね"],
     },
     "@rioflashes": {
-      en: ["i have the frame", "from where i was standing, different story", "shot it, not posting it", "same jacket", "you were smiling before the flash"],
-      ja: ["その一枚は持ってる", "俺の立ち位置からは別の話", "撮ったけど出さない", "同じ上着", "フラッシュの前は笑ってた"],
+      en: [
+        "i have the frame",
+        "from where i was standing, different story",
+        "shot it, not posting it",
+        "same jacket",
+        "you were smiling before the flash",
+      ],
+      ja: [
+        "その一枚は持ってる",
+        "俺の立ち位置からは別の話",
+        "撮ったけど出さない",
+        "同じ上着",
+        "フラッシュの前は笑ってた",
+      ],
     },
     "@paulamanages": {
       en: ["call me", "let's park that", "team is aligned", "we love the energy", "i'm going to say this once"],
       ja: ["電話ちょうだい", "それは一旦置こう", "チームの認識は揃ってる", "熱量はすごくいい", "一度だけ言うね"],
     },
     "@critchriswen": {
-      en: ["respectfully,", "i want to be wrong about this", "that's a bridge, not a chorus", "the thing about this is", "three good songs is an album"],
-      ja: ["敬意を込めて言うが、", "間違っていたい", "それはブリッジであってサビではない", "これについて言うと", "良い曲が3曲あればアルバムだ"],
+      en: [
+        "respectfully,",
+        "i want to be wrong about this",
+        "that's a bridge, not a chorus",
+        "the thing about this is",
+        "three good songs is an album",
+      ],
+      ja: [
+        "敬意を込めて言うが、",
+        "間違っていたい",
+        "それはブリッジであってサビではない",
+        "これについて言うと",
+        "良い曲が3曲あればアルバムだ",
+      ],
     },
     "@lunaeight": {
       en: ["BYE", "hello???", "the eight-count doesn't lie", "we're so back", "stop being weird"],
@@ -327,25 +363,73 @@ const source: WorldSource = {
   ambientPool: {
     en: [
       { handle: "@lunaeight", text: "rehearsal room smells like burnt coffee and ambition. mostly burnt coffee" },
-      { handle: "@critchriswen", text: "respectfully, the second chorus on that record is doing the work of an entire bridge and nobody is talking about it" },
-      { handle: "@thescoop", text: "SOURCES SAY: two Ledger Awards performers are refusing to be scheduled back to back. Per two people familiar, neither will say why." },
-      { handle: "@dexlowkey", text: "spent four hours on a snare. it's the same snare. it's better now. i can't explain it" },
-      { handle: "@rioflashes", text: "kettle & pine at 4am, three separate careers at three separate tables, all pretending not to see each other" },
-      { handle: "@ninaonmain", text: "people keep asking about the third album. the third album is fine. next question." },
-      { handle: "@hivequeenbea", text: "i need everyone to be normal about the tracklist leak. i will not be normal about it. do as i say" },
+      {
+        handle: "@critchriswen",
+        text: "respectfully, the second chorus on that record is doing the work of an entire bridge and nobody is talking about it",
+      },
+      {
+        handle: "@thescoop",
+        text: "SOURCES SAY: two Ledger Awards performers are refusing to be scheduled back to back. Per two people familiar, neither will say why.",
+      },
+      {
+        handle: "@dexlowkey",
+        text: "spent four hours on a snare. it's the same snare. it's better now. i can't explain it",
+      },
+      {
+        handle: "@rioflashes",
+        text: "kettle & pine at 4am, three separate careers at three separate tables, all pretending not to see each other",
+      },
+      {
+        handle: "@ninaonmain",
+        text: "people keep asking about the third album. the third album is fine. next question.",
+      },
+      {
+        handle: "@hivequeenbea",
+        text: "i need everyone to be normal about the tracklist leak. i will not be normal about it. do as i say",
+      },
       { handle: "@paulamanages", text: "Proud of this team today. More news soon." },
-      { handle: "@lunaeight", text: "hello??? who put a 7/8 bar in the middle of a pop song. i'm counting out loud in a lift like a lunatic" },
-      { handle: "@critchriswen", text: "the thing about a comeback single is that it has to be a good song first and a comeback second. this order is not optional" },
-      { handle: "@rioflashes", text: "photographed a sold out room from the back tonight. the good picture was always going to be the back" },
-      { handle: "@thescoop", text: "SOURCES SAY: the Aquamarine has quietly released a second block of tickets. We are told the first block did not sell out." },
-      { handle: "@dexlowkey", text: "if the demo makes you feel something and the master doesn't, the master is wrong. that's not a hot take, it's just tuesday" },
-      { handle: "@ninaonmain", text: "someone sub-posted me at 2am and deleted it at 2:04. i have the screenshot and no interest." },
+      {
+        handle: "@lunaeight",
+        text: "hello??? who put a 7/8 bar in the middle of a pop song. i'm counting out loud in a lift like a lunatic",
+      },
+      {
+        handle: "@critchriswen",
+        text: "the thing about a comeback single is that it has to be a good song first and a comeback second. this order is not optional",
+      },
+      {
+        handle: "@rioflashes",
+        text: "photographed a sold out room from the back tonight. the good picture was always going to be the back",
+      },
+      {
+        handle: "@thescoop",
+        text: "SOURCES SAY: the Aquamarine has quietly released a second block of tickets. We are told the first block did not sell out.",
+      },
+      {
+        handle: "@dexlowkey",
+        text: "if the demo makes you feel something and the master doesn't, the master is wrong. that's not a hot take, it's just tuesday",
+      },
+      {
+        handle: "@ninaonmain",
+        text: "someone sub-posted me at 2am and deleted it at 2:04. i have the screenshot and no interest.",
+      },
       { handle: "@hivequeenbea", text: "four minutes to decode that post. four. we are unwell and we are efficient" },
       { handle: "@lunaeight", text: "the choreo eats. the shoes do not. pray for my ankles" },
-      { handle: "@critchriswen", text: "three good songs is an album. eleven fine songs is a content strategy. i'll die on this hill" },
-      { handle: "@rioflashes", text: "someone asked me to delete a frame today and i did. that's the whole job actually" },
-      { handle: "@thescoop", text: "SOURCES SAY: a Vellum session ran until 6am on Sunday. No one involved has posted since." },
-      { handle: "@paulamanages", text: "Reminder that tickets for the spring dates go on sale Friday. Set an alarm, team." },
+      {
+        handle: "@critchriswen",
+        text: "three good songs is an album. eleven fine songs is a content strategy. i'll die on this hill",
+      },
+      {
+        handle: "@rioflashes",
+        text: "someone asked me to delete a frame today and i did. that's the whole job actually",
+      },
+      {
+        handle: "@thescoop",
+        text: "SOURCES SAY: a Vellum session ran until 6am on Sunday. No one involved has posted since.",
+      },
+      {
+        handle: "@paulamanages",
+        text: "Reminder that tickets for the spring dates go on sale Friday. Set an alarm, team.",
+      },
       { handle: "@dexlowkey", text: "the take with the mistake in it is the take. put it out. stop calling me" },
       { handle: "@ninaonmain", text: "congrats to everyone pretending they liked that song before this week." },
       { handle: "@hivequeenbea", text: "receipts are in the quotes. i'm not doing this in the replies again" },
@@ -353,24 +437,51 @@ const source: WorldSource = {
     ],
     ja: [
       { handle: "@lunaeight", text: "リハ室、焦げたコーヒーと野心の匂い。ほぼ焦げたコーヒー" },
-      { handle: "@critchriswen", text: "敬意を込めて言うが、あのレコードの2番のサビはブリッジ1本分の仕事をしていて、誰もその話をしていない" },
-      { handle: "@thescoop", text: "SOURCES SAY: レジャー・アワードの出演者2組が連続の出番を拒否している。関係者2名によれば、どちらも理由を語らない。" },
+      {
+        handle: "@critchriswen",
+        text: "敬意を込めて言うが、あのレコードの2番のサビはブリッジ1本分の仕事をしていて、誰もその話をしていない",
+      },
+      {
+        handle: "@thescoop",
+        text: "SOURCES SAY: レジャー・アワードの出演者2組が連続の出番を拒否している。関係者2名によれば、どちらも理由を語らない。",
+      },
       { handle: "@dexlowkey", text: "スネアに4時間かけた。同じスネアだよ。でも良くなった。説明はできない" },
-      { handle: "@rioflashes", text: "朝4時のケトル&パイン。別々のテーブルに別々のキャリアが3つ、互いに気づいてないふりをしてる" },
+      {
+        handle: "@rioflashes",
+        text: "朝4時のケトル&パイン。別々のテーブルに別々のキャリアが3つ、互いに気づいてないふりをしてる",
+      },
       { handle: "@ninaonmain", text: "3枚目について何度も訊かれる。3枚目は問題ない。次の質問。" },
       { handle: "@hivequeenbea", text: "曲順の流出について全員落ち着いて。私は落ち着かない。言う通りにして" },
       { handle: "@paulamanages", text: "今日のチームを誇りに思います。近日中にお知らせがあります。" },
-      { handle: "@lunaeight", text: "え待って???ポップスの真ん中に7/8入れたの誰。エレベーターで声出して数えてる不審者になってる" },
-      { handle: "@critchriswen", text: "復帰シングルについて言うと、まず良い曲であり、そのあとで復帰であるべきだ。この順番は交渉不可" },
+      {
+        handle: "@lunaeight",
+        text: "え待って???ポップスの真ん中に7/8入れたの誰。エレベーターで声出して数えてる不審者になってる",
+      },
+      {
+        handle: "@critchriswen",
+        text: "復帰シングルについて言うと、まず良い曲であり、そのあとで復帰であるべきだ。この順番は交渉不可",
+      },
       { handle: "@rioflashes", text: "今夜、満員の客席を後ろから撮った。良い一枚は最初から後ろにあった" },
-      { handle: "@thescoop", text: "SOURCES SAY: アクアマリンが静かに2次販売分を出した。1次は売り切れなかったと聞いている。" },
-      { handle: "@dexlowkey", text: "デモで心が動いてマスターで動かないなら、間違ってるのはマスター。過激な意見じゃなくてただの火曜日" },
+      {
+        handle: "@thescoop",
+        text: "SOURCES SAY: アクアマリンが静かに2次販売分を出した。1次は売り切れなかったと聞いている。",
+      },
+      {
+        handle: "@dexlowkey",
+        text: "デモで心が動いてマスターで動かないなら、間違ってるのはマスター。過激な意見じゃなくてただの火曜日",
+      },
       { handle: "@ninaonmain", text: "深夜2時に匂わせされて2時4分に消された。スクショはあるし興味はない。" },
       { handle: "@hivequeenbea", text: "あの投稿の解読に4分。4分。病んでるし有能" },
       { handle: "@lunaeight", text: "振りは強い。靴は弱い。足首の無事を祈って" },
-      { handle: "@critchriswen", text: "良い曲が3曲あればアルバムだ。まあまあが11曲あるのはコンテンツ戦略だ。ここは譲れない" },
+      {
+        handle: "@critchriswen",
+        text: "良い曲が3曲あればアルバムだ。まあまあが11曲あるのはコンテンツ戦略だ。ここは譲れない",
+      },
       { handle: "@rioflashes", text: "今日、一枚消してくれと頼まれて消した。実はそれが仕事の全部なんだよな" },
-      { handle: "@thescoop", text: "SOURCES SAY: 日曜のヴェラムのセッションは朝6時まで続いた。関係者は誰も以後投稿していない。" },
+      {
+        handle: "@thescoop",
+        text: "SOURCES SAY: 日曜のヴェラムのセッションは朝6時まで続いた。関係者は誰も以後投稿していない。",
+      },
       { handle: "@paulamanages", text: "春公演のチケットは金曜発売です。アラームを設定してください、チーム。" },
       { handle: "@dexlowkey", text: "ミスが入ってるテイクが正解のテイク。出しなよ。電話してこないで" },
       { handle: "@ninaonmain", text: "今週より前からあの曲が好きだったふりをしている全員におめでとう。" },

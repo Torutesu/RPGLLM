@@ -40,15 +40,20 @@ export function productionConfigProblems(env: ConfigEnv): string[] {
 
   const secret = env.JWT_SECRET ?? "";
   if (secret === "") problems.push("JWT_SECRET is not set");
-  else if (secret === DEFAULT_JWT_SECRET) problems.push(`JWT_SECRET is the known development default ("${DEFAULT_JWT_SECRET}")`);
-  else if (secret.length < MIN_JWT_SECRET_LENGTH) problems.push(`JWT_SECRET is shorter than ${MIN_JWT_SECRET_LENGTH} characters`);
+  else if (secret === DEFAULT_JWT_SECRET)
+    problems.push(`JWT_SECRET is the known development default ("${DEFAULT_JWT_SECRET}")`);
+  else if (secret.length < MIN_JWT_SECRET_LENGTH)
+    problems.push(`JWT_SECRET is shorter than ${MIN_JWT_SECRET_LENGTH} characters`);
 
   if (env.AUTH_DEV_CODE === "1") problems.push("AUTH_DEV_CODE=1 accepts the constant dev login code for every account");
-  if (env.TEST_HOOKS === "1") problems.push("TEST_HOOKS=1 exposes /__test/* (database reset, time travel, energy grants)");
+  if (env.TEST_HOOKS === "1")
+    problems.push("TEST_HOOKS=1 exposes /__test/* (database reset, time travel, energy grants)");
   if (env.BILLING_MODE === "test") problems.push("BILLING_MODE=test lets anyone grant themselves a subscription");
-  else if (env.BILLING_MODE === undefined || env.BILLING_MODE === "") problems.push("BILLING_MODE is not set — set it explicitly (revenuecat)");
+  else if (env.BILLING_MODE === undefined || env.BILLING_MODE === "")
+    problems.push("BILLING_MODE is not set — set it explicitly (revenuecat)");
   if (env.ADS_MODE === "test") problems.push("ADS_MODE=test accepts the constant TEST_AD_TOKEN as an ad reward proof");
-  else if (env.ADS_MODE === undefined || env.ADS_MODE === "") problems.push("ADS_MODE is not set — set it explicitly (admob)");
+  else if (env.ADS_MODE === undefined || env.ADS_MODE === "")
+    problems.push("ADS_MODE is not set — set it explicitly (admob)");
 
   /*
    * Everything below was added in the production-readiness pass, and every one of them is a way
@@ -70,7 +75,10 @@ export function productionConfigProblems(env: ConfigEnv): string[] {
 
   // A wildcard origin plus a bearer token in localStorage is a cross-origin read of authenticated
   // JSON. `corsAllowAll()` also honours TEST_HOOKS, which is refused above.
-  const cors = (env.CORS_ORIGINS ?? "").split(",").map((o) => o.trim()).filter(Boolean);
+  const cors = (env.CORS_ORIGINS ?? "")
+    .split(",")
+    .map((o) => o.trim())
+    .filter(Boolean);
   if (cors.includes("*")) problems.push("CORS_ORIGINS contains * — any origin can read authenticated JSON");
   if (cors.length === 0) problems.push("CORS_ORIGINS is not set — the app's own origins must be listed explicitly");
 
@@ -89,7 +97,9 @@ export function productionConfigProblems(env: ConfigEnv): string[] {
 
   // The one path where an unauthenticated request grants entitlements.
   if (env.BILLING_MODE === "revenuecat" && (env.REVENUECAT_WEBHOOK_SECRET ?? "") === "") {
-    problems.push("BILLING_MODE=revenuecat without REVENUECAT_WEBHOOK_SECRET — a forged webhook could grant subscriptions");
+    problems.push(
+      "BILLING_MODE=revenuecat without REVENUECAT_WEBHOOK_SECRET — a forged webhook could grant subscriptions",
+    );
   }
 
   /*
@@ -100,7 +110,9 @@ export function productionConfigProblems(env: ConfigEnv): string[] {
    */
   const store = (env.RATE_LIMIT_STORE ?? "").trim().toLowerCase();
   if (store === "") {
-    problems.push('RATE_LIMIT_STORE is not set — "shared" survives more than one instance, "memory" says you have exactly one');
+    problems.push(
+      'RATE_LIMIT_STORE is not set — "shared" survives more than one instance, "memory" says you have exactly one',
+    );
   } else if (store !== "memory" && store !== "shared") {
     problems.push(`RATE_LIMIT_STORE="${env.RATE_LIMIT_STORE ?? ""}" is neither "memory" nor "shared"`);
   }
@@ -115,7 +127,9 @@ export function productionConfigProblems(env: ConfigEnv): string[] {
   if (budget === "") {
     problems.push('LLM_DAILY_BUDGET_USD is not set — set a daily ceiling in USD, or "unlimited" to say so on purpose');
   } else if (budget !== "unlimited" && !(Number(budget) > 0)) {
-    problems.push(`LLM_DAILY_BUDGET_USD="${env.LLM_DAILY_BUDGET_USD ?? ""}" is neither a positive number nor "unlimited"`);
+    problems.push(
+      `LLM_DAILY_BUDGET_USD="${env.LLM_DAILY_BUDGET_USD ?? ""}" is neither a positive number nor "unlimited"`,
+    );
   }
 
   // Mail. Without a provider the login code is printed to the log: nobody outside the team can
@@ -126,7 +140,8 @@ export function productionConfigProblems(env: ConfigEnv): string[] {
   } else if (provider !== "resend" && provider !== "postmark") {
     problems.push(`MAIL_PROVIDER="${provider}" is not a provider this build can talk to (resend, postmark)`);
   } else {
-    if ((env.MAIL_API_KEY ?? "") === "") problems.push("MAIL_API_KEY is not set — the mail provider will refuse every send");
+    if ((env.MAIL_API_KEY ?? "") === "")
+      problems.push("MAIL_API_KEY is not set — the mail provider will refuse every send");
     if ((env.MAIL_FROM ?? "") === "") problems.push("MAIL_FROM is not set — the mail provider will refuse every send");
   }
 

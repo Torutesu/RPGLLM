@@ -6,20 +6,48 @@ export const popstarEraFixture: WorldFixture = {
     "@hivequeenbea": {
       replies: {
         en: [
-          ["👀 ok this is the one", "i need everyone to be normal about this. i will not be", "not me screaming in a stairwell over a post"],
-          ["mm. we're pretending that was on purpose", "i've read this four times and i have notes", "the way you just said that and thought we wouldn't clock it"],
-          ["ok but what does 'soon' mean here. give me a month", "wait is this the thing from the b room or a different thing", "explain the second half. i'll wait"],
+          [
+            "👀 ok this is the one",
+            "i need everyone to be normal about this. i will not be",
+            "not me screaming in a stairwell over a post",
+          ],
+          [
+            "mm. we're pretending that was on purpose",
+            "i've read this four times and i have notes",
+            "the way you just said that and thought we wouldn't clock it",
+          ],
+          [
+            "ok but what does 'soon' mean here. give me a month",
+            "wait is this the thing from the b room or a different thing",
+            "explain the second half. i'll wait",
+          ],
           ["noted", "sure. archived.", "we move"],
-          ["hey. are you good. genuinely", "posting at this hour is a choice and i'm watching it", "i'm not going to say anything. i'm just here"],
-          ["ok EVERYONE off the timeline, we're organising", "receipts are in the quotes, i'm not doing this in replies again", "i have a spreadsheet and i'm not sorry"],
+          [
+            "hey. are you good. genuinely",
+            "posting at this hour is a choice and i'm watching it",
+            "i'm not going to say anything. i'm just here",
+          ],
+          [
+            "ok EVERYONE off the timeline, we're organising",
+            "receipts are in the quotes, i'm not doing this in replies again",
+            "i have a spreadsheet and i'm not sorry",
+          ],
         ],
         ja: [
           ["👀 これだよこれ", "全員落ち着いて。私は落ち着かない", "階段で叫んでるんだけど投稿1つで"],
-          ["ふーん。今のわざとってことにするんだ", "4回読んだ。言いたいことがある", "まってその言い方でバレないと思った?"],
+          [
+            "ふーん。今のわざとってことにするんだ",
+            "4回読んだ。言いたいことがある",
+            "まってその言い方でバレないと思った?",
+          ],
           ["「そのうち」って何ヶ月のこと?月で言って", "え、それBルームの話?別の話?", "後半説明して。待つから"],
           ["了解", "うん。保存した。", "進むよ"],
           ["ねえ。大丈夫?ガチで", "この時間に投稿するのは選択だからね。見てるよ", "何も言わない。ここにいるだけ"],
-          ["全員タイムラインから降りて、企画するよ", "レシートは引用に置いた。返信欄でもう一回やらない", "スプレッドシートがある。謝らない"],
+          [
+            "全員タイムラインから降りて、企画するよ",
+            "レシートは引用に置いた。返信欄でもう一回やらない",
+            "スプレッドシートがある。謝らない",
+          ],
         ],
       },
       dm: {
@@ -41,7 +69,11 @@ export const popstarEraFixture: WorldFixture = {
         ],
       },
       memory: {
-        en: ["defended them publicly before the label did", "asked to hear things first, not last", "was in a stairwell about the bridge"],
+        en: [
+          "defended them publicly before the label did",
+          "asked to hear things first, not last",
+          "was in a stairwell about the bridge",
+        ],
         ja: ["レーベルより先に公で庇った", "最後ではなく最初に知らせてほしいと言った", "ブリッジのことで階段にいた"],
       },
     },
@@ -49,28 +81,86 @@ export const popstarEraFixture: WorldFixture = {
     "@thescoop": {
       replies: {
         en: [
-          ["SOURCES SAY: this is the most-quoted post of the week. Per two people familiar, that was the point.", "Noted, and timed well. We are told the timing was not an accident.", "Developing. The numbers moved before the post did."],
-          ["SOURCES SAY: a version of this was denied on Tuesday. File that away.", "No comment from the artist's camp — yet. There was one on Tuesday.", "We are told this is the third framing of the same week."],
-          ["SOURCES SAY: two people close to the session tell a different story about the same night.", "Developing. Nobody has said which room this happened in.", "We are told there is a longer version of this. We would like it."],
+          [
+            "SOURCES SAY: this is the most-quoted post of the week. Per two people familiar, that was the point.",
+            "Noted, and timed well. We are told the timing was not an accident.",
+            "Developing. The numbers moved before the post did.",
+          ],
+          [
+            "SOURCES SAY: a version of this was denied on Tuesday. File that away.",
+            "No comment from the artist's camp — yet. There was one on Tuesday.",
+            "We are told this is the third framing of the same week.",
+          ],
+          [
+            "SOURCES SAY: two people close to the session tell a different story about the same night.",
+            "Developing. Nobody has said which room this happened in.",
+            "We are told there is a longer version of this. We would like it.",
+          ],
           ["Noted.", "Developing.", "File that away."],
-          ["SOURCES SAY: the artist's team was not informed before this went up. No comment.", "We are told a call followed within the hour. It was not a happy call.", "Developing. This is the second post today from an account that usually posts weekly."],
-          ["SOURCES SAY: the quote-posts have outpaced the likes by four to one.", "Per two people familiar, the replies are the story now.", "Developing, loudly."],
+          [
+            "SOURCES SAY: the artist's team was not informed before this went up. No comment.",
+            "We are told a call followed within the hour. It was not a happy call.",
+            "Developing. This is the second post today from an account that usually posts weekly.",
+          ],
+          [
+            "SOURCES SAY: the quote-posts have outpaced the likes by four to one.",
+            "Per two people familiar, the replies are the story now.",
+            "Developing, loudly.",
+          ],
         ],
         ja: [
-          ["SOURCES SAY: 今週最も引用された投稿である。関係者2名によれば、それが狙いだった。", "記録しておく。時機も良い。偶然ではないと聞いている。", "続報あり。数字は投稿より先に動いていた。"],
-          ["SOURCES SAY: これに近い話は火曜に否定されている。覚えておくといい。", "アーティスト側のコメントは現時点でなし。火曜にはあった。", "同じ一週間について3つ目の説明だと聞いている。"],
-          ["SOURCES SAY: セッションに近い2名は同じ夜について別の話をしている。", "続報あり。どの部屋での出来事かは誰も言っていない。", "これには長い版があると聞いている。ぜひ見たい。"],
+          [
+            "SOURCES SAY: 今週最も引用された投稿である。関係者2名によれば、それが狙いだった。",
+            "記録しておく。時機も良い。偶然ではないと聞いている。",
+            "続報あり。数字は投稿より先に動いていた。",
+          ],
+          [
+            "SOURCES SAY: これに近い話は火曜に否定されている。覚えておくといい。",
+            "アーティスト側のコメントは現時点でなし。火曜にはあった。",
+            "同じ一週間について3つ目の説明だと聞いている。",
+          ],
+          [
+            "SOURCES SAY: セッションに近い2名は同じ夜について別の話をしている。",
+            "続報あり。どの部屋での出来事かは誰も言っていない。",
+            "これには長い版があると聞いている。ぜひ見たい。",
+          ],
           ["記録しておく。", "続報あり。", "覚えておくといい。"],
-          ["SOURCES SAY: 掲載前にアーティスト側への連絡はなかった。コメントなし。", "1時間以内に電話があったと聞いている。楽しい電話ではなかった。", "続報あり。週1回のアカウントから本日2件目である。"],
-          ["SOURCES SAY: 引用がいいねを4対1で上回っている。", "関係者2名によれば、いまや本題は返信欄である。", "続報あり。かなり大きな音で。"],
+          [
+            "SOURCES SAY: 掲載前にアーティスト側への連絡はなかった。コメントなし。",
+            "1時間以内に電話があったと聞いている。楽しい電話ではなかった。",
+            "続報あり。週1回のアカウントから本日2件目である。",
+          ],
+          [
+            "SOURCES SAY: 引用がいいねを4対1で上回っている。",
+            "関係者2名によれば、いまや本題は返信欄である。",
+            "続報あり。かなり大きな音で。",
+          ],
         ],
       },
       dm: {
-        en: [["We are told you have a version of this. We would print it."], ["No comment needed. A yes or no is enough."], ["SOURCES SAY nothing yet. That is a courtesy and it expires at six."], ["Developing. You have until the hour."], ["Two people familiar have already spoken. You would be the third."], ["File that away: we ran the kinder version."]],
-        ja: [["あなたが別の版を持っていると聞いている。載せる用意がある。"], ["コメントは不要。はいかいいえで足りる。"], ["現時点では何も出していない。これは好意であり、6時に切れる。"], ["続報あり。締切は毎正時。"], ["関係者2名がすでに話している。あなたは3人目になる。"], ["覚えておくといい。こちらは穏当な方を出した。"]],
+        en: [
+          ["We are told you have a version of this. We would print it."],
+          ["No comment needed. A yes or no is enough."],
+          ["SOURCES SAY nothing yet. That is a courtesy and it expires at six."],
+          ["Developing. You have until the hour."],
+          ["Two people familiar have already spoken. You would be the third."],
+          ["File that away: we ran the kinder version."],
+        ],
+        ja: [
+          ["あなたが別の版を持っていると聞いている。載せる用意がある。"],
+          ["コメントは不要。はいかいいえで足りる。"],
+          ["現時点では何も出していない。これは好意であり、6時に切れる。"],
+          ["続報あり。締切は毎正時。"],
+          ["関係者2名がすでに話している。あなたは3人目になる。"],
+          ["覚えておくといい。こちらは穏当な方を出した。"],
+        ],
       },
       memory: {
-        en: ["covered them before the mainstream did", "ran the kinder version once", "has a folder of their old posts"],
+        en: [
+          "covered them before the mainstream did",
+          "ran the kinder version once",
+          "has a folder of their old posts",
+        ],
         ja: ["主流より先に取り上げた", "一度だけ穏当な方を出した", "過去の投稿のフォルダを持っている"],
       },
     },
@@ -78,11 +168,23 @@ export const popstarEraFixture: WorldFixture = {
     "@ninaonmain": {
       replies: {
         en: [
-          ["good. that's the first one that sounded like you.", "fine. genuinely fine. don't make me say it twice", "ok. that's a chorus."],
+          [
+            "good. that's the first one that sounded like you.",
+            "fine. genuinely fine. don't make me say it twice",
+            "ok. that's a chorus.",
+          ],
           ["cute.", "interesting choice", "congrats on the discourse."],
-          ["who wrote the second verse", "i've heard the demo. is this the same bridge?", "and the tour routing? or are we not saying"],
+          [
+            "who wrote the second verse",
+            "i've heard the demo. is this the same bridge?",
+            "and the tour routing? or are we not saying",
+          ],
           ["sure.", "we'll see", "noted."],
-          ["you're posting a lot this week.", "this is the part where it gets loud. sleep now, not later", "i've had this exact week. it doesn't end how you think"],
+          [
+            "you're posting a lot this week.",
+            "this is the part where it gets loud. sleep now, not later",
+            "i've had this exact week. it doesn't end how you think",
+          ],
           ["say it louder then", "you'll learn", "put my name in it next time, it'll travel further"],
         ],
         ja: [
@@ -90,16 +192,38 @@ export const popstarEraFixture: WorldFixture = {
           ["かわいいね。", "面白い選択", "話題になっておめでとう。"],
           ["2番の詞は誰が書いたの", "デモは聴いた。ブリッジ同じ?", "ツアーの動線は?それとも言わない話?"],
           ["そう。", "見てましょ", "了解。"],
-          ["今週、投稿多いね。", "ここから大きくなる。寝るなら今、あとじゃなくて", "この一週間、私も通った。思ってる終わり方はしない"],
+          [
+            "今週、投稿多いね。",
+            "ここから大きくなる。寝るなら今、あとじゃなくて",
+            "この一週間、私も通った。思ってる終わり方はしない",
+          ],
           ["もっと大きい声で言えば?", "そのうちわかる", "次は私の名前入れときな。その方が遠くまで行く"],
         ],
       },
       dm: {
-        en: [["The bridge is the problem, not the chorus.", "Don't tell anyone I said that."], ["Interesting choice today. It worked. Once."], ["You'll learn. I'd rather you learned before Sunday."], ["I've had this week. Call your manager before she calls you."], ["Say it louder next time. Half of them didn't hear it."], ["Fine. That was good. Delete this."]],
-        ja: [["問題はサビじゃなくてブリッジ。", "私が言ったって言わないで。"], ["今日の選択は面白かった。効いた。1回だけね。"], ["そのうちわかる。日曜より前にわかってほしい。"], ["この一週間は通った。彼女から来る前に電話しな。"], ["次はもっと大きい声で。半分聞こえてなかった。"], ["うん。今のは良かった。これ消して。"]],
+        en: [
+          ["The bridge is the problem, not the chorus.", "Don't tell anyone I said that."],
+          ["Interesting choice today. It worked. Once."],
+          ["You'll learn. I'd rather you learned before Sunday."],
+          ["I've had this week. Call your manager before she calls you."],
+          ["Say it louder next time. Half of them didn't hear it."],
+          ["Fine. That was good. Delete this."],
+        ],
+        ja: [
+          ["問題はサビじゃなくてブリッジ。", "私が言ったって言わないで。"],
+          ["今日の選択は面白かった。効いた。1回だけね。"],
+          ["そのうちわかる。日曜より前にわかってほしい。"],
+          ["この一週間は通った。彼女から来る前に電話しな。"],
+          ["次はもっと大きい声で。半分聞こえてなかった。"],
+          ["うん。今のは良かった。これ消して。"],
+        ],
       },
       memory: {
-        en: ["said the bridge was the problem, privately", "conceded one thing in public, once", "is watching the second single, not the first"],
+        en: [
+          "said the bridge was the problem, privately",
+          "conceded one thing in public, once",
+          "is watching the second single, not the first",
+        ],
         ja: ["問題はブリッジだと私的に言った", "公の場で一度だけ認めた", "1stではなく2ndを見ている"],
       },
     },
@@ -107,28 +231,78 @@ export const popstarEraFixture: WorldFixture = {
     "@dexlowkey": {
       replies: {
         en: [
-          ["that's the record. leave it", "honestly? that's the take with the mistake in it. good", "ok so here's the thing: that's finished and you know it"],
-          ["you're overthinking the bridge again", "that's a demo of a demo. leave it alone for a week", "the second pre-chorus is doing too much. it always is"],
-          ["what did the room sound like when you cut it", "is that the b room mic or the borrowed one", "who's playing on it? credit them in the post"],
+          [
+            "that's the record. leave it",
+            "honestly? that's the take with the mistake in it. good",
+            "ok so here's the thing: that's finished and you know it",
+          ],
+          [
+            "you're overthinking the bridge again",
+            "that's a demo of a demo. leave it alone for a week",
+            "the second pre-chorus is doing too much. it always is",
+          ],
+          [
+            "what did the room sound like when you cut it",
+            "is that the b room mic or the borrowed one",
+            "who's playing on it? credit them in the post",
+          ],
           ["fine", "leave it in", "come by the b room"],
-          ["you've been up since tuesday. i can hear it in the take", "that's four sessions this week. the fifth one is never the good one", "honestly, go home. the song will be there"],
-          ["ok so i re-patched everything and now it's worse and also better", "spent four hours on a snare. same snare. don't ask", "it's not a demo if it's finished. this is finished. post it"],
+          [
+            "you've been up since tuesday. i can hear it in the take",
+            "that's four sessions this week. the fifth one is never the good one",
+            "honestly, go home. the song will be there",
+          ],
+          [
+            "ok so i re-patched everything and now it's worse and also better",
+            "spent four hours on a snare. same snare. don't ask",
+            "it's not a demo if it's finished. this is finished. post it",
+          ],
         ],
         ja: [
-          ["それがレコードだよ。そのまま", "正直、ミスが入ってるテイクだ。いい", "まあ要するに、それはもう完成してる。自分でわかってる"],
+          [
+            "それがレコードだよ。そのまま",
+            "正直、ミスが入ってるテイクだ。いい",
+            "まあ要するに、それはもう完成してる。自分でわかってる",
+          ],
           ["またブリッジ考えすぎてる", "デモのデモだよ。1週間放っとけ", "2回目のプレコーラスが働きすぎ。いつもそう"],
           ["録ったとき部屋はどう鳴ってた", "それBルームのマイク?借り物の方?", "誰が弾いてる?投稿にクレジット入れなよ"],
           ["いいよ", "そこは残そう", "Bルーム来なよ"],
-          ["火曜から起きてるだろ。テイクでわかる", "今週4セッション目。5回目が良かったことは一度もない", "正直、帰れ。曲は逃げない"],
-          ["全部パッチし直したら悪くなって、同時に良くなった", "スネアに4時間。同じスネア。訊くな", "完成してるならデモじゃない。これは完成してる。出しな"],
+          [
+            "火曜から起きてるだろ。テイクでわかる",
+            "今週4セッション目。5回目が良かったことは一度もない",
+            "正直、帰れ。曲は逃げない",
+          ],
+          [
+            "全部パッチし直したら悪くなって、同時に良くなった",
+            "スネアに4時間。同じスネア。訊くな",
+            "完成してるならデモじゃない。これは完成してる。出しな",
+          ],
         ],
       },
       dm: {
-        en: [["leave it in.", "that's the record and you know it"], ["come by the b room tuesday. bring the rough one"], ["honestly? the bridge is fine. the pre-chorus is the problem"], ["you've done four sessions this week. that's three too many"], ["credit the drummer in the post. that's all i'm asking"], ["it's finished. i'm not saying it again"]],
-        ja: [["そこは残そう。", "それがレコードだよ。自分でもわかってる"], ["火曜Bルーム来なよ。ラフの方持ってきて"], ["正直ブリッジは問題ない。プレコーラスが問題"], ["今週4セッション。3つ多い"], ["投稿にドラマーのクレジット入れて。それだけ"], ["完成してる。もう言わない"]],
+        en: [
+          ["leave it in.", "that's the record and you know it"],
+          ["come by the b room tuesday. bring the rough one"],
+          ["honestly? the bridge is fine. the pre-chorus is the problem"],
+          ["you've done four sessions this week. that's three too many"],
+          ["credit the drummer in the post. that's all i'm asking"],
+          ["it's finished. i'm not saying it again"],
+        ],
+        ja: [
+          ["そこは残そう。", "それがレコードだよ。自分でもわかってる"],
+          ["火曜Bルーム来なよ。ラフの方持ってきて"],
+          ["正直ブリッジは問題ない。プレコーラスが問題"],
+          ["今週4セッション。3つ多い"],
+          ["投稿にドラマーのクレジット入れて。それだけ"],
+          ["完成してる。もう言わない"],
+        ],
       },
       memory: {
-        en: ["said the take with the mistake was the record", "opened the b room on a tuesday", "asked for the drummer to be credited"],
+        en: [
+          "said the take with the mistake was the record",
+          "opened the b room on a tuesday",
+          "asked for the drummer to be credited",
+        ],
         ja: ["ミスの入ったテイクがレコードだと言った", "火曜にBルームを開けた", "ドラマーのクレジットを求めた"],
       },
     },
@@ -136,28 +310,78 @@ export const popstarEraFixture: WorldFixture = {
     "@rioflashes": {
       replies: {
         en: [
-          ["i have the frame from that night and it's better than this post", "from where i was standing, that was the moment. glad you said it", "shot it. this time i'm posting it"],
+          [
+            "i have the frame from that night and it's better than this post",
+            "from where i was standing, that was the moment. glad you said it",
+            "shot it. this time i'm posting it",
+          ],
           ["different night, same jacket", "nobody clocked that but i did", "shot it, not posting it"],
-          ["which room was this. i can tell from the lighting and i want to be wrong", "were you smiling before or after? it changes the caption", "who else was there. i counted four"],
+          [
+            "which room was this. i can tell from the lighting and i want to be wrong",
+            "were you smiling before or after? it changes the caption",
+            "who else was there. i counted four",
+          ],
           ["caught", "from where i was standing", "i have the frame"],
-          ["you looked tired in the last three i took. that's not a criticism", "kettle & pine at 4am is not a personality, it's a warning", "i deleted one today. you know which one"],
-          ["forty dollars, two years ago, same laundromat. the negatives are in a shoebox", "took 900 frames, one is good, that's a normal ratio and i'm still upset", "the good picture was always going to be the back of the room"],
+          [
+            "you looked tired in the last three i took. that's not a criticism",
+            "kettle & pine at 4am is not a personality, it's a warning",
+            "i deleted one today. you know which one",
+          ],
+          [
+            "forty dollars, two years ago, same laundromat. the negatives are in a shoebox",
+            "took 900 frames, one is good, that's a normal ratio and i'm still upset",
+            "the good picture was always going to be the back of the room",
+          ],
         ],
         ja: [
-          ["あの夜の一枚がある。この投稿より良い", "俺の立ち位置からは、あれが瞬間だった。言ってくれてよかった", "撮った。今回は出す"],
+          [
+            "あの夜の一枚がある。この投稿より良い",
+            "俺の立ち位置からは、あれが瞬間だった。言ってくれてよかった",
+            "撮った。今回は出す",
+          ],
           ["別の夜、同じ上着", "誰も気づいてなかったけど俺は気づいた", "撮ったけど出さない"],
-          ["これどの部屋?照明でわかる。外れててほしい", "笑ったのはフラッシュの前?後?キャプションが変わる", "他に誰いた?4人数えた"],
+          [
+            "これどの部屋?照明でわかる。外れててほしい",
+            "笑ったのはフラッシュの前?後?キャプションが変わる",
+            "他に誰いた?4人数えた",
+          ],
           ["撮れてた", "俺の立ち位置からは", "その一枚は持ってる"],
-          ["直近3枚、疲れて写ってる。批判じゃない", "朝4時のケトル&パインは人格じゃなくて警告だよ", "今日1枚消した。どれかはわかるだろ"],
-          ["40ドル、2年前、同じコインランドリー。ネガは靴箱の中", "900枚撮って良いのは1枚。普通の歩留まりで、それでも腹が立つ", "良い一枚は最初から客席の後ろにあった"],
+          [
+            "直近3枚、疲れて写ってる。批判じゃない",
+            "朝4時のケトル&パインは人格じゃなくて警告だよ",
+            "今日1枚消した。どれかはわかるだろ",
+          ],
+          [
+            "40ドル、2年前、同じコインランドリー。ネガは靴箱の中",
+            "900枚撮って良いのは1枚。普通の歩留まりで、それでも腹が立つ",
+            "良い一枚は最初から客席の後ろにあった",
+          ],
         ],
       },
       dm: {
-        en: [["i have the frame. it's yours if you want it, not the feed's"], ["shot it, not posting it. you know the one"], ["from where i was standing that room was on your side"], ["you looked tired in the last three. eat something"], ["deleted it. no charge, no story"], ["same laundromat, two years. i kept the negatives"]],
-        ja: [["その一枚は持ってる。要るなら渡す。フィードには出さない"], ["撮ったけど出さない。どれかわかるだろ"], ["俺の立ち位置からは、あの部屋はあんたの味方だった"], ["直近3枚、疲れて写ってた。何か食べな"], ["消しといた。金も取らないし記事にもしない"], ["同じコインランドリー、2年。ネガは残してる"]],
+        en: [
+          ["i have the frame. it's yours if you want it, not the feed's"],
+          ["shot it, not posting it. you know the one"],
+          ["from where i was standing that room was on your side"],
+          ["you looked tired in the last three. eat something"],
+          ["deleted it. no charge, no story"],
+          ["same laundromat, two years. i kept the negatives"],
+        ],
+        ja: [
+          ["その一枚は持ってる。要るなら渡す。フィードには出さない"],
+          ["撮ったけど出さない。どれかわかるだろ"],
+          ["俺の立ち位置からは、あの部屋はあんたの味方だった"],
+          ["直近3枚、疲れて写ってた。何か食べな"],
+          ["消しといた。金も取らないし記事にもしない"],
+          ["同じコインランドリー、2年。ネガは残してる"],
+        ],
       },
       memory: {
-        en: ["deleted a frame when asked", "has the sheldon row negatives", "noticed they were tired before anyone else"],
+        en: [
+          "deleted a frame when asked",
+          "has the sheldon row negatives",
+          "noticed they were tired before anyone else",
+        ],
         ja: ["頼まれて一枚消した", "シェルドン・ロウのネガを持っている", "誰よりも先に疲れに気づいた"],
       },
     },
@@ -165,28 +389,78 @@ export const popstarEraFixture: WorldFixture = {
     "@paulamanages": {
       replies: {
         en: [
-          ["This is exactly what we talked about. Sending the numbers now.", "Team is aligned and thrilled. Big week.", "We love this. Genuinely."],
-          ["We love the energy — timing.", "Let's park that one and revisit Friday.", "Noted. Let's loop the team in before the next one."],
-          ["Can you call me? Nothing bad.", "Which version of this is the one we're running with?", "Is this the announcement or the announcement of the announcement?"],
+          [
+            "This is exactly what we talked about. Sending the numbers now.",
+            "Team is aligned and thrilled. Big week.",
+            "We love this. Genuinely.",
+          ],
+          [
+            "We love the energy — timing.",
+            "Let's park that one and revisit Friday.",
+            "Noted. Let's loop the team in before the next one.",
+          ],
+          [
+            "Can you call me? Nothing bad.",
+            "Which version of this is the one we're running with?",
+            "Is this the announcement or the announcement of the announcement?",
+          ],
           ["Call me.", "Noted.", "Let's park that."],
-          ["I'm going to say this once: eat something today.", "Three posts before noon. Let's slow the cadence.", "This week is a lot. I've cleared Thursday."],
-          ["Sending this to legal with a smiley face.", "I have moved four things. Do not make me move a fifth.", "You did it before I could stop you, which is on brand."],
+          [
+            "I'm going to say this once: eat something today.",
+            "Three posts before noon. Let's slow the cadence.",
+            "This week is a lot. I've cleared Thursday.",
+          ],
+          [
+            "Sending this to legal with a smiley face.",
+            "I have moved four things. Do not make me move a fifth.",
+            "You did it before I could stop you, which is on brand.",
+          ],
         ],
         ja: [
-          ["これが話してた形だよ。数字送るね。", "チームの認識は揃ってるし、みんな喜んでる。大きい週。", "すごくいいと思う。本気で。"],
-          ["熱量はすごくいい。タイミングの話。", "それは一旦置いて金曜に戻そう。", "了解。次はチームに先に共有しよう。"],
+          [
+            "これが話してた形だよ。数字送るね。",
+            "チームの認識は揃ってるし、みんな喜んでる。大きい週。",
+            "すごくいいと思う。本気で。",
+          ],
+          [
+            "熱量はすごくいい。タイミングの話。",
+            "それは一旦置いて金曜に戻そう。",
+            "了解。次はチームに先に共有しよう。",
+          ],
           ["電話ちょうだい。悪い話じゃない。", "これ、どの版で行くやつ?", "これは発表?それとも発表の発表?"],
           ["電話ちょうだい。", "了解。", "それは一旦置こう。"],
           ["一度だけ言うね。今日は何か食べて。", "昼前に3投稿。ペース落とそう。", "今週は多い。木曜は空けておいた。"],
-          ["これ、法務に笑顔の絵文字つけて送るね。", "4件動かした。5件目は勘弁して。", "止める前にやったね。まあ、あなたらしい。"],
+          [
+            "これ、法務に笑顔の絵文字つけて送るね。",
+            "4件動かした。5件目は勘弁して。",
+            "止める前にやったね。まあ、あなたらしい。",
+          ],
         ],
       },
       dm: {
-        en: [["Call me. Nothing bad.", "Actually — one thing is bad. Call me."], ["I'm going to say this once. Then I'll drop it."], ["Team is aligned. I need you aligned by Thursday."], ["Let's park that. Publicly, at least."], ["I moved four things today. Eat something."], ["We love this. Legal does not. Both can be true."]],
-        ja: [["電話ちょうだい。悪い話じゃない。", "訂正、1個だけ悪い。電話して。"], ["一度だけ言うね。そのあとは黙る。"], ["チームは揃ってる。木曜までにあなたも揃えて。"], ["それは一旦置こう。少なくとも公には。"], ["今日4件動かした。何か食べて。"], ["私はいいと思う。法務はよくないと言ってる。両方本当。"]],
+        en: [
+          ["Call me. Nothing bad.", "Actually — one thing is bad. Call me."],
+          ["I'm going to say this once. Then I'll drop it."],
+          ["Team is aligned. I need you aligned by Thursday."],
+          ["Let's park that. Publicly, at least."],
+          ["I moved four things today. Eat something."],
+          ["We love this. Legal does not. Both can be true."],
+        ],
+        ja: [
+          ["電話ちょうだい。悪い話じゃない。", "訂正、1個だけ悪い。電話して。"],
+          ["一度だけ言うね。そのあとは黙る。"],
+          ["チームは揃ってる。木曜までにあなたも揃えて。"],
+          ["それは一旦置こう。少なくとも公には。"],
+          ["今日4件動かした。何か食べて。"],
+          ["私はいいと思う。法務はよくないと言ってる。両方本当。"],
+        ],
       },
       memory: {
-        en: ["cleared a day without being asked", "said the quiet part in a DM, not in public", "has never criticised them publicly"],
+        en: [
+          "cleared a day without being asked",
+          "said the quiet part in a DM, not in public",
+          "has never criticised them publicly",
+        ],
         ja: ["頼まれる前に一日空けた", "本音は公ではなくDMで言った", "公の場で批判したことがない"],
       },
     },
@@ -194,57 +468,172 @@ export const popstarEraFixture: WorldFixture = {
     "@critchriswen": {
       replies: {
         en: [
-          ["this is the most interesting thing you've posted and i'd like it on the record", "respectfully, that's a great line and you should not explain it", "i want to be wrong about the second half. i don't think i am."],
-          ["respectfully, that's a bridge, not a chorus", "the thing about this is that it's structurally the same move as last time", "three good songs is an album. this is one."],
-          ["what's the reference here — the second line is doing something older than it looks", "is this about the record or about the week? both is a valid answer", "who is this addressed to. genuinely asking"],
+          [
+            "this is the most interesting thing you've posted and i'd like it on the record",
+            "respectfully, that's a great line and you should not explain it",
+            "i want to be wrong about the second half. i don't think i am.",
+          ],
+          [
+            "respectfully, that's a bridge, not a chorus",
+            "the thing about this is that it's structurally the same move as last time",
+            "three good songs is an album. this is one.",
+          ],
+          [
+            "what's the reference here — the second line is doing something older than it looks",
+            "is this about the record or about the week? both is a valid answer",
+            "who is this addressed to. genuinely asking",
+          ],
           ["respectfully,", "noted.", "we'll see."],
-          ["you're posting through it. that's usually the review i end up writing", "i've watched three people have this week. two of them were fine", "say less this week, not more. that's not criticism"],
-          ["i've now written 900 words about a bridge and i regret nothing", "the newsletter is late because of this post specifically", "i'll die on this hill and the hill is a pre-chorus"],
+          [
+            "you're posting through it. that's usually the review i end up writing",
+            "i've watched three people have this week. two of them were fine",
+            "say less this week, not more. that's not criticism",
+          ],
+          [
+            "i've now written 900 words about a bridge and i regret nothing",
+            "the newsletter is late because of this post specifically",
+            "i'll die on this hill and the hill is a pre-chorus",
+          ],
         ],
         ja: [
-          ["今まででいちばん興味深い投稿だ。記録しておきたい", "敬意を込めて言うが、良い一行だ。解説しない方がいい", "後半については間違っていたい。たぶん間違っていない。"],
-          ["敬意を込めて言うが、それはブリッジであってサビではない", "これについて言うと、構造は前回と同じ手だ", "良い曲が3曲あればアルバムだ。これは1曲。"],
-          ["この引用元は何だ。2行目が見た目より古いことをしている", "これはレコードの話?それとも今週の話?両方も正解", "これは誰に向けて書かれている?本気の質問だ"],
+          [
+            "今まででいちばん興味深い投稿だ。記録しておきたい",
+            "敬意を込めて言うが、良い一行だ。解説しない方がいい",
+            "後半については間違っていたい。たぶん間違っていない。",
+          ],
+          [
+            "敬意を込めて言うが、それはブリッジであってサビではない",
+            "これについて言うと、構造は前回と同じ手だ",
+            "良い曲が3曲あればアルバムだ。これは1曲。",
+          ],
+          [
+            "この引用元は何だ。2行目が見た目より古いことをしている",
+            "これはレコードの話?それとも今週の話?両方も正解",
+            "これは誰に向けて書かれている?本気の質問だ",
+          ],
           ["敬意を込めて言うが、", "了解。", "見てみよう。"],
-          ["書くことで乗り切ってるな。それはたいてい俺が書く羽目になる評だ", "この一週間を3人見てきた。2人は無事だった", "今週は多く言わない方がいい。批判ではない"],
-          ["ブリッジについて900字書いた。後悔はない", "ニュースレターが遅れているのはこの投稿のせいだ", "ここは譲れない。譲れない場所がプレコーラスなのが問題だが"],
+          [
+            "書くことで乗り切ってるな。それはたいてい俺が書く羽目になる評だ",
+            "この一週間を3人見てきた。2人は無事だった",
+            "今週は多く言わない方がいい。批判ではない",
+          ],
+          [
+            "ブリッジについて900字書いた。後悔はない",
+            "ニュースレターが遅れているのはこの投稿のせいだ",
+            "ここは譲れない。譲れない場所がプレコーラスなのが問題だが",
+          ],
         ],
       },
       dm: {
-        en: [["respectfully, the bridge is the best thing you've written.", "i'm putting that in the newsletter. tell me now if that's a problem."], ["i want to be wrong about the second half."], ["three good songs is an album. you have two."], ["say less this week. i mean that kindly."], ["i reviewed the single, not you. i know that distinction is easier for me than you."], ["that's a pre-chorus doing a chorus's job and it's working, which annoys me"]],
-        ja: [["敬意を込めて言うが、あのブリッジは君が書いた中で最良だ。", "ニュースレターに書く。困るなら今言ってくれ。"], ["後半については間違っていたい。"], ["良い曲が3曲でアルバム。君にはまだ2曲ある。"], ["今週は言葉を減らせ。悪意はない。"], ["批評したのはシングルであって君ではない。その区別が俺には楽で君には楽じゃないのは知っている。"], ["プレコーラスがサビの仕事をしていて、しかも機能している。腹が立つ"]],
+        en: [
+          [
+            "respectfully, the bridge is the best thing you've written.",
+            "i'm putting that in the newsletter. tell me now if that's a problem.",
+          ],
+          ["i want to be wrong about the second half."],
+          ["three good songs is an album. you have two."],
+          ["say less this week. i mean that kindly."],
+          ["i reviewed the single, not you. i know that distinction is easier for me than you."],
+          ["that's a pre-chorus doing a chorus's job and it's working, which annoys me"],
+        ],
+        ja: [
+          ["敬意を込めて言うが、あのブリッジは君が書いた中で最良だ。", "ニュースレターに書く。困るなら今言ってくれ。"],
+          ["後半については間違っていたい。"],
+          ["良い曲が3曲でアルバム。君にはまだ2曲ある。"],
+          ["今週は言葉を減らせ。悪意はない。"],
+          ["批評したのはシングルであって君ではない。その区別が俺には楽で君には楽じゃないのは知っている。"],
+          ["プレコーラスがサビの仕事をしていて、しかも機能している。腹が立つ"],
+        ],
       },
       memory: {
-        en: ["called the first single promising and a structural mess", "asked before quoting a DM", "wrote 900 words about one bridge"],
-        ja: ["デビュー曲を有望かつ構造的に破綻と評した", "DMを引用する前に許可を取った", "ブリッジ1つについて900字書いた"],
+        en: [
+          "called the first single promising and a structural mess",
+          "asked before quoting a DM",
+          "wrote 900 words about one bridge",
+        ],
+        ja: [
+          "デビュー曲を有望かつ構造的に破綻と評した",
+          "DMを引用する前に許可を取った",
+          "ブリッジ1つについて900字書いた",
+        ],
       },
     },
 
     "@lunaeight": {
       replies: {
         en: [
-          ["BYE this is so good i'm putting it on the group chat", "WE'RE SO BACK", "hello??? the eight-count on this. HELLO"],
-          ["stop being weird, you were a bar act eight weeks ago", "ok popstar 🙄 (i'm proud, don't tell anyone)", "the way you typed that like a press release"],
-          ["wait which rehearsal was this. was i there", "who did the choreo for that bit, was it me. it was me", "ok but the shoes. what are the shoes"],
+          [
+            "BYE this is so good i'm putting it on the group chat",
+            "WE'RE SO BACK",
+            "hello??? the eight-count on this. HELLO",
+          ],
+          [
+            "stop being weird, you were a bar act eight weeks ago",
+            "ok popstar 🙄 (i'm proud, don't tell anyone)",
+            "the way you typed that like a press release",
+          ],
+          [
+            "wait which rehearsal was this. was i there",
+            "who did the choreo for that bit, was it me. it was me",
+            "ok but the shoes. what are the shoes",
+          ],
           ["BYE", "hello???", "stop"],
-          ["hey. group chat. now. not in a bad way", "you've not eaten and i can tell from the punctuation", "i'm putting this on the group chat and then i'm calling you"],
-          ["i'm counting out loud in a lift like a lunatic and it's your fault", "the choreo eats, the shoes do not, pray for my ankles", "we're so back. i don't know from what. we're back"],
+          [
+            "hey. group chat. now. not in a bad way",
+            "you've not eaten and i can tell from the punctuation",
+            "i'm putting this on the group chat and then i'm calling you",
+          ],
+          [
+            "i'm counting out loud in a lift like a lunatic and it's your fault",
+            "the choreo eats, the shoes do not, pray for my ankles",
+            "we're so back. i don't know from what. we're back",
+          ],
         ],
         ja: [
           ["は?良すぎる。グループに貼るね", "復活じゃん", "え待って???この8カウント。え待って"],
-          ["変なことしないで。8週間前まで小箱だったでしょ", "はいはいポップスターね🙄(誇らしいけど誰にも言わないで)", "プレスリリースみたいな打ち方して"],
+          [
+            "変なことしないで。8週間前まで小箱だったでしょ",
+            "はいはいポップスターね🙄(誇らしいけど誰にも言わないで)",
+            "プレスリリースみたいな打ち方して",
+          ],
           ["まってこれどのリハ?私いた?", "そこの振り誰がつけた?私?私だ", "ってか靴。靴なに"],
           ["は?", "え待って???", "まって"],
-          ["ねえ。グループ。今すぐ。悪い意味じゃなく", "食べてないでしょ。句読点でわかる", "これグループに貼って、そのあと電話する"],
-          ["エレベーターで声出して数えてる不審者になってる。あんたのせい", "振りは強い、靴は弱い、足首の無事を祈って", "復活じゃん。何からかは知らない。復活"],
+          [
+            "ねえ。グループ。今すぐ。悪い意味じゃなく",
+            "食べてないでしょ。句読点でわかる",
+            "これグループに貼って、そのあと電話する",
+          ],
+          [
+            "エレベーターで声出して数えてる不審者になってる。あんたのせい",
+            "振りは強い、靴は弱い、足首の無事を祈って",
+            "復活じゃん。何からかは知らない。復活",
+          ],
         ],
       },
       dm: {
-        en: [["BYE", "ok but genuinely. that was the best one"], ["group chat. now. not in a bad way"], ["you've not eaten. i can tell from the punctuation"], ["the eight-count doesn't lie and neither do i"], ["i'll fight them. i won't. but i'll draft it"], ["we're so back. sleep first though"]],
-        ja: [["は?", "いやでもマジで。今までで一番良かった"], ["グループ。今すぐ。悪い意味じゃなく"], ["食べてないでしょ。句読点でわかる"], ["8カウントは嘘つかない。私も嘘つかない"], ["殴りに行く。行かないけど。下書きは書く"], ["復活じゃん。とりあえず寝て"]],
+        en: [
+          ["BYE", "ok but genuinely. that was the best one"],
+          ["group chat. now. not in a bad way"],
+          ["you've not eaten. i can tell from the punctuation"],
+          ["the eight-count doesn't lie and neither do i"],
+          ["i'll fight them. i won't. but i'll draft it"],
+          ["we're so back. sleep first though"],
+        ],
+        ja: [
+          ["は?", "いやでもマジで。今までで一番良かった"],
+          ["グループ。今すぐ。悪い意味じゃなく"],
+          ["食べてないでしょ。句読点でわかる"],
+          ["8カウントは嘘つかない。私も嘘つかない"],
+          ["殴りに行く。行かないけど。下書きは書く"],
+          ["復活じゃん。とりあえず寝て"],
+        ],
       },
       memory: {
-        en: ["was in the room before any of this", "noticed they had not eaten", "put it on the group chat immediately"],
+        en: [
+          "was in the room before any of this",
+          "noticed they had not eaten",
+          "put it on the group chat immediately",
+        ],
         ja: ["この全部の前から同じ部屋にいた", "食べていないことに気づいた", "即座にグループに貼った"],
       },
     },

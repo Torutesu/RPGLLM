@@ -44,10 +44,10 @@ export function resolveTestDatabase(): TestDatabase {
   const resolved: TestDatabase = explicit
     ? { url: explicit, name: new URL(explicit).pathname.replace(/^\//, ""), managed: false }
     : (() => {
-      const base = (process.env.TEST_DATABASE_BASE_URL ?? DEFAULT_BASE).replace(/\/+$/, "");
-      const name = `rpgllm_test_${sanitize(process.env.TEST_DB_SUFFIX ?? `v${process.pid}`)}`;
-      return { url: `${base}/${name}`, name, managed: true };
-    })();
+        const base = (process.env.TEST_DATABASE_BASE_URL ?? DEFAULT_BASE).replace(/\/+$/, "");
+        const name = `rpgllm_test_${sanitize(process.env.TEST_DB_SUFFIX ?? `v${process.pid}`)}`;
+        return { url: `${base}/${name}`, name, managed: true };
+      })();
   process.env.RPGLLM_TEST_DB = JSON.stringify(resolved);
   return resolved;
 }
@@ -64,9 +64,13 @@ const psql = (url: string, sql: string): void => {
 };
 
 export const databaseExists = (url: string, name: string): boolean => {
-  const out = execFileSync("psql", ["-tAq", adminUrlFor(url), "-c", `SELECT 1 FROM pg_database WHERE datname = '${name}'`], {
-    encoding: "utf8",
-  });
+  const out = execFileSync(
+    "psql",
+    ["-tAq", adminUrlFor(url), "-c", `SELECT 1 FROM pg_database WHERE datname = '${name}'`],
+    {
+      encoding: "utf8",
+    },
+  );
   return out.trim() === "1";
 };
 

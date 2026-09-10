@@ -49,17 +49,45 @@ export interface StubGatewayOptions {
 /* ------------------------------------------------------------- the transform ---- */
 
 const TRAITS_EN: readonly string[] = [
-  "keeps every receipt", "answers at three in the morning", "never posts twice about the same night",
-  "quotes the rules back at people", "counts in public", "apologises in the replies and not the post",
-  "types in one long breath", "will not use the word everyone else is using",
+  "keeps every receipt",
+  "answers at three in the morning",
+  "never posts twice about the same night",
+  "quotes the rules back at people",
+  "counts in public",
+  "apologises in the replies and not the post",
+  "types in one long breath",
+  "will not use the word everyone else is using",
 ];
 const TRAITS_JA: readonly string[] = [
-  "証拠のスクショだけは必ず残す", "深夜三時にだけ本音を書く", "同じ夜のことは二度書かない",
-  "規約を引用してから怒る", "数字を人前で数える", "本文では謝らず返信でだけ謝る",
-  "句読点を打たずに一息で書く", "みんなが使っている言葉だけは使わない",
+  "証拠のスクショだけは必ず残す",
+  "深夜三時にだけ本音を書く",
+  "同じ夜のことは二度書かない",
+  "規約を引用してから怒る",
+  "数字を人前で数える",
+  "本文では謝らず返信でだけ謝る",
+  "句読点を打たずに一息で書く",
+  "みんなが使っている言葉だけは使わない",
 ];
-const TICS_EN: readonly string[] = ["ok so.", "listen —", "genuinely,", "for the record:", "hm.", "right, so", "look.", "fine:"];
-const TICS_JA: readonly string[] = ["まあ、", "というか、", "正直、", "記録として:", "ふーん。", "つまり、", "ねえ、", "了解。"];
+const TICS_EN: readonly string[] = [
+  "ok so.",
+  "listen —",
+  "genuinely,",
+  "for the record:",
+  "hm.",
+  "right, so",
+  "look.",
+  "fine:",
+];
+const TICS_JA: readonly string[] = [
+  "まあ、",
+  "というか、",
+  "正直、",
+  "記録として:",
+  "ふーん。",
+  "つまり、",
+  "ねえ、",
+  "了解。",
+];
 
 function keywordStem(input: G9Input, i: number): string {
   const kw = premiseKeywords(input.premise);
@@ -84,12 +112,8 @@ function renameHandles(world: WorldSeed, moves: ReadonlyMap<string, string>): Wo
     const pool = next.ambientPool[locale];
     if (pool !== undefined) next.ambientPool[locale] = pool.map((p) => ({ ...p, handle: to(p.handle) }));
   }
-  next.fallbackReplies = Object.fromEntries(
-    Object.entries(next.fallbackReplies).map(([h, v]) => [to(h), v]),
-  );
-  next.welcomePosts = Object.fromEntries(
-    Object.entries(next.welcomePosts).map(([h, v]) => [to(h), v]),
-  );
+  next.fallbackReplies = Object.fromEntries(Object.entries(next.fallbackReplies).map(([h, v]) => [to(h), v]));
+  next.welcomePosts = Object.fromEntries(Object.entries(next.welcomePosts).map(([h, v]) => [to(h), v]));
   return next;
 }
 
@@ -130,7 +154,7 @@ export function stubLiveWorld(input: G9Input, authorship = 0.75): WorldSeed {
 
   world.title = {
     en: `${nameToken} ${world.title.en ?? ""}`.trim(),
-    ja: `${(kw.ja[0] ?? nameToken)}${world.title.ja ?? ""}`,
+    ja: `${kw.ja[0] ?? nameToken}${world.title.ja ?? ""}`,
   };
   for (const locale of LOCALES) {
     world.bible[locale] = authorBible(world.bible[locale] ?? "", input, authorship, locale);
@@ -172,9 +196,7 @@ export function stubLiveWorld(input: G9Input, authorship = 0.75): WorldSeed {
     for (const locale of LOCALES) {
       const pool = world.ambientPool[locale] ?? [];
       world.ambientPool[locale] = pool.map((p) =>
-        p.handle === c.handle
-          ? { ...p, text: `${locale === "ja" ? ticJa : `${ticEn} `}${p.text}`.slice(0, 280) }
-          : p,
+        p.handle === c.handle ? { ...p, text: `${locale === "ja" ? ticJa : `${ticEn} `}${p.text}`.slice(0, 280) } : p,
       );
     }
   });
@@ -206,9 +228,20 @@ function localeText(rec: Partial<Record<Locale, string>>): string {
 function stageShapes(world: WorldSeed): StageShape[] {
   const out: StageShape[] = [];
   const conceptOut = estimateTokens(
-    JSON.stringify({ title: world.title, scenario: world.scenario, cast: world.cast.map((c) => ({ h: c.handle, n: c.displayName, r: c.role, i: c.intro })) }),
+    JSON.stringify({
+      title: world.title,
+      scenario: world.scenario,
+      cast: world.cast.map((c) => ({ h: c.handle, n: c.displayName, r: c.role, i: c.intro })),
+    }),
   );
-  out.push({ variantId: G9_VARIANT_IDS.concept, tier: "high", inputTokens: 1400, cacheWrite: 1800, cacheRead: 0, outputTokens: conceptOut });
+  out.push({
+    variantId: G9_VARIANT_IDS.concept,
+    tier: "high",
+    inputTokens: 1400,
+    cacheWrite: 1800,
+    cacheRead: 0,
+    outputTokens: conceptOut,
+  });
   LOCALES.forEach((locale, i) => {
     // `world.bible` is the *assembled* text — prose + the eight cast cards + outro. The bible
     // stage only writes the prose and the outro, so the cards are subtracted rather than billed

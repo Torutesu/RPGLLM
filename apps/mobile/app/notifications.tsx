@@ -70,14 +70,29 @@ function go(target: string | null): void {
   const kind = sep === -1 ? target : target.slice(0, sep);
   const id = sep === -1 ? "" : target.slice(sep + 1);
   switch (kind) {
-    case "post": router.push(`/post/${id}`); return;
-    case "dm": router.push(`/dms/${id}`); return;
-    case "event": router.push(`/event/${id}`); return;
-    case "achievement": router.push("/achievements"); return;
-    case "profile": router.push("/profile"); return;
-    case "world": router.push({ pathname: "/world/[id]", params: { id } }); return;
-    case "creator": router.push({ pathname: "/creator/[handle]", params: { handle: id } }); return;
-    default: resetToFeed();
+    case "post":
+      router.push(`/post/${id}`);
+      return;
+    case "dm":
+      router.push(`/dms/${id}`);
+      return;
+    case "event":
+      router.push(`/event/${id}`);
+      return;
+    case "achievement":
+      router.push("/achievements");
+      return;
+    case "profile":
+      router.push("/profile");
+      return;
+    case "world":
+      router.push({ pathname: "/world/[id]", params: { id } });
+      return;
+    case "creator":
+      router.push({ pathname: "/creator/[handle]", params: { handle: id } });
+      return;
+    default:
+      resetToFeed();
   }
 }
 
@@ -165,8 +180,14 @@ function NotificationRow({ item }: { item: Notification }) {
         ) : (
           <View
             style={{
-              width: 38, height: 38, borderRadius: radius.pill, alignItems: "center", justifyContent: "center",
-              backgroundColor: `${tint}22`, borderWidth: 1, borderColor: `${tint}55`,
+              width: 38,
+              height: 38,
+              borderRadius: radius.pill,
+              alignItems: "center",
+              justifyContent: "center",
+              backgroundColor: `${tint}22`,
+              borderWidth: 1,
+              borderColor: `${tint}55`,
             }}
           >
             <Icon name={KIND_ICON[item.kind]} size={18} color={tint} filled />
@@ -174,8 +195,17 @@ function NotificationRow({ item }: { item: Notification }) {
         )}
         <View
           style={{
-            position: "absolute", right: -3, bottom: -3, width: 18, height: 18, borderRadius: radius.pill,
-            alignItems: "center", justifyContent: "center", backgroundColor: colors.bg, borderWidth: 1, borderColor: colors.border,
+            position: "absolute",
+            right: -3,
+            bottom: -3,
+            width: 18,
+            height: 18,
+            borderRadius: radius.pill,
+            alignItems: "center",
+            justifyContent: "center",
+            backgroundColor: colors.bg,
+            borderWidth: 1,
+            borderColor: colors.border,
           }}
         >
           <Icon name={KIND_ICON[item.kind]} size={10} color={tint} filled />
@@ -184,7 +214,11 @@ function NotificationRow({ item }: { item: Notification }) {
 
       {news ? (
         <View style={{ flex: 1, gap: 2 }}>
-          <Text numberOfLines={2} importantForAccessibility="no" style={[typo.bodyStrong, { color: unread ? colors.text : colors.textDim }]}>
+          <Text
+            numberOfLines={2}
+            importantForAccessibility="no"
+            style={[typo.bodyStrong, { color: unread ? colors.text : colors.textDim }]}
+          >
             {news.title}
           </Text>
           {news.body ? (
@@ -194,7 +228,11 @@ function NotificationRow({ item }: { item: Notification }) {
           ) : null}
         </View>
       ) : (
-        <Text numberOfLines={2} importantForAccessibility="no" style={[typo.body, { color: unread ? colors.text : colors.textDim, flex: 1 }]}>
+        <Text
+          numberOfLines={2}
+          importantForAccessibility="no"
+          style={[typo.body, { color: unread ? colors.text : colors.textDim, flex: 1 }]}
+        >
           {item.text}
         </Text>
       )}
@@ -208,11 +246,22 @@ function NotificationRow({ item }: { item: Notification }) {
 function Empty() {
   const { t } = useT();
   return (
-    <View testID={T.notifEmpty} accessibilityRole="summary" accessibilityLabel={t("notifEmpty")} style={{ alignItems: "center", gap: spacing.md, paddingVertical: spacing.xxxl, paddingHorizontal: spacing.xl }}>
+    <View
+      testID={T.notifEmpty}
+      accessibilityRole="summary"
+      accessibilityLabel={t("notifEmpty")}
+      style={{ alignItems: "center", gap: spacing.md, paddingVertical: spacing.xxxl, paddingHorizontal: spacing.xl }}
+    >
       <View
         style={{
-          width: 64, height: 64, borderRadius: radius.pill, alignItems: "center", justifyContent: "center",
-          backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border,
+          width: 64,
+          height: 64,
+          borderRadius: radius.pill,
+          alignItems: "center",
+          justifyContent: "center",
+          backgroundColor: colors.card,
+          borderWidth: 1,
+          borderColor: colors.border,
         }}
       >
         <Icon name="bell" size={28} color={colors.textMuted} />
@@ -262,7 +311,13 @@ export default function NotificationsScreen() {
           <View style={{ flexDirection: "row", alignItems: "center", gap: spacing.sm }}>
             <StreakChip />
             {notifUnread > 0 ? (
-              <Button testID={T.notifMarkAll} label={t("markAllRead")} onPress={() => void markNotificationsRead(null)} variant="ghost" compact />
+              <Button
+                testID={T.notifMarkAll}
+                label={t("markAllRead")}
+                onPress={() => void markNotificationsRead(null)}
+                variant="ghost"
+                compact
+              />
             ) : null}
           </View>
         }
@@ -293,9 +348,19 @@ export default function NotificationsScreen() {
             <View key={group.day}>
               <Text
                 accessibilityRole="header"
-                style={[typo.micro, { color: colors.textMuted, paddingHorizontal: spacing.lg, paddingTop: spacing.lg, paddingBottom: spacing.sm }]}
+                style={[
+                  typo.micro,
+                  {
+                    color: colors.textMuted,
+                    paddingHorizontal: spacing.lg,
+                    paddingTop: spacing.lg,
+                    paddingBottom: spacing.sm,
+                  },
+                ]}
               >
-                {new Date(`${group.day}T00:00:00.000Z`).toLocaleDateString(locale, { month: "short", day: "numeric" }).toUpperCase()}
+                {new Date(`${group.day}T00:00:00.000Z`)
+                  .toLocaleDateString(locale, { month: "short", day: "numeric" })
+                  .toUpperCase()}
               </Text>
               {group.rows.map((n) => (
                 <NotificationRow key={n.id} item={n} />

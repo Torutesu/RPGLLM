@@ -1,8 +1,17 @@
 import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
 import { T } from "@rpgllm/shared";
 import {
-  apiUrl, bearer, browserToken, dismissStatCard, gotoApp, postAndSettle, resetDb, ROUTES,
-  setEnergy, signupAndEnter, type Account,
+  apiUrl,
+  bearer,
+  browserToken,
+  dismissStatCard,
+  gotoApp,
+  postAndSettle,
+  resetDb,
+  ROUTES,
+  setEnergy,
+  signupAndEnter,
+  type Account,
 } from "../fixtures";
 
 /**
@@ -61,9 +70,12 @@ test("DISC-001: the feed says which world you are in and what is loud in it", as
   await expect(page.getByTestId(T.composeFab)).toBeVisible();
 
   // Every cell is timestamped — the single cheapest signal that a feed is alive.
-  await expect.poll(() => page.getByTestId(T.postTime).count(), {
-    timeout: 15_000, message: "posts must carry a relative timestamp",
-  }).toBeGreaterThan(0);
+  await expect
+    .poll(() => page.getByTestId(T.postTime).count(), {
+      timeout: 15_000,
+      message: "posts must carry a relative timestamp",
+    })
+    .toBeGreaterThan(0);
 
   // The trending strip is built from the world's own text.
   const trending = await trendingFor(page);
@@ -72,15 +84,20 @@ test("DISC-001: the feed says which world you are in and what is loud in it", as
   await expect(feedHeader(page).getByTestId(T.trendingTopic(trending.topics[0]!.label))).toBeVisible();
 });
 
-test("DISC-002: posts carry procedural media, and it is the same picture on every render", async ({ page, request }) => {
+test("DISC-002: posts carry procedural media, and it is the same picture on every render", async ({
+  page,
+  request,
+}) => {
   const account = await signupAndEnter(page, request);
   await liveInTheWorld(page, request, account);
 
   const media = page.locator('[data-testid^="post-media-"]');
-  await expect.poll(() => media.count(), {
-    timeout: 20_000,
-    message: "the feed must carry at least one picture — that is what stops it being a wall of text",
-  }).toBeGreaterThan(0);
+  await expect
+    .poll(() => media.count(), {
+      timeout: 20_000,
+      message: "the feed must carry at least one picture — that is what stops it being a wall of text",
+    })
+    .toBeGreaterThan(0);
 
   const first = media.first();
   const id = await first.getAttribute("data-testid");
@@ -95,7 +112,10 @@ test("DISC-002: posts carry procedural media, and it is the same picture on ever
   ).toHaveCount(1, { timeout: 15_000 });
 });
 
-test("DISC-003: tapping a trending topic filters the feed, and tapping it again restores it", async ({ page, request }) => {
+test("DISC-003: tapping a trending topic filters the feed, and tapping it again restores it", async ({
+  page,
+  request,
+}) => {
   const account = await signupAndEnter(page, request);
   await liveInTheWorld(page, request, account);
 
@@ -103,23 +123,31 @@ test("DISC-003: tapping a trending topic filters the feed, and tapping it again 
   const topic = trending.topics.find((t) => t.posts >= 2) ?? trending.topics[0];
   expect(topic, "the world must be talking about something").toBeTruthy();
 
-  const cells = page.locator('[data-testid^="post-"]:not([data-testid^="post-kind-"])'
-    + ':not([data-testid="post-text"]):not([data-testid="post-author"])'
-    + ':not([data-testid="post-time"]):not([data-testid^="post-media-"])');
+  const cells = page.locator(
+    '[data-testid^="post-"]:not([data-testid^="post-kind-"])' +
+      ':not([data-testid="post-text"]):not([data-testid="post-author"])' +
+      ':not([data-testid="post-time"]):not([data-testid^="post-media-"])',
+  );
   const before = await cells.count();
   expect(before).toBeGreaterThan(0);
 
   const chip = feedHeader(page).getByTestId(T.trendingTopic(topic!.label));
   await chip.click();
-  await expect.poll(() => cells.count(), {
-    timeout: 10_000, message: "a topic filter must narrow the feed",
-  }).toBeLessThan(before);
+  await expect
+    .poll(() => cells.count(), {
+      timeout: 10_000,
+      message: "a topic filter must narrow the feed",
+    })
+    .toBeLessThan(before);
   await expect.poll(() => cells.count()).toBeGreaterThan(0);
 
   await chip.click();
-  await expect.poll(() => cells.count(), {
-    timeout: 10_000, message: "tapping the topic again must restore the whole feed",
-  }).toBe(before);
+  await expect
+    .poll(() => cells.count(), {
+      timeout: 10_000,
+      message: "tapping the topic again must restore the whole feed",
+    })
+    .toBe(before);
 });
 
 test("DISC-004: Explore ranks you in the world and shows who is rising with you", async ({ page, request }) => {
@@ -152,7 +180,10 @@ test("DISC-004: Explore ranks you in the world and shows who is rising with you"
   await expect(page.getByTestId(T.characterProfile)).toBeVisible({ timeout: 15_000 });
 });
 
-test("DISC-005: a character has a page — bio, whether they follow you, their posts, and block", async ({ page, request }) => {
+test("DISC-005: a character has a page — bio, whether they follow you, their posts, and block", async ({
+  page,
+  request,
+}) => {
   const account = await signupAndEnter(page, request);
   await liveInTheWorld(page, request, account);
 
@@ -164,26 +195,41 @@ test("DISC-005: a character has a page — bio, whether they follow you, their p
   await expect(profile, "SCR-047 must open by handle").toBeVisible({ timeout: 15_000 });
   await expect(profile).toContainText(who.displayName);
   await expect(profile).toContainText(`@${who.handle}`);
-  await expect(page.getByTestId(T.characterFollowState), "the page must say whether they follow you")
-    .toBeVisible();
+  await expect(page.getByTestId(T.characterFollowState), "the page must say whether they follow you").toBeVisible();
 
   const posts = page.getByTestId(T.characterPosts);
   await expect(posts).toBeVisible();
-  await expect.poll(() => posts.locator('[data-testid^="post-"]').count(), {
-    timeout: 15_000, message: "a character's page must show what they have been saying",
-  }).toBeGreaterThan(0);
+  await expect
+    .poll(() => posts.locator('[data-testid^="post-"]').count(), {
+      timeout: 15_000,
+      message: "a character's page must show what they have been saying",
+    })
+    .toBeGreaterThan(0);
 
   // Blocking from the page empties it, and the server keeps them out of the feed afterwards.
   await page.getByRole("button", { name: /block/i }).first().click();
-  await expect.poll(() => posts.locator('[data-testid^="post-"]').count(), {
-    timeout: 15_000, message: "a blocked character keeps their page but loses their posts",
-  }).toBe(0);
+  await expect
+    .poll(() => posts.locator('[data-testid^="post-"]').count(), {
+      timeout: 15_000,
+      message: "a blocked character keeps their page but loses their posts",
+    })
+    .toBe(0);
 
   await gotoApp(page, ROUTES.feed);
   await expect(page.getByTestId(T.feedList)).toBeVisible({ timeout: 15_000 });
-  await expect.poll(() => page.locator('[data-testid^="post-"]').filter({ hasText: `@${who.handle}` }).count(), {
-    timeout: 15_000, message: "a blocked character must be gone from the feed",
-  }).toBe(0);
+  await expect
+    .poll(
+      () =>
+        page
+          .locator('[data-testid^="post-"]')
+          .filter({ hasText: `@${who.handle}` })
+          .count(),
+      {
+        timeout: 15_000,
+        message: "a blocked character must be gone from the feed",
+      },
+    )
+    .toBe(0);
 });
 
 test("DISC-006: tapping an author's avatar in the feed opens their page", async ({ page, request }) => {

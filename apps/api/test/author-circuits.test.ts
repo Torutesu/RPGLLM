@@ -34,19 +34,51 @@ beforeEach(async () => {
 /* ------------------------------------------------------------------ helpers ---- */
 
 interface WorldFull {
-  id: string; slug: string; title: string; status: string; visibility: string; premise: string;
-  isPreset: boolean; isMine: boolean; creatorHandle: string | null; playCount: number;
-  castCount: number; createdAt: string; reason: string | null;
+  id: string;
+  slug: string;
+  title: string;
+  status: string;
+  visibility: string;
+  premise: string;
+  isPreset: boolean;
+  isMine: boolean;
+  creatorHandle: string | null;
+  playCount: number;
+  castCount: number;
+  createdAt: string;
+  reason: string | null;
   remixOf: { id: string; slug: string; title: string; creatorHandle: string | null } | null;
   remixCount: number;
 }
-interface CreateRes { world: WorldFull; charged: { gems: number; remaining: number } }
-interface PublicRes { worlds: WorldFull[]; fresh: WorldFull[]; nextCursor: string | null }
-interface ProfileRes {
-  handle: string; isYou: boolean; worldCount: number; totalPlays: number; joinedAt: string; worlds: WorldFull[];
+interface CreateRes {
+  world: WorldFull;
+  charged: { gems: number; remaining: number };
 }
-interface NotificationRow { id: string; kind: string; text: string; target: string | null; payload: Record<string, unknown> }
-interface InboxRes { notifications: NotificationRow[]; unread: number; nextCursor: string | null }
+interface PublicRes {
+  worlds: WorldFull[];
+  fresh: WorldFull[];
+  nextCursor: string | null;
+}
+interface ProfileRes {
+  handle: string;
+  isYou: boolean;
+  worldCount: number;
+  totalPlays: number;
+  joinedAt: string;
+  worlds: WorldFull[];
+}
+interface NotificationRow {
+  id: string;
+  kind: string;
+  text: string;
+  target: string | null;
+  payload: Record<string, unknown>;
+}
+interface InboxRes {
+  notifications: NotificationRow[];
+  unread: number;
+  nextCursor: string | null;
+}
 
 const PREMISE = "Seven rookies, one debut slot, and a leaked group chat";
 
@@ -85,12 +117,21 @@ async function builtWorld(opts: { premise?: string; locale?: string; userLocale?
 /** …and all the way onto the shelf: submitted, and approved by a person. */
 async function shelvedWorld(opts: { premise?: string; locale?: string; userLocale?: "en" | "ja" } = {}) {
   const built = await builtWorld(opts);
-  expect((await call(h, "POST", `/v1/worlds/${built.world.id}/publish`, {
-    token: built.token, body: { visibility: "public" },
-  })).status).toBe(202);
-  expect((await call<{ world: WorldFull }>(h, "POST", `/v1/admin/worlds/${built.world.id}/review`, {
-    body: { decision: "approve", reason: "" },
-  })).data.world.status).toBe("published");
+  expect(
+    (
+      await call(h, "POST", `/v1/worlds/${built.world.id}/publish`, {
+        token: built.token,
+        body: { visibility: "public" },
+      })
+    ).status,
+  ).toBe(202);
+  expect(
+    (
+      await call<{ world: WorldFull }>(h, "POST", `/v1/admin/worlds/${built.world.id}/review`, {
+        body: { decision: "approve", reason: "" },
+      })
+    ).data.world.status,
+  ).toBe("published");
   return built;
 }
 
@@ -102,14 +143,22 @@ async function play(worldId: string): Promise<{ token: string; userId: string; p
 
 async function playAs(token: string, worldId: string): Promise<string> {
   const detail = await call<{ characters: { id: string; canBeFirstFollower: boolean }[] }>(
-    h, "GET", `/v1/worlds/${worldId}`, { token },
+    h,
+    "GET",
+    `/v1/worlds/${worldId}`,
+    { token },
   );
   const first = detail.data.characters.find((c) => c.canBeFirstFollower) ?? detail.data.characters[0]!;
   const res = await call<{ persona: { id: string } }>(h, "POST", "/v1/personas", {
     token,
     body: {
-      worldId, handle: `p${Math.random().toString(36).slice(2, 9)}`, displayName: "P", bio: "",
-      avatarUrl: null, voiceNotes: "", firstFollowerId: first.id,
+      worldId,
+      handle: `p${Math.random().toString(36).slice(2, 9)}`,
+      displayName: "P",
+      bio: "",
+      avatarUrl: null,
+      voiceNotes: "",
+      firstFollowerId: first.id,
       idempotencyKey: `idem-${Math.random().toString(36).slice(2)}`,
     },
   });
@@ -145,10 +194,14 @@ describe("circuit ① — the author hears about their own world", () => {
     // Pulled by reports.
     for (let i = 0; i < 3; i += 1) {
       const reporter = await signup(h);
-      expect((await call(h, "POST", "/v1/moderation/report", {
-        token: reporter.token,
-        body: { target: "world", targetId: world.id, reason: "harassment", note: `complaint ${i}` },
-      })).status).toBe(201);
+      expect(
+        (
+          await call(h, "POST", "/v1/moderation/report", {
+            token: reporter.token,
+            body: { target: "world", targetId: world.id, reason: "harassment", note: `complaint ${i}` },
+          })
+        ).status,
+      ).toBe(201);
     }
     expect((await prisma.world.findUniqueOrThrow({ where: { id: world.id } })).pulledAt).not.toBeNull();
     expect(await creatorRows(userId, "world_pulled")).toHaveLength(1);
@@ -160,9 +213,12 @@ describe("circuit ① — the author hears about their own world", () => {
     // …and every one of them is readable, by an account that still has no persona at all.
     const list = await inbox(token);
     expect(list.status, "an inbox must not 404 just because nobody has played anything").toBe(200);
-    expect(list.data.notifications.map((n) => n.kind).sort()).toEqual(
-      ["world_pulled", "world_ready", "world_reviewed", "world_reviewed"],
-    );
+    expect(list.data.notifications.map((n) => n.kind).sort()).toEqual([
+      "world_pulled",
+      "world_ready",
+      "world_reviewed",
+      "world_reviewed",
+    ]);
     expect(list.data.unread).toBe(4);
     expect(list.data.notifications.every((n) => n.target === `world:${world.id}`)).toBe(true);
   });
@@ -205,15 +261,16 @@ describe("circuit ① — the author hears about their own world", () => {
   it("does not tell an author that they played their own world", async () => {
     const author = await shelvedWorld();
     await playAs(author.token, author.world.id);
-    expect((await prisma.world.findUniqueOrThrow({ where: { id: author.world.id } })).playCount)
-      .toBe(1); // it still counts as a play — the shelf ranks on plays
+    expect((await prisma.world.findUniqueOrThrow({ where: { id: author.world.id } })).playCount).toBe(1); // it still counts as a play — the shelf ranks on plays
     expect(await creatorRows(author.userId, "world_played")).toHaveLength(0);
   });
 
   it("keeps one account's creator notifications out of another account's inbox", async () => {
     const author = await shelvedWorld();
     const other = await play(author.world.id);
-    const theirs = await call<InboxRes>(h, "GET", `/v1/notifications?personaId=${other.personaId}`, { token: other.token });
+    const theirs = await call<InboxRes>(h, "GET", `/v1/notifications?personaId=${other.personaId}`, {
+      token: other.token,
+    });
     expect(theirs.data.notifications.some((n) => n.kind.startsWith("world_"))).toBe(false);
   });
 });
@@ -267,28 +324,32 @@ describe("circuit ② — the creator is a place you can go", () => {
     expect(me.data.user.creatorHandle, "`/v1/me` carries the name the worlds are credited to").toBe(before);
 
     const renamed = await call<{ creatorHandle: string }>(h, "POST", "/v1/me/creator-handle", {
-      token: author.token, body: { handle: "kagerou" },
+      token: author.token,
+      body: { handle: "kagerou" },
     });
     expect(renamed.status).toBe(200);
     expect(renamed.data.creatorHandle).toBe("kagerou");
 
     // The credit is resolved at read time, so it has already moved — everywhere, at once.
     const reader = await signup(h);
-    const card = await call<{ world: { creatorHandle: string | null } }>(
-      h, "GET", `/v1/worlds/${author.world.id}`, { token: reader.token },
-    );
+    const card = await call<{ world: { creatorHandle: string | null } }>(h, "GET", `/v1/worlds/${author.world.id}`, {
+      token: reader.token,
+    });
     expect(card.data.world.creatorHandle).toBe("kagerou");
     const shelf = await call<PublicRes>(h, "GET", "/v1/worlds/public", { token: reader.token });
     expect(shelf.data.worlds.find((w) => w.id === author.world.id)?.creatorHandle).toBe("kagerou");
-    expect((await call<ProfileRes>(h, "GET", "/v1/creators/kagerou", { token: reader.token })).data.worlds)
-      .toHaveLength(1);
+    expect(
+      (await call<ProfileRes>(h, "GET", "/v1/creators/kagerou", { token: reader.token })).data.worlds,
+    ).toHaveLength(1);
     // …and the old page is gone rather than pointing at somebody else.
     expect((await call(h, "GET", `/v1/creators/${before}`, { token: reader.token })).status).toBe(404);
   });
 
   it("refuses a name that is taken, a name a cast goes by, and a name still held by whoever left it", async () => {
     const first = await signup(h);
-    expect((await call(h, "POST", "/v1/me/creator-handle", { token: first.token, body: { handle: "kagerou" } })).status).toBe(200);
+    expect(
+      (await call(h, "POST", "/v1/me/creator-handle", { token: first.token, body: { handle: "kagerou" } })).status,
+    ).toBe(200);
 
     const second = await signup(h);
     const taken = await call(h, "POST", "/v1/me/creator-handle", { token: second.token, body: { handle: "kagerou" } });
@@ -296,35 +357,52 @@ describe("circuit ② — the creator is a place you can go", () => {
     expect(taken.error?.code).toBe("HANDLE_TAKEN");
     // `SetCreatorHandleReqZ` is lowercase-only, so an uppercase spelling is refused by the shape
     // before it can reach the index — the same answer, one gate earlier.
-    expect((await call(h, "POST", "/v1/me/creator-handle", { token: second.token, body: { handle: "KAGEROU" } })).status).toBe(400);
+    expect(
+      (await call(h, "POST", "/v1/me/creator-handle", { token: second.token, body: { handle: "KAGEROU" } })).status,
+    ).toBe(400);
 
     // A cast member of a preset world. Two `@rina`s on one card is exactly what ② is not.
     const cast = await prisma.worldCharacter.findFirstOrThrow({ select: { handle: true } });
     const bare = cast.handle.replace(/^@/, "");
-    expect((await call(h, "POST", "/v1/me/creator-handle", { token: second.token, body: { handle: bare } })).status).toBe(409);
+    expect(
+      (await call(h, "POST", "/v1/me/creator-handle", { token: second.token, body: { handle: bare } })).status,
+    ).toBe(409);
 
     // `first` renames away; the name they left is not immediately somebody else's to take.
     h.clock.offsetDays(renameCooldownDays() + 1);
-    expect((await call(h, "POST", "/v1/me/creator-handle", { token: first.token, body: { handle: "kagerou2" } })).status).toBe(200);
+    expect(
+      (await call(h, "POST", "/v1/me/creator-handle", { token: first.token, body: { handle: "kagerou2" } })).status,
+    ).toBe(200);
     const grab = await call(h, "POST", "/v1/me/creator-handle", { token: second.token, body: { handle: "kagerou" } });
     expect(grab.status, "a released handle is reserved — links to it are already out in the world").toBe(409);
     // Its previous owner may still take it back at any time.
     h.clock.offsetDays(renameCooldownDays() + 1);
-    expect((await call(h, "POST", "/v1/me/creator-handle", { token: first.token, body: { handle: "kagerou" } })).status).toBe(200);
+    expect(
+      (await call(h, "POST", "/v1/me/creator-handle", { token: first.token, body: { handle: "kagerou" } })).status,
+    ).toBe(200);
   });
 
   it("rations renames after the free graduation, and says when the next one is", async () => {
     const who = await signup(h);
-    expect((await call(h, "POST", "/v1/me/creator-handle", { token: who.token, body: { handle: "firstname" } })).status).toBe(200);
+    expect(
+      (await call(h, "POST", "/v1/me/creator-handle", { token: who.token, body: { handle: "firstname" } })).status,
+    ).toBe(200);
 
-    const tooSoon = await call(h, "POST", "/v1/me/creator-handle", { token: who.token, body: { handle: "secondname" } });
+    const tooSoon = await call(h, "POST", "/v1/me/creator-handle", {
+      token: who.token,
+      body: { handle: "secondname" },
+    });
     expect(tooSoon.status).toBe(429);
     expect(tooSoon.error?.code).toBe("RATE_LIMITED");
     // Asking for the name you already have is free, and costs no cooldown.
-    expect((await call(h, "POST", "/v1/me/creator-handle", { token: who.token, body: { handle: "firstname" } })).status).toBe(200);
+    expect(
+      (await call(h, "POST", "/v1/me/creator-handle", { token: who.token, body: { handle: "firstname" } })).status,
+    ).toBe(200);
 
     h.clock.offsetDays(renameCooldownDays() + 1);
-    expect((await call(h, "POST", "/v1/me/creator-handle", { token: who.token, body: { handle: "secondname" } })).status).toBe(200);
+    expect(
+      (await call(h, "POST", "/v1/me/creator-handle", { token: who.token, body: { handle: "secondname" } })).status,
+    ).toBe(200);
     expect((await prisma.user.findUniqueOrThrow({ where: { id: who.userId } })).creatorHandle).toBe("secondname");
   });
 });
@@ -370,10 +448,14 @@ describe("circuit ③ — a new world reaches its first players", () => {
     const reader = await signup(h);
     const shelf = await call<PublicRes>(h, "GET", "/v1/worlds/public", { token: reader.token });
 
-    expect(shelf.data.fresh.map((w) => w.id), "shown because it is new, and for no other reason")
-      .toContain(newcomer.world.id);
-    expect(shelf.data.worlds.map((w) => w.id), "and never in both lists at once")
-      .not.toContain(newcomer.world.id);
+    expect(
+      shelf.data.fresh.map((w) => w.id),
+      "shown because it is new, and for no other reason",
+    ).toContain(newcomer.world.id);
+    expect(
+      shelf.data.worlds.map((w) => w.id),
+      "and never in both lists at once",
+    ).not.toContain(newcomer.world.id);
     expect(shelf.data.fresh.every((w) => w.playCount === 0 || w.playCount >= 0)).toBe(true);
     expect(shelf.data.fresh.length).toBeLessThanOrEqual(freshSlots());
     // The ranking is untouched otherwise: the popular worlds are still ranked by plays.
@@ -381,9 +463,12 @@ describe("circuit ③ — a new world reaches its first players", () => {
 
     // Paging deeper is not a request for the strip, and never repeats it.
     const page2 = await call<PublicRes>(
-      h, "GET", `/v1/worlds/public?limit=5&cursor=${encodeURIComponent(
+      h,
+      "GET",
+      `/v1/worlds/public?limit=5&cursor=${encodeURIComponent(
         (await call<PublicRes>(h, "GET", "/v1/worlds/public?limit=5", { token: reader.token })).data.nextCursor ?? "",
-      )}`, { token: reader.token },
+      )}`,
+      { token: reader.token },
     );
     expect(page2.data.fresh).toHaveLength(0);
     expect(page2.data.worlds.map((w) => w.id)).not.toContain(newcomer.world.id);
@@ -402,8 +487,10 @@ describe("circuit ③ — a new world reaches its first players", () => {
     const mine = shelf.data.fresh.filter((w) => w.slug.startsWith("mine-"));
     expect(mine, "one author cannot own the strip by making eight worlds a day").toHaveLength(1);
     expect(shelf.data.fresh.map((w) => w.id)).not.toContain(stale.id);
-    expect(shelf.data.worlds.map((w) => w.id), "a world leaves the strip by getting old, into the ranking")
-      .toContain(stale.id);
+    expect(
+      shelf.data.worlds.map((w) => w.id),
+      "a world leaves the strip by getting old, into the ranking",
+    ).toContain(stale.id);
   });
 });
 
@@ -412,7 +499,8 @@ describe("circuit ③ — a new world reaches its first players", () => {
 describe("circuit ④ — a world made out of a world you played", () => {
   const remix = (token: string, worldId: string, body: Record<string, unknown> = {}) =>
     call<CreateRes>(h, "POST", `/v1/worlds/${worldId}/remix`, {
-      token, body: { premise: "The same debut slot, but the leak was mine", visibility: "private", ...body },
+      token,
+      body: { premise: "The same debut slot, but the leak was mine", visibility: "private", ...body },
     });
 
   it("charges, screens and builds exactly like a create, and records what it came out of", async () => {
@@ -438,7 +526,9 @@ describe("circuit ④ — a world made out of a world you played", () => {
     // The source says how often it was taken up.
     expect((await prisma.world.findUniqueOrThrow({ where: { id: author.world.id } })).remixCount).toBe(1);
     const reader = await signup(h);
-    const card = await call<{ world: { id: string } }>(h, "GET", `/v1/worlds/${author.world.id}`, { token: reader.token });
+    const card = await call<{ world: { id: string } }>(h, "GET", `/v1/worlds/${author.world.id}`, {
+      token: reader.token,
+    });
     expect(card.status).toBe(200);
 
     // The same build job finishes it — there is no second generator for remixes.
@@ -469,7 +559,7 @@ describe("circuit ④ — a world made out of a world you played", () => {
   });
 
   it("refuses a world the caller may not play, and never says whether it exists", async () => {
-    const author = await builtWorld();          // private: theirs alone
+    const author = await builtWorld(); // private: theirs alone
     const stranger = await signup(h);
     const refused = await remix(stranger.token, author.world.id);
     expect(refused.status).toBe(404);
@@ -479,7 +569,8 @@ describe("circuit ④ — a world made out of a world you played", () => {
     // An unlisted world is playable by whoever holds the link, so it is remixable by them too.
     const unlisted = await builtWorld({ premise: "A radio station nobody admits to listening to" });
     await call(h, "POST", `/v1/worlds/${unlisted.world.id}/publish`, {
-      token: unlisted.token, body: { visibility: "unlisted" },
+      token: unlisted.token,
+      body: { visibility: "unlisted" },
     });
     expect((await remix(stranger.token, unlisted.world.id)).status).toBe(201);
   });
@@ -502,7 +593,8 @@ describe("circuit ④ — a world made out of a world you played", () => {
     const child = await remix(fan.token, author.world.id);
     await buildOnce();
     await call(h, "POST", `/v1/worlds/${child.data.world.id}/publish`, {
-      token: fan.token, body: { visibility: "unlisted" },
+      token: fan.token,
+      body: { visibility: "unlisted" },
     });
 
     const grandchild = await remix((await signup(h)).token, child.data.world.id, { premise: "And then it was mine" });
@@ -531,8 +623,9 @@ describe("the community shelf does not speak one language", () => {
 
     const english = await signup(h, { locale: "en" });
     const shelfEn = await call<PublicRes>(h, "GET", "/v1/worlds/public", { token: english.token });
-    expect(shelfEn.data.worlds.map((w) => w.id).sort(), "every world carries both locales by construction")
-      .toEqual([ja.world.id, en.world.id].sort());
+    expect(shelfEn.data.worlds.map((w) => w.id).sort(), "every world carries both locales by construction").toEqual(
+      [ja.world.id, en.world.id].sort(),
+    );
 
     const japanese = await signup(h, { locale: "ja" });
     const shelfJa = await call<PublicRes>(h, "GET", "/v1/worlds/public", { token: japanese.token });

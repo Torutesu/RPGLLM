@@ -1,14 +1,33 @@
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { ENERGY, PACING, SAFETY_BLOCK_TEST_PHRASES } from "@rpgllm/shared";
-import { call, getWallet, makeHarness, prisma, readSSE, resetDatabase, setEnergy, signupWithPersona, type Harness } from "./helpers";
+import {
+  call,
+  getWallet,
+  makeHarness,
+  prisma,
+  readSSE,
+  resetDatabase,
+  setEnergy,
+  signupWithPersona,
+  type Harness,
+} from "./helpers";
 
 let h: Harness;
 
-beforeAll(() => { h = makeHarness(); });
-beforeEach(async () => { await resetDatabase(); h.gateway.setMode("replay"); h.gateway.calls.length = 0; });
+beforeAll(() => {
+  h = makeHarness();
+});
+beforeEach(async () => {
+  await resetDatabase();
+  h.gateway.setMode("replay");
+  h.gateway.calls.length = 0;
+});
 
 const createPost = (token: string, personaId: string, text: string, parentId: string | null = null) =>
-  call<{ post: { id: string }; streamUrl: string }>(h, "POST", "/v1/posts", { token, body: { personaId, text, parentId } });
+  call<{ post: { id: string }; streamUrl: string }>(h, "POST", "/v1/posts", {
+    token,
+    body: { personaId, text, parentId },
+  });
 
 describe("posting and the reply stream (E2E-003, E2E-009, E2E-010)", () => {
   it("spends 1 energy and streams reply×3 → stat → done in order", async () => {
@@ -76,7 +95,10 @@ describe("posting and the reply stream (E2E-003, E2E-009, E2E-010)", () => {
     expect(blocks).toBe(1);
 
     const hook = await call<{ logs: { generator: string; safetyVerdict: string | null }[] }>(
-      h, "GET", "/v1/__test/generations?generator=G8", { token: fx.token },
+      h,
+      "GET",
+      "/v1/__test/generations?generator=G8",
+      { token: fx.token },
     );
     expect(hook.data.logs.filter((l) => l.safetyVerdict === "block")).toHaveLength(1);
   });
@@ -103,12 +125,19 @@ describe("posting and the reply stream (E2E-003, E2E-009, E2E-010)", () => {
     const res = await createPost(fx.token, fx.personaId, "load more please");
     await readSSE(h, res.data.streamUrl, fx.token);
 
-    const detail = await call<{ replies: unknown[]; moreAvailable: boolean }>(h, "GET", `/v1/posts/${res.data.post.id}`, { token: fx.token });
+    const detail = await call<{ replies: unknown[]; moreAvailable: boolean }>(
+      h,
+      "GET",
+      `/v1/posts/${res.data.post.id}`,
+      { token: fx.token },
+    );
     expect(detail.data.replies).toHaveLength(PACING.K_INITIAL);
     expect(detail.data.moreAvailable).toBe(true);
 
     const energyBefore = (await getWallet(h, fx.token)).data.energy;
-    const more = await call<{ replies: unknown[] }>(h, "POST", `/v1/posts/${res.data.post.id}/more-replies`, { token: fx.token });
+    const more = await call<{ replies: unknown[] }>(h, "POST", `/v1/posts/${res.data.post.id}/more-replies`, {
+      token: fx.token,
+    });
     expect(more.status).toBe(200);
     expect(more.data.replies).toHaveLength(PACING.K_MORE);
     expect((await getWallet(h, fx.token)).data.energy).toBe(energyBefore);
@@ -123,9 +152,17 @@ describe("posting and the reply stream (E2E-003, E2E-009, E2E-010)", () => {
     const res = await createPost(fx.token, fx.personaId, "receipts on the way");
     await readSSE(h, res.data.streamUrl, fx.token);
 
-    const hook = await call<{ logs: { generator: string; variantId: string; costUsd: number; inputTokens: number; outputTokens: number; cacheReadTokens: number; cacheWriteTokens: number }[] }>(
-      h, "GET", `/v1/__test/generations?postId=${res.data.post.id}`, { token: fx.token },
-    );
+    const hook = await call<{
+      logs: {
+        generator: string;
+        variantId: string;
+        costUsd: number;
+        inputTokens: number;
+        outputTokens: number;
+        cacheReadTokens: number;
+        cacheWriteTokens: number;
+      }[];
+    }>(h, "GET", `/v1/__test/generations?postId=${res.data.post.id}`, { token: fx.token });
     const g1 = hook.data.logs.filter((l) => l.generator === "G1");
     expect(g1).toHaveLength(1);
     expect(g1[0]!.costUsd).toBeGreaterThan(0);
@@ -134,7 +171,9 @@ describe("posting and the reply stream (E2E-003, E2E-009, E2E-010)", () => {
     expect(g1[0]!.cacheReadTokens).toBeGreaterThanOrEqual(0);
     expect(g1[0]!.cacheWriteTokens).toBeGreaterThanOrEqual(0);
 
-    const assignments = await call<Record<string, string>>(h, "GET", "/v1/experiments/assignments", { token: fx.token });
+    const assignments = await call<Record<string, string>>(h, "GET", "/v1/experiments/assignments", {
+      token: fx.token,
+    });
     expect(g1[0]!.variantId).toBe(assignments.data["g1_model"]);
   });
 });

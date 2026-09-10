@@ -31,7 +31,11 @@ export function codeFrom(seed: string): string {
   return out;
 }
 
-export const normalizeCode = (raw: string): string => raw.trim().toUpperCase().replace(/[^A-Z0-9]/g, "");
+export const normalizeCode = (raw: string): string =>
+  raw
+    .trim()
+    .toUpperCase()
+    .replace(/[^A-Z0-9]/g, "");
 
 /** Idempotent: returns the user's code, minting one on first read. */
 export async function ensureReferralCode(prisma: PrismaClient, user: User): Promise<string> {
@@ -40,7 +44,11 @@ export async function ensureReferralCode(prisma: PrismaClient, user: User): Prom
     const code = codeFrom(`${user.id}:${attempt}`);
     const clash = await prisma.user.findUnique({ where: { referralCode: code }, select: { id: true } });
     if (clash && clash.id !== user.id) continue;
-    const updated = await prisma.user.update({ where: { id: user.id }, data: { referralCode: code }, select: { referralCode: true } });
+    const updated = await prisma.user.update({
+      where: { id: user.id },
+      data: { referralCode: code },
+      select: { referralCode: true },
+    });
     return updated.referralCode ?? code;
   }
   throw new Error("could not mint a referral code");
@@ -61,7 +69,9 @@ export async function redeemEligibility(prisma: PrismaClient, clock: Clock, user
   const personas = await prisma.persona.count({ where: { userId: user.id } });
   if (personas === 0) return { canRedeem: true, reason: "ok" };
   const ageHours = (clock.now().getTime() - user.createdAt.getTime()) / 3_600_000;
-  return ageHours <= REDEEM_WINDOW_HOURS ? { canRedeem: true, reason: "ok" } : { canRedeem: false, reason: "account_too_old" };
+  return ageHours <= REDEEM_WINDOW_HOURS
+    ? { canRedeem: true, reason: "ok" }
+    : { canRedeem: false, reason: "account_too_old" };
 }
 
 export interface ReferralStats {
@@ -125,8 +135,11 @@ export async function redeemReferral(
     });
     await tx.ledgerEntry.create({
       data: {
-        walletId: inviterWallet.wallet.id, currency: "coffee", delta: REFERRAL.INVITER_COFFEE,
-        source: "referral", ref: `referral:${referral.id}:inviter`,
+        walletId: inviterWallet.wallet.id,
+        currency: "coffee",
+        delta: REFERRAL.INVITER_COFFEE,
+        source: "referral",
+        ref: `referral:${referral.id}:inviter`,
       },
     });
     const invitee = await tx.wallet.update({
@@ -135,8 +148,11 @@ export async function redeemReferral(
     });
     await tx.ledgerEntry.create({
       data: {
-        walletId: inviteeWallet.wallet.id, currency: "coffee", delta: REFERRAL.INVITEE_COFFEE,
-        source: "referral", ref: `referral:${referral.id}:invitee`,
+        walletId: inviteeWallet.wallet.id,
+        currency: "coffee",
+        delta: REFERRAL.INVITEE_COFFEE,
+        source: "referral",
+        ref: `referral:${referral.id}:invitee`,
       },
     });
     return invitee;

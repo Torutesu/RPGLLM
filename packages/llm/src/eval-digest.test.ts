@@ -6,12 +6,7 @@ import { measuredPoints, worldPassages, type DigestRule, type ReviewPoint } from
 import { toReviewDigest, type ReviewDigest } from "./generators/g9/digest-run.js";
 import { createStubDigestGateway } from "./verify-live/digest-stub.js";
 import { caseWorld, frozenEvalCasesDigest, DAMAGES } from "./eval-cases-digest.js";
-import {
-  confidenceAllowed,
-  machineChecksDigest,
-  runEvalDigest,
-  DIGEST_ABSOLUTE_CHECKS,
-} from "./eval-digest.js";
+import { confidenceAllowed, machineChecksDigest, runEvalDigest, DIGEST_ABSOLUTE_CHECKS } from "./eval-digest.js";
 
 /**
  * The digest in the offline gate. Every number here is produced today, in replay or against the
@@ -95,9 +90,9 @@ describe("each check is load-bearing", () => {
   });
 
   it("catches a point that decides", () => {
-    expect(broken(digestOf([onePoint({ concern: "This world should be rejected; the cast is one person." })]))).toEqual([
-      "noVerdictLanguage",
-    ]);
+    expect(broken(digestOf([onePoint({ concern: "This world should be rejected; the cast is one person." })]))).toEqual(
+      ["noVerdictLanguage"],
+    );
   });
 
   it("catches a timestamp printed over an empty list", () => {
@@ -115,7 +110,9 @@ describe("each check is load-bearing", () => {
   });
 
   it("catches a digest that quotes half the world at a reviewer", () => {
-    const longest = worldPassages(WORLD).map((p) => p.text).sort((a, b) => b.length - a.length)[0]!;
+    const longest = worldPassages(WORLD)
+      .map((p) => p.text)
+      .sort((a, b) => b.length - a.length)[0]!;
     expect(broken(digestOf([onePoint({ evidence: longest })]))).toEqual(["boundedSize"]);
   });
 
@@ -154,9 +151,24 @@ describe("each check is load-bearing", () => {
   });
 
   it("knows which evidence may carry a high original point", () => {
-    expect(confidenceAllowed({ rule: "original", concern: "x", evidence: "Friday night is Pokemon night", confidence: "high" }, "en")).toBe(true);
-    expect(confidenceAllowed({ rule: "original", concern: "x", evidence: "a school with four houses and a scoreboard", confidence: "high" }, "en")).toBe(false);
-    expect(confidenceAllowed({ rule: "original", concern: "x", evidence: "a school with four houses", confidence: "medium" }, "en")).toBe(true);
+    expect(
+      confidenceAllowed(
+        { rule: "original", concern: "x", evidence: "Friday night is Pokemon night", confidence: "high" },
+        "en",
+      ),
+    ).toBe(true);
+    expect(
+      confidenceAllowed(
+        { rule: "original", concern: "x", evidence: "a school with four houses and a scoreboard", confidence: "high" },
+        "en",
+      ),
+    ).toBe(false);
+    expect(
+      confidenceAllowed(
+        { rule: "original", concern: "x", evidence: "a school with four houses", confidence: "medium" },
+        "en",
+      ),
+    ).toBe(true);
   });
 });
 
@@ -209,7 +221,11 @@ describe("the gate, against the stub — what it does and does not prove", () =>
 
   it("proves the enforcement, not the model: a misbehaving stub produces the same digests", async () => {
     const good = await runEvalDigest(createStubDigestGateway(), { variantId: "v", cases: CASES, at: AT });
-    const bad = await runEvalDigest(createStubDigestGateway({ misbehave: true }), { variantId: "v", cases: CASES, at: AT });
+    const bad = await runEvalDigest(createStubDigestGateway({ misbehave: true }), {
+      variantId: "v",
+      cases: CASES,
+      at: AT,
+    });
     expect(JSON.stringify(bad.results.map((r) => r.points))).toBe(JSON.stringify(good.results.map((r) => r.points)));
     // The stub's precision is a property of the stub — it says the same three things about every
     // world, including the clean ones — and is not evidence about any model.
@@ -218,7 +234,11 @@ describe("the gate, against the stub — what it does and does not prove", () =>
   });
 
   it("a silent model leaves the measured half, and every clean world stays quiet", async () => {
-    const run = await runEvalDigest(createStubDigestGateway({ silent: true }), { variantId: "v", cases: CASES, at: AT });
+    const run = await runEvalDigest(createStubDigestGateway({ silent: true }), {
+      variantId: "v",
+      cases: CASES,
+      at: AT,
+    });
     expect(run.results.every((r) => r.model === "empty")).toBe(true);
     expect(run.recall).toBe(1);
     expect(run.precision).toBe(1);
@@ -227,10 +247,11 @@ describe("the gate, against the stub — what it does and does not prove", () =>
   });
 
   it("a model that cannot answer produces no digest for a clean world, and the gate says so", async () => {
-    const run = await runEvalDigest(
-      createStubDigestGateway({ failSlugs: CASES.map((c) => c.input.slug) }),
-      { variantId: "v", cases: CASES, at: AT },
-    );
+    const run = await runEvalDigest(createStubDigestGateway({ failSlugs: CASES.map((c) => c.input.slug) }), {
+      variantId: "v",
+      cases: CASES,
+      at: AT,
+    });
     expect(run.results.every((r) => r.model === "error")).toBe(true);
     // The three clean worlds have nothing measured and nothing modelled -> no digest -> zero.
     const zeroes = run.results.filter((r) => r.score === 0);

@@ -55,13 +55,23 @@ interface ProviderRequest {
  * The body each provider wants. Kept as data rather than as a class per provider: the difference
  * between them really is three field names and a header.
  */
-function requestFor(provider: MailProvider, key: string, from: string, replyTo: string, m: MailMessage): ProviderRequest {
+function requestFor(
+  provider: MailProvider,
+  key: string,
+  from: string,
+  replyTo: string,
+  m: MailMessage,
+): ProviderRequest {
   if (provider === "postmark") {
     return {
       url: "https://api.postmarkapp.com/email",
       headers: { "content-type": "application/json", accept: "application/json", "x-postmark-server-token": key },
       body: {
-        From: from, To: m.to, Subject: m.subject, TextBody: m.text, HtmlBody: m.html,
+        From: from,
+        To: m.to,
+        Subject: m.subject,
+        TextBody: m.text,
+        HtmlBody: m.html,
         MessageStream: envStr("POSTMARK_MESSAGE_STREAM", "outbound"),
         ...(replyTo ? { ReplyTo: replyTo } : {}),
       },
@@ -70,7 +80,14 @@ function requestFor(provider: MailProvider, key: string, from: string, replyTo: 
   return {
     url: "https://api.resend.com/emails",
     headers: { "content-type": "application/json", authorization: `Bearer ${key}` },
-    body: { from, to: [m.to], subject: m.subject, text: m.text, html: m.html, ...(replyTo ? { reply_to: replyTo } : {}) },
+    body: {
+      from,
+      to: [m.to],
+      subject: m.subject,
+      text: m.text,
+      html: m.html,
+      ...(replyTo ? { reply_to: replyTo } : {}),
+    },
   };
 }
 
@@ -96,7 +113,11 @@ export function loginCodeMessage(to: string, code: string, locale: Locale, ttlMi
 }
 
 export class MailSendError extends Error {
-  constructor(readonly provider: string, readonly status: number, readonly detail: string) {
+  constructor(
+    readonly provider: string,
+    readonly status: number,
+    readonly detail: string,
+  ) {
     super(`mail provider ${provider} refused the message (${status})`);
     this.name = "MailSendError";
   }
@@ -147,7 +168,13 @@ export class HttpMailSender implements MailSender {
         if (res.status < 500) break;
       } catch (err: unknown) {
         last = { status: 0, detail: String(err).slice(0, 300) };
-        logLine({ level: "warn", msg: "mail.send.error", provider: this.opts.provider, attempt, error: String(err).slice(0, 200) });
+        logLine({
+          level: "warn",
+          msg: "mail.send.error",
+          provider: this.opts.provider,
+          attempt,
+          error: String(err).slice(0, 200),
+        });
       }
     }
     throw new MailSendError(this.opts.provider, last?.status ?? 0, last?.detail ?? "unknown");
@@ -159,7 +186,10 @@ export class HttpMailSender implements MailSender {
  * the caller's cue to leave the default in place — and which `config-guard.ts` refuses in
  * production, so "no mail configured" cannot reach a real user quietly.
  */
-export function mailSenderFromEnv(opts: { ttlMinutes: number; localeFor?: (email: string) => Promise<Locale> }): MailSender | null {
+export function mailSenderFromEnv(opts: {
+  ttlMinutes: number;
+  localeFor?: (email: string) => Promise<Locale>;
+}): MailSender | null {
   const provider = mailProvider();
   if (!isMailProvider(provider)) return null;
   return new HttpMailSender({

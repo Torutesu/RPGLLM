@@ -75,41 +75,41 @@ function bibleFor(locale: Locale, title: string, premise: string, genre: WorldGe
   const ja = locale === "ja";
   const head = ja
     ? [
-      `# ${title} — ワールドバイブル`,
-      "",
-      `## 前提`,
-      `この世界は次の一行から生まれた:「${premise}」`,
-      `テーマは${GENRE_JA[genre]}。すべては公開され、すべてがスクリーンショットされ、いちばん速い意見が勝つ。`,
-      "",
-      "## トーン",
-      "軽快で、ネットに毒されていて、しかし決して残酷ではない。差別語なし、性的描写なし、自傷の手順なし。",
-      "キャラクターは第四の壁を破らず、自分がAIであることに言及しない。13歳以上向けの基準を常に守る。",
-      "",
-      "## 世界のルール",
-      "1. 投稿は事件である。必ず誰かが反応する。",
-      "2. 数字(いいね・リポスト)は演出であり、キャラクターは口に出さない。",
-      "3. 情報アカウントは本当にニュースがあるときだけ投稿する。",
-      "4. 関係は積み重なる。昨日の一言は今日の態度に残る。",
-      "",
-    ].join("\n")
+        `# ${title} — ワールドバイブル`,
+        "",
+        `## 前提`,
+        `この世界は次の一行から生まれた:「${premise}」`,
+        `テーマは${GENRE_JA[genre]}。すべては公開され、すべてがスクリーンショットされ、いちばん速い意見が勝つ。`,
+        "",
+        "## トーン",
+        "軽快で、ネットに毒されていて、しかし決して残酷ではない。差別語なし、性的描写なし、自傷の手順なし。",
+        "キャラクターは第四の壁を破らず、自分がAIであることに言及しない。13歳以上向けの基準を常に守る。",
+        "",
+        "## 世界のルール",
+        "1. 投稿は事件である。必ず誰かが反応する。",
+        "2. 数字(いいね・リポスト)は演出であり、キャラクターは口に出さない。",
+        "3. 情報アカウントは本当にニュースがあるときだけ投稿する。",
+        "4. 関係は積み重なる。昨日の一言は今日の態度に残る。",
+        "",
+      ].join("\n")
     : [
-      `# ${title} — World Bible`,
-      "",
-      "## Premise",
-      `This world grew out of one line: "${premise}"`,
-      `Its subject is ${GENRE_EN[genre]}. Everything is public, everything gets screenshotted, and the fastest opinion usually wins.`,
-      "",
-      "## Tone",
-      "Playful, chronically online, never cruel. No slurs, no sexual content, no self-harm instructions.",
-      "Characters never break the fourth wall and never mention being an AI. The 13+ bar holds everywhere.",
-      "",
-      "## Rules of the world",
-      "1. A post is an event. Someone always reacts.",
-      "2. Numbers (likes, reposts) are theatre and are never mentioned by characters.",
-      "3. The press account only posts when something is genuinely newsworthy.",
-      "4. Relationships accumulate: a line from yesterday shows up as an attitude today.",
-      "",
-    ].join("\n");
+        `# ${title} — World Bible`,
+        "",
+        "## Premise",
+        `This world grew out of one line: "${premise}"`,
+        `Its subject is ${GENRE_EN[genre]}. Everything is public, everything gets screenshotted, and the fastest opinion usually wins.`,
+        "",
+        "## Tone",
+        "Playful, chronically online, never cruel. No slurs, no sexual content, no self-harm instructions.",
+        "Characters never break the fourth wall and never mention being an AI. The 13+ bar holds everywhere.",
+        "",
+        "## Rules of the world",
+        "1. A post is an event. Someone always reacts.",
+        "2. Numbers (likes, reposts) are theatre and are never mentioned by characters.",
+        "3. The press account only posts when something is genuinely newsworthy.",
+        "4. Relationships accumulate: a line from yesterday shows up as an attitude today.",
+        "",
+      ].join("\n");
 
   const sections: string[] = [head];
   const target = ja ? 12_000 : 20_000;
@@ -120,23 +120,23 @@ function bibleFor(locale: Locale, title: string, premise: string, genre: WorldGe
       sections.push(
         ja
           ? [
-            `## ${r.ja}(@${r.handle}) — 場面 ${round}`,
-            `役割: ${r.role}。この世界では${GENRE_JA[genre]}という主題を、${r.ja}の立場から引き受ける。`,
-            `声: 短い文。断定と保留を交互に使う。相手の名前を呼ぶより、状況を名指しする。絵文字は多くて一つ。`,
-            `関係: 主人公が伸びると距離を測り直す。裏切りではなく、位置取りとして。第 ${round} 段階では前より一歩近い。`,
-            `禁止: 実在の人物への言及、性的な話題、自傷や暴力の具体、他キャラの口調の模倣。`,
-            `典型的な一言: 「それ、今夜の空気を全部持っていくやつだ。」`,
-            "",
-          ].join("\n")
+              `## ${r.ja}(@${r.handle}) — 場面 ${round}`,
+              `役割: ${r.role}。この世界では${GENRE_JA[genre]}という主題を、${r.ja}の立場から引き受ける。`,
+              `声: 短い文。断定と保留を交互に使う。相手の名前を呼ぶより、状況を名指しする。絵文字は多くて一つ。`,
+              `関係: 主人公が伸びると距離を測り直す。裏切りではなく、位置取りとして。第 ${round} 段階では前より一歩近い。`,
+              `禁止: 実在の人物への言及、性的な話題、自傷や暴力の具体、他キャラの口調の模倣。`,
+              `典型的な一言: 「それ、今夜の空気を全部持っていくやつだ。」`,
+              "",
+            ].join("\n")
           : [
-            `## ${r.en} (@${r.handle}) — beat ${round}`,
-            `Role: ${r.role}. Carries the world's subject — ${GENRE_EN[genre]} — from this angle and no other.`,
-            `Voice: short sentences, alternating certainty and hedge. Names the situation more often than the person. At most one emoji.`,
-            `Relationships: re-measures the distance whenever the player grows. Not betrayal, positioning. By beat ${round} they stand a step closer than before.`,
-            `Never: real people, sexual content, specifics of self-harm or violence, imitating another character's cadence.`,
-            `Typical line: "that's going to take the whole night with it."`,
-            "",
-          ].join("\n"),
+              `## ${r.en} (@${r.handle}) — beat ${round}`,
+              `Role: ${r.role}. Carries the world's subject — ${GENRE_EN[genre]} — from this angle and no other.`,
+              `Voice: short sentences, alternating certainty and hedge. Names the situation more often than the person. At most one emoji.`,
+              `Relationships: re-measures the distance whenever the player grows. Not betrayal, positioning. By beat ${round} they stand a step closer than before.`,
+              `Never: real people, sexual content, specifics of self-harm or violence, imitating another character's cadence.`,
+              `Typical line: "that's going to take the whole night with it."`,
+              "",
+            ].join("\n"),
       );
     }
   }
@@ -174,7 +174,11 @@ export interface StandInSeedInput {
 export function buildStandInWorldSeed(input: StandInSeedInput): WorldSeed {
   const premise = tamePremise(input.premise);
   const rnd = seededRandom(input.seed || 1);
-  const titleEn = premise.split(/[,.;:]/)[0]?.slice(0, 48).trim() || "A brand new world";
+  const titleEn =
+    premise
+      .split(/[,.;:]/)[0]
+      ?.slice(0, 48)
+      .trim() || "A brand new world";
   const titleJa = `${titleEn}(仮題)`;
   const difficulty = 1 + Math.floor(rnd() * 3);
 
@@ -206,9 +210,21 @@ export function buildStandInWorldSeed(input: StandInSeedInput): WorldSeed {
       `${titleJa}で、見ていない間に何かが動いた。どうする?`,
     ),
     choices: [
-      { label: bi("Say it out loud", "はっきり言う"), outcomeText: bi("The timeline turned its head.", "タイムラインが一斉に振り向いた。"), statDeltas: { followers: 6, aura: 3, humor: 0 } },
-      { label: bi("Show the receipts", "証拠を出す"), outcomeText: bi("Boring, dated, devastating.", "地味で、日付入りで、致命的だった。"), statDeltas: { followers: 4, aura: 5, humor: 1 } },
-      { label: bi("Say nothing", "何も言わない"), outcomeText: bi("Silence did the work.", "沈黙が仕事をした。"), statDeltas: { followers: 2, aura: 2, humor: 2 } },
+      {
+        label: bi("Say it out loud", "はっきり言う"),
+        outcomeText: bi("The timeline turned its head.", "タイムラインが一斉に振り向いた。"),
+        statDeltas: { followers: 6, aura: 3, humor: 0 },
+      },
+      {
+        label: bi("Show the receipts", "証拠を出す"),
+        outcomeText: bi("Boring, dated, devastating.", "地味で、日付入りで、致命的だった。"),
+        statDeltas: { followers: 4, aura: 5, humor: 1 },
+      },
+      {
+        label: bi("Say nothing", "何も言わない"),
+        outcomeText: bi("Silence did the work.", "沈黙が仕事をした。"),
+        statDeltas: { followers: 2, aura: 2, humor: 2 },
+      },
     ] as WorldSeed["presetEvents"][number]["choices"],
   }));
 
@@ -216,10 +232,7 @@ export function buildStandInWorldSeed(input: StandInSeedInput): WorldSeed {
   const welcomePosts: WorldSeed["welcomePosts"] = {};
   for (const r of ROLES) {
     fallbackReplies[r.handle] = { en: enLines(r).slice(0, 5), ja: jaLines(r).slice(0, 5) };
-    welcomePosts[r.handle] = bi(
-      `welcome to ${titleEn}. keep up.`,
-      `${titleJa}へようこそ。ついてきて。`,
-    );
+    welcomePosts[r.handle] = bi(`welcome to ${titleEn}. keep up.`, `${titleJa}へようこそ。ついてきて。`);
   }
 
   const ambientPool = Object.fromEntries(

@@ -43,7 +43,11 @@ function Stat({ label, value, testID }: { label: string; value: string; testID?:
       >
         {value}
       </Text>
-      <Text importantForAccessibility="no" numberOfLines={2} style={[typo.micro, { color: colors.textMuted, textAlign: "center" }]}>
+      <Text
+        importantForAccessibility="no"
+        numberOfLines={2}
+        style={[typo.micro, { color: colors.textMuted, textAlign: "center" }]}
+      >
         {label.toUpperCase()}
       </Text>
     </View>
@@ -155,7 +159,11 @@ export default function CreatorPage() {
 
           {phase === "error" && !profile ? (
             <View style={{ gap: spacing.md, paddingTop: spacing.xxl }}>
-              <Text accessibilityRole="alert" accessibilityLiveRegion="polite" style={[typo.h2, { color: colors.text }]}>
+              <Text
+                accessibilityRole="alert"
+                accessibilityLiveRegion="polite"
+                style={[typo.h2, { color: colors.text }]}
+              >
                 {t("loadFailed")}
               </Text>
               <Button label={t("retry")} variant="secondary" onPress={() => void load()} />
@@ -206,8 +214,16 @@ export default function CreatorPage() {
                   borderColor: colors.border,
                 }}
               >
-                <Stat testID={T.creatorWorldCount} label={t("creatorWorlds")} value={compactNumber(profile.worldCount)} />
-                <Stat testID={T.creatorTotalPlays} label={t("creatorPlays")} value={compactNumber(profile.totalPlays)} />
+                <Stat
+                  testID={T.creatorWorldCount}
+                  label={t("creatorWorlds")}
+                  value={compactNumber(profile.worldCount)}
+                />
+                <Stat
+                  testID={T.creatorTotalPlays}
+                  label={t("creatorPlays")}
+                  value={compactNumber(profile.totalPlays)}
+                />
                 <Stat label={t("creatorSince")} value={since} />
               </View>
 

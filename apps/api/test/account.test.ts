@@ -7,8 +7,12 @@ let h: Harness;
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
-beforeAll(() => { h = makeHarness(); });
-beforeEach(async () => { await resetDatabase(); });
+beforeAll(() => {
+  h = makeHarness();
+});
+beforeEach(async () => {
+  await resetDatabase();
+});
 
 const deleteAccount = (token: string) =>
   call<{ deletedAt: string; purgeAt: string }>(h, "POST", "/v1/account/delete", { token, body: { confirm: "DELETE" } });
@@ -84,19 +88,31 @@ describe("S1-1 account deletion (App Store 5.1.1(v))", () => {
 
     // a DM thread + message, a report, a rating-free generation log and a ledger entry
     const thread = await call<{ thread: { id: string } }>(h, "POST", "/v1/dms", {
-      token: victim.token, body: { personaId: victim.personaId, characterId: victim.firstFollowerId },
+      token: victim.token,
+      body: { personaId: victim.personaId, characterId: victim.firstFollowerId },
     });
     await prisma.dMMessage.create({ data: { threadId: thread.data.thread.id, fromCharacter: false, text: "hi" } });
     const post = await prisma.post.create({
       data: { worldId: victim.worldId, personaId: victim.personaId, kind: "user", text: "mine" },
     });
     await call(h, "POST", "/v1/moderation/report", {
-      token: victim.token, body: { target: "post", targetId: post.id, reason: "other", note: "" },
+      token: victim.token,
+      body: { target: "post", targetId: post.id, reason: "other", note: "" },
     });
     await prisma.generationLog.create({
       data: {
-        userId: victim.userId, generator: "G1", variantId: "v", model: "m", promptHash: "h",
-        inputTokens: 1, cacheWriteTokens: 0, cacheReadTokens: 0, outputTokens: 1, costUsd: 0, latencyMs: 1, stopReason: "end_turn",
+        userId: victim.userId,
+        generator: "G1",
+        variantId: "v",
+        model: "m",
+        promptHash: "h",
+        inputTokens: 1,
+        cacheWriteTokens: 0,
+        cacheReadTokens: 0,
+        outputTokens: 1,
+        costUsd: 0,
+        latencyMs: 1,
+        stopReason: "end_turn",
       },
     });
 
@@ -145,11 +161,18 @@ describe("S1-1 data export (GDPR / APPI)", () => {
   it("exports only the caller's own rows", async () => {
     const mine = await signupWithPersona(h);
     const theirs = await signupWithPersona(h);
-    await prisma.post.create({ data: { worldId: mine.worldId, personaId: mine.personaId, kind: "user", text: "mine only" } });
-    await prisma.post.create({ data: { worldId: theirs.worldId, personaId: theirs.personaId, kind: "user", text: "theirs only" } });
+    await prisma.post.create({
+      data: { worldId: mine.worldId, personaId: mine.personaId, kind: "user", text: "mine only" },
+    });
+    await prisma.post.create({
+      data: { worldId: theirs.worldId, personaId: theirs.personaId, kind: "user", text: "theirs only" },
+    });
 
     const res = await call<{
-      user: { id: string }; personas: { id: string }[]; posts: { text: string }[]; truncated: boolean;
+      user: { id: string };
+      personas: { id: string }[];
+      posts: { text: string }[];
+      truncated: boolean;
     }>(h, "GET", "/v1/account/export", { token: mine.token });
 
     expect(res.status).toBe(200);
@@ -164,10 +187,15 @@ describe("S1-1 data export (GDPR / APPI)", () => {
     const mine = await signupWithPersona(h);
     await prisma.post.createMany({
       data: Array.from({ length: EXPORT_LIMIT + 5 }, (_, i) => ({
-        worldId: mine.worldId, personaId: mine.personaId, kind: "user" as const, text: `p${i}`,
+        worldId: mine.worldId,
+        personaId: mine.personaId,
+        kind: "user" as const,
+        text: `p${i}`,
       })),
     });
-    const res = await call<{ posts: unknown[]; truncated: boolean }>(h, "GET", "/v1/account/export", { token: mine.token });
+    const res = await call<{ posts: unknown[]; truncated: boolean }>(h, "GET", "/v1/account/export", {
+      token: mine.token,
+    });
     expect(res.data.posts.length).toBe(EXPORT_LIMIT);
     expect(res.data.truncated).toBe(true);
   });
@@ -176,11 +204,17 @@ describe("S1-1 data export (GDPR / APPI)", () => {
 describe("S1-6 analytics consent", () => {
   it("stores the choice for an adult", async () => {
     const { token, userId } = await signup(h, { birthYear: 1990 });
-    const on = await call<{ analytics: boolean; locked: boolean }>(h, "POST", "/v1/account/consent", { token, body: { analytics: true } });
+    const on = await call<{ analytics: boolean; locked: boolean }>(h, "POST", "/v1/account/consent", {
+      token,
+      body: { analytics: true },
+    });
     expect(on.data).toEqual({ analytics: true, locked: false });
     expect((await prisma.user.findUniqueOrThrow({ where: { id: userId } })).analyticsConsent).toBe(true);
 
-    const off = await call<{ analytics: boolean }>(h, "POST", "/v1/account/consent", { token, body: { analytics: false } });
+    const off = await call<{ analytics: boolean }>(h, "POST", "/v1/account/consent", {
+      token,
+      body: { analytics: false },
+    });
     expect(off.data.analytics).toBe(false);
     expect((await prisma.user.findUniqueOrThrow({ where: { id: userId } })).analyticsConsent).toBe(false);
   });
@@ -190,7 +224,10 @@ describe("S1-6 analytics consent", () => {
     const { token, userId } = await signup(h, { birthYear: minorYear });
     expect((await prisma.user.findUniqueOrThrow({ where: { id: userId } })).isMinor).toBe(true);
 
-    const res = await call<{ analytics: boolean; locked: boolean }>(h, "POST", "/v1/account/consent", { token, body: { analytics: true } });
+    const res = await call<{ analytics: boolean; locked: boolean }>(h, "POST", "/v1/account/consent", {
+      token,
+      body: { analytics: true },
+    });
     expect(res.data).toEqual({ analytics: false, locked: true });
     expect((await prisma.user.findUniqueOrThrow({ where: { id: userId } })).analyticsConsent).toBe(false);
   });

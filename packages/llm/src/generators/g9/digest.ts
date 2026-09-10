@@ -92,13 +92,7 @@ import {
 export const DIGEST_VARIANT_ID = "G9-digest@v1";
 
 /** The caps live with the deterministic half, which is bound by them too. Re-exported here. */
-export {
-  DIGEST_MAX_POINTS,
-  DIGEST_MAX_PER_RULE,
-  DIGEST_CONCERN_MAX,
-  DIGEST_EVIDENCE_MAX,
-  DIGEST_EVIDENCE_MIN,
-};
+export { DIGEST_MAX_POINTS, DIGEST_MAX_PER_RULE, DIGEST_CONCERN_MAX, DIGEST_EVIDENCE_MAX, DIGEST_EVIDENCE_MIN };
 
 /** How much of the world the excerpt carries. The digest reads a sample, and says so. */
 export const DIGEST_EXCERPT = {
@@ -297,19 +291,13 @@ export function worldChars(world: WorldSeed): number {
  * five numbers, so the model spends its output on what only it can see.
  */
 export function measuredBlock(world: WorldSeed): string {
-  const jaText = [
-    world.scenario.ja ?? "",
-    world.bible.ja ?? "",
-    ...world.cast.map((c) => c.card.ja ?? ""),
-  ].join("\n");
+  const jaText = [world.scenario.ja ?? "", world.bible.ja ?? "", ...world.cast.map((c) => c.card.ja ?? "")].join("\n");
   const twins = world.cast.flatMap((c) => [
     { en: c.card.en ?? "", ja: c.card.ja ?? "" },
     { en: c.intro.en ?? "", ja: c.intro.ja ?? "" },
   ]);
   const echoed = twins.filter((t) => t.ja.trim().length > 0 && t.ja.trim() === t.en.trim()).length;
-  const untranslatedRoles = world.cast.filter(
-    (c) => cjkDensity((c.roleLocalized?.ja ?? c.role).trim()) === 0,
-  ).length;
+  const untranslatedRoles = world.cast.filter((c) => cjkDensity((c.roleLocalized?.ja ?? c.role).trim()) === 0).length;
   return [
     `cast accounts: ${world.cast.length} (press: ${world.cast.filter((c) => c.isPressAccount).length})`,
     `preset events: ${world.presetEvents.length}`,
@@ -321,9 +309,7 @@ export function measuredBlock(world: WorldSeed): string {
 
 function alreadyFound(points: readonly ReviewPoint[]): string {
   if (points.length === 0) return "(nothing)";
-  return points
-    .map((p) => `- [${p.rule}] ${clamp(p.concern, 120)} — quoting: "${clamp(p.evidence, 60)}"`)
-    .join("\n");
+  return points.map((p) => `- [${p.rule}] ${clamp(p.concern, 120)} — quoting: "${clamp(p.evidence, 60)}"`).join("\n");
 }
 
 /* -------------------------------------------------------------------- repair ---- */
@@ -437,11 +423,56 @@ export function readsAsVerdict(concern: string): boolean {
  * the point: that sentence gives a reviewer nothing to search for.
  */
 const CONCERN_STOPWORDS: ReadonlySet<string> = new Set([
-  "The", "This", "These", "Those", "Japanese", "English", "Both", "Two", "Three", "Four", "Five",
-  "Six", "Seven", "Eight", "Nine", "Ten", "One", "Cast", "Card", "Bible", "World", "Press",
-  "Player", "Reviewer", "Original", "Age", "Playable", "Locales", "Vector", "Names", "Reads",
-  "Every", "Several", "Most", "Some", "None", "Their", "There", "What", "When", "Which", "While",
-  "Nothing", "Neither", "Its", "It", "An", "And", "But", "For",
+  "The",
+  "This",
+  "These",
+  "Those",
+  "Japanese",
+  "English",
+  "Both",
+  "Two",
+  "Three",
+  "Four",
+  "Five",
+  "Six",
+  "Seven",
+  "Eight",
+  "Nine",
+  "Ten",
+  "One",
+  "Cast",
+  "Card",
+  "Bible",
+  "World",
+  "Press",
+  "Player",
+  "Reviewer",
+  "Original",
+  "Age",
+  "Playable",
+  "Locales",
+  "Vector",
+  "Names",
+  "Reads",
+  "Every",
+  "Several",
+  "Most",
+  "Some",
+  "None",
+  "Their",
+  "There",
+  "What",
+  "When",
+  "Which",
+  "While",
+  "Nothing",
+  "Neither",
+  "Its",
+  "It",
+  "An",
+  "And",
+  "But",
+  "For",
 ]);
 const PROPER_NOUN_RE = /\b[A-Z][a-zA-Z]{2,}\b/g;
 const KATAKANA_RUN_RE = /[ァ-ヺー]{3,}/;

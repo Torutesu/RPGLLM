@@ -166,7 +166,11 @@ export default function EnergyModal() {
               {error}
             </Text>
           ) : null}
-          {pendingPost ? <Text style={{ color: colors.textMuted, fontSize: font.xs }} numberOfLines={1}>{pendingPost.text}</Text> : null}
+          {pendingPost ? (
+            <Text style={{ color: colors.textMuted, fontSize: font.xs }} numberOfLines={1}>
+              {pendingPost.text}
+            </Text>
+          ) : null}
         </View>
       </ScrollView>
     </Screen>

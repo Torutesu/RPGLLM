@@ -37,7 +37,10 @@ export const adminTokensRaw = (): string => envStr("ADMIN_TOKENS", "");
 export const SHARED_NAME = "shared";
 const NAME_MAX = 64;
 
-export interface AdminCredential { name: string; secret: string }
+export interface AdminCredential {
+  name: string;
+  secret: string;
+}
 
 /**
  * Parses the pair list. A malformed entry is dropped rather than throwing: this is read on every
@@ -102,11 +105,7 @@ export const adminAuthorized = (presented: string | undefined): boolean => ident
  * as a label and prefixed, which makes "this decision cannot be pinned on anyone" a thing you can
  * grep for rather than something you have to know.
  */
-export function reviewerNameFor(
-  identity: AdminIdentity | null,
-  claimedName: string,
-  fallback: string,
-): string {
+export function reviewerNameFor(identity: AdminIdentity | null, claimedName: string, fallback: string): string {
   const claimed = claimedName.trim().slice(0, NAME_MAX);
   if (identity?.attributable === true) return identity.name;
   if (identity !== null) return claimed === "" ? SHARED_NAME : `${SHARED_NAME}:${claimed}`;

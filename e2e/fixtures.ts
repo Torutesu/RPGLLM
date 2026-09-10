@@ -34,11 +34,20 @@ export const ROUTES = {
 export const apiUrl = (p: string): string => `${API_URL}${p.startsWith("/") ? p : `/${p}`}`;
 export const bearer = (jwt: string): Record<string, string> => ({ authorization: `Bearer ${jwt}` });
 
-export interface ApiError { code: string; message: string }
-interface Envelope<T> { data: T; error: ApiError | null }
+export interface ApiError {
+  code: string;
+  message: string;
+}
+interface Envelope<T> {
+  data: T;
+  error: ApiError | null;
+}
 
 /** Structural: satisfied by both `APIResponse` (request context) and `Response` (page network). */
-export interface ReadableResponse { status(): number; text(): Promise<string> }
+export interface ReadableResponse {
+  status(): number;
+  text(): Promise<string>;
+}
 
 export async function unwrap<T>(res: ReadableResponse, what: string): Promise<T> {
   const body = await res.text();
@@ -57,8 +66,14 @@ export async function errorOf(res: APIResponse): Promise<ApiError | null> {
 }
 
 export interface Wallet {
-  energy: number; coffee: number; gems: number; dailyRefillAt: string;
-  adRewardsToday: number; adsEnabled: boolean; adPersonalized: boolean; dailyMax: number;
+  energy: number;
+  coffee: number;
+  gems: number;
+  dailyRefillAt: string;
+  adRewardsToday: number;
+  adsEnabled: boolean;
+  adPersonalized: boolean;
+  dailyMax: number;
 }
 export interface Me {
   user: { id: string; locale: Locale; isMinor: boolean; birthYear: number | null };
@@ -67,16 +82,33 @@ export interface Me {
   persona: { id: string; handle: string; followers: number; aura: number; humor: number; actionCount: number } | null;
 }
 export interface ApiPost {
-  id: string; kind: string; text: string; parentId: string | null;
+  id: string;
+  kind: string;
+  text: string;
+  parentId: string | null;
   author: { handle: string; displayName: string; verified: boolean; isYou: boolean };
-  generationId: string | null; createdAt: string;
+  generationId: string | null;
+  createdAt: string;
   replies?: ApiPost[];
 }
-export interface PostDetail { post: ApiPost; replies: ApiPost[]; moreAvailable: boolean }
+export interface PostDetail {
+  post: ApiPost;
+  replies: ApiPost[];
+  moreAvailable: boolean;
+}
 export interface GenerationLogRow {
-  id: string; generator: string; variantId: string; model: string;
-  inputTokens: number; cacheReadTokens: number; cacheWriteTokens: number; outputTokens: number;
-  costUsd: number | string; escalatedFrom: string | null; safetyVerdict: string | null; createdAt: string;
+  id: string;
+  generator: string;
+  variantId: string;
+  model: string;
+  inputTokens: number;
+  cacheReadTokens: number;
+  cacheWriteTokens: number;
+  outputTokens: number;
+  costUsd: number | string;
+  escalatedFrom: string | null;
+  safetyVerdict: string | null;
+  createdAt: string;
 }
 
 /* --------------------------------------------------------------- signup ---- */
@@ -95,14 +127,26 @@ export async function apiEmailAuth(request: APIRequestContext, email: string): P
   const tried: string[] = [];
   for (const p of ["/v1/auth/email", "/v1/auth/email/verify"]) {
     const res = await request.post(apiUrl(p), { data: { email, code: DEV_EMAIL_CODE }, failOnStatusCode: false });
-    if (res.status() === 404 || res.status() === 405) { tried.push(`${p} -> ${res.status()}`); continue; }
+    if (res.status() === 404 || res.status() === 405) {
+      tried.push(`${p} -> ${res.status()}`);
+      continue;
+    }
     return (await unwrap<{ jwt: string }>(res, `POST ${p}`)).jwt;
   }
   throw new Error(`no email verify endpoint answered (${tried.join(", ")})`);
 }
 
-export interface SignupOptions { email?: string; birthYear?: number; locale?: Locale }
-export interface Account { email: string; jwt: string; isMinor: boolean; birthYear: number }
+export interface SignupOptions {
+  email?: string;
+  birthYear?: number;
+  locale?: Locale;
+}
+export interface Account {
+  email: string;
+  jwt: string;
+  isMinor: boolean;
+  birthYear: number;
+}
 
 export const yearsAgo = (years: number): number => new Date().getFullYear() - years;
 
@@ -113,7 +157,9 @@ export async function apiSignup(request: APIRequestContext, opts: SignupOptions 
   const birthYear = opts.birthYear ?? yearsAgo(25);
   const jwt = await apiEmailAuth(request, email);
   const res = await request.post(apiUrl("/v1/auth/age-gate"), {
-    headers: bearer(jwt), data: { birthYear, locale }, failOnStatusCode: false,
+    headers: bearer(jwt),
+    data: { birthYear, locale },
+    failOnStatusCode: false,
   });
   const { isMinor } = await unwrap<{ isMinor: boolean }>(res, "POST /v1/auth/age-gate");
   return { email, jwt, isMinor, birthYear };
@@ -135,14 +181,18 @@ export async function resetDb(request: APIRequestContext): Promise<void> {
  */
 export async function setGems(request: APIRequestContext, jwt: string, gems: number): Promise<void> {
   const res = await request.post(apiUrl("/v1/__test/set-gems"), {
-    headers: bearer(jwt), data: { gems }, failOnStatusCode: false,
+    headers: bearer(jwt),
+    data: { gems },
+    failOnStatusCode: false,
   });
   await unwrap(res, "POST /v1/__test/set-gems");
 }
 
 export async function setEnergy(request: APIRequestContext, jwt: string, energy: number): Promise<void> {
   const res = await request.post(apiUrl("/v1/__test/set-energy"), {
-    headers: bearer(jwt), data: { energy }, failOnStatusCode: false,
+    headers: bearer(jwt),
+    data: { energy },
+    failOnStatusCode: false,
   });
   expect(res.status(), `POST /v1/__test/set-energy {energy:${energy}}`).toBeLessThan(400);
 }
@@ -155,7 +205,9 @@ export async function syncWallet(page: Page): Promise<void> {
 
 export async function timeTravel(request: APIRequestContext, days: number, jwt?: string): Promise<void> {
   const res = await request.post(apiUrl("/v1/__test/time-travel"), {
-    headers: jwt ? bearer(jwt) : undefined, data: { days }, failOnStatusCode: false,
+    headers: jwt ? bearer(jwt) : undefined,
+    data: { days },
+    failOnStatusCode: false,
   });
   expect(res.status(), `POST /v1/__test/time-travel {days:${days}}`).toBeLessThan(400);
 }
@@ -171,11 +223,14 @@ export async function setLlmMode(request: APIRequestContext, mode: LlmMode): Pro
  * public endpoint for logs and E2E-009/013/014 assert on them.
  */
 export async function generations(
-  request: APIRequestContext, jwt: string, query: { postId?: string; generator?: string; userId?: string },
+  request: APIRequestContext,
+  jwt: string,
+  query: { postId?: string; generator?: string; userId?: string },
 ): Promise<GenerationLogRow[]> {
   const qs = new URLSearchParams(Object.entries(query).filter((e): e is [string, string] => e[1] !== undefined));
   const res = await request.get(apiUrl(`/v1/__test/generations?${qs.toString()}`), {
-    headers: bearer(jwt), failOnStatusCode: false,
+    headers: bearer(jwt),
+    failOnStatusCode: false,
   });
   const data = await unwrap<{ logs: GenerationLogRow[] } | GenerationLogRow[]>(res, `GET /v1/__test/generations?${qs}`);
   return Array.isArray(data) ? data : data.logs;
@@ -184,11 +239,17 @@ export async function generations(
 /* ------------------------------------------------------------- API reads ---- */
 
 export async function me(request: APIRequestContext, jwt: string): Promise<Me> {
-  return unwrap<Me>(await request.get(apiUrl("/v1/me"), { headers: bearer(jwt), failOnStatusCode: false }), "GET /v1/me");
+  return unwrap<Me>(
+    await request.get(apiUrl("/v1/me"), { headers: bearer(jwt), failOnStatusCode: false }),
+    "GET /v1/me",
+  );
 }
 
 export async function wallet(request: APIRequestContext, jwt: string): Promise<Wallet> {
-  return unwrap<Wallet>(await request.get(apiUrl("/v1/wallet"), { headers: bearer(jwt), failOnStatusCode: false }), "GET /v1/wallet");
+  return unwrap<Wallet>(
+    await request.get(apiUrl("/v1/wallet"), { headers: bearer(jwt), failOnStatusCode: false }),
+    "GET /v1/wallet",
+  );
 }
 
 export async function postDetail(request: APIRequestContext, jwt: string, postId: string): Promise<PostDetail> {
@@ -206,7 +267,9 @@ export async function assignments(request: APIRequestContext, jwt: string): Prom
 }
 
 export async function dmThreads(
-  request: APIRequestContext, jwt: string, personaId: string,
+  request: APIRequestContext,
+  jwt: string,
+  personaId: string,
 ): Promise<{ threads: Array<{ id: string; character: { handle: string } }> }> {
   return unwrap<{ threads: Array<{ id: string; character: { handle: string } }> }>(
     await request.get(apiUrl(`/v1/dms?personaId=${personaId}`), { headers: bearer(jwt), failOnStatusCode: false }),
@@ -215,8 +278,13 @@ export async function dmThreads(
 }
 
 export async function dmThread(
-  request: APIRequestContext, jwt: string, threadId: string,
-): Promise<{ messages: Array<{ id: string; fromCharacter: boolean; text: string }>; relationship: { affinity: number } }> {
+  request: APIRequestContext,
+  jwt: string,
+  threadId: string,
+): Promise<{
+  messages: Array<{ id: string; fromCharacter: boolean; text: string }>;
+  relationship: { affinity: number };
+}> {
   return unwrap(
     await request.get(apiUrl(`/v1/dms/${threadId}`), { headers: bearer(jwt), failOnStatusCode: false }),
     `GET /v1/dms/${threadId}`,
@@ -229,7 +297,11 @@ export async function dmThread(
 export async function loginInBrowser(page: Page, jwt: string): Promise<void> {
   await page.addInitScript(
     ([key, value]: [string, string]) => {
-      try { window.localStorage.setItem(key, value); } catch { /* private mode */ }
+      try {
+        window.localStorage.setItem(key, value);
+      } catch {
+        /* private mode */
+      }
     },
     [TOKEN_KEY, jwt] as [string, string],
   );
@@ -237,7 +309,11 @@ export async function loginInBrowser(page: Page, jwt: string): Promise<void> {
 
 export async function browserToken(page: Page): Promise<string | null> {
   return page.evaluate((key: string) => {
-    try { return window.localStorage.getItem(key); } catch { return null; }
+    try {
+      return window.localStorage.getItem(key);
+    } catch {
+      return null;
+    }
   }, TOKEN_KEY);
 }
 
@@ -253,7 +329,12 @@ export async function gotoApp(page: Page, route: string): Promise<void> {
 }
 
 async function appear(loc: Locator, timeout = 15_000): Promise<boolean> {
-  try { await loc.waitFor({ state: "visible", timeout }); return true; } catch { return false; }
+  try {
+    await loc.waitFor({ state: "visible", timeout });
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 /** SCR-002 email sign-in, driven through the UI (used by the cases that test the auth screen). */
@@ -283,11 +364,16 @@ export async function uiAgeGate(page: Page, birthYear: number): Promise<void> {
 }
 
 export interface EnterWorldOptions {
-  worldSlug?: string; personaHandle?: string; followerHandle?: string;
+  worldSlug?: string;
+  personaHandle?: string;
+  followerHandle?: string;
 }
 
 /** Reads the seeded world's first preset persona and first eligible follower through the API (bearer from the browser). */
-export async function worldPresets(page: Page, worldSlug: string): Promise<{ personaHandle: string | null; followerHandle: string | null }> {
+export async function worldPresets(
+  page: Page,
+  worldSlug: string,
+): Promise<{ personaHandle: string | null; followerHandle: string | null }> {
   const jwt = await browserToken(page);
   const headers = jwt ? bearer(jwt) : {};
   try {
@@ -299,11 +385,17 @@ export async function worldPresets(page: Page, worldSlug: string): Promise<{ per
      */
     const detail = await page.request.get(apiUrl(`/v1/worlds/${worldSlug}`), { headers, failOnStatusCode: false });
     if (!detail.ok()) return { personaHandle: null, followerHandle: null };
-    const d = ((await detail.json()) as { data: { characters: { handle: string; canBeFirstFollower: boolean }[]; presetPersonas: { handle: string }[] } }).data;
+    const d = (
+      (await detail.json()) as {
+        data: { characters: { handle: string; canBeFirstFollower: boolean }[]; presetPersonas: { handle: string }[] };
+      }
+    ).data;
     const strip = (h: string) => h.replace(/^@/, "");
     return {
       personaHandle: d.presetPersonas[0] ? strip(d.presetPersonas[0].handle) : null,
-      followerHandle: d.characters.find((c) => c.canBeFirstFollower) ? strip(d.characters.find((c) => c.canBeFirstFollower)!.handle) : null,
+      followerHandle: d.characters.find((c) => c.canBeFirstFollower)
+        ? strip(d.characters.find((c) => c.canBeFirstFollower)!.handle)
+        : null,
     };
   } catch {
     return { personaHandle: null, followerHandle: null };
@@ -338,13 +430,16 @@ export async function enterWorld(page: Page, opts: EnterWorldOptions = {}): Prom
   await page.getByTestId(T.enterWorld).click();
 
   // SCR-006 → "Planting the first ripple…" overlay → SCR-010, ≤10s per E2E-002
-  await expect(page.getByTestId(T.feedList), "feed must appear within 10s of Enter the world")
-    .toBeVisible({ timeout: 10_000 });
+  await expect(page.getByTestId(T.feedList), "feed must appear within 10s of Enter the world").toBeVisible({
+    timeout: 10_000,
+  });
 }
 
 /** Signup + browser login + world entry — the common prelude of most cases. */
 export async function signupAndEnter(
-  page: Page, request: APIRequestContext, opts: SignupOptions & EnterWorldOptions = {},
+  page: Page,
+  request: APIRequestContext,
+  opts: SignupOptions & EnterWorldOptions = {},
 ): Promise<Account> {
   const account = await apiSignup(request, opts);
   await loginInBrowser(page, account.jwt);
@@ -363,8 +458,7 @@ export const POST_CELL =
   ':not([data-testid="post-author"]):not([data-testid="post-time"]):not([data-testid^="post-media-"])';
 
 /** Any character reaction rendered either as a feed cell of kind `character` or a thread reply. */
-export const REACTION =
-  `[data-testid="${T.postKind("character")}"], [data-testid^="reply-"]:not([data-testid="${T.replyBtn}"])`;
+export const REACTION = `[data-testid="${T.postKind("character")}"], [data-testid^="reply-"]:not([data-testid="${T.replyBtn}"])`;
 
 export function postCells(page: Page): Locator {
   return page.locator(POST_CELL);
@@ -411,9 +505,7 @@ export function repliesBy(page: Page, handle: string): Locator {
  * The 👎 button for a reply. `T.rateDown(id)` is keyed on the post id in the client we assume;
  * the generation id is accepted too, and finally any rate-down inside the reply cell.
  */
-export async function rateDownFor(
-  page: Page, reply: { id: string; generationId: string | null },
-): Promise<Locator> {
+export async function rateDownFor(page: Page, reply: { id: string; generationId: string | null }): Promise<Locator> {
   for (const key of [reply.id, reply.generationId]) {
     if (!key) continue;
     const byId = page.getByTestId(T.rateDown(key));
@@ -485,13 +577,14 @@ export async function badgeEnergy(page: Page): Promise<number> {
 }
 
 export async function expectBadgeEnergy(page: Page, n: number, timeout = 15_000): Promise<void> {
-  await expect
-    .poll(() => badgeEnergy(page), { timeout, message: `energy badge should read ${n}` })
-    .toBe(n);
+  await expect.poll(() => badgeEnergy(page), { timeout, message: `energy badge should read ${n}` }).toBe(n);
 }
 
 export async function expectWalletEnergy(
-  request: APIRequestContext, jwt: string, n: number, timeout = 15_000,
+  request: APIRequestContext,
+  jwt: string,
+  n: number,
+  timeout = 15_000,
 ): Promise<void> {
   await expect
     .poll(async () => (await wallet(request, jwt)).energy, { timeout, message: `/v1/wallet energy should be ${n}` })
@@ -513,7 +606,10 @@ export async function energyModalValue(page: Page): Promise<number> {
   return m ? Number(m[0]) : Number.NaN;
 }
 
-export interface AdReward { energy: number; adRewardsToday: number }
+export interface AdReward {
+  energy: number;
+  adRewardsToday: number;
+}
 
 /** Watches the mock rewarded ad (`TEST_AD_TOKEN`) and returns the reward the server granted. */
 export async function watchAd(page: Page): Promise<AdReward> {
@@ -578,8 +674,7 @@ export async function firstPostFlow(page: Page, text: string = FIRST_POST_TEXT):
   for (const id of [T.statAura, T.statFollowers, T.statHumor]) {
     await expect(page.getByTestId(id), `${id} must show a value`).toHaveText(/\S/);
   }
-  await expect(page.getByTestId(T.statNarrative), "narrative must be 1-2 sentences, not empty")
-    .toHaveText(/\S/);
+  await expect(page.getByTestId(T.statNarrative), "narrative must be 1-2 sentences, not empty").toHaveText(/\S/);
 
   return postId;
 }

@@ -87,30 +87,59 @@ describe("machine checks", () => {
 describe("the judge", () => {
   it("is deterministic and moves with the candidate", () => {
     const base = { locale: "en" as const, generator: "G1" as const, caseLabel: "t", context: "c" };
-    const a = scoreCandidateOffline({ ...base, candidate: JSON.stringify({ replies: [{ text: "one" }, { text: "two" }] }) });
-    const b = scoreCandidateOffline({ ...base, candidate: JSON.stringify({ replies: [{ text: "one" }, { text: "two" }] }) });
-    const c = scoreCandidateOffline({ ...base, candidate: JSON.stringify({ replies: [{ text: "one" }, { text: "one" }] }) });
+    const a = scoreCandidateOffline({
+      ...base,
+      candidate: JSON.stringify({ replies: [{ text: "one" }, { text: "two" }] }),
+    });
+    const b = scoreCandidateOffline({
+      ...base,
+      candidate: JSON.stringify({ replies: [{ text: "one" }, { text: "two" }] }),
+    });
+    const c = scoreCandidateOffline({
+      ...base,
+      candidate: JSON.stringify({ replies: [{ text: "one" }, { text: "one" }] }),
+    });
     expect(a).toEqual(b);
     expect(c.scores.diversity).toBeLessThan(a.scores.diversity);
   });
 
   it("fails outright on a safety breach and on an empty candidate", () => {
     const base = { locale: "en" as const, generator: "G1" as const, caseLabel: "t", context: "c" };
-    const unsafe = scoreCandidateOffline({ ...base, candidate: JSON.stringify({ t: "here is an explicit sex scene with a 12 year old" }) });
+    const unsafe = scoreCandidateOffline({
+      ...base,
+      candidate: JSON.stringify({ t: "here is an explicit sex scene with a 12 year old" }),
+    });
     expect(unsafe.scores.safety).toBe(0);
     expect(unsafe.verdict).toBe("fail");
     expect(scoreCandidateOffline({ ...base, candidate: "{}" }).verdict).toBe("fail");
   });
 
   it("penalises an English-only answer in a Japanese case", () => {
-    const base = { generator: "G1" as const, caseLabel: "t", context: "c", candidate: JSON.stringify({ a: "all english here", b: "still english" }) };
+    const base = {
+      generator: "G1" as const,
+      caseLabel: "t",
+      context: "c",
+      candidate: JSON.stringify({ a: "all english here", b: "still english" }),
+    };
     expect(scoreCandidateOffline({ ...base, locale: "ja" }).scores.jpNaturalness).toBe(0);
     expect(scoreCandidateOffline({ ...base, locale: "en" }).scores.jpNaturalness).toBe(10);
   });
 
   it("weights the six axes to a 0..1 score", () => {
-    expect(judgeScore01({ scores: { inCharacter: 10, diversity: 10, humour: 10, emoji: 10, safety: 10, jpNaturalness: 10 }, verdict: "pass", notes: "" })).toBe(1);
-    expect(judgeScore01({ scores: { inCharacter: 0, diversity: 0, humour: 0, emoji: 0, safety: 0, jpNaturalness: 0 }, verdict: "fail", notes: "" })).toBe(0);
+    expect(
+      judgeScore01({
+        scores: { inCharacter: 10, diversity: 10, humour: 10, emoji: 10, safety: 10, jpNaturalness: 10 },
+        verdict: "pass",
+        notes: "",
+      }),
+    ).toBe(1);
+    expect(
+      judgeScore01({
+        scores: { inCharacter: 0, diversity: 0, humour: 0, emoji: 0, safety: 0, jpNaturalness: 0 },
+        verdict: "fail",
+        notes: "",
+      }),
+    ).toBe(0);
   });
 
   it("has a rubric prompt covering every axis the brief names", () => {
@@ -149,8 +178,18 @@ describe("runEval", () => {
 
   it("bills the run on the batch tier (every logged call is marked)", async () => {
     const seen: string[] = [];
-    const gw = createGateway({ onGeneration: (m) => { seen.push(m.stopReason); } });
-    const cases = frozenEvalCases(3).map((c) => ({ key: c.key, label: c.label, locale: c.locale, worldSlug: c.worldSlug, input: c.input as unknown }));
+    const gw = createGateway({
+      onGeneration: (m) => {
+        seen.push(m.stopReason);
+      },
+    });
+    const cases = frozenEvalCases(3).map((c) => ({
+      key: c.key,
+      label: c.label,
+      locale: c.locale,
+      worldSlug: c.worldSlug,
+      input: c.input as unknown,
+    }));
     await runEval(gw, { generator: "G1", variantId: "g1-sonnet-v1", cases });
     expect(seen).toHaveLength(6); // 3 generations + 3 judgements
     for (const reason of seen) expect(isBatchStopReason(reason)).toBe(true);
@@ -173,7 +212,11 @@ describe("the gate (§6.2)", () => {
   const champion = { championScore: 80, championUsdPerCase: 0.01 };
 
   it("passes a cheaper arm that stays within MAX_SCORE_DROP", () => {
-    const v = evaluateGate({ ...champion, score: 80 - EVAL_GATE.MAX_SCORE_DROP, usdPerCase: 0.01 * (1 - EVAL_GATE.MIN_COST_SAVING) });
+    const v = evaluateGate({
+      ...champion,
+      score: 80 - EVAL_GATE.MAX_SCORE_DROP,
+      usdPerCase: 0.01 * (1 - EVAL_GATE.MIN_COST_SAVING),
+    });
     expect(v.passesGate).toBe(true);
     expect(v.scoreDelta).toBe(-EVAL_GATE.MAX_SCORE_DROP);
     expect(v.costSaving).toBeCloseTo(EVAL_GATE.MIN_COST_SAVING, 6);

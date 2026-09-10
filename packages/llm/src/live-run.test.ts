@@ -21,7 +21,10 @@ import { g1Input } from "./__testkit.js";
  * contract fails here instead of in production.
  */
 
-interface StubCall { path: "messages" | "beta"; body: Record<string, unknown> }
+interface StubCall {
+  path: "messages" | "beta";
+  body: Record<string, unknown>;
+}
 
 /** A stand-in for the SDK: records what it was asked and answers with what the test wants. */
 function stubClient(answers: Array<unknown | Error>): { calls: StubCall[]; client: Anthropic } {
@@ -35,11 +38,17 @@ function stubClient(answers: Array<unknown | Error>): { calls: StubCall[]; clien
   };
   const client = {
     messages: {
-      create: (body: Record<string, unknown>) => { calls.push({ path: "messages", body }); return Promise.resolve(next()); },
+      create: (body: Record<string, unknown>) => {
+        calls.push({ path: "messages", body });
+        return Promise.resolve(next());
+      },
     },
     beta: {
       messages: {
-        create: (body: Record<string, unknown>) => { calls.push({ path: "beta", body }); return Promise.resolve(next()); },
+        create: (body: Record<string, unknown>) => {
+          calls.push({ path: "beta", body });
+          return Promise.resolve(next());
+        },
       },
     },
   };
@@ -84,13 +93,14 @@ afterEach(() => {
   __setClient(null);
 });
 
-const runG1 = async (): Promise<Awaited<ReturnType<typeof runLive<unknown>>>> => await runLive({
-  model: modelForTier("mid"),
-  tier: "mid",
-  maxTokens: g1.maxTokens,
-  rendered: g1.render(g1Input("popstar-era", "en", 1)),
-  schema: G1OutputZ,
-});
+const runG1 = async (): Promise<Awaited<ReturnType<typeof runLive<unknown>>>> =>
+  await runLive({
+    model: modelForTier("mid"),
+    tier: "mid",
+    maxTokens: g1.maxTokens,
+    rendered: g1.render(g1Input("popstar-era", "en", 1)),
+    schema: G1OutputZ,
+  });
 
 describe("runLive — the answer", () => {
   it("parses, validates and returns what was billed", async () => {
@@ -104,16 +114,21 @@ describe("runLive — the answer", () => {
     // resolves to something else is billed as something else, and the cost row must say so.
     expect(res.model).toBe("claude-sonnet-5");
     expect(res.usage).toEqual({
-      inputTokens: 4200, cacheWriteTokens: 4096, cacheReadTokens: 0, outputTokens: 180,
+      inputTokens: 4200,
+      cacheWriteTokens: 4096,
+      cacheReadTokens: 0,
+      outputTokens: 180,
     });
     // Non-streaming: there is no first-token timestamp to invent.
     expect(res.ttftMs).toBeNull();
   });
 
   it("treats a null cache field as zero rather than as NaN", async () => {
-    const { client } = stubClient([g1Answer({
-      usage: { input_tokens: 10, cache_creation_input_tokens: null, cache_read_input_tokens: null, output_tokens: 5 },
-    })]);
+    const { client } = stubClient([
+      g1Answer({
+        usage: { input_tokens: 10, cache_creation_input_tokens: null, cache_read_input_tokens: null, output_tokens: 5 },
+      }),
+    ]);
     __setClient(client);
     const res = await runG1();
     // These four numbers are multiplied by a price; one NaN poisons every cost report there is.
@@ -148,7 +163,13 @@ describe("runLive — the answer", () => {
     const { calls, client } = stubClient([g1Answer(), g1Answer()]);
     __setClient(client);
 
-    await runLive({ model: modelForTier("high"), tier: "high", maxTokens: 800, rendered: g1.render(g1Input("popstar-era", "en", 1)), schema: G1OutputZ });
+    await runLive({
+      model: modelForTier("high"),
+      tier: "high",
+      maxTokens: 800,
+      rendered: g1.render(g1Input("popstar-era", "en", 1)),
+      schema: G1OutputZ,
+    });
     expect(calls[0]!.path, "high tier goes through the beta endpoint").toBe("beta");
     expect(calls[0]!.body["betas"]).toEqual([REFUSAL_FALLBACK_BETA]);
     expect(calls[0]!.body["fallbacks"]).toBe("default");
@@ -162,7 +183,13 @@ describe("runLive — the answer", () => {
     process.env.LLM_REFUSAL_FALLBACKS = "0";
     const { calls, client } = stubClient([g1Answer()]);
     __setClient(client);
-    await runLive({ model: modelForTier("high"), tier: "high", maxTokens: 800, rendered: g1.render(g1Input("popstar-era", "en", 1)), schema: G1OutputZ });
+    await runLive({
+      model: modelForTier("high"),
+      tier: "high",
+      maxTokens: 800,
+      rendered: g1.render(g1Input("popstar-era", "en", 1)),
+      schema: G1OutputZ,
+    });
     expect(calls[0]!.path).toBe("messages");
   });
 });

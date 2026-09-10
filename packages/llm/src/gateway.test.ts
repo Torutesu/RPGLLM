@@ -135,9 +135,7 @@ describe("gateway — fail mode (E2E-010)", () => {
     expect(r1.output.replies.length).toBeGreaterThanOrEqual(1);
     expect(r1.output.replies[0]?.characterHandle).toBe("hivequeenbea");
     // one of the five canned lines for that character (E2E-010: "@hivequeenbea: 👀" or similar)
-    expect(seedFor("popstar-era").fallbackReplies.hivequeenbea?.en).toContain(
-      r1.output.replies[0]?.text,
-    );
+    expect(seedFor("popstar-era").fallbackReplies.hivequeenbea?.en).toContain(r1.output.replies[0]?.text);
     expect(r1.output.stat_deltas).toEqual({ followers: 0, aura: 0, humor: 0 });
 
     const r4 = await gw.g4(g4Input("popstar-era", "ja", 5));

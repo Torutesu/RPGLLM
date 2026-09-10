@@ -4,8 +4,12 @@ import { call, getWallet, makeHarness, prisma, resetDatabase, signup, type Harne
 
 let h: Harness;
 
-beforeAll(() => { h = makeHarness(); });
-beforeEach(async () => { await resetDatabase(); });
+beforeAll(() => {
+  h = makeHarness();
+});
+beforeEach(async () => {
+  await resetDatabase();
+});
 
 describe("auth + age gate (E2E-001, E2E-016)", () => {
   it("starts an email login and issues a JWT for the dev code", async () => {
@@ -57,12 +61,22 @@ describe("auth + age gate (E2E-001, E2E-016)", () => {
     const year = new Date().getUTCFullYear();
     const minor = await signup(h, { birthYear: year - 16 });
     expect(minor.ageGateStatus).toBe(200);
-    const minorMe = await call<{ user: { isMinor: boolean }; wallet: { adPersonalized: boolean } }>(h, "GET", "/v1/me", { token: minor.token });
+    const minorMe = await call<{ user: { isMinor: boolean }; wallet: { adPersonalized: boolean } }>(
+      h,
+      "GET",
+      "/v1/me",
+      { token: minor.token },
+    );
     expect(minorMe.data.user.isMinor).toBe(true);
     expect(minorMe.data.wallet.adPersonalized).toBe(false);
 
     const adult = await signup(h, { birthYear: year - 30 });
-    const adultMe = await call<{ user: { isMinor: boolean }; wallet: { adPersonalized: boolean; dailyMax: number } }>(h, "GET", "/v1/me", { token: adult.token });
+    const adultMe = await call<{ user: { isMinor: boolean }; wallet: { adPersonalized: boolean; dailyMax: number } }>(
+      h,
+      "GET",
+      "/v1/me",
+      { token: adult.token },
+    );
     expect(adultMe.data.user.isMinor).toBe(false);
     expect(adultMe.data.wallet.adPersonalized).toBe(true);
     expect(adultMe.data.wallet.dailyMax).toBe(ENERGY.FREE_DAILY);

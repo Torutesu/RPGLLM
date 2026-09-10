@@ -64,11 +64,17 @@ export interface BudgetStatus {
   cached: boolean;
 }
 
-interface CacheEntry { dayKey: string; spentUsd: number; fetchedAtMs: number }
+interface CacheEntry {
+  dayKey: string;
+  spentUsd: number;
+  fetchedAtMs: number;
+}
 let cache: CacheEntry | null = null;
 
 /** Test seam: forget what we counted. */
-export const resetBudgetCache = (): void => { cache = null; };
+export const resetBudgetCache = (): void => {
+  cache = null;
+};
 
 /** The day's spend, summed from the log. Cheap: `GenerationLog` is indexed on `createdAt`. */
 export async function spentTodayUsd(prisma: PrismaClient, now: Date): Promise<number> {
@@ -119,7 +125,10 @@ export async function budgetStatus(prisma: PrismaClient, now: Date): Promise<Bud
 }
 
 export class BudgetExhaustedError extends Error {
-  constructor(readonly spentUsd: number, readonly limitUsd: number) {
+  constructor(
+    readonly spentUsd: number,
+    readonly limitUsd: number,
+  ) {
     // No user id, no prompt, no content: this string ends up in logs and error trackers.
     super(`daily LLM budget exhausted (${spentUsd.toFixed(2)} of ${limitUsd.toFixed(2)} USD)`);
     this.name = "BudgetExhaustedError";
@@ -166,8 +175,12 @@ export function withBudget(gateway: Gateway, prisma: PrismaClient, now: () => Da
           if (announcedDay !== status.dayKey) {
             announcedDay = status.dayKey;
             logLine({
-              level: "error", msg: "llm.budget.exhausted", generator: prop,
-              spentUsd: Number(status.spentUsd.toFixed(4)), limitUsd: status.limitUsd, dayKey: status.dayKey,
+              level: "error",
+              msg: "llm.budget.exhausted",
+              generator: prop,
+              spentUsd: Number(status.spentUsd.toFixed(4)),
+              limitUsd: status.limitUsd,
+              dayKey: status.dayKey,
             });
           }
           throw new BudgetExhaustedError(status.spentUsd, status.limitUsd);
@@ -184,7 +197,10 @@ export function withBudget(gateway: Gateway, prisma: PrismaClient, now: () => Da
 function chargeCache(result: unknown, at: Date): void {
   if (typeof result !== "object" || result === null) return;
   const single = (result as { meta?: { costUsd?: unknown } }).meta;
-  if (single && typeof single.costUsd === "number") { noteSpend(single.costUsd, at); return; }
+  if (single && typeof single.costUsd === "number") {
+    noteSpend(single.costUsd, at);
+    return;
+  }
   if (result instanceof Map) {
     for (const entry of result.values()) {
       const meta = (entry as { meta?: { costUsd?: unknown } } | null)?.meta;

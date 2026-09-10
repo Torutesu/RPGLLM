@@ -12,9 +12,18 @@ import prettier from "eslint-config-prettier";
 export default tseslint.config(
   {
     ignores: [
-      "**/node_modules/**", "**/dist/**", "**/dist-*/**", "**/build/**", "**/.expo/**",
-      "**/playwright-report/**", "**/test-results/**",
-      "apps/api/prisma/**", "**/*.d.ts", "**/*.js", "**/*.mjs", "**/*.cjs",
+      "**/node_modules/**",
+      "**/dist/**",
+      "**/dist-*/**",
+      "**/build/**",
+      "**/.expo/**",
+      "**/playwright-report/**",
+      "**/test-results/**",
+      "apps/api/prisma/**",
+      "**/*.d.ts",
+      "**/*.js",
+      "**/*.mjs",
+      "**/*.cjs",
     ],
   },
   js.configs.recommended,

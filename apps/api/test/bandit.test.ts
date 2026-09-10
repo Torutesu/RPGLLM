@@ -41,7 +41,9 @@ afterAll(async () => {
 beforeEach(async () => {
   await resetDatabase();
   clearAllocatorSnapshot();
-  await prisma.$executeRawUnsafe(`TRUNCATE TABLE "EvalResult", "EvalRun", "EvalCase", "PromotionEvent", "BanditArm" RESTART IDENTITY CASCADE`);
+  await prisma.$executeRawUnsafe(
+    `TRUNCATE TABLE "EvalResult", "EvalRun", "EvalCase", "PromotionEvent", "BanditArm" RESTART IDENTITY CASCADE`,
+  );
 });
 
 interface LogSpec {
@@ -115,8 +117,24 @@ describe("updateFromLogs", () => {
     const now = h.clock.now();
     const user = await signup(h);
     await seedLogs([
-      { variantId: CHAMP, model: "claude-sonnet-5", costUsd: "0.004000", count: 10, rating: 1, at: past(now, 2), userId: user.userId },
-      { variantId: CHALLENGER, model: "claude-haiku-4-5", costUsd: "0.001000", count: 10, rating: 1, at: past(now, 2), userId: user.userId },
+      {
+        variantId: CHAMP,
+        model: "claude-sonnet-5",
+        costUsd: "0.004000",
+        count: 10,
+        rating: 1,
+        at: past(now, 2),
+        userId: user.userId,
+      },
+      {
+        variantId: CHALLENGER,
+        model: "claude-haiku-4-5",
+        costUsd: "0.001000",
+        count: 10,
+        rating: 1,
+        at: past(now, 2),
+        userId: user.userId,
+      },
     ]);
 
     const result = await updateFromLogs(prisma, now);
@@ -139,7 +157,15 @@ describe("updateFromLogs", () => {
     const now = h.clock.now();
     const user = await signup(h);
     await seedLogs([
-      { variantId: CHAMP, model: "claude-sonnet-5", costUsd: "0.004000", count: 6, rating: 1, at: past(now, 2), userId: user.userId },
+      {
+        variantId: CHAMP,
+        model: "claude-sonnet-5",
+        costUsd: "0.004000",
+        count: 6,
+        rating: 1,
+        at: past(now, 2),
+        userId: user.userId,
+      },
     ]);
 
     await updateFromLogs(prisma, now);
@@ -160,10 +186,41 @@ describe("updateFromLogs", () => {
     const now = h.clock.now();
     const user = await signup(h);
     await seedLogs([
-      { variantId: CHAMP, model: "claude-sonnet-5", costUsd: "0.001000", count: 4, rating: -1, at: past(now, 2), userId: user.userId },
-      { variantId: CHAMP, model: "claude-sonnet-5", costUsd: "0.001000", count: 2, regenerate: true, at: past(now, 2), userId: user.userId },
-      { variantId: CHAMP, model: "claude-sonnet-5", costUsd: "0.001000", count: 2, stopReason: "error", at: past(now, 2), userId: user.userId },
-      { variantId: CHAMP, model: "claude-sonnet-5", costUsd: "0.001000", count: 10, at: past(now, 2), userId: user.userId },
+      {
+        variantId: CHAMP,
+        model: "claude-sonnet-5",
+        costUsd: "0.001000",
+        count: 4,
+        rating: -1,
+        at: past(now, 2),
+        userId: user.userId,
+      },
+      {
+        variantId: CHAMP,
+        model: "claude-sonnet-5",
+        costUsd: "0.001000",
+        count: 2,
+        regenerate: true,
+        at: past(now, 2),
+        userId: user.userId,
+      },
+      {
+        variantId: CHAMP,
+        model: "claude-sonnet-5",
+        costUsd: "0.001000",
+        count: 2,
+        stopReason: "error",
+        at: past(now, 2),
+        userId: user.userId,
+      },
+      {
+        variantId: CHAMP,
+        model: "claude-sonnet-5",
+        costUsd: "0.001000",
+        count: 10,
+        at: past(now, 2),
+        userId: user.userId,
+      },
     ]);
     const stats = (await windowStats(prisma, past(now, 3), now)).filter((s) => s.variantId === CHAMP);
     expect(stats[0]?.bad).toBe(8);
@@ -181,8 +238,24 @@ describe("updateFromLogs", () => {
     const now = h.clock.now();
     const user = await signup(h);
     await seedLogs([
-      { variantId: CHALLENGER, model: "claude-haiku-4-5", costUsd: "0.001000", count: 40, stopReason: "batch:replay", at: past(now, 2), userId: user.userId },
-      { variantId: CHALLENGER, model: "claude-haiku-4-5", costUsd: "0.001000", count: 3, rating: 1, at: past(now, 2), userId: user.userId },
+      {
+        variantId: CHALLENGER,
+        model: "claude-haiku-4-5",
+        costUsd: "0.001000",
+        count: 40,
+        stopReason: "batch:replay",
+        at: past(now, 2),
+        userId: user.userId,
+      },
+      {
+        variantId: CHALLENGER,
+        model: "claude-haiku-4-5",
+        costUsd: "0.001000",
+        count: 3,
+        rating: 1,
+        at: past(now, 2),
+        userId: user.userId,
+      },
     ]);
     await updateFromLogs(prisma, now);
     const challenger = (await loadArms(prisma, "G1")).find((a) => a.variantId === CHALLENGER);
@@ -194,17 +267,38 @@ describe("updateFromLogs", () => {
     const user = await signup(h);
     const parent = await prisma.generationLog.create({
       data: {
-        userId: user.userId, generator: "G1", variantId: CHALLENGER, model: "claude-haiku-4-5", promptHash: "p",
-        inputTokens: 1, cacheWriteTokens: 0, cacheReadTokens: 1, outputTokens: 1, costUsd: "0.001000",
-        latencyMs: 1, stopReason: "replay", createdAt: past(now, 2),
+        userId: user.userId,
+        generator: "G1",
+        variantId: CHALLENGER,
+        model: "claude-haiku-4-5",
+        promptHash: "p",
+        inputTokens: 1,
+        cacheWriteTokens: 0,
+        cacheReadTokens: 1,
+        outputTokens: 1,
+        costUsd: "0.001000",
+        latencyMs: 1,
+        stopReason: "replay",
+        createdAt: past(now, 2),
       },
       select: { id: true },
     });
     await prisma.generationLog.create({
       data: {
-        userId: user.userId, generator: "G1", variantId: CHALLENGER, model: "claude-sonnet-5", promptHash: "p2",
-        inputTokens: 1, cacheWriteTokens: 0, cacheReadTokens: 1, outputTokens: 1, costUsd: "0.020000",
-        latencyMs: 1, stopReason: "replay", escalatedFrom: parent.id, createdAt: past(now, 2),
+        userId: user.userId,
+        generator: "G1",
+        variantId: CHALLENGER,
+        model: "claude-sonnet-5",
+        promptHash: "p2",
+        inputTokens: 1,
+        cacheWriteTokens: 0,
+        cacheReadTokens: 1,
+        outputTokens: 1,
+        costUsd: "0.020000",
+        latencyMs: 1,
+        stopReason: "replay",
+        escalatedFrom: parent.id,
+        createdAt: past(now, 2),
       },
     });
 
@@ -222,9 +316,33 @@ describe("guardrails", () => {
     await ensureArms(prisma);
     // 60 calls, 20 of them regenerated: 33% regeneration rate against a 8% limit
     await seedLogs([
-      { variantId: CHALLENGER, model: "claude-haiku-4-5", costUsd: "0.001000", count: 20, regenerate: true, at: new Date(now.getTime() - 3600_000), userId: user.userId },
-      { variantId: CHALLENGER, model: "claude-haiku-4-5", costUsd: "0.001000", count: 40, rating: 1, at: new Date(now.getTime() - 3600_000), userId: user.userId },
-      { variantId: CHAMP, model: "claude-sonnet-5", costUsd: "0.004000", count: 60, rating: 1, at: new Date(now.getTime() - 3600_000), userId: user.userId },
+      {
+        variantId: CHALLENGER,
+        model: "claude-haiku-4-5",
+        costUsd: "0.001000",
+        count: 20,
+        regenerate: true,
+        at: new Date(now.getTime() - 3600_000),
+        userId: user.userId,
+      },
+      {
+        variantId: CHALLENGER,
+        model: "claude-haiku-4-5",
+        costUsd: "0.001000",
+        count: 40,
+        rating: 1,
+        at: new Date(now.getTime() - 3600_000),
+        userId: user.userId,
+      },
+      {
+        variantId: CHAMP,
+        model: "claude-sonnet-5",
+        costUsd: "0.004000",
+        count: 60,
+        rating: 1,
+        at: new Date(now.getTime() - 3600_000),
+        userId: user.userId,
+      },
     ]);
     await updateFromLogs(prisma, now);
 
@@ -237,7 +355,9 @@ describe("guardrails", () => {
     expect(arm?.disabled).toBe(true);
     expect(arm?.disabledReason).toContain("regenerate_rate");
 
-    const events = await prisma.promotionEvent.findMany({ where: { generator: "G1", reason: { startsWith: "guardrail:" } } });
+    const events = await prisma.promotionEvent.findMany({
+      where: { generator: "G1", reason: { startsWith: "guardrail:" } },
+    });
     expect(events).toHaveLength(1);
     expect(events[0]?.toVariant).toBe(CHAMP);
 
@@ -254,7 +374,15 @@ describe("guardrails", () => {
     const user = await signup(h);
     await ensureArms(prisma);
     await seedLogs([
-      { variantId: CHAMP, model: "claude-sonnet-5", costUsd: "0.004000", count: 60, regenerate: true, at: new Date(now.getTime() - 3600_000), userId: user.userId },
+      {
+        variantId: CHAMP,
+        model: "claude-sonnet-5",
+        costUsd: "0.004000",
+        count: 60,
+        regenerate: true,
+        at: new Date(now.getTime() - 3600_000),
+        userId: user.userId,
+      },
     ]);
     expect((await checkGuardrails(prisma, now)).disabled).toHaveLength(0);
     expect((await loadArms(prisma, "G1")).find((a) => a.variantId === CHAMP)?.disabled).toBe(false);
@@ -265,8 +393,24 @@ describe("promotion", () => {
   async function makeChallengerWin(now: Date, userId: string): Promise<void> {
     await ensureArms(prisma);
     await seedLogs([
-      { variantId: CHALLENGER, model: "claude-haiku-4-5", costUsd: "0.001000", count: 60, rating: 1, at: past(now, 2), userId },
-      { variantId: CHAMP, model: "claude-sonnet-5", costUsd: "0.008000", count: 60, rating: -1, at: past(now, 2), userId },
+      {
+        variantId: CHALLENGER,
+        model: "claude-haiku-4-5",
+        costUsd: "0.001000",
+        count: 60,
+        rating: 1,
+        at: past(now, 2),
+        userId,
+      },
+      {
+        variantId: CHAMP,
+        model: "claude-sonnet-5",
+        costUsd: "0.008000",
+        count: 60,
+        rating: -1,
+        at: past(now, 2),
+        userId,
+      },
     ]);
     await updateFromLogs(prisma, now);
   }
@@ -274,10 +418,28 @@ describe("promotion", () => {
   /** A finished eval run per variant, shaped so the challenger clears the §6.2 gate. */
   async function seedGatePassingRuns(): Promise<void> {
     await prisma.evalRun.create({
-      data: { generator: "G1", variantId: CHAMP, status: "finished", cases: 50, passed: 48, meanScore: 80, costUsd: "0.500000", finishedAt: new Date() },
+      data: {
+        generator: "G1",
+        variantId: CHAMP,
+        status: "finished",
+        cases: 50,
+        passed: 48,
+        meanScore: 80,
+        costUsd: "0.500000",
+        finishedAt: new Date(),
+      },
     });
     await prisma.evalRun.create({
-      data: { generator: "G1", variantId: CHALLENGER, status: "finished", cases: 50, passed: 47, meanScore: 79, costUsd: "0.100000", finishedAt: new Date() },
+      data: {
+        generator: "G1",
+        variantId: CHALLENGER,
+        status: "finished",
+        cases: 50,
+        passed: 47,
+        meanScore: 79,
+        costUsd: "0.100000",
+        finishedAt: new Date(),
+      },
     });
   }
 
@@ -328,8 +490,24 @@ describe("the API", () => {
     const user = await signup(h);
     await ensureArms(prisma);
     await seedLogs([
-      { variantId: CHAMP, model: "claude-sonnet-5", costUsd: "0.004000", count: 5, rating: 1, at: past(now, 1), userId: user.userId },
-      { variantId: CHALLENGER, model: "claude-haiku-4-5", costUsd: "0.001000", count: 5, rating: 1, at: past(now, 1), userId: user.userId },
+      {
+        variantId: CHAMP,
+        model: "claude-sonnet-5",
+        costUsd: "0.004000",
+        count: 5,
+        rating: 1,
+        at: past(now, 1),
+        userId: user.userId,
+      },
+      {
+        variantId: CHALLENGER,
+        model: "claude-haiku-4-5",
+        costUsd: "0.001000",
+        count: 5,
+        rating: 1,
+        at: past(now, 1),
+        userId: user.userId,
+      },
     ]);
     await updateFromLogs(prisma, now);
 
@@ -359,13 +537,17 @@ describe("the API", () => {
 
     const arms = await loadArms(prisma, "G1");
     expect(arms.find((a) => a.isChampion)?.variantId).toBe(CHALLENGER);
-    const events = await prisma.promotionEvent.findMany({ where: { generator: "G1", reason: { startsWith: "manual:" } } });
+    const events = await prisma.promotionEvent.findMany({
+      where: { generator: "G1", reason: { startsWith: "manual:" } },
+    });
     expect(events).toHaveLength(1);
   });
 
   it("POST /v1/bandit/promote 404s on an unknown arm", async () => {
     await ensureArms(prisma);
-    const res = await call(h, "POST", "/v1/bandit/promote", { body: { generator: "G1", variantId: "nope", reason: "x" } });
+    const res = await call(h, "POST", "/v1/bandit/promote", {
+      body: { generator: "G1", variantId: "nope", reason: "x" },
+    });
     expect(res.status).toBe(404);
   });
 
@@ -390,8 +572,24 @@ describe("the allocator the gateway calls", () => {
     const user = await signup(h);
     await ensureArms(prisma);
     await seedLogs([
-      { variantId: CHAMP, model: "claude-sonnet-5", costUsd: "0.008000", count: 20, rating: -1, at: past(now, 1), userId: user.userId },
-      { variantId: CHALLENGER, model: "claude-haiku-4-5", costUsd: "0.001000", count: 20, rating: 1, at: past(now, 1), userId: user.userId },
+      {
+        variantId: CHAMP,
+        model: "claude-sonnet-5",
+        costUsd: "0.008000",
+        count: 20,
+        rating: -1,
+        at: past(now, 1),
+        userId: user.userId,
+      },
+      {
+        variantId: CHALLENGER,
+        model: "claude-haiku-4-5",
+        costUsd: "0.001000",
+        count: 20,
+        rating: 1,
+        at: past(now, 1),
+        userId: user.userId,
+      },
     ]);
     await updateFromLogs(prisma, now);
     await refreshAllocatorSnapshot(prisma, now);

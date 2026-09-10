@@ -4,15 +4,28 @@ import { call, makeHarness, prisma, resetDatabase, signup, signupWithPersona, ty
 
 let h: Harness;
 
-interface ReferralBody { code: string; link: string; invited: number; coffeeEarned: number; canRedeem: boolean }
-interface RedeemBody { coffee: number; energy: number }
+interface ReferralBody {
+  code: string;
+  link: string;
+  invited: number;
+  coffeeEarned: number;
+  canRedeem: boolean;
+}
+interface RedeemBody {
+  coffee: number;
+  energy: number;
+}
 
 const referral = (token: string) => call<ReferralBody>(h, "GET", "/v1/referral", { token });
 const redeem = (token: string, code: string) =>
   call<RedeemBody>(h, "POST", "/v1/referral/redeem", { token, body: { code } });
 
-beforeAll(() => { h = makeHarness(); });
-beforeEach(async () => { await resetDatabase(); });
+beforeAll(() => {
+  h = makeHarness();
+});
+beforeEach(async () => {
+  await resetDatabase();
+});
 
 describe("referral (S2-5)", () => {
   it("issues a stable code and a link that carries it", async () => {
@@ -44,7 +57,7 @@ describe("referral (S2-5)", () => {
     const nonsense = await redeem(invitee.token, "ZZZZZZZZ");
     expect(nonsense.status).toBe(404);
 
-    const ok = await redeem(invitee.token, code.toLowerCase());  // case-insensitive
+    const ok = await redeem(invitee.token, code.toLowerCase()); // case-insensitive
     expect(ok.status).toBe(200);
     expect(ok.data.coffee).toBe(REFERRAL.INVITEE_COFFEE);
 

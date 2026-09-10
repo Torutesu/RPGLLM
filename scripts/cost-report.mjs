@@ -29,12 +29,30 @@ function parseArgs(argv) {
   const out = { days: 7, json: false, html: null, help: false };
   for (let i = 0; i < argv.length; i += 1) {
     const a = argv[i];
-    if (a === "--days" || a === "-d") { out.days = Number(argv[++i]); continue; }
-    if (a === "--json") { out.json = true; continue; }
-    if (a === "--html") { out.html = argv[++i]; continue; }
-    if (a === "--help" || a === "-h") { out.help = true; continue; }
-    if (a.startsWith("--days=")) { out.days = Number(a.slice(7)); continue; }
-    if (a.startsWith("--html=")) { out.html = a.slice(7); continue; }
+    if (a === "--days" || a === "-d") {
+      out.days = Number(argv[++i]);
+      continue;
+    }
+    if (a === "--json") {
+      out.json = true;
+      continue;
+    }
+    if (a === "--html") {
+      out.html = argv[++i];
+      continue;
+    }
+    if (a === "--help" || a === "-h") {
+      out.help = true;
+      continue;
+    }
+    if (a.startsWith("--days=")) {
+      out.days = Number(a.slice(7));
+      continue;
+    }
+    if (a.startsWith("--html=")) {
+      out.html = a.slice(7);
+      continue;
+    }
     throw new Error(`unknown argument: ${a}`);
   }
   if (!Number.isFinite(out.days)) out.days = 7;
@@ -61,7 +79,9 @@ async function fetchViaApi(apiUrl, adminToken, days) {
   const res = await fetch(url, { headers: { "x-admin-token": adminToken } });
   const text = await res.text();
   if (res.status === 404) {
-    throw new Error(`${url} -> 404. The cost routes are admin-only: ADMIN_TOKEN must match the API's, or the API must run with TEST_HOOKS=1.`);
+    throw new Error(
+      `${url} -> 404. The cost routes are admin-only: ADMIN_TOKEN must match the API's, or the API must run with TEST_HOOKS=1.`,
+    );
   }
   if (!res.ok) throw new Error(`${url} -> ${res.status} ${text.slice(0, 400)}`);
   const body = JSON.parse(text);
@@ -118,8 +138,16 @@ function table(headers, rows, align = []) {
 const ROW_HEADERS = ["key", "calls", "in", "cache w", "cache r", "out", "cost", "fallb", "p50 ms", "p95 ms"];
 const ROW_ALIGN = ["l", "r", "r", "r", "r", "r", "r", "r", "r", "r"];
 const rowCells = (r) => [
-  r.key, int(r.calls), int(r.inputTokens), int(r.cacheWriteTokens), int(r.cacheReadTokens),
-  int(r.outputTokens), usd(r.costUsd), int(r.fallbacks), int(r.p50LatencyMs), int(r.p95LatencyMs),
+  r.key,
+  int(r.calls),
+  int(r.inputTokens),
+  int(r.cacheWriteTokens),
+  int(r.cacheReadTokens),
+  int(r.outputTokens),
+  usd(r.costUsd),
+  int(r.fallbacks),
+  int(r.p50LatencyMs),
+  int(r.p95LatencyMs),
 ];
 
 function alarmLines(report) {
@@ -129,8 +157,14 @@ function alarmLines(report) {
     .filter((v) => v.costVsChampion !== null)
     .sort((x, y) => y.costVsChampion - x.costVsChampion)[0];
   return [
-    [Boolean(a.cacheHitRateLow), `cache hit rate ${pct(report.cacheHitRate, 1)} vs the ${pct(t.CACHE_HIT_MIN, 0)} floor (below it means prompt caching may have silently broken)`],
-    [Boolean(a.costPerActionOverChampion), `costliest challenger arm ${worstArm ? `${worstArm.variantId} at ${signedPct(worstArm.costVsChampion)}` : "none"} vs the +${pct(t.COST_OVER_CHAMPION, 0)} ceiling over its champion`],
+    [
+      Boolean(a.cacheHitRateLow),
+      `cache hit rate ${pct(report.cacheHitRate, 1)} vs the ${pct(t.CACHE_HIT_MIN, 0)} floor (below it means prompt caching may have silently broken)`,
+    ],
+    [
+      Boolean(a.costPerActionOverChampion),
+      `costliest challenger arm ${worstArm ? `${worstArm.variantId} at ${signedPct(worstArm.costVsChampion)}` : "none"} vs the +${pct(t.COST_OVER_CHAMPION, 0)} ceiling over its champion`,
+    ],
     [Boolean(a.ttftP95High), `TTFT P95 ${ms(report.ttft?.p95Ms)} vs the ${ms(t.TTFT_P95_MAX_MS)} budget`],
   ];
 }
@@ -168,8 +202,10 @@ function renderText(report, source) {
   for (const [fired, text] of alarms) out.push(`  ${fired ? "!! FIRING" : "   ok    "}  ${text}`);
 
   for (const [title, rows] of [
-    ["BY DAY", report.byDay], ["BY GENERATOR", report.byGenerator],
-    ["BY VARIANT", report.byVariant], ["BY MODEL", report.byModel],
+    ["BY DAY", report.byDay],
+    ["BY GENERATOR", report.byGenerator],
+    ["BY VARIANT", report.byVariant],
+    ["BY MODEL", report.byModel],
     ["TOTALS", [report.totals]],
   ]) {
     out.push("");
@@ -184,8 +220,15 @@ function renderText(report, source) {
       table(
         ["day", "actions", "DAU", "cost", "$/action", "$/DAU", "cache", "ttft p50", "ttft p95"],
         report.perDay.map((d) => [
-          d.day, int(d.actions), int(d.activeUsers), usd(d.costUsd), usd(d.usdPerAction),
-          usd(d.usdPerActiveUser), pct(d.cacheHitRate), int(d.ttftP50Ms), int(d.ttftP95Ms),
+          d.day,
+          int(d.actions),
+          int(d.activeUsers),
+          usd(d.costUsd),
+          usd(d.usdPerAction),
+          usd(d.usdPerActiveUser),
+          pct(d.cacheHitRate),
+          int(d.ttftP50Ms),
+          int(d.ttftP95Ms),
         ]),
         ["l", "r", "r", "r", "r", "r", "r", "r", "r"],
       ),
@@ -201,7 +244,13 @@ function renderText(report, source) {
         ["lane", "calls", "cost", "share of calls", "share of cost"],
         [
           ["batched", int(b.batched.calls), usd(b.batched.costUsd), pct(b.batchedCallShare), pct(b.batchedCostShare)],
-          ["interactive", int(b.interactive.calls), usd(b.interactive.costUsd), pct(1 - b.batchedCallShare), pct(1 - b.batchedCostShare)],
+          [
+            "interactive",
+            int(b.interactive.calls),
+            usd(b.interactive.costUsd),
+            pct(1 - b.batchedCallShare),
+            pct(1 - b.batchedCostShare),
+          ],
         ],
         ["l", "r", "r", "r", "r"],
       ),
@@ -236,8 +285,17 @@ function renderText(report, source) {
       table(
         ["gen", "variant", "", "model", "calls", "alloc", "$/call", "vs champ", "👍", "👎", "regen", "quality"],
         report.variants.map((v) => [
-          v.generator, v.variantId, v.isChampion ? "champ" : "", v.model, int(v.calls), pct(v.allocation, 0),
-          usd(v.usdPerCall), signedPct(v.costVsChampion), int(v.up), int(v.down), int(v.regenerations),
+          v.generator,
+          v.variantId,
+          v.isChampion ? "champ" : "",
+          v.model,
+          int(v.calls),
+          pct(v.allocation, 0),
+          usd(v.usdPerCall),
+          signedPct(v.costVsChampion),
+          int(v.up),
+          int(v.down),
+          int(v.regenerations),
           v.qualityProxy.toFixed(2),
         ]),
         ["l", "l", "l", "l", "r", "r", "r", "r", "r", "r", "r", "r"],
@@ -257,39 +315,54 @@ const SERIES = ["#4f7cff", "#e0803a", "#3aa87a", "#b45ad6", "#d05070"];
 
 /** Minimal multi-series line chart. Static SVG — no script, no library. */
 function lineChart(points, series, opts = {}) {
-  const W = 720, H = 210, PAD = { l: 62, r: 16, t: 14, b: 30 };
+  const W = 720,
+    H = 210,
+    PAD = { l: 62, r: 16, t: 14, b: 30 };
   if (points.length === 0) return `<p class="empty">no data in this window</p>`;
   const values = series.flatMap((s) => points.map((p) => s.value(p))).filter((v) => Number.isFinite(v));
   const guides = opts.guide ? [opts.guide.value] : [];
   const max = Math.max(...values, ...guides, opts.minMax ?? 0) || 1;
-  const x = (i) => PAD.l + (points.length === 1 ? (W - PAD.l - PAD.r) / 2 : (i * (W - PAD.l - PAD.r)) / (points.length - 1));
+  const x = (i) =>
+    PAD.l + (points.length === 1 ? (W - PAD.l - PAD.r) / 2 : (i * (W - PAD.l - PAD.r)) / (points.length - 1));
   const y = (v) => H - PAD.b - (Math.max(0, v) / max) * (H - PAD.t - PAD.b);
 
-  const ticks = [0, 0.25, 0.5, 0.75, 1].map((f) => {
-    const v = max * f;
-    return `<line x1="${PAD.l}" y1="${y(v)}" x2="${W - PAD.r}" y2="${y(v)}" class="grid"/>
+  const ticks = [0, 0.25, 0.5, 0.75, 1]
+    .map((f) => {
+      const v = max * f;
+      return `<line x1="${PAD.l}" y1="${y(v)}" x2="${W - PAD.r}" y2="${y(v)}" class="grid"/>
       <text x="${PAD.l - 8}" y="${y(v) + 4}" class="tick" text-anchor="end">${esc(opts.fmt ? opts.fmt(v) : v.toFixed(0))}</text>`;
-  }).join("");
+    })
+    .join("");
 
   const guide = opts.guide
     ? `<line x1="${PAD.l}" y1="${y(opts.guide.value)}" x2="${W - PAD.r}" y2="${y(opts.guide.value)}" class="alarm-line"/>
        <text x="${W - PAD.r}" y="${y(opts.guide.value) - 6}" class="tick alarm-text" text-anchor="end">${esc(opts.guide.label)}</text>`
     : "";
 
-  const paths = series.map((s, si) => {
-    const d = points.map((p, i) => `${i === 0 ? "M" : "L"}${x(i).toFixed(1)},${y(s.value(p)).toFixed(1)}`).join(" ");
-    const dots = points.map((p, i) => `<circle cx="${x(i).toFixed(1)}" cy="${y(s.value(p)).toFixed(1)}" r="3" fill="${SERIES[si % SERIES.length]}"/>`).join("");
-    return `<path d="${d}" fill="none" stroke="${SERIES[si % SERIES.length]}" stroke-width="2"/>${dots}`;
-  }).join("");
+  const paths = series
+    .map((s, si) => {
+      const d = points.map((p, i) => `${i === 0 ? "M" : "L"}${x(i).toFixed(1)},${y(s.value(p)).toFixed(1)}`).join(" ");
+      const dots = points
+        .map(
+          (p, i) =>
+            `<circle cx="${x(i).toFixed(1)}" cy="${y(s.value(p)).toFixed(1)}" r="3" fill="${SERIES[si % SERIES.length]}"/>`,
+        )
+        .join("");
+      return `<path d="${d}" fill="none" stroke="${SERIES[si % SERIES.length]}" stroke-width="2"/>${dots}`;
+    })
+    .join("");
 
-  const labels = points.map((p, i) =>
-    points.length > 12 && i % Math.ceil(points.length / 12) !== 0
-      ? ""
-      : `<text x="${x(i).toFixed(1)}" y="${H - 10}" class="tick" text-anchor="middle">${esc(p.label)}</text>`,
-  ).join("");
+  const labels = points
+    .map((p, i) =>
+      points.length > 12 && i % Math.ceil(points.length / 12) !== 0
+        ? ""
+        : `<text x="${x(i).toFixed(1)}" y="${H - 10}" class="tick" text-anchor="middle">${esc(p.label)}</text>`,
+    )
+    .join("");
 
-  const legend = series.map((s, si) =>
-    `<span class="key"><i style="background:${SERIES[si % SERIES.length]}"></i>${esc(s.name)}</span>`).join("");
+  const legend = series
+    .map((s, si) => `<span class="key"><i style="background:${SERIES[si % SERIES.length]}"></i>${esc(s.name)}</span>`)
+    .join("");
 
   return `<div class="legend">${legend}</div>
 <svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(opts.title ?? "chart")}">${ticks}${guide}${paths}${labels}</svg>`;
@@ -299,39 +372,62 @@ function lineChart(points, series, opts = {}) {
 function tokenComposition(rows) {
   if (rows.length === 0) return `<p class="empty">no data in this window</p>`;
   const kinds = [
-    ["input", "inputTokens"], ["cache write", "cacheWriteTokens"],
-    ["cache read", "cacheReadTokens"], ["output", "outputTokens"],
+    ["input", "inputTokens"],
+    ["cache write", "cacheWriteTokens"],
+    ["cache read", "cacheReadTokens"],
+    ["output", "outputTokens"],
   ];
   const max = Math.max(...rows.map((r) => kinds.reduce((s, [, k]) => s + r[k], 0)), 1);
-  const legend = kinds.map(([name], i) => `<span class="key"><i style="background:${SERIES[i]}"></i>${esc(name)}</span>`).join("");
-  const bars = rows.map((r) => {
-    const total = kinds.reduce((s, [, k]) => s + r[k], 0);
-    let off = 0;
-    const segs = kinds.map(([name, k], i) => {
-      const w = (r[k] / max) * 100;
-      const seg = `<span class="seg" style="width:${w.toFixed(3)}%;background:${SERIES[i]}" title="${esc(name)}: ${int(r[k])}"></span>`;
-      off += w;
-      return seg;
-    }).join("");
-    return `<tr><th scope="row">${esc(r.key)}</th><td class="barcell"><span class="bar">${segs}</span></td><td class="num">${int(total)}</td><td class="num">${usd(r.costUsd)}</td></tr>`;
-  }).join("");
+  const legend = kinds
+    .map(([name], i) => `<span class="key"><i style="background:${SERIES[i]}"></i>${esc(name)}</span>`)
+    .join("");
+  const bars = rows
+    .map((r) => {
+      const total = kinds.reduce((s, [, k]) => s + r[k], 0);
+      let off = 0;
+      const segs = kinds
+        .map(([name, k], i) => {
+          const w = (r[k] / max) * 100;
+          const seg = `<span class="seg" style="width:${w.toFixed(3)}%;background:${SERIES[i]}" title="${esc(name)}: ${int(r[k])}"></span>`;
+          off += w;
+          return seg;
+        })
+        .join("");
+      return `<tr><th scope="row">${esc(r.key)}</th><td class="barcell"><span class="bar">${segs}</span></td><td class="num">${int(total)}</td><td class="num">${usd(r.costUsd)}</td></tr>`;
+    })
+    .join("");
   return `<div class="legend">${legend}</div>
 <table class="grid-table"><thead><tr><th>generator</th><th>token composition</th><th class="num">tokens</th><th class="num">cost</th></tr></thead><tbody>${bars}</tbody></table>`;
 }
 
 function breakdownTable(rows) {
-  const body = rows.map((r) => `<tr><th scope="row">${esc(r.key)}</th>${[
-    int(r.calls), int(r.inputTokens), int(r.cacheWriteTokens), int(r.cacheReadTokens), int(r.outputTokens),
-    usd(r.costUsd), int(r.fallbacks), int(r.p50LatencyMs), int(r.p95LatencyMs),
-  ].map((c) => `<td class="num">${esc(c)}</td>`).join("")}</tr>`).join("");
+  const body = rows
+    .map(
+      (r) =>
+        `<tr><th scope="row">${esc(r.key)}</th>${[
+          int(r.calls),
+          int(r.inputTokens),
+          int(r.cacheWriteTokens),
+          int(r.cacheReadTokens),
+          int(r.outputTokens),
+          usd(r.costUsd),
+          int(r.fallbacks),
+          int(r.p50LatencyMs),
+          int(r.p95LatencyMs),
+        ]
+          .map((c) => `<td class="num">${esc(c)}</td>`)
+          .join("")}</tr>`,
+    )
+    .join("");
   return `<table class="grid-table"><thead><tr><th>key</th><th class="num">calls</th><th class="num">input</th><th class="num">cache w</th><th class="num">cache r</th><th class="num">output</th><th class="num">cost</th><th class="num">fallbacks</th><th class="num">p50</th><th class="num">p95</th></tr></thead><tbody>${body}</tbody></table>`;
 }
 
 function variantTable(variants) {
   if (!variants?.length) return `<p class="empty">no arms served in this window</p>`;
-  const body = variants.map((v) => {
-    const over = v.costVsChampion !== null && v.costVsChampion > 0.3;
-    return `<tr>
+  const body = variants
+    .map((v) => {
+      const over = v.costVsChampion !== null && v.costVsChampion > 0.3;
+      return `<tr>
       <th scope="row">${esc(v.generator)}</th>
       <td>${esc(v.variantId)}${v.isChampion ? ' <span class="badge">champion</span>' : ""}</td>
       <td>${esc(v.model)}</td>
@@ -343,7 +439,8 @@ function variantTable(variants) {
       <td class="num">${int(v.regenerations)}</td>
       <td class="num">${v.qualityProxy.toFixed(2)}</td>
     </tr>`;
-  }).join("");
+    })
+    .join("");
   return `<table class="grid-table"><thead><tr><th>gen</th><th>arm</th><th>model</th><th class="num">calls</th><th class="num">alloc</th><th class="num">$/call</th><th class="num">vs champion</th><th class="num">👍/👎</th><th class="num">regens</th><th class="num">quality</th></tr></thead><tbody>${body}</tbody></table>`;
 }
 
@@ -441,26 +538,40 @@ function renderHtml(report, source) {
 
   <section>
     <h2>$ / action and $ / DAU over time</h2>
-    ${lineChart(points, [
-      { name: "$/action", value: (p) => p.usdPerAction },
-      { name: "$/active user", value: (p) => p.usdPerActiveUser },
-    ], { title: "cost per action and per active user", fmt: (v) => usd(v, 4) })}
+    ${lineChart(
+      points,
+      [
+        { name: "$/action", value: (p) => p.usdPerAction },
+        { name: "$/active user", value: (p) => p.usdPerActiveUser },
+      ],
+      { title: "cost per action and per active user", fmt: (v) => usd(v, 4) },
+    )}
   </section>
 
   <section>
     <h2>Cache hit rate</h2>
     ${lineChart(points, [{ name: "cache hit rate", value: (p) => p.cacheHitRate }], {
-      title: "cache hit rate", fmt: (v) => pct(v, 0), minMax: 1,
+      title: "cache hit rate",
+      fmt: (v) => pct(v, 0),
+      minMax: 1,
       guide: { value: t.CACHE_HIT_MIN, label: `alarm ${pct(t.CACHE_HIT_MIN, 0)}` },
     })}
   </section>
 
   <section>
     <h2>Time to first token</h2>
-    ${lineChart(points, [
-      { name: "TTFT P50", value: (p) => p.ttftP50Ms },
-      { name: "TTFT P95", value: (p) => p.ttftP95Ms },
-    ], { title: "time to first token", fmt: (v) => `${Math.round(v)}ms`, guide: { value: t.TTFT_P95_MAX_MS, label: `alarm ${ms(t.TTFT_P95_MAX_MS)}` } })}
+    ${lineChart(
+      points,
+      [
+        { name: "TTFT P50", value: (p) => p.ttftP50Ms },
+        { name: "TTFT P95", value: (p) => p.ttftP95Ms },
+      ],
+      {
+        title: "time to first token",
+        fmt: (v) => `${Math.round(v)}ms`,
+        guide: { value: t.TTFT_P95_MAX_MS, label: `alarm ${ms(t.TTFT_P95_MAX_MS)}` },
+      },
+    )}
   </section>
 
   <section>

@@ -27,15 +27,42 @@ function parseArgs(argv) {
   const out = { generator: "G1", variant: null, limit: 50, run: true, json: false, help: false };
   for (let i = 0; i < argv.length; i += 1) {
     const a = argv[i];
-    if (a === "--generator" || a === "-g") { out.generator = argv[++i]; continue; }
-    if (a === "--variant" || a === "-v") { out.variant = argv[++i]; continue; }
-    if (a === "--limit" || a === "-l") { out.limit = Number(argv[++i]); continue; }
-    if (a === "--no-run") { out.run = false; continue; }
-    if (a === "--json") { out.json = true; continue; }
-    if (a === "--help" || a === "-h") { out.help = true; continue; }
-    if (a.startsWith("--generator=")) { out.generator = a.slice(12); continue; }
-    if (a.startsWith("--variant=")) { out.variant = a.slice(10); continue; }
-    if (a.startsWith("--limit=")) { out.limit = Number(a.slice(8)); continue; }
+    if (a === "--generator" || a === "-g") {
+      out.generator = argv[++i];
+      continue;
+    }
+    if (a === "--variant" || a === "-v") {
+      out.variant = argv[++i];
+      continue;
+    }
+    if (a === "--limit" || a === "-l") {
+      out.limit = Number(argv[++i]);
+      continue;
+    }
+    if (a === "--no-run") {
+      out.run = false;
+      continue;
+    }
+    if (a === "--json") {
+      out.json = true;
+      continue;
+    }
+    if (a === "--help" || a === "-h") {
+      out.help = true;
+      continue;
+    }
+    if (a.startsWith("--generator=")) {
+      out.generator = a.slice(12);
+      continue;
+    }
+    if (a.startsWith("--variant=")) {
+      out.variant = a.slice(10);
+      continue;
+    }
+    if (a.startsWith("--limit=")) {
+      out.limit = Number(a.slice(8));
+      continue;
+    }
     throw new Error(`unknown argument: ${a}`);
   }
   if (!Number.isFinite(out.limit) || out.limit < 1) out.limit = 50;
@@ -89,7 +116,9 @@ async function main() {
     const evals = await import(pathToFileURL(resolve(REPO_ROOT, "apps/api/src/services/evals.ts")).href);
     const bandit = await import(pathToFileURL(resolve(REPO_ROOT, "apps/api/src/services/bandit.ts")).href);
     const { createClock } = await import(pathToFileURL(resolve(REPO_ROOT, "apps/api/src/clock.ts")).href);
-    const { createGateway, GENERATOR_EXPERIMENTS } = await import(pathToFileURL(resolve(REPO_ROOT, "packages/llm/src/index.ts")).href);
+    const { createGateway, GENERATOR_EXPERIMENTS } = await import(
+      pathToFileURL(resolve(REPO_ROOT, "packages/llm/src/index.ts")).href
+    );
     const { PrismaClient } = await import("@prisma/client");
 
     const url = process.env.DATABASE_URL ?? "postgresql://postgres@127.0.0.1:5432/rpgllm";
@@ -134,7 +163,9 @@ async function main() {
       }
 
       const out = [];
-      out.push(`offline eval — ${args.generator} · mode ${process.env.LLM_MODE} · ${seeded.total} frozen cases (${seeded.fromProduction} rebuilt from production posts)`);
+      out.push(
+        `offline eval — ${args.generator} · mode ${process.env.LLM_MODE} · ${seeded.total} frozen cases (${seeded.fromProduction} rebuilt from production posts)`,
+      );
       out.push(`champion: ${champion ?? "(none)"}   db: ${url.replace(/:[^:@/]*@/, ":***@")}`);
       if (runs.length > 0) {
         out.push("");
@@ -143,8 +174,15 @@ async function main() {
           table(
             ["variant", "status", "cases", "passed", "mean score", "gen $", "judge $", "total $", "wall"],
             runs.map((r) => [
-              r.variantId, r.status, r.cases, r.passed, r.meanScore.toFixed(2),
-              usd(r.generatorCostUsd), usd(r.judgeCostUsd), usd(r.costUsd), `${(r.wallMs / 1000).toFixed(1)}s`,
+              r.variantId,
+              r.status,
+              r.cases,
+              r.passed,
+              r.meanScore.toFixed(2),
+              usd(r.generatorCostUsd),
+              usd(r.judgeCostUsd),
+              usd(r.costUsd),
+              `${(r.wallMs / 1000).toFixed(1)}s`,
             ]),
             ["l", "l", "r", "r", "r", "r", "r", "r", "r"],
           ),
@@ -156,8 +194,15 @@ async function main() {
         table(
           ["variant", "", "runs", "cases", "pass rate", "mean score", "$/case", "Δscore", "Δcost", "gate"],
           compare.rows.map((r) => [
-            r.variantId, r.variantId === champion ? "champ" : "", r.runs, r.cases, pct(r.passRate),
-            r.meanScore.toFixed(2), usd(r.usdPerCase, 8), signed(r.scoreDelta), signedPct(r.costDelta),
+            r.variantId,
+            r.variantId === champion ? "champ" : "",
+            r.runs,
+            r.cases,
+            pct(r.passRate),
+            r.meanScore.toFixed(2),
+            usd(r.usdPerCase, 8),
+            signed(r.scoreDelta),
+            signedPct(r.costDelta),
             r.variantId === champion ? "baseline" : r.passesGate ? "PASS" : "fail",
           ]),
           ["l", "l", "r", "r", "r", "r", "r", "r", "r", "l"],
@@ -174,6 +219,6 @@ async function main() {
 }
 
 main().catch((err) => {
-  process.stderr.write(`${err instanceof Error ? err.stack ?? err.message : String(err)}\n`);
+  process.stderr.write(`${err instanceof Error ? (err.stack ?? err.message) : String(err)}\n`);
   process.exitCode = 1;
 });

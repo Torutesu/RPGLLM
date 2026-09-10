@@ -62,8 +62,7 @@ function makeEvent(userId: string, overrides: Partial<RcEvent> = {}): RcEvent {
   };
 }
 
-const sign = (body: string, secret = SECRET): string =>
-  createHmac("sha256", secret).update(body, "utf8").digest("hex");
+const sign = (body: string, secret = SECRET): string => createHmac("sha256", secret).update(body, "utf8").digest("hex");
 
 async function postWebhook(
   event: RcEvent,
@@ -71,7 +70,8 @@ async function postWebhook(
 ): Promise<{ status: number; data: Record<string, unknown>; error: { code: string } | null }> {
   const body = JSON.stringify({ api_version: "1.0", event });
   const headers: Record<string, string> = { "content-type": "application/json", ...(opts.headers ?? {}) };
-  if (opts.signWith !== null && opts.signWith !== undefined) headers["x-revenuecat-signature"] = sign(body, opts.signWith);
+  if (opts.signWith !== null && opts.signWith !== undefined)
+    headers["x-revenuecat-signature"] = sign(body, opts.signWith);
   const res = await h.app.request("/v1/billing/webhook", { method: "POST", headers, body });
   const text = await res.text();
   const parsed = JSON.parse(text) as { data: Record<string, unknown>; error: { code: string } | null };
@@ -174,7 +174,9 @@ describe("RevenueCat event mapping", () => {
     const { userId } = await signup(h);
     const until = Date.now() + hours(24 * 10);
     await postWebhook(makeEvent(userId, { expiration_at_ms: until }), { signWith: null });
-    await postWebhook(makeEvent(userId, { type: "CANCELLATION", expiration_at_ms: until, price: 0 }), { signWith: null });
+    await postWebhook(makeEvent(userId, { type: "CANCELLATION", expiration_at_ms: until, price: 0 }), {
+      signWith: null,
+    });
 
     const sub = await subFor(userId);
     expect(sub?.active).toBe(true);
@@ -186,7 +188,9 @@ describe("RevenueCat event mapping", () => {
     const a = await signup(h);
     const future = Date.now() + hours(24 * 3);
     await postWebhook(makeEvent(a.userId, { expiration_at_ms: future }), { signWith: null });
-    await postWebhook(makeEvent(a.userId, { type: "EXPIRATION", expiration_at_ms: future, price: 0 }), { signWith: null });
+    await postWebhook(makeEvent(a.userId, { type: "EXPIRATION", expiration_at_ms: future, price: 0 }), {
+      signWith: null,
+    });
     const stillOn = await subFor(a.userId);
     expect(stillOn?.active).toBe(true);
     expect(entitlementsFor(stillOn, new Date()).dailyEnergyMax).toBe(PLANS.plus_monthly.energyDaily);
@@ -195,7 +199,9 @@ describe("RevenueCat event mapping", () => {
     const b = await signup(h);
     const past = Date.now() - hours(1);
     await postWebhook(makeEvent(b.userId), { signWith: null });
-    await postWebhook(makeEvent(b.userId, { type: "EXPIRATION", expiration_at_ms: past, price: 0 }), { signWith: null });
+    await postWebhook(makeEvent(b.userId, { type: "EXPIRATION", expiration_at_ms: past, price: 0 }), {
+      signWith: null,
+    });
     const over = await subFor(b.userId);
     expect(over?.active).toBe(false);
     expect(entitlementsFor(over, new Date()).entitled).toBe(false);
@@ -269,10 +275,9 @@ describe("RevenueCat event mapping", () => {
     await postWebhook(makeEvent(userId), { signWith: null });
     const before = await subFor(userId);
 
-    await postWebhook(
-      makeEvent(userId, { type: "SUBSCRIBER_ALIAS", price: 0, aliases: [userId, "rc_alias_1"] }),
-      { signWith: null },
-    );
+    await postWebhook(makeEvent(userId, { type: "SUBSCRIBER_ALIAS", price: 0, aliases: [userId, "rc_alias_1"] }), {
+      signWith: null,
+    });
     const after = await subFor(userId);
     expect(after?.plan).toBe(before?.plan);
     expect(after?.active).toBe(before?.active);
@@ -406,9 +411,11 @@ describe("restore", () => {
     const { token, userId } = await signup(h);
     await postWebhook(makeEvent(userId), { signWith: null });
 
-    const res = await call<{ subscription: { plan: string; active: boolean } | null; source: string; configured: boolean }>(
-      h, "POST", "/v1/billing/restore", { token, body: { rcAppUserId: userId } },
-    );
+    const res = await call<{
+      subscription: { plan: string; active: boolean } | null;
+      source: string;
+      configured: boolean;
+    }>(h, "POST", "/v1/billing/restore", { token, body: { rcAppUserId: userId } });
     expect(res.status).toBe(200);
     expect(res.data.source).toBe("local");
     expect(res.data.configured).toBe(false);
@@ -419,7 +426,10 @@ describe("restore", () => {
   it("reports the free state for an account that owns nothing", async () => {
     const { token, userId } = await signup(h);
     const res = await call<{ subscription: unknown; entitlements: { entitled: boolean; dailyEnergyMax: number } }>(
-      h, "POST", "/v1/billing/restore", { token, body: { rcAppUserId: userId } },
+      h,
+      "POST",
+      "/v1/billing/restore",
+      { token, body: { rcAppUserId: userId } },
     );
     expect(res.data.subscription).toBeNull();
     expect(res.data.entitlements.entitled).toBe(false);
@@ -431,9 +441,10 @@ describe("restore", () => {
     await postWebhook(makeEvent(victim.userId), { signWith: null });
     const attacker = await signup(h);
 
-    const res = await call<{ subscription: unknown; matchedRequestedUser: boolean }>(
-      h, "POST", "/v1/billing/restore", { token: attacker.token, body: { rcAppUserId: victim.userId } },
-    );
+    const res = await call<{ subscription: unknown; matchedRequestedUser: boolean }>(h, "POST", "/v1/billing/restore", {
+      token: attacker.token,
+      body: { rcAppUserId: victim.userId },
+    });
     expect(res.data.subscription).toBeNull();
     expect(res.data.matchedRequestedUser).toBe(false);
     expect(await subFor(attacker.userId)).toBeNull();
@@ -520,7 +531,10 @@ describe("dev-purchase still works (E2E-008)", () => {
     const { token, userId } = await signup(h);
     await call(h, "POST", "/v1/__test/set-energy", { token, body: { energy: 0 } });
     const res = await call<{ subscription: { plan: string; active: boolean }; energy: number }>(
-      h, "POST", "/v1/billing/dev-purchase", { token, body: { plan: "plus_monthly" } },
+      h,
+      "POST",
+      "/v1/billing/dev-purchase",
+      { token, body: { plan: "plus_monthly" } },
     );
     expect(res.status).toBe(200);
     expect(res.data.energy).toBe(PLANS.plus_monthly.energyDaily);

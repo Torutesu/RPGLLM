@@ -39,8 +39,4 @@ export { createStubLiveGateway, stubLiveWorld, type StubGatewayOptions } from ".
 export { renderHtml } from "./report-html.js";
 export { renderText, estimateBanner, table } from "./report-text.js";
 export type * from "./types.js";
-export {
-  createStubDigestGateway,
-  stubDigestPoints,
-  type StubDigestOptions,
-} from "./digest-stub.js";
+export { createStubDigestGateway, stubDigestPoints, type StubDigestOptions } from "./digest-stub.js";

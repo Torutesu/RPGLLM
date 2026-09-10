@@ -40,9 +40,7 @@ Never break character, never mention the app, never speak for the player.`,
 
 function renderHistory(history: G4Input["history"], handle: string, playerHandle: string): string {
   if (history.length === 0) return "(no messages yet — this is the first exchange)";
-  return history
-    .map((m) => `${m.fromCharacter ? handle : playerHandle}: ${clamp(m.text, 200)}`)
-    .join("\n");
+  return history.map((m) => `${m.fromCharacter ? handle : playerHandle}: ${clamp(m.text, 200)}`).join("\n");
 }
 
 function renderUser(input: G4Input): string {
@@ -51,10 +49,7 @@ function renderUser(input: G4Input): string {
     section("YOU ARE", renderCharacterCard(input.character)),
     section("THE PLAYER", renderPersona(input.persona, 300)),
     section("RELATIONSHIP", renderRelationships([input.relationship])),
-    section(
-      "THREAD (oldest first)",
-      renderHistory(input.history, input.character.handle, input.persona.handle),
-    ),
+    section("THREAD (oldest first)", renderHistory(input.history, input.character.handle, input.persona.handle)),
     section("NEW MESSAGE FROM THE PLAYER", `"""\n${clamp(input.message, 800)}\n"""`),
     section(
       "PARAMETERS",

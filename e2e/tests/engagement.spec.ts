@@ -1,8 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import { strings, T } from "@rpgllm/shared";
-import {
-  dismissStatCard, gotoApp, post, resetDb, ROUTES, signupAndEnter,
-} from "../fixtures";
+import { dismissStatCard, gotoApp, post, resetDb, ROUTES, signupAndEnter } from "../fixtures";
 
 /**
  * Agent L — engagement surfaces (SCR-042 notifications, SCR-044 achievements, the streak).
@@ -37,12 +35,16 @@ test.beforeEach(async ({ request }) => {
   await resetDb(request);
 });
 
-test("ENG-001: a reply raises the notifications badge, the tab shows it, and Mark all read clears it", async ({ page, request }) => {
+test("ENG-001: a reply raises the notifications badge, the tab shows it, and Mark all read clears it", async ({
+  page,
+  request,
+}) => {
   await signupAndEnter(page, request);
 
   // No badge before anything has happened to you.
-  await expect(page.getByTestId(T.tabNotifications), "the tab bar must offer Notifications")
-    .toBeVisible({ timeout: 15_000 });
+  await expect(page.getByTestId(T.tabNotifications), "the tab bar must offer Notifications").toBeVisible({
+    timeout: 15_000,
+  });
   await expect(page.getByTestId(T.notifBadge)).toHaveCount(0);
 
   await postAndSettle(page, "new era starts now");
@@ -59,14 +61,16 @@ test("ENG-001: a reply raises the notifications badge, the tab shows it, and Mar
   await expect(rows.first(), "the reply must be listed as a notification").toBeVisible({ timeout: 15_000 });
 
   await page.getByTestId(T.notifMarkAll).click();
-  await expect(page.getByTestId(T.notifMarkAll), "Mark all read disappears once nothing is unread")
-    .toHaveCount(0, { timeout: 15_000 });
+  await expect(page.getByTestId(T.notifMarkAll), "Mark all read disappears once nothing is unread").toHaveCount(0, {
+    timeout: 15_000,
+  });
 
   // Back on the feed the badge is gone.
   await gotoApp(page, ROUTES.feed);
   await expect(page.getByTestId(T.feedList)).toBeVisible({ timeout: 15_000 });
-  await expect(page.getByTestId(T.notifBadge), "the badge clears after mark-all-read")
-    .toHaveCount(0, { timeout: 15_000 });
+  await expect(page.getByTestId(T.notifBadge), "the badge clears after mark-all-read").toHaveCount(0, {
+    timeout: 15_000,
+  });
 });
 
 test("ENG-002: the first post unlocks First words on SCR-044", async ({ page, request }) => {
@@ -97,8 +101,9 @@ test("ENG-003: the daily check-in pays a streak that the notifications header sh
 
   await expect(page.getByTestId(T.notifList), "SCR-042 must open directly").toBeVisible({ timeout: 15_000 });
   // Day 1 of the ladder is claimed by the first `/v1/me`, so the chip is already lit.
-  await expect(page.getByTestId(T.streakChip), "the streak chip must show the running day count")
-    .toBeVisible({ timeout: 15_000 });
+  await expect(page.getByTestId(T.streakChip), "the streak chip must show the running day count").toBeVisible({
+    timeout: 15_000,
+  });
   await expect(page.getByTestId(T.streakChip)).toHaveText(/\d/);
 });
 

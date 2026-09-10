@@ -29,7 +29,11 @@ export function postRoutes(): Hono<AppEnv> {
     if (!ctx) return notFound("Persona");
 
     // AIF-013: the gate runs before anything is created and before any energy is spent.
-    const gate = await safetyGate(deps, { locale: ctx.locale, isMinor: user.isMinor, text: body.value.text, surface: "post" }, user.id);
+    const gate = await safetyGate(
+      deps,
+      { locale: ctx.locale, isMinor: user.isMinor, text: body.value.text, surface: "post" },
+      user.id,
+    );
     if (gate.verdict === "block") return fail("SAFETY_BLOCKED", "This doesn't fit the world's guidelines.", 422);
 
     const { wallet } = await ensureWallet(deps.prisma, deps.clock, user.id);
@@ -94,7 +98,10 @@ export function postRoutes(): Hono<AppEnv> {
         await runPostStream(deps, state, ctx, post, wallet.id, emit);
       } catch (err) {
         console.error("[api] post stream failed", err);
-        await stream.writeSSE({ event: "fallback", data: JSON.stringify({ type: "fallback", message: "Something went wrong." }) });
+        await stream.writeSSE({
+          event: "fallback",
+          data: JSON.stringify({ type: "fallback", message: "Something went wrong." }),
+        });
         await stream.writeSSE({ event: "done", data: JSON.stringify({ type: "done", energy: 0 }) });
       } finally {
         state.softenedPosts.delete(post.id);
@@ -105,7 +112,10 @@ export function postRoutes(): Hono<AppEnv> {
   app.get("/:id", requireAuth, async (c) => {
     const deps = c.get("deps");
     const user = c.get("user");
-    const post = await deps.prisma.post.findUnique({ where: { id: c.req.param("id") }, include: { authorCharacter: true } });
+    const post = await deps.prisma.post.findUnique({
+      where: { id: c.req.param("id") },
+      include: { authorCharacter: true },
+    });
     if (!post || !post.personaId) return notFound("Post");
     const persona = await deps.prisma.persona.findUnique({ where: { id: post.personaId } });
     if (!persona || persona.userId !== user.id) return notFound("Post");
@@ -132,9 +142,15 @@ export function postRoutes(): Hono<AppEnv> {
     if (!ctx) return notFound("Post");
 
     const metrics = (post.metrics ?? {}) as Record<string, unknown>;
-    if (metrics["moreDone"] === true) return fail("ALREADY_DONE", "More reactions were already generated for this post", 409);
+    if (metrics["moreDone"] === true)
+      return fail("ALREADY_DONE", "More reactions were already generated for this post", 409);
 
-    const input = await buildG1InputFor(deps, ctx, post, { k: PACING.K_MORE, softened: false, includeNews: false, seedSuffix: ":more" });
+    const input = await buildG1InputFor(deps, ctx, post, {
+      k: PACING.K_MORE,
+      softened: false,
+      includeNews: false,
+      seedSuffix: ":more",
+    });
     const result = await deps.gateway.g1(input);
     const generationId = await logGeneration(deps.prisma, result.meta, user.id);
     const rows = await materializeReplies(deps, ctx, post, result.output, generationId);

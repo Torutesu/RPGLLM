@@ -11,15 +11,7 @@ import { Gradient, typo } from "../ui";
  * colours plus its title, so you always know which story these posts belong to — and it is the
  * door into Explore, where the other worlds are.
  */
-export function WorldChip({
-  title,
-  slug,
-  onPress,
-}: {
-  title: string;
-  slug: string;
-  onPress?: () => void;
-}) {
+export function WorldChip({ title, slug, onPress }: { title: string; slug: string; onPress?: () => void }) {
   const identity = identityFor(slug);
   const body = (
     <View
@@ -42,17 +34,18 @@ export function WorldChip({
         minWidth: 0,
       }}
     >
-      <Gradient
-        colors={[identity.from, identity.to]}
-        angle={135}
-        style={{ width: 18, height: 18, borderRadius: 9 }}
-      />
+      <Gradient colors={[identity.from, identity.to]} angle={135} style={{ width: 18, height: 18, borderRadius: 9 }} />
       <Text numberOfLines={1} style={[typo.label, { color: colors.text, flexShrink: 1 }]}>
         {title}
       </Text>
     </View>
   );
-  if (!onPress) return <View testID={T.worldChip} style={{ flexShrink: 1, minWidth: 0 }}>{body}</View>;
+  if (!onPress)
+    return (
+      <View testID={T.worldChip} style={{ flexShrink: 1, minWidth: 0 }}>
+        {body}
+      </View>
+    );
   return (
     <Pressable
       testID={T.worldChip}

@@ -61,8 +61,26 @@ function Motif({ variant, seed, light, ink }: { variant: number; seed: number; l
       // halo — a thick broken ring pushed off-centre
       return (
         <G transform={`rotate(${spin} 50 50)`}>
-          <Circle cx={50} cy={50} r={37} stroke={light} strokeWidth={9} fill="none" strokeLinecap="round" strokeDasharray={arcDash(37, 0.34)} />
-          <Circle cx={50} cy={50} r={22} stroke={ink} strokeWidth={7} fill="none" strokeLinecap="round" strokeDasharray={arcDash(22, 0.26)} />
+          <Circle
+            cx={50}
+            cy={50}
+            r={37}
+            stroke={light}
+            strokeWidth={9}
+            fill="none"
+            strokeLinecap="round"
+            strokeDasharray={arcDash(37, 0.34)}
+          />
+          <Circle
+            cx={50}
+            cy={50}
+            r={22}
+            stroke={ink}
+            strokeWidth={7}
+            fill="none"
+            strokeLinecap="round"
+            strokeDasharray={arcDash(22, 0.26)}
+          />
           <Circle cx={50} cy={50} r={8} fill={light} />
         </G>
       );
@@ -158,7 +176,16 @@ function Motif({ variant, seed, light, ink }: { variant: number; seed: number; l
       // orbit — a tilted ring with a moon
       return (
         <G>
-          <Ellipse cx={50} cy={50} rx={44} ry={17} stroke={soft} strokeWidth={4} fill="none" transform={`rotate(${-28 - spin / 4} 50 50)`} />
+          <Ellipse
+            cx={50}
+            cy={50}
+            rx={44}
+            ry={17}
+            stroke={soft}
+            strokeWidth={4}
+            fill="none"
+            transform={`rotate(${-28 - spin / 4} 50 50)`}
+          />
           <Circle cx={50} cy={50} r={18} fill={light} />
           <Circle cx={50} cy={50} r={7} fill={ink} />
           <Circle cx={84} cy={34} r={7} fill={light} />
@@ -191,7 +218,15 @@ export interface AvatarProps {
   style?: StyleProp<ViewStyle>;
 }
 
-export function Avatar({ handle, size = layout.avatarMd, label, ring = false, badge = null, dim = false, style }: AvatarProps) {
+export function Avatar({
+  handle,
+  size = layout.avatarMd,
+  label,
+  ring = false,
+  badge = null,
+  dim = false,
+  style,
+}: AvatarProps) {
   const clean = handle.replace(/^@/, "").toLowerCase();
   const identity = identityFor(clean);
   const seed = hashString(clean);

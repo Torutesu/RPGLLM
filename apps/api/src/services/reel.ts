@@ -130,7 +130,10 @@ const num = (v: unknown): number => (typeof v === "number" && Number.isFinite(v)
 
 export function readPayload(value: unknown): FrozenPayload {
   const obj = (value && typeof value === "object" ? value : {}) as Record<string, unknown>;
-  const persona = (obj["persona"] && typeof obj["persona"] === "object" ? obj["persona"] : {}) as Record<string, unknown>;
+  const persona = (obj["persona"] && typeof obj["persona"] === "object" ? obj["persona"] : {}) as Record<
+    string,
+    unknown
+  >;
   const deltas = (obj["deltas"] && typeof obj["deltas"] === "object" ? obj["deltas"] : {}) as Record<string, unknown>;
   const reactions = Array.isArray(obj["reactions"]) ? obj["reactions"] : [];
   return {
@@ -179,8 +182,9 @@ export function scoreCandidate(row: { heat: number; kind: string }, relDelta: nu
 
 /** Rank, apply the relative floor, and keep at most `MAX_REPLIES`. */
 export function rank(candidates: Candidate[]): Candidate[] {
-  const sorted = [...candidates].sort((a, b) =>
-    b.score - a.score || a.at - b.at || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
+  const sorted = [...candidates].sort(
+    (a, b) => b.score - a.score || a.at - b.at || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0),
+  );
   const best = sorted[0]?.score ?? 0;
   const floor = best * REEL.FLOOR_RATIO;
   return sorted.filter((c) => c.score >= floor).slice(0, REEL.MAX_REPLIES);
@@ -207,13 +211,28 @@ export function statLine(locale: LocaleKey, deltas: { followers: number; aura: n
 
 /* ------------------------------------------------------------------- the assembly ---- */
 
-interface Draft { kind: ReelBeatKind; text: string; holdMs: number; handle: string | null; displayName: string | null; delta: ReelBeat["delta"] }
+interface Draft {
+  kind: ReelBeatKind;
+  text: string;
+  holdMs: number;
+  handle: string | null;
+  displayName: string | null;
+  delta: ReelBeat["delta"];
+}
 
 /** Lay the drafts on a timeline. `at` accumulates the *rounded* holds, so nothing can drift. */
 function layout(drafts: Draft[]): { beats: ReelBeat[]; durationMs: number } {
   let at = 0;
   const beats = drafts.map((d) => {
-    const beat: ReelBeat = { kind: d.kind, at, holdMs: d.holdMs, handle: d.handle, displayName: d.displayName, text: d.text, delta: d.delta };
+    const beat: ReelBeat = {
+      kind: d.kind,
+      at,
+      holdMs: d.holdMs,
+      handle: d.handle,
+      displayName: d.displayName,
+      text: d.text,
+      delta: d.delta,
+    };
     at += d.holdMs;
     return beat;
   });
@@ -261,11 +280,11 @@ export async function buildReel(prisma: PrismaClient, moment: Moment): Promise<M
   const [replyRows, newsRows] = await Promise.all([
     postId
       ? prisma.post.findMany({
-        where: { parentId: postId, kind: "character", createdAt: { lte: cutoff } },
-        orderBy: [{ createdAt: "asc" }, { id: "asc" }],
-        take: REEL.CANDIDATE_SCAN,
-        include: { authorCharacter: true },
-      })
+          where: { parentId: postId, kind: "character", createdAt: { lte: cutoff } },
+          orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+          take: REEL.CANDIDATE_SCAN,
+          include: { authorCharacter: true },
+        })
       : Promise.resolve([] as PostRow[]),
     prisma.post.findMany({
       where: { personaId: persona.id, kind: "news", createdAt: { lte: cutoff } },
@@ -285,28 +304,33 @@ export async function buildReel(prisma: PrismaClient, moment: Moment): Promise<M
     if (!r.authorCharacter) return [];
     const text = truncateToUnits(r.text, REEL.HOLD.reply.units);
     if (text.length === 0) return [];
-    return [{
-      handle: atHandle(r.authorCharacter.handle),
-      displayName: r.authorCharacter.displayName,
-      text,
-      score: scoreCandidate(r, relFor(r.authorCharacter.handle)),
-      at: r.createdAt.getTime(),
-      id: r.id,
-    }];
+    return [
+      {
+        handle: atHandle(r.authorCharacter.handle),
+        displayName: r.authorCharacter.displayName,
+        text,
+        score: scoreCandidate(r, relFor(r.authorCharacter.handle)),
+        at: r.createdAt.getTime(),
+        id: r.id,
+      },
+    ];
   });
 
   /**
    * A moment that did not come from a post (a drama event) has no reply rows to score, but the card
    * froze the voices that were around it — so the reel falls back to those rather than to silence.
    */
-  const fallback: Candidate[] = candidates.length > 0 ? [] : payload.reactions.map((r, i) => ({
-    handle: r.handle,
-    displayName: r.displayName,
-    text: truncateToUnits(r.text, REEL.HOLD.reply.units),
-    score: payload.reactions.length - i,
-    at: i,
-    id: String(i),
-  }));
+  const fallback: Candidate[] =
+    candidates.length > 0
+      ? []
+      : payload.reactions.map((r, i) => ({
+          handle: r.handle,
+          displayName: r.displayName,
+          text: truncateToUnits(r.text, REEL.HOLD.reply.units),
+          score: payload.reactions.length - i,
+          at: i,
+          id: String(i),
+        }));
 
   const chosen = rank(candidates.length > 0 ? candidates : fallback);
 
@@ -330,16 +354,25 @@ export async function buildReel(prisma: PrismaClient, moment: Moment): Promise<M
   if (playerPost) push("post", playerPost.text, { handle: personaHandle, displayName: personaName });
   // 3. The reactions, quietest first: the sharpest one hands off to the number.
   const ascending = [...chosen].reverse();
-  const skeletonMs = drafts.reduce((sum, d) => sum + d.holdMs, 0)
-    + REEL.HOLD.stat.min + REEL.HOLD.outro.min
-    + shape("headline", moment.headline).holdMs;
+  const skeletonMs =
+    drafts.reduce((sum, d) => sum + d.holdMs, 0) +
+    REEL.HOLD.stat.min +
+    REEL.HOLD.outro.min +
+    shape("headline", moment.headline).holdMs;
   let spent = skeletonMs;
   for (const c of ascending) {
     const hold = clamp(Math.round(readMs(c.text)), REEL.HOLD.reply.min, REEL.HOLD.reply.max);
     const room = REEL.MAX_MS - spent;
     if (room < REEL.HOLD.reply.min) break;
     const fitted = Math.min(hold, room);
-    drafts.push({ kind: "reply", text: c.text, holdMs: fitted, handle: c.handle, displayName: c.displayName, delta: null });
+    drafts.push({
+      kind: "reply",
+      text: c.text,
+      holdMs: fitted,
+      handle: c.handle,
+      displayName: c.displayName,
+      delta: null,
+    });
     spent += fitted;
   }
   // 4. The punchline.

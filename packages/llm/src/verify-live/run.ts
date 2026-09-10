@@ -152,7 +152,10 @@ export async function estimateRun(plan: VerifyPlan): Promise<CostEstimate> {
     else process.env.LLM_REPLAY_LATENCY_MS = previous;
   }
   const stages = stageSpend(collector.metas);
-  const totalUsd = round(stages.reduce((s, r) => s + r.costUsd, 0), 6);
+  const totalUsd = round(
+    stages.reduce((s, r) => s + r.costUsd, 0),
+    6,
+  );
   return {
     totalUsd,
     perWorldUsd: plan.worlds === 0 ? 0 : round(totalUsd / plan.worlds, 6),
@@ -302,14 +305,13 @@ function judgeSourceOf(metas: readonly GenerationMeta[]): VerifyReport["judgeSou
   return "mixed";
 }
 
-function spendReport(
-  metas: readonly GenerationMeta[],
-  worlds: number,
-  estimate: CostEstimate | null,
-): SpendReport {
+function spendReport(metas: readonly GenerationMeta[], worlds: number, estimate: CostEstimate | null): SpendReport {
   const stages = stageSpend(metas);
   const usage = totalUsage(metas);
-  const totalUsd = round(stages.reduce((s, r) => s + r.costUsd, 0), 8);
+  const totalUsd = round(
+    stages.reduce((s, r) => s + r.costUsd, 0),
+    8,
+  );
   const judgeUsd = round(
     stages.filter((s) => s.stage.startsWith("GJ")).reduce((s, r) => s + r.costUsd, 0),
     8,

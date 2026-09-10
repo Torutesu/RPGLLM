@@ -128,9 +128,7 @@ export function extractJson(res: RawResponse): string {
   return text;
 }
 
-export async function runLive<T>(
-  args: BuildRequestArgs & { schema: z.ZodType<T> },
-): Promise<LiveResult<T>> {
+export async function runLive<T>(args: BuildRequestArgs & { schema: z.ZodType<T> }): Promise<LiveResult<T>> {
   const req = buildRequest(args);
 
   let res: RawResponse;

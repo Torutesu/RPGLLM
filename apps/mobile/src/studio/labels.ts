@@ -91,8 +91,7 @@ export const isBuilding = (s: WorldBuildStatus): boolean => s === "generating";
 export const isFailedBuild = (s: WorldBuildStatus): boolean => s === "draft";
 
 /** A state a player can actually play. */
-export const isPlayable = (s: WorldBuildStatus): boolean =>
-  s === "ready" || s === "review" || s === "published";
+export const isPlayable = (s: WorldBuildStatus): boolean => s === "ready" || s === "review" || s === "published";
 
 /** The four named build steps, in the order the generator runs them. */
 export const BUILD_STEPS = [

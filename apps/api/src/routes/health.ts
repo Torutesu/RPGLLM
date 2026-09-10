@@ -10,7 +10,9 @@ export async function probeDb(prisma: PrismaClient, timeoutMs: number): Promise<
   try {
     await Promise.race([
       prisma.$queryRawUnsafe("SELECT 1"),
-      new Promise((_, reject) => { timer = setTimeout(() => reject(new Error("db probe timeout")), timeoutMs); }),
+      new Promise((_, reject) => {
+        timer = setTimeout(() => reject(new Error("db probe timeout")), timeoutMs);
+      }),
     ]);
     return "ok";
   } catch {
@@ -27,7 +29,10 @@ export function healthRoutes(): Hono<AppEnv> {
     const db = await probeDb(deps.prisma, healthDbTimeoutMs());
     // Existing fields are unchanged; `db` is additive. A down database answers 503 so a load
     // balancer takes the instance out of rotation instead of serving 500s.
-    return ok({ ok: db === "ok", llmMode: deps.gateway.mode(), champion: deps.gateway.champion(), db }, db === "ok" ? 200 : 503);
+    return ok(
+      { ok: db === "ok", llmMode: deps.gateway.mode(), champion: deps.gateway.champion(), db },
+      db === "ok" ? 200 : 503,
+    );
   });
   return app;
 }

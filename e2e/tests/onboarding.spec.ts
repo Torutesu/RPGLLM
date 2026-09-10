@@ -1,10 +1,35 @@
 import { expect, test } from "@playwright/test";
 import { strings, T } from "@rpgllm/shared";
 import {
-  apiEmailAuth, apiSignup, apiUrl, badgeEnergy, bearer, browserToken, cellsOfKind, dismissStatCard,
-  enterWorld, errorOf, expectBadgeEnergy, FIRST_FOLLOWER, firstPostFlow, lastAdRequest, loginInBrowser,
-  openComposer, openEnergyModal, randomEmail, reactionCount, resetDb, setAdsMode, setEnergy,
-  submitComposer, typeInComposer, uiAgeGate, uiEmailLogin, wallet, yearsAgo, syncWallet
+  apiEmailAuth,
+  apiSignup,
+  apiUrl,
+  badgeEnergy,
+  bearer,
+  browserToken,
+  cellsOfKind,
+  dismissStatCard,
+  enterWorld,
+  errorOf,
+  expectBadgeEnergy,
+  FIRST_FOLLOWER,
+  firstPostFlow,
+  lastAdRequest,
+  loginInBrowser,
+  openComposer,
+  openEnergyModal,
+  randomEmail,
+  reactionCount,
+  resetDb,
+  setAdsMode,
+  setEnergy,
+  submitComposer,
+  typeInComposer,
+  uiAgeGate,
+  uiEmailLogin,
+  wallet,
+  yearsAgo,
+  syncWallet,
 } from "../fixtures";
 
 /** CJK range — enough to prove a reply is Japanese and not the English fixture. */
@@ -32,7 +57,9 @@ test("E2E-001: under-13 cannot register", async ({ page, request }) => {
   // (b) API — the age gate rejects with 403 UNDER_13 and /me stays 401
   const jwt = await apiEmailAuth(request, randomEmail());
   const gate = await request.post(apiUrl("/v1/auth/age-gate"), {
-    headers: bearer(jwt), data: { birthYear: yearsAgo(12), locale: "en" }, failOnStatusCode: false,
+    headers: bearer(jwt),
+    data: { birthYear: yearsAgo(12), locale: "en" },
+    failOnStatusCode: false,
   });
   expect(gate.status(), "POST /v1/auth/age-gate with an under-13 birth year").toBe(403);
   expect((await errorOf(gate))?.code).toBe("UNDER_13");
@@ -48,8 +75,7 @@ test("E2E-002: three taps into the world", async ({ page, request }) => {
   // Popstar Era → @taytay19 → @hivequeenbea → Enter the world (feed asserted ≤10s inside)
   await enterWorld(page);
 
-  await expect(cellsOfKind(page, "ambient"), "5 ambient posts seed the feed")
-    .toHaveCount(5, { timeout: 15_000 });
+  await expect(cellsOfKind(page, "ambient"), "5 ambient posts seed the feed").toHaveCount(5, { timeout: 15_000 });
   await expect(
     cellsOfKind(page, "character").filter({ hasText: FIRST_FOLLOWER }),
     `welcome post from @${FIRST_FOLLOWER}`,
@@ -70,8 +96,7 @@ test("E2E-011: Japanese locale renders Japanese UI and replies", async ({ page, 
 
   const before = await reactionCount(page);
   await openComposer(page);
-  await expect(page.getByTestId(T.composeSubmit), "composer submit label in JA")
-    .toContainText(strings.ja.post);
+  await expect(page.getByTestId(T.composeSubmit), "composer submit label in JA").toContainText(strings.ja.post);
   await typeInComposer(page, "新曲、金曜に出します");
   await submitComposer(page);
 
@@ -130,8 +155,7 @@ test("E2E-016: minors get non-personalized ads", async ({ page, request }) => {
     .toBeDefined();
   expect((await lastAdRequest(page))?.npa, "minors must request non-personalized ads").toBe(true);
 
-  expect((await wallet(request, account.jwt)).adPersonalized, "/v1/wallet reports non-personalized ads")
-    .toBe(false);
+  expect((await wallet(request, account.jwt)).adPersonalized, "/v1/wallet reports non-personalized ads").toBe(false);
 });
 
 /* --------------------------------------------------------------- P1 ------- */

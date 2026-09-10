@@ -87,9 +87,7 @@ export const PRODUCT_EXPERIMENTS: Readonly<Record<string, readonly string[]>> = 
   paywall_adfree: ["adfree_off", "adfree_on"],
 };
 
-const BY_GENERATOR = new Map<GeneratorId, GeneratorExperiment>(
-  GENERATOR_EXPERIMENTS.map((e) => [e.generator, e]),
-);
+const BY_GENERATOR = new Map<GeneratorId, GeneratorExperiment>(GENERATOR_EXPERIMENTS.map((e) => [e.generator, e]));
 const BY_VARIANT_ID = new Map<string, GeneratorVariant>(
   GENERATOR_EXPERIMENTS.flatMap((e) => e.variants.map((v) => [v.id, v] as const)),
 );
@@ -108,11 +106,7 @@ export function assignIndex(key: string, userId: string | null, size: number): n
 }
 
 /** Variant used for a generator call. `variantId` (escalation/regeneration) wins when given. */
-export function variantFor(
-  generator: GeneratorId,
-  userId: string | null,
-  variantId?: string,
-): GeneratorVariant {
+export function variantFor(generator: GeneratorId, userId: string | null, variantId?: string): GeneratorVariant {
   if (variantId) {
     const forced = BY_VARIANT_ID.get(variantId);
     if (forced) return forced;

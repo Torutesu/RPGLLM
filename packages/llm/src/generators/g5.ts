@@ -125,9 +125,11 @@ const g5Spec: GeneratorSpec<G5Input, G5Output> = {
             : "Some days nothing arrives. What happens next is still up to you.",
         choices: [0, 1, 2].map((i) => ({
           id: `c${i + 1}`,
-          label: input.locale === "ja" ? ["投稿する", "様子を見る", "誰かに連絡する"][i] ?? "" : ["Post something", "Wait and watch", "Message someone"][i] ?? "",
-          outcomeText:
-            input.locale === "ja" ? "小さな一日が過ぎた。" : "It was a small day, and it passed.",
+          label:
+            input.locale === "ja"
+              ? (["投稿する", "様子を見る", "誰かに連絡する"][i] ?? "")
+              : (["Post something", "Wait and watch", "Message someone"][i] ?? ""),
+          outcomeText: input.locale === "ja" ? "小さな一日が過ぎた。" : "It was a small day, and it passed.",
           statDeltas: { followers: 0, aura: 0, humor: 0 },
           relationshipDeltas: {},
           newsText: null,

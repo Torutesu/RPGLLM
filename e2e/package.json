@@ -10,6 +10,12 @@
     "report": "playwright show-report playwright-report",
     "typecheck": "tsc --noEmit -p tsconfig.json"
   },
-  "dependencies": { "@rpgllm/shared": "workspace:*" },
-  "devDependencies": { "@playwright/test": "1.62.1", "@types/node": "^22.19.0", "typescript": "^5.9.3" }
+  "dependencies": {
+    "@rpgllm/shared": "workspace:*"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.62.1",
+    "@types/node": "^22.19.0",
+    "typescript": "^5.9.3"
+  }
 }

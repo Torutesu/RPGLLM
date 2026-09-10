@@ -41,7 +41,9 @@ describe("G8 safety gate (replay)", () => {
   });
 
   it("softens mild profanity instead of blocking it", () => {
-    expect(replayG8({ locale: "en", isMinor: false, text: "what the fuck was that", surface: "post" }).verdict).toBe("soften");
+    expect(replayG8({ locale: "en", isMinor: false, text: "what the fuck was that", surface: "post" }).verdict).toBe(
+      "soften",
+    );
     expect(replayG8({ locale: "ja", isMinor: false, text: "うざい、まじで", surface: "dm" }).verdict).toBe("soften");
     expect(softenTerm("this is fine")).toBeNull();
     expect(blockedPhrase("this is fine")).toBeNull();

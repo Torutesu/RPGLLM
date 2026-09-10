@@ -5,8 +5,12 @@ import { call, makeHarness, readSSE, resetDatabase, signupWithPersona, type Harn
 
 let h: Harness;
 
-beforeAll(() => { h = makeHarness(); });
-beforeEach(async () => { await resetDatabase(); });
+beforeAll(() => {
+  h = makeHarness();
+});
+beforeEach(async () => {
+  await resetDatabase();
+});
 
 type Profile = ReturnType<typeof CharacterProfileResZ.parse>;
 
@@ -14,16 +18,21 @@ const profile = (token: string, handle: string, personaId: string) =>
   call<Profile>(h, "GET", `/v1/characters/${encodeURIComponent(handle)}?personaId=${personaId}`, { token });
 
 async function postAndSettle(token: string, personaId: string, text: string): Promise<void> {
-  const res = await call<{ streamUrl: string }>(h, "POST", "/v1/posts", { token, body: { personaId, text, parentId: null } });
+  const res = await call<{ streamUrl: string }>(h, "POST", "/v1/posts", {
+    token,
+    body: { personaId, text, parentId: null },
+  });
   await readSSE(h, res.data.streamUrl, token);
 }
 
 describe("Agent K — bio extraction", () => {
   it("drops the generator's steering and keeps the person", () => {
-    expect(bioFrom("Voice: all-caps hype, crowns and bees. Values loyalty. NG: never insults the user."))
-      .toBe("All-caps hype, crowns and bees. Values loyalty.");
-    expect(bioFrom("Role: the press account of this world. NG: never fabricates crimes."))
-      .toBe("The press account of this world.");
+    expect(bioFrom("Voice: all-caps hype, crowns and bees. Values loyalty. NG: never insults the user.")).toBe(
+      "All-caps hype, crowns and bees. Values loyalty.",
+    );
+    expect(bioFrom("Role: the press account of this world. NG: never fabricates crimes.")).toBe(
+      "The press account of this world.",
+    );
     expect(bioFrom("")).toBe("");
   });
 });
@@ -66,7 +75,8 @@ describe("GET /v1/characters/:handle (SCR-047)", () => {
     await postAndSettle(fx.token, fx.personaId, "studio all night again");
 
     await call(h, "POST", "/v1/moderation/block", {
-      token: fx.token, body: { personaId: fx.personaId, characterId: follower.id },
+      token: fx.token,
+      body: { personaId: fx.personaId, characterId: follower.id },
     });
 
     const res = await profile(fx.token, follower.handle, fx.personaId);
@@ -82,7 +92,10 @@ describe("GET /v1/characters/:handle (SCR-047)", () => {
 
     const page = await profile(fx.token, follower.handle, fx.personaId);
     const ledger = await call<{ memories: unknown[] }>(
-      h, "GET", `/v1/memory/${follower.handle}?personaId=${fx.personaId}`, { token: fx.token },
+      h,
+      "GET",
+      `/v1/memory/${follower.handle}?personaId=${fx.personaId}`,
+      { token: fx.token },
     );
     expect(page.data.relationship.memoryCount).toBe(ledger.data.memories.length);
   });

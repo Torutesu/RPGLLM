@@ -21,9 +21,21 @@ export interface MomentCardProps {
   onClose?: () => void;
 }
 
-interface Deltas { followers: number; aura: number; humor: number }
-interface Reaction { handle: string; displayName: string; text: string }
-interface PersonaBadge { handle: string; displayName: string; level: number }
+interface Deltas {
+  followers: number;
+  aura: number;
+  humor: number;
+}
+interface Reaction {
+  handle: string;
+  displayName: string;
+  text: string;
+}
+interface PersonaBadge {
+  handle: string;
+  displayName: string;
+  level: number;
+}
 
 const num = (v: unknown): number => (typeof v === "number" && Number.isFinite(v) ? v : 0);
 const str = (v: unknown): string => (typeof v === "string" ? v : "");
@@ -111,7 +123,10 @@ export function MomentCard({ moment, onClose }: MomentCardProps) {
     const message = `${moment.headline}\n${url}`;
     try {
       if (IS_WEB) {
-        const nav = typeof navigator !== "undefined" ? (navigator as Navigator & { share?: (d: { title: string; text: string; url: string }) => Promise<void> }) : undefined;
+        const nav =
+          typeof navigator !== "undefined"
+            ? (navigator as Navigator & { share?: (d: { title: string; text: string; url: string }) => Promise<void> })
+            : undefined;
         if (nav?.share) {
           await nav.share({ title: moment.headline, text: moment.headline, url });
           return;
@@ -147,12 +162,21 @@ export function MomentCard({ moment, onClose }: MomentCardProps) {
       ]}
     >
       <Gradient
-        colors={winning ? ["rgba(61,224,138,0.20)", "rgba(124,92,255,0.14)", "rgba(7,7,12,0)"] : ["rgba(255,77,94,0.22)", "rgba(124,92,255,0.12)", "rgba(7,7,12,0)"]}
+        colors={
+          winning
+            ? ["rgba(61,224,138,0.20)", "rgba(124,92,255,0.14)", "rgba(7,7,12,0)"]
+            : ["rgba(255,77,94,0.22)", "rgba(124,92,255,0.12)", "rgba(7,7,12,0)"]
+        }
         angle={155}
         pointerEvents="none"
         style={{ position: "absolute", left: 0, right: 0, top: 0, height: 380 }}
       />
-      <Gradient colors={winning ? [...gradients.win] : [...gradients.lose]} angle={90} pointerEvents="none" style={{ height: 4 }} />
+      <Gradient
+        colors={winning ? [...gradients.win] : [...gradients.lose]}
+        angle={90}
+        pointerEvents="none"
+        style={{ height: 4 }}
+      />
 
       <View style={{ flex: 1, padding: spacing.xl, justifyContent: "space-between", gap: spacing.md }}>
         <View style={{ gap: spacing.sm }}>
@@ -209,7 +233,13 @@ export function MomentCard({ moment, onClose }: MomentCardProps) {
         {note ? <Text style={[typo.caption, { color: colors.positive }]}>{note}</Text> : null}
 
         <View style={{ flexDirection: "row", gap: spacing.md }}>
-          <Button testID={T.momentShare} label={t("share")} onPress={() => void onShare()} icon="share" style={{ flex: 1 }} />
+          <Button
+            testID={T.momentShare}
+            label={t("share")}
+            onPress={() => void onShare()}
+            icon="share"
+            style={{ flex: 1 }}
+          />
           {onClose ? <Button testID={T.momentClose} label={t("close")} onPress={onClose} variant="ghost" /> : null}
         </View>
       </View>

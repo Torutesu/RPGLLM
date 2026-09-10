@@ -53,7 +53,10 @@ export function generationRoutes(): Hono<AppEnv> {
       if (!parent || !ctx) return notFound("Post");
       const tier = escalateTier(tierFromModel(log.model, "mid"));
       const input = await buildG1InputFor(deps, ctx, parent, {
-        k: 1, softened: false, includeNews: false, seedSuffix: `:regen:${target.id}`,
+        k: 1,
+        softened: false,
+        includeNews: false,
+        seedSuffix: `:regen:${target.id}`,
       });
       const handle = target.authorCharacter?.handle ?? "";
       const pickReply = (out: { replies: { characterHandle: string; text: string }[] }) =>
@@ -87,12 +90,18 @@ export function generationRoutes(): Hono<AppEnv> {
     const message = messages.find((m) => m.id === wantedMessageId) ?? messages[0];
     if (!message) return notFound("Generation target");
 
-    const thread = await deps.prisma.dMThread.findUnique({ where: { id: message.threadId }, include: { character: true } });
+    const thread = await deps.prisma.dMThread.findUnique({
+      where: { id: message.threadId },
+      include: { character: true },
+    });
     if (!thread) return notFound("Thread");
     const ctx = await loadStoryContext(deps.prisma, user, thread.personaId);
     if (!ctx) return notFound("Thread");
     const relationship = ctx.relationships.find((r) => r.characterId === thread.characterId);
-    const history = await deps.prisma.dMMessage.findMany({ where: { threadId: thread.id }, orderBy: { createdAt: "asc" } });
+    const history = await deps.prisma.dMMessage.findMany({
+      where: { threadId: thread.id },
+      orderBy: { createdAt: "asc" },
+    });
     const idx = history.findIndex((m) => m.id === message.id);
     const prior = history.slice(0, Math.max(0, idx));
     const lastUser = [...prior].reverse().find((m) => !m.fromCharacter);
@@ -101,8 +110,11 @@ export function generationRoutes(): Hono<AppEnv> {
       ...baseCtx(ctx),
       persona: personaState(ctx),
       character: {
-        handle: thread.character.handle, displayName: thread.character.displayName, role: thread.character.role,
-        card: localized(thread.character.card, ctx.locale), isPressAccount: thread.character.isPressAccount,
+        handle: thread.character.handle,
+        displayName: thread.character.displayName,
+        role: thread.character.role,
+        card: localized(thread.character.card, ctx.locale),
+        isPressAccount: thread.character.isPressAccount,
       },
       relationship: {
         handle: thread.character.handle,

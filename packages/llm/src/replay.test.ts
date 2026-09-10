@@ -31,9 +31,7 @@ describe("replay G1", () => {
   });
 
   it("varies with the seed", () => {
-    const texts = new Set(
-      SEEDS.map((s) => replayG1(g1Input("popstar-era", "en", s)).replies[0]?.text ?? ""),
-    );
+    const texts = new Set(SEEDS.map((s) => replayG1(g1Input("popstar-era", "en", s)).replies[0]?.text ?? ""));
     expect(texts.size).toBeGreaterThan(1);
   });
 
@@ -123,9 +121,7 @@ describe("replay G1", () => {
 
   it("falls back to canned lines when every handle is unknown", () => {
     const input = g1Input("popstar-era", "en", 1);
-    expect(
-      g1.postprocess({ ...replayG1(input), replies: [{ characterHandle: "nope", text: "x" }] }, input),
-    ).toBeNull();
+    expect(g1.postprocess({ ...replayG1(input), replies: [{ characterHandle: "nope", text: "x" }] }, input)).toBeNull();
     const fallback = g1.fallback(input);
     expect(fallback.replies.length).toBeGreaterThanOrEqual(1);
     expect(fallback.stat_deltas).toEqual({ followers: 0, aura: 0, humor: 0 });

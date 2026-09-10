@@ -11,7 +11,7 @@ export const CharacterCardZ = z.object({
   handle: z.string(),
   displayName: z.string(),
   role: z.string(),
-  card: z.string(),                 // voice/values/catchphrases/NG (locale-specific text)
+  card: z.string(), // voice/values/catchphrases/NG (locale-specific text)
   isPressAccount: z.boolean().default(false),
 });
 export type CharacterCard = z.infer<typeof CharacterCardZ>;
@@ -47,14 +47,14 @@ export const BaseCtxZ = z.object({
   userId: z.string().nullable(),
   locale: LocaleZ,
   worldSlug: z.string(),
-  worldBible: z.string(),            // World.bible[locale] — verbatim, cached as system[1]
+  worldBible: z.string(), // World.bible[locale] — verbatim, cached as system[1]
   isMinor: z.boolean().default(true),
 });
 
 /** ---------- G1 Reaction Fan-out (AIF-009) ---------- */
 export const G1InputZ = BaseCtxZ.extend({
   persona: PersonaStateZ,
-  cast: z.array(CharacterCardZ),                 // full cast (in bible too; here for handle validation)
+  cast: z.array(CharacterCardZ), // full cast (in bible too; here for handle validation)
   involved: z.array(RelationshipCtxZ).max(3),
   recentFeed: z.array(FeedItemCtxZ).max(6),
   post: z.object({ text: z.string(), parentAuthorHandle: z.string().nullable(), parentText: z.string().nullable() }),
@@ -66,12 +66,15 @@ export const G1InputZ = BaseCtxZ.extend({
 export type G1Input = z.infer<typeof G1InputZ>;
 
 export const StatDeltasZ = z.object({
-  followers: z.number().int().min(-50).max(50),  // scaled by level server-side
+  followers: z.number().int().min(-50).max(50), // scaled by level server-side
   aura: z.number().int().min(-10).max(10),
   humor: z.number().int().min(-10).max(10),
 });
 export const G1OutputZ = z.object({
-  replies: z.array(z.object({ characterHandle: z.string(), text: z.string().max(280) })).min(1).max(4),
+  replies: z
+    .array(z.object({ characterHandle: z.string(), text: z.string().max(280) }))
+    .min(1)
+    .max(4),
   stat_deltas: StatDeltasZ,
   narrative: z.string().max(240),
   relationship_deltas: z.record(z.string(), z.union([z.literal(-1), z.literal(0), z.literal(1)])),
@@ -104,7 +107,11 @@ export type G4Output = z.infer<typeof G4OutputZ>;
 export const G5InputZ = BaseCtxZ.extend({
   persona: PersonaStateZ,
   relationships: z.array(RelationshipCtxZ),
-  recentSnapshots: z.array(z.object({ narrative: z.string(), followersDelta: z.number(), auraDelta: z.number(), humorDelta: z.number() })).max(5),
+  recentSnapshots: z
+    .array(
+      z.object({ narrative: z.string(), followersDelta: z.number(), auraDelta: z.number(), humorDelta: z.number() }),
+    )
+    .max(5),
   pastEventTitles: z.array(z.string()),
   seed: z.number().int(),
 });
@@ -127,7 +134,9 @@ export type G5Output = z.infer<typeof G5OutputZ>;
 /** ---------- G7 Memory Consolidator (AIF-012) ---------- */
 export const G7InputZ = BaseCtxZ.extend({
   persona: PersonaStateZ,
-  relationships: z.array(z.object({ handle: z.string(), affinity: z.number().int(), oldSummary: z.string(), notes: z.array(z.string()) })),
+  relationships: z.array(
+    z.object({ handle: z.string(), affinity: z.number().int(), oldSummary: z.string(), notes: z.array(z.string()) }),
+  ),
 });
 export type G7Input = z.infer<typeof G7InputZ>;
 export const G7OutputZ = z.object({
@@ -137,7 +146,12 @@ export const G7OutputZ = z.object({
 export type G7Output = z.infer<typeof G7OutputZ>;
 
 /** ---------- G8 Safety Gate (AIF-013) ---------- */
-export const G8InputZ = z.object({ locale: LocaleZ, isMinor: z.boolean(), text: z.string(), surface: z.enum(["post", "dm"]) });
+export const G8InputZ = z.object({
+  locale: LocaleZ,
+  isMinor: z.boolean(),
+  text: z.string(),
+  surface: z.enum(["post", "dm"]),
+});
 export type G8Input = z.infer<typeof G8InputZ>;
 export const SafetyVerdictZ = z.enum(["allow", "soften", "block"]);
 export const G8OutputZ = z.object({ verdict: SafetyVerdictZ, category: z.string().nullable() });
@@ -155,18 +169,21 @@ export type Usage = z.infer<typeof UsageZ>;
 export interface GenerationMeta {
   generator: GeneratorId;
   variantId: string;
-  model: string;               // concrete model id or "replay"
+  model: string; // concrete model id or "replay"
   tier: z.infer<typeof ModelTierZ>;
   promptHash: string;
   usage: Usage;
   costUsd: number;
   ttftMs: number | null;
   latencyMs: number;
-  stopReason: string;          // end_turn | refusal | error | replay
-  fallback: boolean;           // true when output came from the deterministic fallback
+  stopReason: string; // end_turn | refusal | error | replay
+  fallback: boolean; // true when output came from the deterministic fallback
   escalatedFrom: string | null;
 }
-export interface GenerationResult<T> { output: T; meta: GenerationMeta }
+export interface GenerationResult<T> {
+  output: T;
+  meta: GenerationMeta;
+}
 
 /** World bible seed format produced by G9 at build time (packages/llm/src/worlds) */
 export const WorldSeedZ = z.object({
@@ -174,24 +191,49 @@ export const WorldSeedZ = z.object({
   difficulty: z.number().int().min(1).max(3),
   title: z.record(LocaleZ, z.string()),
   scenario: z.record(LocaleZ, z.string()),
-  bible: z.record(LocaleZ, z.string()),          // full text incl. cast cards; >= 4096 tokens each
-  cast: z.array(CharacterCardZ.extend({
-    card: z.record(LocaleZ, z.string()),
-    intro: z.record(LocaleZ, z.string()),
-    /**
-     * The role line, per locale. Additive alongside `role`, which stays the single-language string
-     * every existing seed and prompt already uses — a JA world was coming back with Japanese intros
-     * and English roles, which is exactly the seam a product whose global claim is "worlds cross
-     * languages" cannot have. Consumers prefer this and fall back to `role`.
-     */
-    roleLocalized: z.record(LocaleZ, z.string()).optional(),
-    canBeFirstFollower: z.boolean().default(true),
-    avatarKey: z.string(),
-  })),
-  presetPersonas: z.array(z.object({ handle: z.string(), displayName: z.record(LocaleZ, z.string()), bio: z.record(LocaleZ, z.string()), avatarKey: z.string() })),
-  presetEvents: z.array(z.object({ title: z.record(LocaleZ, z.string()), prompt: z.record(LocaleZ, z.string()), choices: z.array(z.object({ label: z.record(LocaleZ, z.string()), outcomeText: z.record(LocaleZ, z.string()), statDeltas: StatDeltasZ })).length(3) })).min(5),
-  fallbackReplies: z.record(z.string(), z.record(LocaleZ, z.array(z.string()).min(5))),   // handle -> locale -> 5 lines
-  ambientPool: z.record(LocaleZ, z.array(z.object({ handle: z.string(), text: z.string().max(280) })).min(20)),  // seeded AmbientPost rows
-  welcomePosts: z.record(z.string(), z.record(LocaleZ, z.string())),                    // handle -> locale -> welcome post (fallback for first post)
+  bible: z.record(LocaleZ, z.string()), // full text incl. cast cards; >= 4096 tokens each
+  cast: z.array(
+    CharacterCardZ.extend({
+      card: z.record(LocaleZ, z.string()),
+      intro: z.record(LocaleZ, z.string()),
+      /**
+       * The role line, per locale. Additive alongside `role`, which stays the single-language string
+       * every existing seed and prompt already uses — a JA world was coming back with Japanese intros
+       * and English roles, which is exactly the seam a product whose global claim is "worlds cross
+       * languages" cannot have. Consumers prefer this and fall back to `role`.
+       */
+      roleLocalized: z.record(LocaleZ, z.string()).optional(),
+      canBeFirstFollower: z.boolean().default(true),
+      avatarKey: z.string(),
+    }),
+  ),
+  presetPersonas: z.array(
+    z.object({
+      handle: z.string(),
+      displayName: z.record(LocaleZ, z.string()),
+      bio: z.record(LocaleZ, z.string()),
+      avatarKey: z.string(),
+    }),
+  ),
+  presetEvents: z
+    .array(
+      z.object({
+        title: z.record(LocaleZ, z.string()),
+        prompt: z.record(LocaleZ, z.string()),
+        choices: z
+          .array(
+            z.object({
+              label: z.record(LocaleZ, z.string()),
+              outcomeText: z.record(LocaleZ, z.string()),
+              statDeltas: StatDeltasZ,
+            }),
+          )
+          .length(3),
+      }),
+    )
+    .min(5),
+  fallbackReplies: z.record(z.string(), z.record(LocaleZ, z.array(z.string()).min(5))), // handle -> locale -> 5 lines
+  ambientPool: z.record(LocaleZ, z.array(z.object({ handle: z.string(), text: z.string().max(280) })).min(20)), // seeded AmbientPost rows
+  welcomePosts: z.record(z.string(), z.record(LocaleZ, z.string())), // handle -> locale -> welcome post (fallback for first post)
 });
 export type WorldSeed = z.infer<typeof WorldSeedZ>;

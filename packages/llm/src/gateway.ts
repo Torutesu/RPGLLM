@@ -48,16 +48,7 @@ import { gj, type GJInput, type GJOutput } from "./generators/gj.js";
 import { batchMaxRequests, chunkRequests, runLiveBatch, type BatchEntryStatus } from "./modes/batch.js";
 import { runFail } from "./modes/fail.js";
 import { runLive } from "./modes/live.js";
-import {
-  replayG1,
-  replayG2,
-  replayG4,
-  replayG5,
-  replayG7,
-  replayG8,
-  replayG10,
-  replayGJ,
-} from "./modes/replay.js";
+import { replayG1, replayG2, replayG4, replayG5, replayG7, replayG8, replayG10, replayGJ } from "./modes/replay.js";
 import type { RenderedPrompt } from "./prompts/render.js";
 import { estimateTokens, pick } from "./tokens.js";
 import type { GeneratorSpec } from "./types.js";
@@ -66,9 +57,7 @@ export type LlmMode = "replay" | "live" | "fail";
 
 export interface GatewayOptions {
   mode?: LlmMode;
-  onGeneration?: (
-    meta: GenerationMeta & { userId: string | null; generator: GeneratorId },
-  ) => Promise<void> | void;
+  onGeneration?: (meta: GenerationMeta & { userId: string | null; generator: GeneratorId }) => Promise<void> | void;
   /**
    * Thompson-sampling allocator (cost-architecture §6.3). apps/api passes a function that reads the
    * cached `BanditArm` posteriors; it returns the variant id to use for this (generator, user), or
@@ -497,17 +486,9 @@ export function createGateway(opts: GatewayOptions = {}): Gateway {
           await finish(p, "expired", null, EMPTY_USAGE, "error", p.model);
           continue;
         }
-        const cleaned =
-          outcome.output === null ? null : spec.postprocess(outcome.output, p.item.input);
+        const cleaned = outcome.output === null ? null : spec.postprocess(outcome.output, p.item.input);
         const reason = cleaned === null && outcome.stopReason === "end_turn" ? "invalid_json" : outcome.stopReason;
-        await finish(
-          p,
-          outcome.status,
-          cleaned,
-          outcome.usage,
-          reason,
-          outcome.model === "" ? p.model : outcome.model,
-        );
+        await finish(p, outcome.status, cleaned, outcome.usage, reason, outcome.model === "" ? p.model : outcome.model);
       }
     }
     return out;
@@ -523,20 +504,15 @@ export function createGateway(opts: GatewayOptions = {}): Gateway {
     return runG9(
       input,
       async ({ spec, variantId, tier, maxTokens, input: stageInput, replay, seed }) =>
-        run(
-          spec,
-          stageInput,
-          runOpts,
-          null,
-          replay,
-          () => seed,
-          { id: variantId, generator: "G9", tier: runOpts?.tier ?? tier, maxTokens },
-        ),
+        run(spec, stageInput, runOpts, null, replay, () => seed, {
+          id: variantId,
+          generator: "G9",
+          tier: runOpts?.tier ?? tier,
+          maxTokens,
+        }),
       runOpts?.escalatedFrom ?? null,
       {
-        ...(runOpts?.reserveCastHandles === undefined
-          ? {}
-          : { reserveCastHandles: runOpts.reserveCastHandles }),
+        ...(runOpts?.reserveCastHandles === undefined ? {} : { reserveCastHandles: runOpts.reserveCastHandles }),
         ...(runOpts?.onCastRenamed === undefined ? {} : { onCastRenamed: runOpts.onCastRenamed }),
       },
     );
@@ -544,22 +520,14 @@ export function createGateway(opts: GatewayOptions = {}): Gateway {
 
   const nullUser = (): string | null => null;
 
-  const batchG1 = (items: ReadonlyArray<BatchItem<G1Input>>) =>
-    runBatch(g1, items, replayG1, (i) => i.userId);
-  const batchG2 = (items: ReadonlyArray<BatchItem<G2Input>>) =>
-    runBatch(g2, items, replayG2, (i) => i.userId);
-  const batchG4 = (items: ReadonlyArray<BatchItem<G4Input>>) =>
-    runBatch(g4, items, replayG4, (i) => i.userId);
-  const batchG5 = (items: ReadonlyArray<BatchItem<G5Input>>) =>
-    runBatch(g5, items, replayG5, (i) => i.userId);
-  const batchG7 = (items: ReadonlyArray<BatchItem<G7Input>>) =>
-    runBatch(g7, items, replayG7, (i) => i.userId);
-  const batchG8 = (items: ReadonlyArray<BatchItem<G8Input>>) =>
-    runBatch(g8, items, replayG8, nullUser);
-  const batchG10 = (items: ReadonlyArray<BatchItem<G10Input>>) =>
-    runBatch(g10, items, replayG10, (i) => i.userId);
-  const batchGJ = (items: ReadonlyArray<BatchItem<GJInput>>) =>
-    runBatch(gj, items, replayGJ, nullUser);
+  const batchG1 = (items: ReadonlyArray<BatchItem<G1Input>>) => runBatch(g1, items, replayG1, (i) => i.userId);
+  const batchG2 = (items: ReadonlyArray<BatchItem<G2Input>>) => runBatch(g2, items, replayG2, (i) => i.userId);
+  const batchG4 = (items: ReadonlyArray<BatchItem<G4Input>>) => runBatch(g4, items, replayG4, (i) => i.userId);
+  const batchG5 = (items: ReadonlyArray<BatchItem<G5Input>>) => runBatch(g5, items, replayG5, (i) => i.userId);
+  const batchG7 = (items: ReadonlyArray<BatchItem<G7Input>>) => runBatch(g7, items, replayG7, (i) => i.userId);
+  const batchG8 = (items: ReadonlyArray<BatchItem<G8Input>>) => runBatch(g8, items, replayG8, nullUser);
+  const batchG10 = (items: ReadonlyArray<BatchItem<G10Input>>) => runBatch(g10, items, replayG10, (i) => i.userId);
+  const batchGJ = (items: ReadonlyArray<BatchItem<GJInput>>) => runBatch(gj, items, replayGJ, nullUser);
 
   async function batch(items: readonly AnyBatchItem[]): Promise<Map<string, AnyBatchOutcome>> {
     const merged = new Map<string, AnyBatchOutcome>();

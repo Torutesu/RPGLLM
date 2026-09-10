@@ -138,7 +138,10 @@ export default function DMThreadScreen() {
           gap: spacing.md,
         }}
       >
-        <Pressable accessibilityRole="button" onPress={() => (router.canGoBack() ? router.back() : router.replace("/dms"))}>
+        <Pressable
+          accessibilityRole="button"
+          onPress={() => (router.canGoBack() ? router.back() : router.replace("/dms"))}
+        >
           <Text style={{ color: colors.accent, fontSize: font.lg }}>‹</Text>
         </Pressable>
         <Text style={{ color: colors.text, fontSize: font.md, fontWeight: "700", flex: 1 }} numberOfLines={1}>

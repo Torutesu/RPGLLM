@@ -29,14 +29,7 @@ function toStops(colors: readonly string[]): Stops {
  * iOS/Android, so the same `angle` produces the same picture everywhere. Angles are expressed the
  * way CSS does it, then converted to the start/end unit points the native module wants.
  */
-export function Gradient({
-  colors,
-  angle = 180,
-  locations,
-  style,
-  children,
-  pointerEvents,
-}: GradientProps) {
+export function Gradient({ colors, angle = 180, locations, style, children, pointerEvents }: GradientProps) {
   const rad = ((angle - 90) * Math.PI) / 180;
   const dx = Math.cos(rad);
   const dy = Math.sin(rad);

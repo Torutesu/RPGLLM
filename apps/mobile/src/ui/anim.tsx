@@ -1,13 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import {
-  Animated,
-  StyleSheet,
-  Text,
-  View,
-  type StyleProp,
-  type TextStyle,
-  type ViewStyle,
-} from "react-native";
+import { Animated, StyleSheet, Text, View, type StyleProp, type TextStyle, type ViewStyle } from "react-native";
 import { colors, font, radius as radii } from "@rpgllm/shared";
 import { Gradient } from "./Gradient";
 import { duration, ease, timing, useAnimatedValue, useReduceMotion } from "./motion";
@@ -19,7 +11,17 @@ const HIDDEN = {
 
 /* -------------------------------------------------------------- numbers ---- */
 
-function Digit({ char, up, textStyle, height }: { char: string; up: boolean; textStyle: StyleProp<TextStyle>; height: number }) {
+function Digit({
+  char,
+  up,
+  textStyle,
+  height,
+}: {
+  char: string;
+  up: boolean;
+  textStyle: StyleProp<TextStyle>;
+  height: number;
+}) {
   const anim = useAnimatedValue(0);
   const reduce = useReduceMotion();
   const [outgoing, setOutgoing] = useState<string | null>(null);
@@ -132,15 +134,7 @@ const BURST_ANGLES = [0, 45, 90, 135, 180, 225, 270, 315];
  * The particle burst on a like. `trigger` is a counter: bump it and the burst plays once.
  * Rendered as an absolutely-positioned overlay so it never affects layout.
  */
-export function Burst({
-  trigger,
-  color = colors.hot,
-  size = 34,
-}: {
-  trigger: number;
-  color?: string;
-  size?: number;
-}) {
+export function Burst({ trigger, color = colors.hot, size = 34 }: { trigger: number; color?: string; size?: number }) {
   const anim = useAnimatedValue(0);
   const reduce = useReduceMotion();
   const [playing, setPlaying] = useState(false);
@@ -164,7 +158,19 @@ export function Burst({
   const dotOpacity = anim.interpolate({ inputRange: [0, 0.5, 1], outputRange: [1, 0.9, 0] });
   const dotScale = anim.interpolate({ inputRange: [0, 0.4, 1], outputRange: [0.4, 1, 0.2] });
   return (
-    <View {...HIDDEN} pointerEvents="none" style={{ position: "absolute", left: 0, top: 0, right: 0, bottom: 0, alignItems: "center", justifyContent: "center" }}>
+    <View
+      {...HIDDEN}
+      pointerEvents="none"
+      style={{
+        position: "absolute",
+        left: 0,
+        top: 0,
+        right: 0,
+        bottom: 0,
+        alignItems: "center",
+        justifyContent: "center",
+      }}
+    >
       <Animated.View
         style={{
           position: "absolute",
@@ -249,10 +255,7 @@ export function Shimmer({
   useEffect(() => {
     if (reduce) return;
     const loop = Animated.loop(
-      Animated.sequence([
-        timing(anim, 1, { duration: 1100, easing: ease.inOut }),
-        Animated.delay(280),
-      ]),
+      Animated.sequence([timing(anim, 1, { duration: 1100, easing: ease.inOut }), Animated.delay(280)]),
     );
     loop.start();
     return () => loop.stop();

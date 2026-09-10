@@ -128,17 +128,47 @@ export const leading = { tight: 1.15, snug: 1.3, normal: 1.45, relaxed: 1.6 } as
 
 /** Elevation. On web these become box-shadows; on native, shadow/elevation props. */
 export const elevation = {
-  none: { shadowColor: "transparent", shadowOpacity: 0, shadowRadius: 0, shadowOffset: { width: 0, height: 0 }, elevation: 0 },
-  low: { shadowColor: "#000000", shadowOpacity: 0.35, shadowRadius: 8, shadowOffset: { width: 0, height: 2 }, elevation: 3 },
-  mid: { shadowColor: "#000000", shadowOpacity: 0.45, shadowRadius: 18, shadowOffset: { width: 0, height: 8 }, elevation: 8 },
-  high: { shadowColor: "#000000", shadowOpacity: 0.6, shadowRadius: 32, shadowOffset: { width: 0, height: 16 }, elevation: 16 },
+  none: {
+    shadowColor: "transparent",
+    shadowOpacity: 0,
+    shadowRadius: 0,
+    shadowOffset: { width: 0, height: 0 },
+    elevation: 0,
+  },
+  low: {
+    shadowColor: "#000000",
+    shadowOpacity: 0.35,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 3,
+  },
+  mid: {
+    shadowColor: "#000000",
+    shadowOpacity: 0.45,
+    shadowRadius: 18,
+    shadowOffset: { width: 0, height: 8 },
+    elevation: 8,
+  },
+  high: {
+    shadowColor: "#000000",
+    shadowOpacity: 0.6,
+    shadowRadius: 32,
+    shadowOffset: { width: 0, height: 16 },
+    elevation: 16,
+  },
 } as const;
 
 /** Coloured glow for the things that should feel electric (level ups, viral moments, energy). */
 export const glow = (
   color: string,
   radiusPx = 20,
-): { shadowColor: string; shadowOpacity: number; shadowRadius: number; shadowOffset: { width: number; height: number }; elevation: number } => ({
+): {
+  shadowColor: string;
+  shadowOpacity: number;
+  shadowRadius: number;
+  shadowOffset: { width: number; height: number };
+  elevation: number;
+} => ({
   shadowColor: color,
   shadowOpacity: 0.55,
   shadowRadius: radiusPx,

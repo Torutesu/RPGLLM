@@ -173,7 +173,8 @@ export const en = {
   exportReady: "Your data has been downloaded",
   signOut: "Sign out",
   deleteAccount: "Delete account",
-  deleteWarning: "This deletes your worlds, personas and messages. You have 30 days to change your mind, then it is permanent.",
+  deleteWarning:
+    "This deletes your worlds, personas and messages. You have 30 days to change your mind, then it is permanent.",
   deleteTypeToConfirm: "Type DELETE to confirm",
   deleteConfirm: "Delete my account",
   deleteDone: "Your account is scheduled for deletion",
@@ -289,7 +290,8 @@ export const en = {
   studioResubmitWait: "You can submit this again tomorrow",
   studioAppeal: "Ask for another look",
   studioAppealTitle: "Tell us what we got wrong",
-  studioAppealHint: "One message, read by a person. Say what the reviewer missed — this is your one appeal for this decision.",
+  studioAppealHint:
+    "One message, read by a person. Say what the reviewer missed — this is your one appeal for this decision.",
   studioAppealSubmit: "Send it",
   studioAppealSent: "A person will read it",
   studioAppealPending: "Your appeal is in the queue",

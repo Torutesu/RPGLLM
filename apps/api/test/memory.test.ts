@@ -1,6 +1,14 @@
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { PACING } from "@rpgllm/shared";
-import { call, makeHarness, prisma, resetDatabase, signupWithPersona, type Harness, type PersonaFixture } from "./helpers";
+import {
+  call,
+  makeHarness,
+  prisma,
+  resetDatabase,
+  signupWithPersona,
+  type Harness,
+  type PersonaFixture,
+} from "./helpers";
 
 let h: Harness;
 
@@ -8,18 +16,33 @@ interface LedgerBody {
   character: { handle: string; displayName: string; avatarUrl: string | null };
   affinity: number;
   summary: string;
-  memories: { id: string; note: string; sourceRef: string; quote: string | null; consolidated: boolean; createdAt: string }[];
+  memories: {
+    id: string;
+    note: string;
+    sourceRef: string;
+    quote: string | null;
+    consolidated: boolean;
+    createdAt: string;
+  }[];
 }
 
-beforeAll(() => { h = makeHarness(); });
-beforeEach(async () => { await resetDatabase(); h.gateway.calls.length = 0; });
+beforeAll(() => {
+  h = makeHarness();
+});
+beforeEach(async () => {
+  await resetDatabase();
+  h.gateway.calls.length = 0;
+});
 
 /** The relationship with the persona's first follower, plus a real post to quote. */
 async function seedNotes(p: PersonaFixture, count: number, extraRef?: string) {
   const relationship = await prisma.relationshipState.findFirstOrThrow({
     where: { personaId: p.personaId, characterId: p.firstFollowerId },
   });
-  const post = await prisma.post.findFirstOrThrow({ where: { personaId: p.personaId }, orderBy: { createdAt: "desc" } });
+  const post = await prisma.post.findFirstOrThrow({
+    where: { personaId: p.personaId },
+    orderBy: { createdAt: "desc" },
+  });
   for (let i = 0; i < count; i += 1) {
     await prisma.memoryEntry.create({
       data: { relationshipId: relationship.id, note: `they said thing #${i}`, sourceRef: `post:${post.id}` },
@@ -33,15 +56,16 @@ async function seedNotes(p: PersonaFixture, count: number, extraRef?: string) {
   return { relationship, post };
 }
 
-const handleOf = (p: PersonaFixture): string =>
-  p.characters.find((ch) => ch.id === p.firstFollowerId)?.handle ?? "";
+const handleOf = (p: PersonaFixture): string => p.characters.find((ch) => ch.id === p.firstFollowerId)?.handle ?? "";
 
 describe("relationship memory ledger + G7 consolidation (S2-3, AIF-002)", () => {
   it("returns the notes with their quoted source, and null when the source is gone", async () => {
     const p = await signupWithPersona(h);
     const { post } = await seedNotes(p, 2, "post:does-not-exist");
 
-    const res = await call<LedgerBody>(h, "GET", `/v1/memory/${handleOf(p)}?personaId=${p.personaId}`, { token: p.token });
+    const res = await call<LedgerBody>(h, "GET", `/v1/memory/${handleOf(p)}?personaId=${p.personaId}`, {
+      token: p.token,
+    });
     expect(res.status).toBe(200);
     expect(res.data.character.handle).toBe(handleOf(p));
     expect(res.data.memories).toHaveLength(3);
@@ -60,7 +84,9 @@ describe("relationship memory ledger + G7 consolidation (S2-3, AIF-002)", () => 
     const { relationship } = await seedNotes(p, PACING.MEMORY_CONSOLIDATE_AT);
     expect(relationship.summary).toBe("");
 
-    const res = await call<LedgerBody>(h, "GET", `/v1/memory/${p.firstFollowerId}?personaId=${p.personaId}`, { token: p.token });
+    const res = await call<LedgerBody>(h, "GET", `/v1/memory/${p.firstFollowerId}?personaId=${p.personaId}`, {
+      token: p.token,
+    });
     expect(res.status).toBe(200);
 
     // G7 is the generator the gap analysis found was never called anywhere.
@@ -69,7 +95,10 @@ describe("relationship memory ledger + G7 consolidation (S2-3, AIF-002)", () => 
 
     expect(res.data.summary.length).toBeGreaterThan(0);
     expect(res.data.memories).toHaveLength(PACING.MEMORY_CONSOLIDATE_AT);
-    expect(res.data.memories.every((m) => m.consolidated), "every folded note is marked").toBe(true);
+    expect(
+      res.data.memories.every((m) => m.consolidated),
+      "every folded note is marked",
+    ).toBe(true);
 
     const after = await prisma.relationshipState.findUniqueOrThrow({ where: { id: relationship.id } });
     expect(after.summary.length).toBeGreaterThan(0);
@@ -88,7 +117,10 @@ describe("relationship memory ledger + G7 consolidation (S2-3, AIF-002)", () => 
     await seedNotes(p, PACING.MEMORY_CONSOLIDATE_AT);
 
     const job = await call<{ memory: { personas: number; relationships: number; notes: number } | null }>(
-      h, "POST", "/v1/__test/run-job", { body: { job: "memory", personaId: p.personaId } },
+      h,
+      "POST",
+      "/v1/__test/run-job",
+      { body: { job: "memory", personaId: p.personaId } },
     );
     expect(job.status).toBe(200);
     expect(job.data.memory?.relationships).toBe(1);

@@ -72,7 +72,10 @@ export function ShelfPrice({
         {gems !== null ? (
           <View style={{ flexDirection: "row", alignItems: "center", gap: spacing.xxs }}>
             <Icon name="gem" size={12} color={short ? colors.danger : colors.gem} filled />
-            <Text importantForAccessibility="no" style={[typo.count, { color: short ? colors.danger : colors.textDim }]}>
+            <Text
+              importantForAccessibility="no"
+              style={[typo.count, { color: short ? colors.danger : colors.textDim }]}
+            >
               {compactNumber(gems)}
             </Text>
           </View>

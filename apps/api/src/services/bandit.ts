@@ -20,12 +20,7 @@
  */
 import type { PrismaClient } from "@prisma/client";
 import { Prisma } from "@prisma/client";
-import {
-  BANDIT_FLOOR,
-  BANDIT_GUARDRAILS,
-  BANDIT_LAMBDA,
-  BANDIT_PROMOTION,
-} from "@rpgllm/shared";
+import { BANDIT_FLOOR, BANDIT_GUARDRAILS, BANDIT_LAMBDA, BANDIT_PROMOTION } from "@rpgllm/shared";
 import {
   GENERATOR_EXPERIMENTS,
   championVariants,
@@ -138,11 +133,7 @@ interface RawWindowRow {
  *     refill — with no user and no rating. Folding them in would drown the posteriors in the
  *     unrated prior and let an eval run move production traffic.
  */
-export async function windowStats(
-  prisma: PrismaClient,
-  since: Date,
-  until: Date,
-): Promise<WindowArmStats[]> {
+export async function windowStats(prisma: PrismaClient, since: Date, until: Date): Promise<WindowArmStats[]> {
   const rows = await prisma.$queryRaw<RawWindowRow[]>`
     SELECT g."generator"::text AS "generator",
            g."variantId",
@@ -249,7 +240,8 @@ export async function updateFromLogs(
   const result: UpdateResult = { generators, arms: 0, calls: 0, until: now.toISOString() };
 
   for (const generator of generators) {
-    const watermark = opts.since ?? (await readWatermark(prisma, generator)) ?? new Date(now.getTime() - FOLD_BACKFILL_MS);
+    const watermark =
+      opts.since ?? (await readWatermark(prisma, generator)) ?? new Date(now.getTime() - FOLD_BACKFILL_MS);
     if (watermark.getTime() >= now.getTime()) {
       await writeWatermark(prisma, generator, now, 0);
       continue;
@@ -298,7 +290,12 @@ export async function updateFromLogs(
       result.calls += s.calls;
     }
 
-    await writeWatermark(prisma, generator, now, stats.reduce((n, s) => n + s.calls, 0));
+    await writeWatermark(
+      prisma,
+      generator,
+      now,
+      stats.reduce((n, s) => n + s.calls, 0),
+    );
   }
   return result;
 }
@@ -355,7 +352,13 @@ export async function checkGuardrails(
         },
       },
     });
-    out.disabled.push({ generator: s.generator, variantId: s.variantId, metric: breach.metric, value: breach.value, limit: breach.limit });
+    out.disabled.push({
+      generator: s.generator,
+      variantId: s.variantId,
+      metric: breach.metric,
+      value: breach.value,
+      limit: breach.limit,
+    });
   }
   return out;
 }
@@ -433,7 +436,15 @@ export async function maybePromote(
   });
 
   if (!decision.promote || decision.to === null) {
-    return { generator, promoted: false, from: decision.from, to: decision.to, reason: decision.reason, pBest: decision.pBest, calls: decision.calls };
+    return {
+      generator,
+      promoted: false,
+      from: decision.from,
+      to: decision.to,
+      reason: decision.reason,
+      pBest: decision.pBest,
+      calls: decision.calls,
+    };
   }
   await promoteVariant(prisma, {
     generator,
@@ -441,7 +452,15 @@ export async function maybePromote(
     reason: "auto:thompson+gate",
     metrics: { pBest: decision.pBest, calls: decision.calls, minCalls: opts.minCalls ?? BANDIT_PROMOTION.MIN_CALLS },
   });
-  return { generator, promoted: true, from: decision.from, to: decision.to, reason: decision.reason, pBest: decision.pBest, calls: decision.calls };
+  return {
+    generator,
+    promoted: true,
+    from: decision.from,
+    to: decision.to,
+    reason: decision.reason,
+    pBest: decision.pBest,
+    calls: decision.calls,
+  };
 }
 
 /** The whole hourly job in one call: fold, guardrail, then try to promote. */
@@ -451,7 +470,11 @@ export async function refreshBandit(
   opts: { minCalls?: number; pBestMin?: number; guardrailMinCalls?: number } = {},
 ): Promise<{ update: UpdateResult; guardrails: GuardrailResult; promotions: MaybePromoteResult[] }> {
   const update = await updateFromLogs(prisma, now);
-  const guardrails = await checkGuardrails(prisma, now, opts.guardrailMinCalls === undefined ? {} : { minCalls: opts.guardrailMinCalls });
+  const guardrails = await checkGuardrails(
+    prisma,
+    now,
+    opts.guardrailMinCalls === undefined ? {} : { minCalls: opts.guardrailMinCalls },
+  );
   const promotions: MaybePromoteResult[] = [];
   for (const generator of update.generators) {
     promotions.push(await maybePromote(prisma, generator, opts));
@@ -482,9 +505,7 @@ export interface BanditStateView {
   updatedAt: string;
 }
 
-const VARIANT_META = new Map(
-  GENERATOR_EXPERIMENTS.flatMap((e) => e.variants.map((v) => [v.id, v] as const)),
-);
+const VARIANT_META = new Map(GENERATOR_EXPERIMENTS.flatMap((e) => e.variants.map((v) => [v.id, v] as const)));
 
 function modelForTierName(tier: string): string {
   switch (tier) {
@@ -513,7 +534,8 @@ export async function banditState(prisma: PrismaClient, now: Date): Promise<Band
 
   const generators: BanditStateView["generators"] = [];
   for (const [generator, list] of [...byGenerator].sort(([a], [b]) => a.localeCompare(b))) {
-    const champion = list.find((a) => a.isChampion)?.variantId ?? registryChampions[generator] ?? list[0]?.variantId ?? "";
+    const champion =
+      list.find((a) => a.isChampion)?.variantId ?? registryChampions[generator] ?? list[0]?.variantId ?? "";
     const probabilities = pBestByArm(list);
     const recentHere = recent.filter((r) => r.generator === generator);
     const recentTotal = recentHere.reduce((n, r) => n + r.calls, 0);
@@ -544,7 +566,13 @@ export async function banditState(prisma: PrismaClient, now: Date): Promise<Band
     const pBest = leaderId?.[1] ?? 0;
     const gatePassed = await gatePassedVariants(prisma, generator, champion);
     const decision = promotionDecision({ arms: list, gatePassed });
-    generators.push({ generator, champion, arms: views, pBest: Math.round(pBest * 1e4) / 1e4, promotable: decision.promote });
+    generators.push({
+      generator,
+      champion,
+      arms: views,
+      pBest: Math.round(pBest * 1e4) / 1e4,
+      promotable: decision.promote,
+    });
   }
 
   return { generators, lambda: BANDIT_LAMBDA, updatedAt: now.toISOString() };

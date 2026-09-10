@@ -1,23 +1,73 @@
 import {
-  ApiErrorZ, AuthResZ, AgeGateResZ, MeResZ, WorldsResZ, WorldDetailResZ, HandleCheckResZ,
-  CreatePersonaResZ, FeedResZ, CreatePostResZ, PostDetailResZ, MoreRepliesResZ, PendingEventResZ,
-  ChooseEventResZ, StatResZ, DMListResZ, CreateThreadResZ, DMThreadResZ, SendDMResZ, WalletResZ,
-  AdRewardResZ, CoffeeResZ, OfferingsResZ, DevPurchaseResZ, RateResZ, AssignmentsResZ, HealthResZ,
+  ApiErrorZ,
+  AuthResZ,
+  AgeGateResZ,
+  MeResZ,
+  WorldsResZ,
+  WorldDetailResZ,
+  HandleCheckResZ,
+  CreatePersonaResZ,
+  FeedResZ,
+  CreatePostResZ,
+  PostDetailResZ,
+  MoreRepliesResZ,
+  PendingEventResZ,
+  ChooseEventResZ,
+  StatResZ,
+  DMListResZ,
+  CreateThreadResZ,
+  DMThreadResZ,
+  SendDMResZ,
+  WalletResZ,
+  AdRewardResZ,
+  CoffeeResZ,
+  OfferingsResZ,
+  DevPurchaseResZ,
+  RateResZ,
+  AssignmentsResZ,
+  HealthResZ,
   // S1 (Agent G): account deletion / export / consent and report / block.
-  DeleteAccountResZ, CancelDeletionResZ, ExportDataResZ, ConsentResZ, ReportResZ, BlockedListResZ,
+  DeleteAccountResZ,
+  CancelDeletionResZ,
+  ExportDataResZ,
+  ConsentResZ,
+  ReportResZ,
+  BlockedListResZ,
   // S2 (Agent H): digest / memory / moments / referral / profile / push.
-  DigestResZ, MarkDigestSeenResZ, MemoryLedgerResZ, MomentResZ, MomentListResZ, MomentReelResZ, ReferralResZ,
-  RedeemReferralResZ, ProfileResZ, RegisterPushResZ,
+  DigestResZ,
+  MarkDigestSeenResZ,
+  MemoryLedgerResZ,
+  MomentResZ,
+  MomentListResZ,
+  MomentReelResZ,
+  ReferralResZ,
+  RedeemReferralResZ,
+  ProfileResZ,
+  RegisterPushResZ,
   // Feed & discovery (Agent K): SCR-046 trending / explore, SCR-047 character profile.
-  TrendingResZ, CharacterProfileResZ,
+  TrendingResZ,
+  CharacterProfileResZ,
   // Engagement (Agent L): notifications / streak / achievements.
-  NotificationsResZ, MarkNotificationsReadResZ, StreakResZ, AchievementsResZ,
+  NotificationsResZ,
+  MarkNotificationsReadResZ,
+  StreakResZ,
+  AchievementsResZ,
   // World Studio (SCR-048/049/050): create a world from one line, watch it build, publish it.
-  CreateWorldResZ, WorldStatusResZ, PublishWorldResZ, MyWorldsResZ, PublicWorldsResZ, AppealWorldResZ,
+  CreateWorldResZ,
+  WorldStatusResZ,
+  PublishWorldResZ,
+  MyWorldsResZ,
+  PublicWorldsResZ,
+  AppealWorldResZ,
   // The author circuits: the creator as a place you can go (②), the name they are credited
   // under (②), and a world made out of one you played (④).
-  CreatorProfileResZ, SetCreatorHandleResZ,
-  type ErrorCode, type Locale, type PlanId, type ReportReason, type WorldGenre,
+  CreatorProfileResZ,
+  SetCreatorHandleResZ,
+  type ErrorCode,
+  type Locale,
+  type PlanId,
+  type ReportReason,
+  type WorldGenre,
 } from "@rpgllm/shared";
 import { API_BASE, g } from "../env";
 import { getToken } from "../auth/token";
@@ -35,12 +85,22 @@ export class ApiError extends Error {
     this.status = status;
   }
   /** A 402 is energy *unless* it is the studio's gem price, which has its own code and its own UI. */
-  get isEnergy() { return this.code === "ENERGY_REQUIRED" || (this.status === 402 && this.code !== "GEMS_REQUIRED"); }
-  get isGems() { return this.code === "GEMS_REQUIRED"; }
+  get isEnergy() {
+    return this.code === "ENERGY_REQUIRED" || (this.status === 402 && this.code !== "GEMS_REQUIRED");
+  }
+  get isGems() {
+    return this.code === "GEMS_REQUIRED";
+  }
   /** Today's world builds are spent — "come back tomorrow", not the generic rate limiter. */
-  get isWorldLimit() { return this.code === "WORLD_LIMIT"; }
-  get isSafety() { return this.code === "SAFETY_BLOCKED" || this.status === 422; }
-  get isNetwork() { return this.status === 0; }
+  get isWorldLimit() {
+    return this.code === "WORLD_LIMIT";
+  }
+  get isSafety() {
+    return this.code === "SAFETY_BLOCKED" || this.status === 422;
+  }
+  get isNetwork() {
+    return this.status === 0;
+  }
 }
 
 export type ApiHandlers = {
@@ -154,7 +214,12 @@ export const api = {
   /** Sends the login code. Optional on the server (dev code is fixed), so failures are ignored. */
   authStart: async (email: string) => {
     try {
-      await request("/auth/email/start", { method: "POST", body: { email }, schema: { parse: (u: unknown) => u }, auth: false });
+      await request("/auth/email/start", {
+        method: "POST",
+        body: { email },
+        schema: { parse: (u: unknown) => u },
+        auth: false,
+      });
     } catch {
       /* endpoint may not exist in dev/test — the fixed dev code still verifies */
     }
@@ -170,8 +235,14 @@ export const api = {
   checkHandle: (worldId: string, handle: string) =>
     request("/personas/check", { query: { worldId, handle }, schema: HandleCheckResZ }),
   createPersona: (body: {
-    worldId: string; handle: string; displayName: string; bio: string; avatarUrl: string | null;
-    voiceNotes: string; firstFollowerId: string; idempotencyKey: string;
+    worldId: string;
+    handle: string;
+    displayName: string;
+    bio: string;
+    avatarUrl: string | null;
+    voiceNotes: string;
+    firstFollowerId: string;
+    idempotencyKey: string;
   }) => request("/personas", { method: "POST", body, schema: CreatePersonaResZ }),
 
   feed: (personaId: string, cursor?: string | null) =>
@@ -184,7 +255,11 @@ export const api = {
 
   pendingEvent: (personaId: string) => request("/events/pending", { query: { personaId }, schema: PendingEventResZ }),
   chooseEvent: (id: string, choiceId: string) =>
-    request(`/events/${encodeURIComponent(id)}/choose`, { method: "POST", body: { choiceId }, schema: ChooseEventResZ }),
+    request(`/events/${encodeURIComponent(id)}/choose`, {
+      method: "POST",
+      body: { choiceId },
+      schema: ChooseEventResZ,
+    }),
   stat: (snapshotId: string) => request(`/stats/${encodeURIComponent(snapshotId)}`, { schema: StatResZ }),
 
   dms: (personaId: string) => request("/dms", { query: { personaId }, schema: DMListResZ }),
@@ -196,16 +271,21 @@ export const api = {
     request(`/dms/${encodeURIComponent(threadId)}/messages`, { method: "POST", body: { text }, schema: SendDMResZ }),
 
   wallet: () => request("/wallet", { schema: WalletResZ }),
-  adReward: (adToken: string) => request("/wallet/ad-reward", { method: "POST", body: { adToken }, schema: AdRewardResZ }),
+  adReward: (adToken: string) =>
+    request("/wallet/ad-reward", { method: "POST", body: { adToken }, schema: AdRewardResZ }),
   coffee: () => request("/wallet/coffee", { method: "POST", body: { count: 1 }, schema: CoffeeResZ }),
 
   offerings: () => request("/billing/offerings", { schema: OfferingsResZ }),
-  devPurchase: (plan: PlanId) => request("/billing/dev-purchase", { method: "POST", body: { plan }, schema: DevPurchaseResZ }),
+  devPurchase: (plan: PlanId) =>
+    request("/billing/dev-purchase", { method: "POST", body: { plan }, schema: DevPurchaseResZ }),
 
   /** `postId` disambiguates: one G1 call produces K replies that share a generationId. */
   rate: (generationId: string, value: 1 | -1, regenerate: boolean, postId?: string) =>
     request(`/generations/${encodeURIComponent(generationId)}/rate`, {
-      method: "POST", body: { value, regenerate }, query: { postId }, schema: RateResZ,
+      method: "POST",
+      body: { value, regenerate },
+      query: { postId },
+      schema: RateResZ,
     }),
   assignments: () => request("/experiments/assignments", { schema: AssignmentsResZ }),
 
@@ -214,12 +294,14 @@ export const api = {
   /** Guideline 3.1.1 — restore purchases from the store account. */
   restorePurchases: (rcAppUserId: string) =>
     request("/billing/restore", {
-      method: "POST", body: { rcAppUserId },
+      method: "POST",
+      body: { rcAppUserId },
       schema: { parse: (u: unknown) => u as { subscription: { plan: string; active: boolean } | null } },
     }),
 
   /** Guideline 5.1.1(v) — in-app account deletion. */
-  deleteAccount: () => request("/account/delete", { method: "POST", body: { confirm: "DELETE" }, schema: DeleteAccountResZ }),
+  deleteAccount: () =>
+    request("/account/delete", { method: "POST", body: { confirm: "DELETE" }, schema: DeleteAccountResZ }),
   restoreAccount: () => request("/account/restore", { method: "POST", body: {}, schema: CancelDeletionResZ }),
   exportData: () => request("/account/export", { schema: ExportDataResZ }),
   setConsent: (analytics: boolean) =>
@@ -230,12 +312,14 @@ export const api = {
     request("/moderation/report", { method: "POST", body, schema: ReportResZ }),
   block: (personaId: string, characterId: string) =>
     request("/moderation/block", {
-      method: "POST", body: { personaId, characterId },
+      method: "POST",
+      body: { personaId, characterId },
       schema: { parse: (u: unknown) => u as { blocked: boolean; characterId: string; handle: string } },
     }),
   unblock: (personaId: string, characterId: string) =>
     request("/moderation/unblock", {
-      method: "POST", body: { personaId, characterId },
+      method: "POST",
+      body: { personaId, characterId },
       schema: { parse: (u: unknown) => u as { blocked: boolean; characterId: string } },
     }),
   blocked: (personaId: string) => request("/moderation/blocked", { query: { personaId }, schema: BlockedListResZ }),
@@ -253,8 +337,7 @@ export const api = {
 
   /** SCR-040 — shareable moments. `sharedMoment` is public: it must not send a bearer. */
   moments: (personaId: string) => request("/moments", { query: { personaId }, schema: MomentListResZ }),
-  sharedMoment: (slug: string) =>
-    request(`/moments/${encodeURIComponent(slug)}`, { schema: MomentResZ, auth: false }),
+  sharedMoment: (slug: string) => request(`/moments/${encodeURIComponent(slug)}`, { schema: MomentResZ, auth: false }),
 
   /**
    * The same moment as something that moves: a server-timed list of beats the client animates and
@@ -263,7 +346,9 @@ export const api = {
    */
   momentReel: (slug: string) =>
     request(`/moments/${encodeURIComponent(slug)}/reel`, {
-      schema: MomentReelResZ, auth: false, globalErrors: false,
+      schema: MomentReelResZ,
+      auth: false,
+      globalErrors: false,
     }),
 
   /** SCR-041 — invite a friend. */
@@ -288,18 +373,22 @@ export const api = {
   /** `ids: null` means "all" — one tap clears the badge. */
   markNotificationsRead: (personaId: string | null, ids: string[] | null) =>
     request("/notifications/read", {
-      method: "POST", body: { ids }, query: { personaId: personaId ?? undefined }, schema: MarkNotificationsReadResZ,
+      method: "POST",
+      body: { ids },
+      query: { personaId: personaId ?? undefined },
+      schema: MarkNotificationsReadResZ,
     }),
 
   /** The daily check-in. Idempotent: `/v1/me` may already have claimed today. */
   streak: () => request("/streak", { schema: StreakResZ }),
 
   /** SCR-044 — achievements. */
-  achievements: (personaId: string) =>
-    request("/achievements", { query: { personaId }, schema: AchievementsResZ }),
+  achievements: (personaId: string) => request("/achievements", { query: { personaId }, schema: AchievementsResZ }),
   markAchievementsSeen: (personaId: string, keys: string[]) =>
     request("/achievements/seen", {
-      method: "POST", body: { keys }, query: { personaId },
+      method: "POST",
+      body: { keys },
+      query: { personaId },
       schema: { parse: (u: unknown) => u as { pending: number } },
     }),
 
@@ -319,15 +408,22 @@ export const api = {
    * screen rather than by a global modal: 402 = not enough gems, 422 = the premise was blocked,
    * 429 = the daily build limit.
    */
-  createWorld: (body: { premise: string; genre: WorldGenre; locale: Locale; visibility: "private" | "unlisted" | "public" }) =>
-    request("/worlds", { method: "POST", body, schema: CreateWorldResZ, globalErrors: false }),
+  createWorld: (body: {
+    premise: string;
+    genre: WorldGenre;
+    locale: Locale;
+    visibility: "private" | "unlisted" | "public";
+  }) => request("/worlds", { method: "POST", body, schema: CreateWorldResZ, globalErrors: false }),
   /** Polled while the world builds; `progress` (0..1) and `cast` turn the wait into a beat. */
   worldStatus: (id: string) =>
     request(`/worlds/${encodeURIComponent(id)}/status`, { schema: WorldStatusResZ, globalErrors: false }),
   /** Public asks for human review; unlisted and private take effect immediately. */
   publishWorld: (id: string, visibility: "private" | "unlisted" | "public") =>
     request(`/worlds/${encodeURIComponent(id)}/publish`, {
-      method: "POST", body: { visibility }, schema: PublishWorldResZ, globalErrors: false,
+      method: "POST",
+      body: { visibility },
+      schema: PublishWorldResZ,
+      globalErrors: false,
     }),
   /**
    * A rejected world's creator says the decision read it wrong. Once per rejection, 10–500 chars,
@@ -336,7 +432,10 @@ export const api = {
    */
   appealWorld: (id: string, message: string) =>
     request(`/worlds/${encodeURIComponent(id)}/appeal`, {
-      method: "POST", body: { message }, schema: AppealWorldResZ, globalErrors: false,
+      method: "POST",
+      body: { message },
+      schema: AppealWorldResZ,
+      globalErrors: false,
     }),
   /** SCR-050 — the player's own worlds, plus how many builds are left today. */
   myWorlds: () => request("/worlds/mine", { schema: MyWorldsResZ, globalErrors: false }),
@@ -356,7 +455,8 @@ export const api = {
    */
   creator: (handle: string) =>
     request(`/creators/${encodeURIComponent(handle.replace(/^@/, ""))}`, {
-      schema: CreatorProfileResZ, globalErrors: false,
+      schema: CreatorProfileResZ,
+      globalErrors: false,
     }),
 
   /**
@@ -365,7 +465,10 @@ export const api = {
    */
   setCreatorHandle: (handle: string) =>
     request("/me/creator-handle", {
-      method: "POST", body: { handle }, schema: SetCreatorHandleResZ, globalErrors: false,
+      method: "POST",
+      body: { handle },
+      schema: SetCreatorHandleResZ,
+      globalErrors: false,
     }),
 
   /* ---------- Circuit ④: a world made out of one you played ---------- */
@@ -377,7 +480,10 @@ export const api = {
    */
   remixWorld: (sourceId: string, body: { premise: string; visibility: "private" | "unlisted" | "public" }) =>
     request(`/worlds/${encodeURIComponent(sourceId)}/remix`, {
-      method: "POST", body, schema: CreateWorldResZ, globalErrors: false,
+      method: "POST",
+      body,
+      schema: CreateWorldResZ,
+      globalErrors: false,
     }),
 
   /** S2-2 — Expo push token. */

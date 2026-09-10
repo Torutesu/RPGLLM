@@ -127,7 +127,10 @@ export interface CostReport extends CostSummary {
   thresholds: typeof COST_ALARMS;
 }
 
-export interface CostWindow { since: Date; until: Date }
+export interface CostWindow {
+  since: Date;
+  until: Date;
+}
 
 /** `days` clamped to [1, COST_DASHBOARD.MAX_DAYS]; the window ends at `now`. */
 export function costWindow(now: Date, days: number): CostWindow & { days: number } {
@@ -213,9 +216,24 @@ const EMPTY_ROW = (key: string): CostRow => ({
 
 /* ------------------------------------------------------------------ report ---- */
 
-interface RawArmRow { generator: string; variantId: string; models: string; calls: bigint; cost: number | null; regenerations: bigint }
-interface RawRatingRow { variantId: string; up: bigint; down: bigint }
-interface RawTtftRow { p50: number | null; p95: number | null; samples: bigint }
+interface RawArmRow {
+  generator: string;
+  variantId: string;
+  models: string;
+  calls: bigint;
+  cost: number | null;
+  regenerations: bigint;
+}
+interface RawRatingRow {
+  variantId: string;
+  up: bigint;
+  down: bigint;
+}
+interface RawTtftRow {
+  p50: number | null;
+  p95: number | null;
+  samples: bigint;
+}
 interface RawDailyRow {
   day: string;
   calls: bigint | null;
@@ -288,7 +306,11 @@ interface RawBatchModelRow {
   cost: number | null;
 }
 
-interface RawBatchGeneratorRow { generator: string; calls: bigint; cost: number | null }
+interface RawBatchGeneratorRow {
+  generator: string;
+  calls: bigint;
+  cost: number | null;
+}
 
 /**
  * The batch split. Two grouped scans: one per model (to re-price the batched tokens at list price)
@@ -296,12 +318,7 @@ interface RawBatchGeneratorRow { generator: string; calls: bigint; cost: number 
  */
 export async function batchSplit(prisma: PrismaClient, w: CostWindow): Promise<BatchSplit> {
   const [halves, byModel, byGenerator] = await Promise.all([
-    groupBy(
-      prisma,
-      Prisma.sql`CASE WHEN ${IS_BATCH} THEN 'batched' ELSE 'interactive' END`,
-      w,
-      Prisma.sql`1 ASC`,
-    ),
+    groupBy(prisma, Prisma.sql`CASE WHEN ${IS_BATCH} THEN 'batched' ELSE 'interactive' END`, w, Prisma.sql`1 ASC`),
     prisma.$queryRaw<RawBatchModelRow[]>`
       SELECT "model",
              count(*) AS "batched",
@@ -378,8 +395,9 @@ export async function costReport(prisma: PrismaClient, w: CostWindow): Promise<C
   ]);
   const totals = totalsRows[0] ?? EMPTY_ROW("all");
 
-  const [arms, armRatings, ttftRows, perDay, batch, actions, activeUsers, ratings, regenerations, moderation] = await Promise.all([
-    prisma.$queryRaw<RawArmRow[]>`
+  const [arms, armRatings, ttftRows, perDay, batch, actions, activeUsers, ratings, regenerations, moderation] =
+    await Promise.all([
+      prisma.$queryRaw<RawArmRow[]>`
       SELECT "generator"::text AS "generator",
              "variantId",
              string_agg(DISTINCT "model", ',' ORDER BY "model") AS "models",
@@ -391,7 +409,7 @@ export async function costReport(prisma: PrismaClient, w: CostWindow): Promise<C
       GROUP BY 1, 2
       ORDER BY 1, 2
     `,
-    prisma.$queryRaw<RawRatingRow[]>`
+      prisma.$queryRaw<RawRatingRow[]>`
       SELECT g."variantId",
              count(*) FILTER (WHERE r."value" > 0) AS "up",
              count(*) FILTER (WHERE r."value" < 0) AS "down"
@@ -399,30 +417,32 @@ export async function costReport(prisma: PrismaClient, w: CostWindow): Promise<C
       WHERE r."createdAt" >= ${w.since} AND r."createdAt" <= ${w.until}
       GROUP BY 1
     `,
-    prisma.$queryRaw<RawTtftRow[]>`
+      prisma.$queryRaw<RawTtftRow[]>`
       SELECT percentile_disc(0.5) WITHIN GROUP (ORDER BY "ttftMs") AS "p50",
              percentile_disc(0.95) WITHIN GROUP (ORDER BY "ttftMs") AS "p95",
              count("ttftMs") AS "samples"
       FROM "GenerationLog"
       WHERE "createdAt" >= ${w.since} AND "createdAt" <= ${w.until} AND "ttftMs" IS NOT NULL
     `,
-    perDaySeries(prisma, w),
-    batchSplit(prisma, w),
-    prisma.ledgerEntry.count({ where: { source: "spend", createdAt: { gte: w.since, lte: w.until } } }),
-    prisma.generationLog.findMany({
-      where: { createdAt: { gte: w.since, lte: w.until }, userId: { not: null } },
-      distinct: ["userId"],
-      select: { userId: true },
-    }),
-    prisma.rating.groupBy({
-      by: ["value"],
-      where: { createdAt: { gte: w.since, lte: w.until } },
-      _count: { _all: true },
-    }),
-    prisma.generationLog.count({ where: { createdAt: { gte: w.since, lte: w.until }, escalatedFrom: { not: null } } }),
-    // Not a windowed number: "how many worlds are waiting for a human right now" has no `since`.
-    worldModerationOps(prisma, w.until),
-  ]);
+      perDaySeries(prisma, w),
+      batchSplit(prisma, w),
+      prisma.ledgerEntry.count({ where: { source: "spend", createdAt: { gte: w.since, lte: w.until } } }),
+      prisma.generationLog.findMany({
+        where: { createdAt: { gte: w.since, lte: w.until }, userId: { not: null } },
+        distinct: ["userId"],
+        select: { userId: true },
+      }),
+      prisma.rating.groupBy({
+        by: ["value"],
+        where: { createdAt: { gte: w.since, lte: w.until } },
+        _count: { _all: true },
+      }),
+      prisma.generationLog.count({
+        where: { createdAt: { gte: w.since, lte: w.until }, escalatedFrom: { not: null } },
+      }),
+      // Not a windowed number: "how many worlds are waiting for a human right now" has no `since`.
+      worldModerationOps(prisma, w.until),
+    ]);
 
   const up = ratings.filter((r) => r.value > 0).reduce((s, r) => s + r._count._all, 0);
   const down = ratings.filter((r) => r.value < 0).reduce((s, r) => s + r._count._all, 0);
@@ -459,7 +479,9 @@ export async function costReport(prisma: PrismaClient, w: CostWindow): Promise<C
     alarms: {
       // an empty window is not an alarm — nothing has been sampled yet
       cacheHitRateLow: totals.calls > 0 && cacheHitRate < COST_ALARMS.CACHE_HIT_MIN,
-      costPerActionOverChampion: variants.some((v) => v.costVsChampion !== null && v.costVsChampion > COST_ALARMS.COST_OVER_CHAMPION),
+      costPerActionOverChampion: variants.some(
+        (v) => v.costVsChampion !== null && v.costVsChampion > COST_ALARMS.COST_OVER_CHAMPION,
+      ),
       ttftP95High: ttft.samples > 0 && ttft.p95Ms > COST_ALARMS.TTFT_P95_MAX_MS,
     },
     thresholds: COST_ALARMS,

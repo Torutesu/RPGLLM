@@ -72,20 +72,26 @@ export function createApp(deps: Deps): Hono<AppEnv> {
    * that had the token in `localStorage` and a script that leaked it. `TEST_HOOKS=1` keeps `*`
    * so the E2E harness can serve the web export from any port.
    */
-  app.use("*", cors({
-    // Evaluated per request so the flags stay late-bound (tests flip them between app instances).
-    origin: (origin: string) => (corsAllowAll() ? (origin || "*") : (corsOrigins().includes(origin) ? origin : null)),
-    allowHeaders: ["authorization", "content-type", "x-request-id", "accept", "last-event-id"],
-    allowMethods: ["GET", "POST", "OPTIONS"],
-    exposeHeaders: ["x-request-id", "retry-after"],
-    maxAge: 600,
-  }));
+  app.use(
+    "*",
+    cors({
+      // Evaluated per request so the flags stay late-bound (tests flip them between app instances).
+      origin: (origin: string) => (corsAllowAll() ? origin || "*" : corsOrigins().includes(origin) ? origin : null),
+      allowHeaders: ["authorization", "content-type", "x-request-id", "accept", "last-event-id"],
+      allowMethods: ["GET", "POST", "OPTIONS"],
+      exposeHeaders: ["x-request-id", "retry-after"],
+      maxAge: 600,
+    }),
+  );
   app.use("*", async (c, next) => {
     c.set("deps", deps);
     c.set("state", state);
     await next();
   });
-  app.use("*", rateLimit(limiter, () => deps.clock.now().getTime()));
+  app.use(
+    "*",
+    rateLimit(limiter, () => deps.clock.now().getTime()),
+  );
 
   const v1 = new Hono<AppEnv>();
   v1.route("/auth", authRoutes());

@@ -105,8 +105,17 @@ const ambientJa: { handle: string; text: string }[] = [
 ];
 
 const mkEvent = (
-  titleEn: string, titleJa: string, promptEn: string, promptJa: string,
-  choices: { en: string; ja: string; outEn: string; outJa: string; d: { followers: number; aura: number; humor: number } }[],
+  titleEn: string,
+  titleJa: string,
+  promptEn: string,
+  promptJa: string,
+  choices: {
+    en: string;
+    ja: string;
+    outEn: string;
+    outJa: string;
+    d: { followers: number; aura: number; humor: number };
+  }[],
 ) => ({
   title: { en: titleEn, ja: titleJa },
   prompt: { en: promptEn, ja: promptJa },
@@ -115,61 +124,168 @@ const mkEvent = (
     outcomeText: { en: c.outEn, ja: c.outJa },
     statDeltas: c.d,
   })) as [
-    { label: Record<"en" | "ja", string>; outcomeText: Record<"en" | "ja", string>; statDeltas: { followers: number; aura: number; humor: number } },
-    { label: Record<"en" | "ja", string>; outcomeText: Record<"en" | "ja", string>; statDeltas: { followers: number; aura: number; humor: number } },
-    { label: Record<"en" | "ja", string>; outcomeText: Record<"en" | "ja", string>; statDeltas: { followers: number; aura: number; humor: number } },
+    {
+      label: Record<"en" | "ja", string>;
+      outcomeText: Record<"en" | "ja", string>;
+      statDeltas: { followers: number; aura: number; humor: number };
+    },
+    {
+      label: Record<"en" | "ja", string>;
+      outcomeText: Record<"en" | "ja", string>;
+      statDeltas: { followers: number; aura: number; humor: number };
+    },
+    {
+      label: Record<"en" | "ja", string>;
+      outcomeText: Record<"en" | "ja", string>;
+      statDeltas: { followers: number; aura: number; humor: number };
+    },
   ],
 });
 
 const presetEvents = [
   mkEvent(
-    "Fabricated screenshots", "捏造スクショ",
+    "Fabricated screenshots",
+    "捏造スクショ",
     "Anonymous 'sources' are flooding the timeline with fabricated screenshots. How do you respond?",
     "匿名の「関係者」が捏造スクショをタイムラインに流している。どう応じる?",
     [
-      { en: "Burn it down: drop a diss at midnight", ja: "焼き払う:深夜にディスを落とす", outEn: "By morning the timeline is a crater and everyone is quoting you.", outJa: "朝にはタイムラインはクレーターで、全員があなたを引用している。", d: { followers: 8, aura: 4, humor: -1 } },
-      { en: "Drop receipts: post the studio memos", ja: "証拠を出す:スタジオのメモを公開", outEn: "The receipts are boring, dated and completely devastating.", outJa: "証拠は地味で、日付入りで、完全に致命的だった。", d: { followers: 5, aura: 6, humor: 0 } },
-      { en: "Stay silent: let the work speak", ja: "沈黙する:作品に語らせる", outEn: "You say nothing for eleven hours. The silence does the work.", outJa: "十一時間なにも言わなかった。沈黙が仕事をした。", d: { followers: 2, aura: 3, humor: 1 } },
+      {
+        en: "Burn it down: drop a diss at midnight",
+        ja: "焼き払う:深夜にディスを落とす",
+        outEn: "By morning the timeline is a crater and everyone is quoting you.",
+        outJa: "朝にはタイムラインはクレーターで、全員があなたを引用している。",
+        d: { followers: 8, aura: 4, humor: -1 },
+      },
+      {
+        en: "Drop receipts: post the studio memos",
+        ja: "証拠を出す:スタジオのメモを公開",
+        outEn: "The receipts are boring, dated and completely devastating.",
+        outJa: "証拠は地味で、日付入りで、完全に致命的だった。",
+        d: { followers: 5, aura: 6, humor: 0 },
+      },
+      {
+        en: "Stay silent: let the work speak",
+        ja: "沈黙する:作品に語らせる",
+        outEn: "You say nothing for eleven hours. The silence does the work.",
+        outJa: "十一時間なにも言わなかった。沈黙が仕事をした。",
+        d: { followers: 2, aura: 3, humor: 1 },
+      },
     ],
   ),
   mkEvent(
-    "Leaked snippet", "リーク音源",
+    "Leaked snippet",
+    "リーク音源",
     "A 20-second snippet of an unfinished track leaks. It is not ready. What now?",
     "未完成トラックの20秒がリークした。まだ出せる状態じゃない。どうする?",
     [
-      { en: "Release the full thing tonight", ja: "今夜フルで出す", outEn: "You beat the leak by six hours and the internet calls it a power move.", outJa: "リークを六時間で追い抜いた。ネットは「格の違い」と呼んだ。", d: { followers: 10, aura: 2, humor: 0 } },
-      { en: "Joke about it", ja: "ネタにする", outEn: "You post the snippet with a laughing caption and the discourse evaporates.", outJa: "笑えるキャプションを付けて自分で投稿。議論は蒸発した。", d: { followers: 4, aura: 0, humor: 6 } },
-      { en: "Hunt down the leaker", ja: "リーク元を追う", outEn: "The search is loud, public, and only half successful.", outJa: "捜索は騒がしく、公開され、半分だけ成功した。", d: { followers: 3, aura: -2, humor: -2 } },
+      {
+        en: "Release the full thing tonight",
+        ja: "今夜フルで出す",
+        outEn: "You beat the leak by six hours and the internet calls it a power move.",
+        outJa: "リークを六時間で追い抜いた。ネットは「格の違い」と呼んだ。",
+        d: { followers: 10, aura: 2, humor: 0 },
+      },
+      {
+        en: "Joke about it",
+        ja: "ネタにする",
+        outEn: "You post the snippet with a laughing caption and the discourse evaporates.",
+        outJa: "笑えるキャプションを付けて自分で投稿。議論は蒸発した。",
+        d: { followers: 4, aura: 0, humor: 6 },
+      },
+      {
+        en: "Hunt down the leaker",
+        ja: "リーク元を追う",
+        outEn: "The search is loud, public, and only half successful.",
+        outJa: "捜索は騒がしく、公開され、半分だけ成功した。",
+        d: { followers: 3, aura: -2, humor: -2 },
+      },
     ],
   ),
   mkEvent(
-    "Rival collab offer", "ライバルからのコラボ",
+    "Rival collab offer",
+    "ライバルからのコラボ",
     "Your rival publicly offers a feature. The whole timeline is watching your reply.",
     "ライバルが公開でフィーチャリングを打診してきた。タイムライン全員が返信を見ている。",
     [
-      { en: "Accept, publicly", ja: "公開で受ける", outEn: "Two hours later the studio photo has more likes than the offer.", outJa: "二時間後、スタジオ写真は打診より多くのいいねを集めた。", d: { followers: 9, aura: 3, humor: 1 } },
-      { en: "Counter-offer with conditions", ja: "条件付きで返す", outEn: "You name a condition. It becomes a meme. It also gets accepted.", outJa: "条件を出した。ミーム化した。そして通った。", d: { followers: 5, aura: 4, humor: 3 } },
-      { en: "Decline with a smile", ja: "笑顔で断る", outEn: "'Maybe next era.' Three words, twelve thousand quote posts.", outJa: "「また次の時代に」。七文字、一万二千の引用。", d: { followers: 2, aura: 5, humor: 2 } },
+      {
+        en: "Accept, publicly",
+        ja: "公開で受ける",
+        outEn: "Two hours later the studio photo has more likes than the offer.",
+        outJa: "二時間後、スタジオ写真は打診より多くのいいねを集めた。",
+        d: { followers: 9, aura: 3, humor: 1 },
+      },
+      {
+        en: "Counter-offer with conditions",
+        ja: "条件付きで返す",
+        outEn: "You name a condition. It becomes a meme. It also gets accepted.",
+        outJa: "条件を出した。ミーム化した。そして通った。",
+        d: { followers: 5, aura: 4, humor: 3 },
+      },
+      {
+        en: "Decline with a smile",
+        ja: "笑顔で断る",
+        outEn: "'Maybe next era.' Three words, twelve thousand quote posts.",
+        outJa: "「また次の時代に」。七文字、一万二千の引用。",
+        d: { followers: 2, aura: 5, humor: 2 },
+      },
     ],
   ),
   mkEvent(
-    "The bad review", "酷評レビュー",
+    "The bad review",
+    "酷評レビュー",
     "A respected critic writes 1,800 words on why you peaked two years ago.",
     "有名批評家が「二年前がピークだった」と1800語書いた。",
     [
-      { en: "Quote the worst line proudly", ja: "最悪の一文を誇らしく引用", outEn: "You put the insult on merch by Thursday.", outJa: "木曜にはその罵倒がグッズになっていた。", d: { followers: 6, aura: 1, humor: 7 } },
-      { en: "Write a thoughtful reply", ja: "誠実に返信する", outEn: "You reply once, at length, and the critic replies back kindly.", outJa: "一度だけ長文で返した。批評家は丁寧に返してきた。", d: { followers: 3, aura: 6, humor: -1 } },
-      { en: "Ignore it entirely", ja: "完全に無視", outEn: "The review trends for a day. You trend for a week.", outJa: "レビューは一日、あなたは一週間トレンドに残った。", d: { followers: 4, aura: 2, humor: 0 } },
+      {
+        en: "Quote the worst line proudly",
+        ja: "最悪の一文を誇らしく引用",
+        outEn: "You put the insult on merch by Thursday.",
+        outJa: "木曜にはその罵倒がグッズになっていた。",
+        d: { followers: 6, aura: 1, humor: 7 },
+      },
+      {
+        en: "Write a thoughtful reply",
+        ja: "誠実に返信する",
+        outEn: "You reply once, at length, and the critic replies back kindly.",
+        outJa: "一度だけ長文で返した。批評家は丁寧に返してきた。",
+        d: { followers: 3, aura: 6, humor: -1 },
+      },
+      {
+        en: "Ignore it entirely",
+        ja: "完全に無視",
+        outEn: "The review trends for a day. You trend for a week.",
+        outJa: "レビューは一日、あなたは一週間トレンドに残った。",
+        d: { followers: 4, aura: 2, humor: 0 },
+      },
     ],
   ),
   mkEvent(
-    "Fan project", "ファン企画",
+    "Fan project",
+    "ファン企画",
     "Fans crowdfunded a billboard in your hometown without telling you.",
     "ファンが内緒で地元にビルボードを立てた。",
     [
-      { en: "Show up in person", ja: "本人が現地に行く", outEn: "The photo of you under your own face runs everywhere.", outJa: "自分の顔の下に立つ写真が全媒体を走った。", d: { followers: 12, aura: 5, humor: 2 } },
-      { en: "Match the donation", ja: "同額を寄付する", outEn: "You quietly double it and someone leaks the receipt anyway.", outJa: "静かに倍額を出したが、結局誰かが領収書を流した。", d: { followers: 6, aura: 8, humor: 0 } },
-      { en: "Post a voice memo thank-you", ja: "ボイスメモでお礼", outEn: "Forty seconds of you being sincere breaks the fan servers.", outJa: "四十秒の素の声でファンサーバーが落ちた。", d: { followers: 7, aura: 4, humor: 3 } },
+      {
+        en: "Show up in person",
+        ja: "本人が現地に行く",
+        outEn: "The photo of you under your own face runs everywhere.",
+        outJa: "自分の顔の下に立つ写真が全媒体を走った。",
+        d: { followers: 12, aura: 5, humor: 2 },
+      },
+      {
+        en: "Match the donation",
+        ja: "同額を寄付する",
+        outEn: "You quietly double it and someone leaks the receipt anyway.",
+        outJa: "静かに倍額を出したが、結局誰かが領収書を流した。",
+        d: { followers: 6, aura: 8, humor: 0 },
+      },
+      {
+        en: "Post a voice memo thank-you",
+        ja: "ボイスメモでお礼",
+        outEn: "Forty seconds of you being sincere breaks the fan servers.",
+        outJa: "四十秒の素の声でファンサーバーが落ちた。",
+        d: { followers: 7, aura: 4, humor: 3 },
+      },
     ],
   ),
 ];
@@ -182,34 +298,73 @@ export const FALLBACK_WORLD_SEED: WorldSeed = {
   bible: { en: bibleEn, ja: bibleJa },
   cast: [
     {
-      handle: "@hivequeenbea", displayName: "Bea", role: "bestie", isPressAccount: false, canBeFirstFollower: true, avatarKey: "bea",
+      handle: "@hivequeenbea",
+      displayName: "Bea",
+      role: "bestie",
+      isPressAccount: false,
+      canBeFirstFollower: true,
+      avatarKey: "bea",
       card: {
         en: "Voice: all-caps hype, crowns and bees, ends messages with 🐝. Values loyalty above accuracy. Catchphrases: 'MY GIRL', 'be normal today'. NG: never insults the user, never swears.",
         ja: "口調:全部大文字のハイテンション、王冠と蜂、末尾に🐝。正確さより忠誠。口癖:「うちの子」「今日は平常心で」。NG:ユーザーを侮辱しない、罵倒しない。",
       },
-      intro: { en: "Your loudest defender. Will start a fan account about your grocery run.", ja: "いちばん声の大きい味方。買い物の様子でファンアカウントを作る人。" },
+      intro: {
+        en: "Your loudest defender. Will start a fan account about your grocery run.",
+        ja: "いちばん声の大きい味方。買い物の様子でファンアカウントを作る人。",
+      },
     },
     {
-      handle: "@the6ixdrey", displayName: "Drey", role: "rival", isPressAccount: false, canBeFirstFollower: true, avatarKey: "drey",
+      handle: "@the6ixdrey",
+      displayName: "Drey",
+      role: "rival",
+      isPressAccount: false,
+      canBeFirstFollower: true,
+      avatarKey: "drey",
       card: {
         en: "Voice: dry one-liners, lowercase, no emoji. Competitive but fair; respects craft. Catchphrases: 'hot take:', 'nobody asked but'. NG: never cruel about appearance, never personal.",
         ja: "口調:乾いた一行、小文字、絵文字なし。競争的だが公正で、技術には敬意。口癖:「本音を言うと」「誰も聞いてないけど」。NG:容姿を貶さない、私生活に踏み込まない。",
       },
-      intro: { en: "The rival who will never say you're good, and never let you be bad.", ja: "褒めてはくれないが、手を抜かせてもくれないライバル。" },
+      intro: {
+        en: "The rival who will never say you're good, and never let you be bad.",
+        ja: "褒めてはくれないが、手を抜かせてもくれないライバル。",
+      },
     },
     {
-      handle: "@thescoop", displayName: "The Scoop", role: "press", isPressAccount: true, canBeFirstFollower: false, avatarKey: "thescoop",
+      handle: "@thescoop",
+      displayName: "The Scoop",
+      role: "press",
+      isPressAccount: true,
+      canBeFirstFollower: false,
+      avatarKey: "thescoop",
       card: {
         en: "Voice: third person, ALL-CAPS lead word (BREAKING:, SOURCES:, EXCLUSIVE:), breathless but factual. NG: never fabricates crimes, never targets minors.",
         ja: "口調:三人称、冒頭は大文字(速報:、関係者:、独占:)、息せき切っているが事実ベース。NG:犯罪を捏造しない、未成年を扱わない。",
       },
-      intro: { en: "The tabloid that decides what your week was about.", ja: "あなたの一週間の意味を決めるタブロイド。" },
+      intro: {
+        en: "The tabloid that decides what your week was about.",
+        ja: "あなたの一週間の意味を決めるタブロイド。",
+      },
     },
   ],
   presetPersonas: [
-    { handle: "@taytay19", displayName: { en: "Tay", ja: "テイ" }, bio: { en: "new era, same me", ja: "新しい時代、同じわたし" }, avatarKey: "tay" },
-    { handle: "@arivoice", displayName: { en: "Ari", ja: "アリ" }, bio: { en: "whistle notes and bad sleep", ja: "ホイッスルと寝不足" }, avatarKey: "ari" },
-    { handle: "@kingkayo", displayName: { en: "Kayo", ja: "カヨ" }, bio: { en: "bars first, brand later", ja: "まずリリック、ブランドは後" }, avatarKey: "kay" },
+    {
+      handle: "@taytay19",
+      displayName: { en: "Tay", ja: "テイ" },
+      bio: { en: "new era, same me", ja: "新しい時代、同じわたし" },
+      avatarKey: "tay",
+    },
+    {
+      handle: "@arivoice",
+      displayName: { en: "Ari", ja: "アリ" },
+      bio: { en: "whistle notes and bad sleep", ja: "ホイッスルと寝不足" },
+      avatarKey: "ari",
+    },
+    {
+      handle: "@kingkayo",
+      displayName: { en: "Kayo", ja: "カヨ" },
+      bio: { en: "bars first, brand later", ja: "まずリリック、ブランドは後" },
+      avatarKey: "kay",
+    },
   ],
   presetEvents,
   fallbackReplies: {
@@ -222,8 +377,20 @@ export const FALLBACK_WORLD_SEED: WorldSeed = {
       ja: ["ふーん。", "強気だな。", "金曜に見せてもらう", "誰も聞いてないけどまあ", "悪くない。悪くはない。"],
     },
     "@thescoop": {
-      en: ["SOURCES SAY: this post is 'a lot'.", "BREAKING: a post happened.", "DEVELOPING…", "NOTED.", "EXCLUSIVE: no comment yet."],
-      ja: ["関係者:この投稿は「かなり」らしい。", "速報:投稿があった。", "続報あり…", "記録した。", "独占:現時点でコメントなし。"],
+      en: [
+        "SOURCES SAY: this post is 'a lot'.",
+        "BREAKING: a post happened.",
+        "DEVELOPING…",
+        "NOTED.",
+        "EXCLUSIVE: no comment yet.",
+      ],
+      ja: [
+        "関係者:この投稿は「かなり」らしい。",
+        "速報:投稿があった。",
+        "続報あり…",
+        "記録した。",
+        "独占:現時点でコメントなし。",
+      ],
     },
   },
   ambientPool: { en: ambientEn, ja: ambientJa },

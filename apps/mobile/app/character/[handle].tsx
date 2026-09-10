@@ -153,7 +153,13 @@ export default function CharacterScreen() {
         <Gradient
           colors={[`${identity.from}55`, `${identity.to}18`, "rgba(7,7,12,0)"]}
           angle={165}
-          style={{ paddingHorizontal: spacing.lg, paddingTop: spacing.lg, paddingBottom: spacing.xl, alignItems: "center", gap: spacing.md }}
+          style={{
+            paddingHorizontal: spacing.lg,
+            paddingTop: spacing.lg,
+            paddingBottom: spacing.xl,
+            alignItems: "center",
+            gap: spacing.md,
+          }}
         >
           <Avatar
             handle={c.handle}
@@ -167,7 +173,15 @@ export default function CharacterScreen() {
             <Text style={[typo.title, { color: colors.text, textAlign: "center" }]}>{c.displayName}</Text>
             <Text style={[typo.meta, { color: colors.textMuted }]}>{`@${c.handle}`}</Text>
           </View>
-          <View style={{ flexDirection: "row", alignItems: "center", gap: spacing.sm, flexWrap: "wrap", justifyContent: "center" }}>
+          <View
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              gap: spacing.sm,
+              flexWrap: "wrap",
+              justifyContent: "center",
+            }}
+          >
             <View
               style={{
                 paddingHorizontal: spacing.md,
@@ -251,10 +265,7 @@ export default function CharacterScreen() {
             const media = mediaOf(p);
             return (
               <FadeSlideIn key={p.id} delay={Math.min(i, 5) * 40}>
-                <PostCell
-                  post={p}
-                  onPress={() => router.push({ pathname: "/post/[id]", params: { id: p.id } })}
-                />
+                <PostCell post={p} onPress={() => router.push({ pathname: "/post/[id]", params: { id: p.id } })} />
                 {media ? (
                   <View
                     style={{

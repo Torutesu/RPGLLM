@@ -1,11 +1,4 @@
-import {
-  LOCALES,
-  WORLD_STUDIO,
-  WorldSeedZ,
-  type GenerationMeta,
-  type Locale,
-  type WorldSeed,
-} from "@rpgllm/shared";
+import { LOCALES, WORLD_STUDIO, WorldSeedZ, type GenerationMeta, type Locale, type WorldSeed } from "@rpgllm/shared";
 import type { Gateway, BatchItem } from "./gateway.js";
 import { judgeScore01, type GJInput } from "./generators/gj.js";
 import { G9InputZ, type G9Input } from "./generators/g9/types.js";
@@ -96,11 +89,7 @@ export function roleOf(member: WorldSeed["cast"][number], locale: Locale): strin
 
 /** Every string a player can actually see in this locale, in a stable order. */
 export function playerVisible(world: WorldSeed, locale: Locale): string[] {
-  const out: string[] = [
-    world.title[locale] ?? "",
-    world.scenario[locale] ?? "",
-    world.bible[locale] ?? "",
-  ];
+  const out: string[] = [world.title[locale] ?? "", world.scenario[locale] ?? "", world.bible[locale] ?? ""];
   for (const c of world.cast) {
     out.push(c.displayName, roleOf(c, locale), c.card[locale] ?? "", c.intro[locale] ?? "");
   }
@@ -241,9 +230,7 @@ export function g9Metrics(input: G9Input, world: WorldSeed): G9Metrics {
   ];
 
   const prose = LOCALES.flatMap((l) => playerVisible(world, l)).join("\n");
-  const unknownHandleRefs = [...prose.matchAll(/@([a-z0-9_]+)/g)].filter(
-    (m) => !castSet.has(m[1] ?? ""),
-  ).length;
+  const unknownHandleRefs = [...prose.matchAll(/@([a-z0-9_]+)/g)].filter((m) => !castSet.has(m[1] ?? "")).length;
 
   const pairs = localePairs(world);
   const jaText = playerVisible(world, "ja").join("\n");
@@ -302,15 +289,13 @@ export function g9Metrics(input: G9Input, world: WorldSeed): G9Metrics {
       ja: (world.ambientPool.ja ?? []).length,
     },
     minFallbackLines: Number.isFinite(minFallbackLines) ? minFallbackLines : 0,
-    welcomePosts: castHandles.filter((h) =>
-      LOCALES.every((l) => (world.welcomePosts[h]?.[l] ?? "").trim().length > 0),
-    ).length,
+    welcomePosts: castHandles.filter((h) => LOCALES.every((l) => (world.welcomePosts[h]?.[l] ?? "").trim().length > 0))
+      .length,
     pressAccounts: world.cast.filter((c) => c.isPressAccount).length,
     unknownHandleRefs,
     illegalHandles: structuralHandles.filter((h) => !HANDLE_RE.test(h)).length,
     duplicateHandles: castHandles.length - castSet.size,
-    duplicateDisplayNames:
-      world.cast.length - new Set(world.cast.map((c) => c.displayName.trim().toLowerCase())).size,
+    duplicateDisplayNames: world.cast.length - new Set(world.cast.map((c) => c.displayName.trim().toLowerCase())).size,
     localeGaps,
     localeFields: pairs.length,
     jaCjkRatio: cjkRatio(jaText),
@@ -389,10 +374,7 @@ export const DISTINCTNESS_LIMITS = {
  * locale-independent, so this is meaningful between an EN case and a JA case of the same genre.
  */
 export function distinctnessOf(a: WorldSeed, b: WorldSeed): G9Distinctness {
-  const handleOverlap = overlap(
-    new Set(a.cast.map((c) => c.handle)),
-    new Set(b.cast.map((c) => c.handle)),
-  );
+  const handleOverlap = overlap(new Set(a.cast.map((c) => c.handle)), new Set(b.cast.map((c) => c.handle)));
   const displayNameOverlap = overlap(
     new Set(a.cast.map((c) => c.displayName.trim().toLowerCase())),
     new Set(b.cast.map((c) => c.displayName.trim().toLowerCase())),
@@ -402,8 +384,7 @@ export function distinctnessOf(a: WorldSeed, b: WorldSeed): G9Distinctness {
     new Set(a.cast.map((c) => (c.card.en ?? "").trim())),
     new Set(b.cast.map((c) => (c.card.en ?? "").trim())),
   );
-  const titleShared =
-    (a.title.en ?? "").trim().toLowerCase() === (b.title.en ?? "").trim().toLowerCase();
+  const titleShared = (a.title.en ?? "").trim().toLowerCase() === (b.title.en ?? "").trim().toLowerCase();
   return {
     handleOverlap,
     displayNameOverlap,
@@ -459,8 +440,7 @@ export function machineChecksG9(
     bibleClearsFloor: LOCALES.every((l) => m.bibleTokens[l] >= WORLD_STUDIO.MIN_BIBLE_TOKENS),
     castComplete: m.cast === WORLD_STUDIO.CAST_SIZE,
     personasComplete: m.presetPersonas === WORLD_STUDIO.PRESET_PERSONAS,
-    eventsComplete:
-      m.events >= WORLD_STUDIO.PRESET_EVENTS && m.eventsWithThreeChoices === m.events,
+    eventsComplete: m.events >= WORLD_STUDIO.PRESET_EVENTS && m.eventsWithThreeChoices === m.events,
     ambientComplete: LOCALES.every((l) => m.ambient[l] >= 20),
     fallbackLinesComplete: m.minFallbackLines >= 5,
     welcomePostsComplete: m.welcomePosts === m.cast,
@@ -662,9 +642,7 @@ export async function runEvalG9(gateway: Gateway, args: EvalRunArgs): Promise<Ev
       judgeScore: round(judgeScore),
       score,
       passed:
-        score >= EVAL_PASS_SCORE &&
-        G9_ABSOLUTE_CHECKS.every((k) => checks[k] === true) &&
-        judgeOut.verdict !== "fail",
+        score >= EVAL_PASS_SCORE && G9_ABSOLUTE_CHECKS.every((k) => checks[k] === true) && judgeOut.verdict !== "fail",
       fallback: outcome?.meta.fallback ?? true,
       costUsd: round((outcome?.meta.costUsd ?? 0) + (judgeOutcome?.meta.costUsd ?? 0), 8),
       latencyMs: (outcome?.meta.latencyMs ?? 0) + (judgeOutcome?.meta.latencyMs ?? 0),
@@ -674,8 +652,7 @@ export async function runEvalG9(gateway: Gateway, args: EvalRunArgs): Promise<Ev
 
   for (const c of invalid) results.push(zeroRow(c.key, c.label));
 
-  const meanScore =
-    results.length === 0 ? 0 : round(results.reduce((s, r) => s + r.score, 0) / results.length, 2);
+  const meanScore = results.length === 0 ? 0 : round(results.reduce((s, r) => s + r.score, 0) / results.length, 2);
   return {
     generator: args.generator,
     variantId: args.variantId,

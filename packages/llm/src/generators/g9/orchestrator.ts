@@ -93,10 +93,7 @@ function emptyLocaleRecord<T>(make: (locale: Locale) => T): Record<Locale, T> {
  * purchase. Every stage still logs its own `fallback` flag, so the dashboard sees what the
  * aggregate deliberately forgives.
  */
-const CRITICAL_STAGES: ReadonlySet<string> = new Set([
-  G9_VARIANT_IDS.concept,
-  G9_VARIANT_IDS.bible,
-]);
+const CRITICAL_STAGES: ReadonlySet<string> = new Set([G9_VARIANT_IDS.concept, G9_VARIANT_IDS.bible]);
 
 /** The aggregate row: summed spend, wall-clock latency, fallback only when the world is not theirs. */
 export function aggregateMeta(
@@ -259,10 +256,7 @@ export async function runG9(
   const texture = {} as Record<Locale, G9TextureOutput>;
   LOCALES.forEach((locale, i) => {
     const res = textureResults[i];
-    texture[locale] =
-      res === undefined
-        ? { ambient: [], fallbackReplies: {}, welcomePosts: {} }
-        : take(res);
+    texture[locale] = res === undefined ? { ambient: [], fallbackReplies: {}, welcomePosts: {} } : take(res);
   });
 
   const parts: G9Parts = { base, concept: concept2, bible, cards, castEvents, texture };

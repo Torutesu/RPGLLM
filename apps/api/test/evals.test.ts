@@ -28,7 +28,9 @@ afterAll(async () => {
 
 beforeEach(async () => {
   await resetDatabase();
-  await prisma.$executeRawUnsafe(`TRUNCATE TABLE "EvalResult", "EvalRun", "EvalCase", "PromotionEvent", "BanditArm" RESTART IDENTITY CASCADE`);
+  await prisma.$executeRawUnsafe(
+    `TRUNCATE TABLE "EvalResult", "EvalRun", "EvalCase", "PromotionEvent", "BanditArm" RESTART IDENTITY CASCADE`,
+  );
 });
 
 describe("the frozen case set", () => {
@@ -53,7 +55,10 @@ describe("the frozen case set", () => {
 
   it("rebuilds real cases from real posts (GenerationLog stores no input, the rows do)", async () => {
     const fixture = await signupWithPersona(h);
-    await call(h, "POST", "/v1/posts", { token: fixture.token, body: { personaId: fixture.personaId, text: "the label moved the release again" } });
+    await call(h, "POST", "/v1/posts", {
+      token: fixture.token,
+      body: { personaId: fixture.personaId, text: "the label moved the release again" },
+    });
 
     const seeded = await seedEvalCases(prisma, { size: 30, productionShare: 0.5 });
     expect(seeded.fromProduction).toBeGreaterThan(0);
@@ -69,12 +74,15 @@ describe("the frozen case set", () => {
 
 describe("running an eval", () => {
   it("runs the set through the batch tier, persists every case, and logs the spend", async () => {
-    const res = await call<{ runId: string; status: string; cases: number; passed: number; meanScore: number; costUsd: number; judgeCostUsd: number }>(
-      h,
-      "POST",
-      "/v1/evals/run",
-      { body: { generator: "G1", variantId: CHALLENGER, limit: 5 } },
-    );
+    const res = await call<{
+      runId: string;
+      status: string;
+      cases: number;
+      passed: number;
+      meanScore: number;
+      costUsd: number;
+      judgeCostUsd: number;
+    }>(h, "POST", "/v1/evals/run", { body: { generator: "G1", variantId: CHALLENGER, limit: 5 } });
     expect(res.status).toBe(200);
     expect(res.data.status).toBe("finished");
     expect(res.data.cases).toBe(5);
@@ -100,7 +108,9 @@ describe("running an eval", () => {
   });
 
   it("caps the run at StartEvalReqZ.limit and rejects a silly one", async () => {
-    const capped = await call<{ cases: number }>(h, "POST", "/v1/evals/run", { body: { generator: "G1", variantId: CHAMP, limit: 3 } });
+    const capped = await call<{ cases: number }>(h, "POST", "/v1/evals/run", {
+      body: { generator: "G1", variantId: CHAMP, limit: 3 },
+    });
     expect(capped.data.cases).toBe(3);
     const bad = await call(h, "POST", "/v1/evals/run", { body: { generator: "G1", variantId: CHAMP, limit: 9999 } });
     expect(bad.status).toBe(400);
@@ -160,7 +170,7 @@ describe("the comparison and the gate", () => {
     expect(table.rows.find((r) => r.variantId === CHALLENGER)?.passesGate).toBe(false);
 
     await prisma.evalRun.deleteMany({ where: { variantId: CHALLENGER } });
-    await seedRun(CHALLENGER, 79.5, 0.5 * (1 - (EVAL_GATE.MIN_COST_SAVING / 2)));
+    await seedRun(CHALLENGER, 79.5, 0.5 * (1 - EVAL_GATE.MIN_COST_SAVING / 2));
     table = await compareEvals(prisma, "G1", CHAMP);
     expect(table.rows.find((r) => r.variantId === CHALLENGER)?.passesGate).toBe(false);
     expect(await gatePassedVariants(prisma, "G1", CHAMP)).not.toContain(CHALLENGER);
@@ -190,7 +200,15 @@ describe("the comparison and the gate", () => {
     await ensureArms(prisma);
     await seedRun(CHAMP, 80, 0.5);
     await prisma.evalRun.create({
-      data: { generator: "G1", variantId: CHALLENGER, status: "running", cases: 50, passed: 0, meanScore: 0, costUsd: "0" },
+      data: {
+        generator: "G1",
+        variantId: CHALLENGER,
+        status: "running",
+        cases: 50,
+        passed: 0,
+        meanScore: 0,
+        costUsd: "0",
+      },
     });
     const table = await compareEvals(prisma, "G1", CHAMP);
     expect(table.rows.map((r) => r.variantId)).toEqual([CHAMP]);
@@ -201,7 +219,10 @@ describe("the saving lands in the cost dashboard (§5.4)", () => {
   it("splits batched from interactive spend and reports the realised discount", async () => {
     const fixture = await signupWithPersona(h);
     // one interactive action…
-    await call(h, "POST", "/v1/posts", { token: fixture.token, body: { personaId: fixture.personaId, text: "new song friday" } });
+    await call(h, "POST", "/v1/posts", {
+      token: fixture.token,
+      body: { personaId: fixture.personaId, text: "new song friday" },
+    });
     // …and one batched eval run
     await call(h, "POST", "/v1/evals/run", { body: { generator: "G1", variantId: CHALLENGER, limit: 4 } });
 

@@ -36,19 +36,36 @@ interface Metrics {
   thresholds: { reportsToPull: number; reviewSlaHours: number; resubmitCooldownHours: number; claimMinutes: number };
   queue: { waiting: number; overdue: number; appeals: number; pulled: number; oldestWaitingHours: number };
   decisions: {
-    last7d: number; approved: number; rejected: number; approvalRate: number;
-    medianLatencyHours: number | null; p90LatencyHours: number | null;
+    last7d: number;
+    approved: number;
+    rejected: number;
+    approvalRate: number;
+    medianLatencyHours: number | null;
+    p90LatencyHours: number | null;
   };
   reports: { open: number; last7d: number; perThousandPlays: number; pullsLast7d: number; pullsReapproved: number };
   economics: {
-    worldsReviewedLast7d: number; estimatedReviewMinutes: number; generationCostUsd: number;
-    reviewCostUsd: number; reviewHourlyUsd: number; minutesPerWorld: number;
+    worldsReviewedLast7d: number;
+    estimatedReviewMinutes: number;
+    generationCostUsd: number;
+    reviewCostUsd: number;
+    reviewHourlyUsd: number;
+    minutesPerWorld: number;
   };
   sampling: {
-    trustApprovals: number; trustSampleEvery: number; shelfFeeGems: number; trustedCreators: number;
-    submissionsLast7d: number; sampledAwayLast7d: number; readByAHumanLast7d: number;
-    sampledShare: number; reviewMinutesAvoided: number; reviewCostAvoidedUsd: number;
-    sampledAwayAllTime: number; gemsChargedLast7d: number; gemsRefundedLast7d: number;
+    trustApprovals: number;
+    trustSampleEvery: number;
+    shelfFeeGems: number;
+    trustedCreators: number;
+    submissionsLast7d: number;
+    sampledAwayLast7d: number;
+    readByAHumanLast7d: number;
+    sampledShare: number;
+    reviewMinutesAvoided: number;
+    reviewCostAvoidedUsd: number;
+    sampledAwayAllTime: number;
+    gemsChargedLast7d: number;
+    gemsRefundedLast7d: number;
     queuedWithDigest: number;
   };
 }
@@ -62,7 +79,10 @@ beforeEach(async () => {
   h.clock.reset();
   h.gateway.setMode("replay");
 });
-afterEach(() => { restoreEnv?.(); restoreEnv = null; });
+afterEach(() => {
+  restoreEnv?.();
+  restoreEnv = null;
+});
 
 const metrics = (headers?: Record<string, string>) =>
   call<Metrics>(h, "GET", "/v1/admin/moderation/metrics", headers ? { headers } : {});
@@ -73,14 +93,17 @@ const HOUR_MS = 3_600_000;
 async function submittedWorld(premise: string): Promise<{ token: string; worldId: string }> {
   const { token, userId } = await signup(h);
   const created = await call<{ world: { id: string } }>(h, "POST", "/v1/worlds", {
-    token, body: { premise, genre: "idol", locale: "en", visibility: "private" },
+    token,
+    body: { premise, genre: "idol", locale: "en", visibility: "private" },
   });
   expect(created.status).toBe(201);
   expect((await runJobOnce(deps, "world-build", { trigger: "test" })).error).toBeNull();
   // The shelf costs gems on top of the world (gtm.md §2 exit 1); a fresh account has none left.
   await grantShelfGems(userId, 4);
   const worldId = created.data.world.id;
-  expect((await call(h, "POST", `/v1/worlds/${worldId}/publish`, { token, body: { visibility: "public" } })).status).toBe(202);
+  expect(
+    (await call(h, "POST", `/v1/worlds/${worldId}/publish`, { token, body: { visibility: "public" } })).status,
+  ).toBe(202);
   return { token, worldId };
 }
 
@@ -92,14 +115,17 @@ const waited = (worldId: string, hours: number) =>
   });
 
 const decide = (worldId: string, decision: "approve" | "reject") =>
-  call(h, "POST", `/v1/admin/worlds/${worldId}/review`, { body: { decision, reason: decision === "reject" ? "off-limits" : "" } });
+  call(h, "POST", `/v1/admin/worlds/${worldId}/review`, {
+    body: { decision, reason: decision === "reject" ? "off-limits" : "" },
+  });
 
 /** `n` distinct accounts, each reporting the world once. */
 async function reporters(worldId: string, n: number): Promise<void> {
   for (let i = 0; i < n; i += 1) {
     const who = await signup(h);
     const filed = await call(h, "POST", "/v1/moderation/report", {
-      token: who.token, body: { target: "world", targetId: worldId, reason: "harassment", note: `complaint ${i}` },
+      token: who.token,
+      body: { target: "world", targetId: worldId, reason: "harassment", note: `complaint ${i}` },
     });
     expect(filed.status).toBe(201);
   }
@@ -139,11 +165,15 @@ describe("the queue, measured", () => {
     expect(m.reports.perThousandPlays, "…and a rate over no plays is 0, not Infinity").toBe(0);
     expect(Number.isFinite(m.reports.perThousandPlays)).toBe(true);
     expect(m.economics).toEqual({
-      worldsReviewedLast7d: 0, estimatedReviewMinutes: 0, generationCostUsd: 0,
+      worldsReviewedLast7d: 0,
+      estimatedReviewMinutes: 0,
+      generationCostUsd: 0,
       // gtm.md §2 puts a dollar figure on the queue, so the surface does too. Nobody reviewed
       // anything, so it cost nothing — but the rate and the minutes it multiplies are still stated,
       // because an operator cannot check a total whose inputs are invisible.
-      reviewCostUsd: 0, reviewHourlyUsd: 15, minutesPerWorld: WORLD_MODERATION.CLAIM_MINUTES,
+      reviewCostUsd: 0,
+      reviewHourlyUsd: 15,
+      minutesPerWorld: WORLD_MODERATION.CLAIM_MINUTES,
     });
     expect(m.queue).toEqual({ waiting: 0, overdue: 0, appeals: 0, pulled: 0, oldestWaitingHours: 0 });
 
@@ -256,16 +286,25 @@ describe("what the three exits actually removed", () => {
       n += 1;
       const created = await call<{ world: { id: string } }>(h, "POST", "/v1/worlds", {
         token,
-        body: { premise: `A rival bakery on the ${n}th street corner`, genre: "idol", locale: "en", visibility: "private" },
+        body: {
+          premise: `A rival bakery on the ${n}th street corner`,
+          genre: "idol",
+          locale: "en",
+          visibility: "private",
+        },
       });
       expect(created.status).toBe(201);
       expect((await runJobOnce(deps, "world-build", { trigger: "test" })).error).toBeNull();
       // The daily cap is a spend limit; this case needs more worlds than one day allows.
-      await prisma.world.updateMany({ where: { createdBy: userId }, data: { createdAt: new Date(h.clock.now().getTime() - 2 * 86_400_000) } });
+      await prisma.world.updateMany({
+        where: { createdBy: userId },
+        data: { createdAt: new Date(h.clock.now().getTime() - 2 * 86_400_000) },
+      });
       await grantShelfGems(userId, 4);
       return created.data.world.id;
     };
-    const submit = (id: string) => call<{ needsReview: boolean }>(h, "POST", `/v1/worlds/${id}/publish`, { token, body: { visibility: "public" } });
+    const submit = (id: string) =>
+      call<{ needsReview: boolean }>(h, "POST", `/v1/worlds/${id}/publish`, { token, body: { visibility: "public" } });
 
     // Earn trust the long way — every one of these is a human read, and is counted as one.
     for (let i = 0; i < WORLD_MODERATION.TRUST_APPROVALS; i += 1) {
@@ -283,11 +322,15 @@ describe("what the three exits actually removed", () => {
     expect(before.sampling.reviewCostAvoidedUsd).toBe(0);
     expect(before.sampling.submissionsLast7d).toBe(WORLD_MODERATION.TRUST_APPROVALS + 1);
     expect(before.sampling.readByAHumanLast7d).toBe(WORLD_MODERATION.TRUST_APPROVALS + 1);
-    expect(before.sampling.gemsChargedLast7d).toBe(WORLD_MODERATION.PUBLIC_SUBMIT_GEMS * (WORLD_MODERATION.TRUST_APPROVALS + 1));
+    expect(before.sampling.gemsChargedLast7d).toBe(
+      WORLD_MODERATION.PUBLIC_SUBMIT_GEMS * (WORLD_MODERATION.TRUST_APPROVALS + 1),
+    );
     expect(before.sampling.queuedWithDigest, "every queued world carries advice").toBeGreaterThan(0);
     // What the queue cost: minutes at the rate an operator supplies.
-    expect(before.economics.reviewCostUsd)
-      .toBeCloseTo((before.economics.estimatedReviewMinutes / 60) * before.economics.reviewHourlyUsd, 2);
+    expect(before.economics.reviewCostUsd).toBeCloseTo(
+      (before.economics.estimatedReviewMinutes / 60) * before.economics.reviewHourlyUsd,
+      2,
+    );
 
     // Now turn the sampling on. The same creator, the same worlds, and no reviewer.
     restoreEnv?.();
@@ -305,8 +348,7 @@ describe("what the three exits actually removed", () => {
     // The dollars. Two twenty-minute reads that did not happen, at the rate in force.
     const minutes = 2 * reviewMinutesPerWorld();
     expect(after.sampling.reviewMinutesAvoided).toBe(minutes);
-    expect(after.sampling.reviewCostAvoidedUsd)
-      .toBeCloseTo((minutes / 60) * after.economics.reviewHourlyUsd, 2);
+    expect(after.sampling.reviewCostAvoidedUsd).toBeCloseTo((minutes / 60) * after.economics.reviewHourlyUsd, 2);
     expect(after.sampling.reviewCostAvoidedUsd, "the number this whole pass exists to move").toBeGreaterThan(0);
 
     // And the thresholds that produced it are named next to it, so the figure can be checked.

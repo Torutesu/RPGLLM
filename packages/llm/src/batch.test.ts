@@ -145,7 +145,10 @@ describe("batch — live request shape (no network)", () => {
   it("keeps the high tier's effort setting inside the batched params", () => {
     const rendered = g5.render(g5Input("popstar-era", "en", 1));
     const built = buildBatchBody([
-      { customId: "e", args: { model: modelForTier("high"), tier: "high", maxTokens: 2000, rendered, schema: G1OutputZ } },
+      {
+        customId: "e",
+        args: { model: modelForTier("high"), tier: "high", maxTokens: 2000, rendered, schema: G1OutputZ },
+      },
     ]);
     expect(built.body.requests[0]?.params.output_config.effort).toBe("medium");
     expect(built.body.requests[0]?.params.thinking).toBeUndefined();
@@ -167,7 +170,10 @@ describe("batch — live request shape (no network)", () => {
 
 interface StubResult {
   custom_id: string;
-  result: { type: "succeeded"; message: unknown } | { type: "errored"; error: { type: string; message: string } } | { type: "expired" };
+  result:
+    | { type: "succeeded"; message: unknown }
+    | { type: "errored"; error: { type: string; message: string } }
+    | { type: "expired" };
 }
 
 function stubClient(results: StubResult[], opts: { statuses?: string[] } = {}) {
@@ -234,7 +240,15 @@ describe("batch — live results are matched by custom_id, never by position", (
 
   it("polls until processing_status is ended", async () => {
     const stub = stubClient(
-      [{ custom_id: "only", result: { type: "succeeded", message: okMessage(JSON.stringify(replayLike(g1Input("popstar-era", "en", 1)))) } }],
+      [
+        {
+          custom_id: "only",
+          result: {
+            type: "succeeded",
+            message: okMessage(JSON.stringify(replayLike(g1Input("popstar-era", "en", 1)))),
+          },
+        },
+      ],
       { statuses: ["in_progress", "in_progress", "ended"] },
     );
     __setClient(stub.client as never);
@@ -264,7 +278,13 @@ describe("batch — live results are matched by custom_id, never by position", (
       items: [
         {
           customId: "t",
-          args: { model: "claude-haiku-4-5", tier: "light", maxTokens: 100, rendered: g1.render(g1Input("popstar-era", "en", 1)), schema: G1OutputZ },
+          args: {
+            model: "claude-haiku-4-5",
+            tier: "light",
+            maxTokens: 100,
+            rendered: g1.render(g1Input("popstar-era", "en", 1)),
+            schema: G1OutputZ,
+          },
         },
       ],
       now: (() => {

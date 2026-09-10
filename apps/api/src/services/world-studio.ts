@@ -94,7 +94,12 @@ export async function uniqueSlug(prisma: PrismaClient, base: string, salt: strin
 /* -------------------------------------------------------------------- gems ---- */
 
 export class GemsRequiredError extends Error {
-  constructor(readonly needed: number, readonly have: number) { super("GEMS_REQUIRED"); }
+  constructor(
+    readonly needed: number,
+    readonly have: number,
+  ) {
+    super("GEMS_REQUIRED");
+  }
 }
 
 /**
@@ -138,7 +143,13 @@ export async function refundWorldOnce(
   if (!wallet) return true;
   await tx.wallet.update({ where: { id: wallet.id }, data: { gems: { increment: WORLD_STUDIO.GEM_COST } } });
   await tx.ledgerEntry.create({
-    data: { walletId: wallet.id, currency: "gems", delta: WORLD_STUDIO.GEM_COST, source: "admin", ref: `world_refund:${world.id}` },
+    data: {
+      walletId: wallet.id,
+      currency: "gems",
+      delta: WORLD_STUDIO.GEM_COST,
+      source: "admin",
+      ref: `world_refund:${world.id}`,
+    },
   });
   return true;
 }
@@ -160,9 +171,7 @@ export const pickerWhere = (userId: string): Prisma.WorldWhereInput => ({
 
 /** Who may open one world: its creator always, everyone else only once it is published + public. */
 export const canPlay = (world: World, userId: string): boolean =>
-  world.isPreset
-  || world.createdBy === userId
-  || (world.status === "published" && world.visibility !== "private");
+  world.isPreset || world.createdBy === userId || (world.status === "published" && world.visibility !== "private");
 
 /**
  * `canPlay`, plus the one exception post-publication moderation creates: **a world pulled off the
@@ -208,9 +217,7 @@ export function toApiWorldFull(
     playCount: world.playCount,
     castCount: extra.castCount,
     createdAt: world.createdAt.toISOString(),
-    reason: world.status === "rejected"
-      ? (world.rejectedReason || null)
-      : (world.failureReason || null),
+    reason: world.status === "rejected" ? world.rejectedReason || null : world.failureReason || null,
     // "Taken down for another look" is a different thing to say than "not looked at yet", and the
     // status is `review` for both — so the difference lives here (WORLD_MODERATION).
     pulled: world.pulledAt !== null,
@@ -293,13 +300,21 @@ export async function remixParents(
     where: { id: { in: ids } },
     select: { id: true, slug: true, title: true, createdBy: true },
   });
-  const handles = await creatorHandles(prisma, parents.flatMap((p) => (p.createdBy ? [p.createdBy] : [])));
-  return new Map(parents.map((p) => [p.id, {
-    id: p.id,
-    slug: p.slug,
-    title: localized(p.title, locale),
-    creatorHandle: p.createdBy ? (handles.get(p.createdBy) ?? null) : null,
-  }]));
+  const handles = await creatorHandles(
+    prisma,
+    parents.flatMap((p) => (p.createdBy ? [p.createdBy] : [])),
+  );
+  return new Map(
+    parents.map((p) => [
+      p.id,
+      {
+        id: p.id,
+        slug: p.slug,
+        title: localized(p.title, locale),
+        creatorHandle: p.createdBy ? (handles.get(p.createdBy) ?? null) : null,
+      },
+    ]),
+  );
 }
 
 /** Everything the list endpoints need, resolved in a fixed number of queries whatever the page size. */
@@ -310,8 +325,14 @@ export async function decorate(
   viewerId: string,
 ): Promise<ApiWorldFull[]> {
   const [counts, handles, parents] = await Promise.all([
-    castCounts(prisma, worlds.map((w) => w.id)),
-    creatorHandles(prisma, worlds.flatMap((w) => (w.createdBy ? [w.createdBy] : []))),
+    castCounts(
+      prisma,
+      worlds.map((w) => w.id),
+    ),
+    creatorHandles(
+      prisma,
+      worlds.flatMap((w) => (w.createdBy ? [w.createdBy] : [])),
+    ),
     remixParents(prisma, worlds, locale),
   ]);
   return worlds.map((w) =>
@@ -319,5 +340,6 @@ export async function decorate(
       castCount: counts.get(w.id) ?? 0,
       creatorHandle: w.createdBy ? (handles.get(w.createdBy) ?? null) : null,
       remixOf: w.remixOfId ? (parents.get(w.remixOfId) ?? null) : null,
-    }));
+    }),
+  );
 }

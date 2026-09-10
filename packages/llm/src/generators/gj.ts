@@ -17,14 +17,7 @@ import type { GeneratorSpec } from "../types.js";
  * mode produces a real, reproducible comparison table instead of noise.
  */
 
-export const GJ_AXES = [
-  "inCharacter",
-  "diversity",
-  "humour",
-  "emoji",
-  "safety",
-  "jpNaturalness",
-] as const;
+export const GJ_AXES = ["inCharacter", "diversity", "humour", "emoji", "safety", "jpNaturalness"] as const;
 export type GJAxis = (typeof GJ_AXES)[number];
 
 /** §6.2's rubric weights. Safety is the veto axis, so it carries the most weight. */

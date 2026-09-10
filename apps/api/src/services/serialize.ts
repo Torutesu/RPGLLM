@@ -1,6 +1,27 @@
-import type { DMMessage, DMThread, Event as DramaEvent, Persona, Post, StatSnapshot, Subscription, Wallet, World, WorldCharacter } from "@prisma/client";
+import type {
+  DMMessage,
+  DMThread,
+  Event as DramaEvent,
+  Persona,
+  Post,
+  StatSnapshot,
+  Subscription,
+  Wallet,
+  World,
+  WorldCharacter,
+} from "@prisma/client";
 import type { z } from "zod";
-import type { CharacterZ, DMMessageZ, DMThreadZ, EventZ, PostZ, StatSnapshotZ, SubscriptionZ, WalletZ, WorldSummaryZ } from "@rpgllm/shared";
+import type {
+  CharacterZ,
+  DMMessageZ,
+  DMThreadZ,
+  EventZ,
+  PostZ,
+  StatSnapshotZ,
+  SubscriptionZ,
+  WalletZ,
+  WorldSummaryZ,
+} from "@rpgllm/shared";
 import type { PlanId } from "@rpgllm/shared";
 import { atHandle } from "./handles";
 import { firstSentence, localized, roleFor, type LocaleKey } from "./locale";
@@ -44,14 +65,20 @@ export function toApiPost(
   const character = row.authorCharacter ?? null;
   const author = character
     ? {
-      handle: atHandle(character.handle),
-      displayName: character.displayName,
-      avatarUrl: character.avatarUrl,
-      verified: true,
-      isYou: false,
-    }
+        handle: atHandle(character.handle),
+        displayName: character.displayName,
+        avatarUrl: character.avatarUrl,
+        verified: true,
+        isYou: false,
+      }
     : row.authorPersonaId && persona
-      ? { handle: atHandle(persona.handle), displayName: persona.displayName, avatarUrl: persona.avatarUrl, verified: true, isYou: true }
+      ? {
+          handle: atHandle(persona.handle),
+          displayName: persona.displayName,
+          avatarUrl: persona.avatarUrl,
+          verified: true,
+          isYou: true,
+        }
       : { handle: "world", displayName: "World", avatarUrl: null, verified: false, isYou: false };
   const post: ApiPost = {
     id: row.id,
@@ -72,20 +99,25 @@ export function toApiPost(
  * (schema §"relDeltas" said a bare map; we wrap it so StatSnapshotZ.after has a durable home —
  * see build-notes "Agent A"). A bare map is still read correctly.
  */
-export function readRelDeltas(value: unknown): { deltas: Record<string, number>; after: { followers: number; aura: number; humor: number } | null } {
+export function readRelDeltas(value: unknown): {
+  deltas: Record<string, number>;
+  after: { followers: number; aura: number; humor: number } | null;
+} {
   if (!value || typeof value !== "object") return { deltas: {}, after: null };
   const obj = value as Record<string, unknown>;
   if (obj["deltas"] && typeof obj["deltas"] === "object") {
     const deltas: Record<string, number> = {};
-    for (const [k, v] of Object.entries(obj["deltas"] as Record<string, unknown>)) if (typeof v === "number") deltas[k] = v;
+    for (const [k, v] of Object.entries(obj["deltas"] as Record<string, unknown>))
+      if (typeof v === "number") deltas[k] = v;
     const a = obj["after"];
-    const after = a && typeof a === "object"
-      ? {
-        followers: Number((a as Record<string, unknown>)["followers"] ?? 0),
-        aura: Number((a as Record<string, unknown>)["aura"] ?? 0),
-        humor: Number((a as Record<string, unknown>)["humor"] ?? 0),
-      }
-      : null;
+    const after =
+      a && typeof a === "object"
+        ? {
+            followers: Number((a as Record<string, unknown>)["followers"] ?? 0),
+            aura: Number((a as Record<string, unknown>)["aura"] ?? 0),
+            humor: Number((a as Record<string, unknown>)["humor"] ?? 0),
+          }
+        : null;
     return { deltas, after };
   }
   const deltas: Record<string, number> = {};
@@ -126,19 +158,27 @@ export function readChoices(value: unknown): StoredChoice[] {
     const rd = (c["relationshipDeltas"] ?? {}) as Record<string, unknown>;
     const deltas: Record<string, number> = {};
     for (const [k, v] of Object.entries(rd)) if (typeof v === "number") deltas[k] = v;
-    return [{
-      id: String(c["id"] ?? ""),
-      label: String(c["label"] ?? ""),
-      outcomeText: String(c["outcomeText"] ?? ""),
-      statDeltas: { followers: Number(sd["followers"] ?? 0), aura: Number(sd["aura"] ?? 0), humor: Number(sd["humor"] ?? 0) },
-      relationshipDeltas: deltas,
-      newsText: typeof c["newsText"] === "string" ? c["newsText"] : null,
-    }];
+    return [
+      {
+        id: String(c["id"] ?? ""),
+        label: String(c["label"] ?? ""),
+        outcomeText: String(c["outcomeText"] ?? ""),
+        statDeltas: {
+          followers: Number(sd["followers"] ?? 0),
+          aura: Number(sd["aura"] ?? 0),
+          humor: Number(sd["humor"] ?? 0),
+        },
+        relationshipDeltas: deltas,
+        newsText: typeof c["newsText"] === "string" ? c["newsText"] : null,
+      },
+    ];
   });
 }
 
 export function toApiEvent(row: DramaEvent): ApiEvent {
-  const choices = readChoices(row.choices).slice(0, 3).map((c) => ({ id: c.id, label: c.label }));
+  const choices = readChoices(row.choices)
+    .slice(0, 3)
+    .map((c) => ({ id: c.id, label: c.label }));
   while (choices.length < 3) choices.push({ id: `c${choices.length + 1}`, label: "—" });
   return {
     id: row.id,

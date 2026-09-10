@@ -117,7 +117,11 @@ export function StudioWorldCard({
    * card print the same sentence twice. When the second line adds nothing, it is not shown.
    */
   const raw = world.scenario.trim().length > 0 ? world.scenario : world.premise;
-  const norm = (s: string): string => s.trim().toLowerCase().replace(/[.…\s]+$/, "");
+  const norm = (s: string): string =>
+    s
+      .trim()
+      .toLowerCase()
+      .replace(/[.…\s]+$/, "");
   const line = norm(raw).startsWith(norm(world.title)) || norm(world.title).startsWith(norm(raw)) ? "" : raw;
   /**
    * Circuit ② — the credit is a link now, and a link may not be nested inside the card's own
@@ -139,13 +143,7 @@ export function StudioWorldCard({
     <View testID={testID} style={{ position: "relative" }}>
       {reportable ? (
         <View style={{ position: "absolute", top: spacing.sm, right: spacing.sm, zIndex: 5 }}>
-          <Overflow
-            id={world.slug}
-            target="world"
-            targetId={world.id}
-            testID={T.reportWorld}
-            labelKey="reportWorld"
-          />
+          <Overflow id={world.slug} target="world" targetId={world.id} testID={T.reportWorld} labelKey="reportWorld" />
         </View>
       ) : null}
       <Pressable
@@ -175,16 +173,33 @@ export function StudioWorldCard({
                 ...elevation.low,
               }}
             >
-              <View style={{ width: 76, height: 76, borderRadius: radius.md, overflow: "hidden", backgroundColor: colors.bgElevated }}>
+              <View
+                style={{
+                  width: 76,
+                  height: 76,
+                  borderRadius: radius.md,
+                  overflow: "hidden",
+                  backgroundColor: colors.bgElevated,
+                }}
+              >
                 <WorldCover slug={world.slug} height={76} />
                 {building ? (
-                  <View style={{ position: "absolute", left: 0, right: 0, bottom: 0, top: 0, justifyContent: "flex-end" }}>
+                  <View
+                    style={{ position: "absolute", left: 0, right: 0, bottom: 0, top: 0, justifyContent: "flex-end" }}
+                  >
                     <Shimmer height={4} />
                   </View>
                 ) : null}
               </View>
 
-              <View style={{ flex: 1, gap: spacing.xs, justifyContent: "center", paddingRight: reportable ? spacing.xl : 0 }}>
+              <View
+                style={{
+                  flex: 1,
+                  gap: spacing.xs,
+                  justifyContent: "center",
+                  paddingRight: reportable ? spacing.xl : 0,
+                }}
+              >
                 <Text numberOfLines={1} importantForAccessibility="no" style={[typo.h2, { color: colors.text }]}>
                   {world.title}
                 </Text>
@@ -211,20 +226,32 @@ export function StudioWorldCard({
                   ) : null}
                 </View>
                 {pulled ? (
-                  <Text numberOfLines={2} importantForAccessibility="no" style={[typo.caption, { color: colors.textDim }]}>
+                  <Text
+                    numberOfLines={2}
+                    importantForAccessibility="no"
+                    style={[typo.caption, { color: colors.textDim }]}
+                  >
                     {t("studioPulledHint")}
                   </Text>
                 ) : null}
                 {appealPending ? (
                   <View style={{ flexDirection: "row", alignItems: "center", gap: spacing.xs }}>
                     <Icon name="clock" size={11} color={colors.warning} />
-                    <Text numberOfLines={1} importantForAccessibility="no" style={[typo.caption, { color: colors.warning, flex: 1 }]}>
+                    <Text
+                      numberOfLines={1}
+                      importantForAccessibility="no"
+                      style={[typo.caption, { color: colors.warning, flex: 1 }]}
+                    >
                       {t("studioAppealPending")}
                     </Text>
                   </View>
                 ) : null}
                 {world.status === "rejected" && world.reason ? (
-                  <Text numberOfLines={2} importantForAccessibility="no" style={[typo.caption, { color: colors.danger }]}>
+                  <Text
+                    numberOfLines={2}
+                    importantForAccessibility="no"
+                    style={[typo.caption, { color: colors.danger }]}
+                  >
                     {world.reason}
                   </Text>
                 ) : null}

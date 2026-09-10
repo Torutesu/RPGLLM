@@ -1,6 +1,10 @@
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import {
-  adminAuthorized, identifyAdmin, parseAdminTokens, reviewerNameFor, SHARED_NAME,
+  adminAuthorized,
+  identifyAdmin,
+  parseAdminTokens,
+  reviewerNameFor,
+  SHARED_NAME,
 } from "../src/services/admin-identity";
 import { call, grantShelfGems, makeHarness, prisma, resetDatabase, signup, type Harness } from "./helpers";
 
@@ -19,16 +23,25 @@ function withEnv(patch: Record<string, string | undefined>): () => void {
     if (v === undefined) delete process.env[k];
     else process.env[k] = v;
   }
-  return () => { for (const [k, v] of previous) { if (v === undefined) delete process.env[k]; else process.env[k] = v; } };
+  return () => {
+    for (const [k, v] of previous) {
+      if (v === undefined) delete process.env[k];
+      else process.env[k] = v;
+    }
+  };
 }
 
 let restore: (() => void) | null = null;
-afterEach(() => { restore?.(); restore = null; });
+afterEach(() => {
+  restore?.();
+  restore = null;
+});
 
 describe("parsing the credential list", () => {
   it("reads name:secret pairs and drops what is not one", () => {
     expect(parseAdminTokens("rina:aaa, koji:bbb")).toEqual([
-      { name: "rina", secret: "aaa" }, { name: "koji", secret: "bbb" },
+      { name: "rina", secret: "aaa" },
+      { name: "koji", secret: "bbb" },
     ]);
     // A malformed entry must not throw: this runs on every admin request, and one stray comma
     // turning the moderation surface into a 500 is a worse outcome than one dead credential.
@@ -85,8 +98,12 @@ describe("the name a decision is recorded under", () => {
 
 describe("end to end, through the review queue", () => {
   let h: Harness;
-  beforeAll(() => { h = makeHarness(); });
-  beforeEach(async () => { await resetDatabase(); });
+  beforeAll(() => {
+    h = makeHarness();
+  });
+  beforeEach(async () => {
+    await resetDatabase();
+  });
 
   /** A world sitting in the queue, submitted by a real account. */
   async function aWorldInReview(): Promise<string> {

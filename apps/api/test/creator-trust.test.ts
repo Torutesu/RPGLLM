@@ -42,11 +42,28 @@ const PREMISE = "Seven rookies, one debut slot, and a leaked group chat";
 /** Big enough that the draw essentially never picks a world — "sampled away", deterministically. */
 const NEVER_DRAWN = "100000";
 
-interface WorldFull { id: string; status: string; visibility: string }
-interface PublishRes { world: WorldFull; needsReview: boolean; charged: { gems: number } }
-interface Profile { handle: string; isYou: boolean; trust: { approvals: number; trusted: boolean; toTrusted: number | null } | null }
-interface QueueRow extends WorldFull { creatorTrust: Profile["trust"]; digest: { sampled: boolean } | null }
-interface QueueRes { worlds: QueueRow[] }
+interface WorldFull {
+  id: string;
+  status: string;
+  visibility: string;
+}
+interface PublishRes {
+  world: WorldFull;
+  needsReview: boolean;
+  charged: { gems: number };
+}
+interface Profile {
+  handle: string;
+  isYou: boolean;
+  trust: { approvals: number; trusted: boolean; toTrusted: number | null } | null;
+}
+interface QueueRow extends WorldFull {
+  creatorTrust: Profile["trust"];
+  digest: { sampled: boolean } | null;
+}
+interface QueueRes {
+  worlds: QueueRow[];
+}
 
 const worldRow = (id: string) => prisma.world.findUniqueOrThrow({ where: { id } });
 const userRow = (id: string) => prisma.user.findUniqueOrThrow({ where: { id } });
@@ -59,8 +76,7 @@ const decide = (id: string, decision: "approve" | "reject", reason = "") =>
 
 const queue = () => call<QueueRes>(h, "GET", "/v1/admin/worlds/review");
 
-const profile = (token: string, handle: string) =>
-  call<Profile>(h, "GET", `/v1/creators/${handle}`, { token });
+const profile = (token: string, handle: string) => call<Profile>(h, "GET", `/v1/creators/${handle}`, { token });
 
 /** One account, and a way to keep building worlds for it. Gems are topped up for every shelf fee. */
 async function creator() {
@@ -69,7 +85,8 @@ async function creator() {
   const build = async (): Promise<string> => {
     n += 1;
     const created = await call<{ world: WorldFull }>(h, "POST", "/v1/worlds", {
-      token, body: { premise: `${PREMISE} number ${n}`, genre: "idol", locale: "en", visibility: "private" },
+      token,
+      body: { premise: `${PREMISE} number ${n}`, genre: "idol", locale: "en", visibility: "private" },
     });
     expect(created.status, JSON.stringify(created.error)).toBe(201);
     expect((await runJobOnce(deps, "world-build", { trigger: "test" })).error).toBeNull();
@@ -176,7 +193,9 @@ describe("a trusted creator's submissions are sampled", () => {
     // A reader finds it on Explore with no human having approved it — which is the whole point,
     // and the risk this feature is spending.
     const reader = await signup(h);
-    const shelf = await call<{ worlds: WorldFull[]; fresh: WorldFull[] }>(h, "GET", "/v1/worlds/public", { token: reader.token });
+    const shelf = await call<{ worlds: WorldFull[]; fresh: WorldFull[] }>(h, "GET", "/v1/worlds/public", {
+      token: reader.token,
+    });
     expect([...shelf.data.worlds, ...shelf.data.fresh].map((w) => w.id)).toContain(second);
   });
 
@@ -231,8 +250,9 @@ describe("what takes trust away", () => {
     // a reviewer can say no to, which is exactly the case that has to cost the standing.
     const rejected = await who.build();
     expect((await publish(who.token, rejected)).data.needsReview).toBe(true);
-    expect((await decide(rejected, "reject", "Rule 1: this is somebody else's show.")).data.world.status)
-      .toBe("rejected");
+    expect((await decide(rejected, "reject", "Rule 1: this is somebody else's show.")).data.world.status).toBe(
+      "rejected",
+    );
 
     const after = await userRow(who.userId);
     expect(after.trustApprovals, "a reviewer's no costs the standing").toBe(0);
@@ -258,7 +278,8 @@ describe("what takes trust away", () => {
     for (let i = 0; i < WORLD_MODERATION.REPORTS_TO_PULL; i += 1) {
       const reporter = await signup(h);
       await call(h, "POST", "/v1/moderation/report", {
-        token: reporter.token, body: { target: "world", targetId: live, reason: "harassment", note: `no ${i}` },
+        token: reporter.token,
+        body: { target: "world", targetId: live, reason: "harassment", note: `no ${i}` },
       });
     }
     expect((await worldRow(live)).pulledAt).not.toBeNull();
@@ -294,7 +315,8 @@ describe("what takes trust away", () => {
     for (let i = 0; i < WORLD_MODERATION.REPORTS_TO_PULL; i += 1) {
       const reporter = await signup(h);
       await call(h, "POST", "/v1/moderation/report", {
-        token: reporter.token, body: { target: "world", targetId: id, reason: "harassment", note: `no ${i}` },
+        token: reporter.token,
+        body: { target: "world", targetId: id, reason: "harassment", note: `no ${i}` },
       });
     }
     await decide(id, "approve");
@@ -320,16 +342,25 @@ describe("the draw itself", () => {
     const trusted = trustOf({ trustApprovals: 9, trustSubmissions: 5 }, false);
     const world = { id: "w1", safety: null, rejectedReason: "" } as const;
 
-    expect(samplingDecision(world, "u1", trustOf({ trustApprovals: 0, trustSubmissions: 0 }, false), { trustApprovals: 0, trustSubmissions: 0 }).reason)
-      .toBe("untrusted");
-    expect(samplingDecision(world, "u1", trusted, { trustApprovals: 9, trustSubmissions: 0 }).reason)
-      .toBe("first_after_trust");
-    expect(samplingDecision({ ...world, safety: "soften" }, "u1", trusted, { trustApprovals: 9, trustSubmissions: 5 }).reason)
-      .toBe("softened");
+    expect(
+      samplingDecision(world, "u1", trustOf({ trustApprovals: 0, trustSubmissions: 0 }, false), {
+        trustApprovals: 0,
+        trustSubmissions: 0,
+      }).reason,
+    ).toBe("untrusted");
+    expect(samplingDecision(world, "u1", trusted, { trustApprovals: 9, trustSubmissions: 0 }).reason).toBe(
+      "first_after_trust",
+    );
+    expect(
+      samplingDecision({ ...world, safety: "soften" }, "u1", trusted, { trustApprovals: 9, trustSubmissions: 5 })
+        .reason,
+    ).toBe("softened");
     // Defence in depth: a world a human already said no to is never a coin toss, even on a deploy
     // that has turned `TRUST_RESET_ON_REJECT` off.
-    expect(samplingDecision({ ...world, rejectedReason: "no" }, "u1", trusted, { trustApprovals: 9, trustSubmissions: 5 }).reason)
-      .toBe("was_rejected");
+    expect(
+      samplingDecision({ ...world, rejectedReason: "no" }, "u1", trusted, { trustApprovals: 9, trustSubmissions: 5 })
+        .reason,
+    ).toBe("was_rejected");
     // A suspended creator is not trusted, whatever they have earned.
     expect(trustOf({ trustApprovals: 9, trustSubmissions: 5 }, true).trusted).toBe(false);
   });

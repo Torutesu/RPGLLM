@@ -4,7 +4,19 @@ import { T, colors, compactNumber, elevation, gradients, layout, radius, spacing
 import { useActions, useAppState, useT } from "../state/store";
 import { Avatar } from "./Avatar";
 import { Button } from "./ui";
-import { AnimatedNumber, FadeSlideIn, Gradient, Icon, duration, ease, typo, useAnimatedValue, useHaptic, useReduceMotion, type IconName } from "../ui";
+import {
+  AnimatedNumber,
+  FadeSlideIn,
+  Gradient,
+  Icon,
+  duration,
+  ease,
+  typo,
+  useAnimatedValue,
+  useHaptic,
+  useReduceMotion,
+  type IconName,
+} from "../ui";
 
 const signed = (n: number): string => (n > 0 ? `+${n}` : String(n));
 
@@ -86,7 +98,11 @@ function StatRow({
         </Text>
         <View style={{ flexDirection: "row", alignItems: "center", gap: spacing.xs }}>
           <Icon name={arrowFor(delta)} size={14} color={tone} />
-          <Text testID={testID} accessibilityLabel={`${label} ${signed(delta)}, ${after}`} style={[typo.metaStrong, { color: tone }]}>
+          <Text
+            testID={testID}
+            accessibilityLabel={`${label} ${signed(delta)}, ${after}`}
+            style={[typo.metaStrong, { color: tone }]}
+          >
             {`${signed(delta)} → ${after}`}
           </Text>
         </View>
@@ -182,7 +198,13 @@ export function StatCard() {
         </FadeSlideIn>
 
         <StatRow index={0} testID={T.statAura} label={t("aura")} delta={s.auraDelta} after={s.after.aura} bar />
-        <StatRow index={1} testID={T.statFollowers} label={t("followers")} delta={s.followersDelta} after={s.after.followers} />
+        <StatRow
+          index={1}
+          testID={T.statFollowers}
+          label={t("followers")}
+          delta={s.followersDelta}
+          after={s.after.followers}
+        />
         <StatRow index={2} testID={T.statHumor} label={t("humor")} delta={s.humorDelta} after={s.after.humor} bar />
 
         <FadeSlideIn delay={340}>
@@ -212,11 +234,7 @@ export function StatCard() {
                     borderColor: colors.border,
                   }}
                 >
-                  <Avatar
-                    handle={handle}
-                    size={layout.avatarXs}
-                    {...(delta > 0 ? { badge: "heart" as const } : {})}
-                  />
+                  <Avatar handle={handle} size={layout.avatarXs} {...(delta > 0 ? { badge: "heart" as const } : {})} />
                   <Text importantForAccessibility="no" style={[typo.count, { color: colors.textDim }]}>
                     {`@${handle}`}
                   </Text>

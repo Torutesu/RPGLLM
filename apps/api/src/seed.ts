@@ -5,7 +5,14 @@
  * Idempotent: worlds by slug, characters by (worldId, handle), ambient pool rebuilt per (world, locale).
  * Falls back to `src/seed-fallback.ts` while Agent B's seeds are still landing.
  */
-import { PrismaClient, type Locale, type Prisma, type World, type WorldStatus, type WorldVisibility } from "@prisma/client";
+import {
+  PrismaClient,
+  type Locale,
+  type Prisma,
+  type World,
+  type WorldStatus,
+  type WorldVisibility,
+} from "@prisma/client";
 import { LOCALES, type WorldSeed } from "@rpgllm/shared";
 import { loadEstimateTokens } from "./llm-loader";
 import { normHandle } from "./services/handles";
@@ -110,7 +117,9 @@ if (isMain) {
       const worlds = await prisma.world.findMany({ select: { slug: true, bibleTokens: true } });
       const characters = await prisma.worldCharacter.count();
       const ambient = await prisma.ambientPost.count();
-      console.log(`seeded ${r.worlds} world(s) from "${r.source}" seeds: ${worlds.map((w) => `${w.slug}(${w.bibleTokens}tok)`).join(", ")}`);
+      console.log(
+        `seeded ${r.worlds} world(s) from "${r.source}" seeds: ${worlds.map((w) => `${w.slug}(${w.bibleTokens}tok)`).join(", ")}`,
+      );
       console.log(`characters=${characters} ambientPosts=${ambient}`);
       await prisma.$disconnect();
     })

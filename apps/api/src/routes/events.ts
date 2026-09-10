@@ -53,8 +53,12 @@ export function eventRoutes(): Hono<AppEnv> {
         await tx.persona.update({
           where: { id: ctx.persona.id },
           data: {
-            followers: applied.followers, aura: applied.aura, humor: applied.humor,
-            xp: applied.xp, level: applied.level, actionCount: { increment: 1 },
+            followers: applied.followers,
+            aura: applied.aura,
+            humor: applied.humor,
+            xp: applied.xp,
+            level: applied.level,
+            actionCount: { increment: 1 },
           },
         });
         await tx.event.update({ where: { id: event.id }, data: { chosenId: choice.id, resolvedAt: deps.clock.now() } });
@@ -71,7 +75,9 @@ export function eventRoutes(): Hono<AppEnv> {
       throw err;
     }
 
-    const relDeltas = await deps.prisma.$transaction((tx) => applyRelationshipDeltas(tx, ctx, choice.relationshipDeltas));
+    const relDeltas = await deps.prisma.$transaction((tx) =>
+      applyRelationshipDeltas(tx, ctx, choice.relationshipDeltas),
+    );
     const snapshot = await deps.prisma.statSnapshot.create({
       data: {
         personaId: ctx.persona.id,
@@ -109,7 +115,10 @@ export function eventRoutes(): Hono<AppEnv> {
         const updated = await deps.prisma.post.update({
           where: { id: row.id },
           data: {
-            metrics: { ...computeMetrics(row.id, applied.followers), causedBy: `event:${event.id}` } as unknown as Prisma.InputJsonValue,
+            metrics: {
+              ...computeMetrics(row.id, applied.followers),
+              causedBy: `event:${event.id}`,
+            } as unknown as Prisma.InputJsonValue,
           },
           include: { authorCharacter: true },
         });

@@ -49,7 +49,9 @@ log(`serving ${DIST} on :${env.WEB_PORT}`);
 // node directly (no pnpm/sh wrapper) so Playwright's SIGTERM reaches the server and the port is
 // free for the next run.
 const child = spawn(process.execPath, ["scripts/serve-web.mjs", DIST_NAME], {
-  cwd: path.join(REPO_ROOT, "apps/mobile"), stdio: "inherit", env,
+  cwd: path.join(REPO_ROOT, "apps/mobile"),
+  stdio: "inherit",
+  env,
 });
 child.on("exit", (code, signal) => process.exit(signal ? 1 : (code ?? 0)));
 for (const sig of ["SIGINT", "SIGTERM"]) process.on(sig, () => child.kill(sig));

@@ -15,15 +15,7 @@ import { Button, Field } from "./ui";
  */
 
 /** Shared shell so the sent state and the pending state are visibly the same object. */
-function Notice({
-  tint,
-  icon,
-  children,
-}: {
-  tint: string;
-  icon: "clock" | "check";
-  children: React.ReactNode;
-}) {
+function Notice({ tint, icon, children }: { tint: string; icon: "clock" | "check"; children: React.ReactNode }) {
   return (
     <View
       style={{
@@ -117,10 +109,7 @@ export function AppealForm({
       />
       <Text
         accessibilityLiveRegion="none"
-        style={[
-          typo.caption,
-          { color: valid ? colors.textDim : colors.textMuted, alignSelf: "flex-end" },
-        ]}
+        style={[typo.caption, { color: valid ? colors.textDim : colors.textMuted, alignSelf: "flex-end" }]}
       >
         {`${length} / ${APPEAL_MAX}`}
       </Text>

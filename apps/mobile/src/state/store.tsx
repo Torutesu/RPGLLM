@@ -1,10 +1,25 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { Platform } from "react-native";
 import { router } from "expo-router";
-import { FOLLOWER_MILESTONES, LOCALES, type Locale, type PlanId, type Post, type ReportReason, t, type StringKey } from "@rpgllm/shared";
 import {
-  api, ApiError, setApiHandlers,
-  type Achievement, type AchievementsRes, type Notification, type ReportTarget, type Streak,
+  FOLLOWER_MILESTONES,
+  LOCALES,
+  type Locale,
+  type PlanId,
+  type Post,
+  type ReportReason,
+  t,
+  type StringKey,
+} from "@rpgllm/shared";
+import {
+  api,
+  ApiError,
+  setApiHandlers,
+  type Achievement,
+  type AchievementsRes,
+  type Notification,
+  type ReportTarget,
+  type Streak,
 } from "../api/client";
 import { subscribe, type StreamEvent, type Subscription as StreamSub } from "../api/sse";
 import { getAds } from "../adapters/ads";
@@ -170,7 +185,10 @@ export type Actions = {
   blockByHandle: (handle: string) => Promise<{ ok: boolean; message?: string }>;
   unblockCharacter: (characterId: string) => Promise<{ ok: boolean; message?: string }>;
   reportContent: (
-    target: ReportTarget, targetId: string, reason: ReportReason, note: string,
+    target: ReportTarget,
+    targetId: string,
+    reason: ReportReason,
+    note: string,
   ) => Promise<{ ok: boolean; duplicate: boolean; message?: string }>;
   setConsent: (analytics: boolean) => Promise<{ ok: boolean; analytics: boolean; locked: boolean }>;
   exportMyData: () => Promise<{ ok: boolean; json?: string; message?: string }>;
@@ -247,14 +265,17 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       const existing = toastTimers.current[kind];
       if (existing) clearTimeout(existing);
       patch((s) => ({ toasts: { ...s.toasts, [kind]: text } }));
-      toastTimers.current[kind] = setTimeout(() => {
-        delete toastTimers.current[kind];
-        patch((s) => {
-          const next = { ...s.toasts };
-          delete next[kind];
-          return { toasts: next };
-        });
-      }, kind === "stat" ? 3000 : 6000);
+      toastTimers.current[kind] = setTimeout(
+        () => {
+          delete toastTimers.current[kind];
+          patch((s) => {
+            const next = { ...s.toasts };
+            delete next[kind];
+            return { toasts: next };
+          });
+        },
+        kind === "stat" ? 3000 : 6000,
+      );
     },
     [patch],
   );
@@ -263,10 +284,17 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     try {
       const before = ref.current.me?.persona ?? null;
       const me = await api.me();
-      patch({ me, locale: me.user.locale, needsAgeGate: me.user.birthYear === null, analyticsConsent: me.user.analyticsConsent });
+      patch({
+        me,
+        locale: me.user.locale,
+        needsAgeGate: me.user.birthYear === null,
+        analyticsConsent: me.user.analyticsConsent,
+      });
       // Agent P: the store must know who is buying — the app-user id is the account id, which is
       // what the RevenueCat webhook and POST /v1/billing/restore match on server-side.
-      void getBilling().identify(me.user.id).catch(() => undefined);
+      void getBilling()
+        .identify(me.user.id)
+        .catch(() => undefined);
       // SCR-045 (Agent L): progression the player earned between two reads gets its moment.
       const after = me.persona;
       if (before && after) {
@@ -438,7 +466,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
     const signOut = async () => {
       // Agent P: the store SDK keeps its own session — a shared device must not keep the old one.
-      await getBilling().identify(null).catch(() => undefined);
+      await getBilling()
+        .identify(null)
+        .catch(() => undefined);
       await saveToken(null);
       patch({ ...initialState, booted: true, locale: ref.current.locale });
     };
@@ -465,8 +495,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     };
 
     const setDraft = (draft: PersonaDraft | null) => patch({ draft });
-    const patchDraft = (p: Partial<PersonaDraft>) =>
-      patch((s) => (s.draft ? { draft: { ...s.draft, ...p } } : {}));
+    const patchDraft = (p: Partial<PersonaDraft>) => patch((s) => (s.draft ? { draft: { ...s.draft, ...p } } : {}));
 
     const createPersona: Actions["createPersona"] = async (firstFollowerId) => {
       const draft = ref.current.draft;
@@ -626,7 +655,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       if (!personaId) return;
       try {
         const res = await api.blocked(personaId);
-        patch({ blocked: res.blocked.map((b) => ({ characterId: b.characterId, handle: b.handle, displayName: b.displayName })) });
+        patch({
+          blocked: res.blocked.map((b) => ({
+            characterId: b.characterId,
+            handle: b.handle,
+            displayName: b.displayName,
+          })),
+        });
       } catch {
         /* keep the last known list */
       }
@@ -638,7 +673,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       if (!persona) return null;
       const known = ref.current.blocked.find((b) => bare(b.handle) === bare(handle));
       if (known) return known.characterId;
-      const world = ref.current.world?.world.id === persona.worldId ? ref.current.world : await api.world(persona.worldId);
+      const world =
+        ref.current.world?.world.id === persona.worldId ? ref.current.world : await api.world(persona.worldId);
       if (!ref.current.world) patch({ world, worldStatus: "ready" });
       return world.characters.find((ch) => bare(ch.handle) === bare(handle))?.id ?? null;
     };
@@ -654,7 +690,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         patch((s2) => ({
           feed: s2.feed.filter((p) => bare(p.author.handle) !== bare(handle)),
           liveReplies: Object.fromEntries(
-            Object.entries(s2.liveReplies).map(([k, v]) => [k, v.filter((r) => bare(r.author.handle) !== bare(handle))]),
+            Object.entries(s2.liveReplies).map(([k, v]) => [
+              k,
+              v.filter((r) => bare(r.author.handle) !== bare(handle)),
+            ]),
           ),
         }));
         await loadBlocked();
@@ -814,7 +853,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         if (next && !ref.current.celebration) {
           patch({
             celebration: {
-              kind: "achievement", key: next.key, icon: next.icon, title: next.title, value: next.value,
+              kind: "achievement",
+              key: next.key,
+              icon: next.icon,
+              title: next.title,
+              value: next.value,
             },
           });
           void markAchievementsSeen(achievements.pending.map((a) => a.key));
@@ -831,12 +874,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       patch((s2) => ({
         achievements: s2.achievements
           ? {
-            ...s2.achievements,
-            achievements: s2.achievements.achievements.map((a) =>
-              keys.includes(a.key) && a.seenAt === null ? { ...a, seenAt: at } : a,
-            ),
-            pending: s2.achievements.pending.filter((a) => !keys.includes(a.key)),
-          }
+              ...s2.achievements,
+              achievements: s2.achievements.achievements.map((a) =>
+                keys.includes(a.key) && a.seenAt === null ? { ...a, seenAt: at } : a,
+              ),
+              pending: s2.achievements.pending.filter((a) => !keys.includes(a.key)),
+            }
           : s2.achievements,
       }));
       try {
@@ -895,7 +938,18 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       celebrate,
       dismissCelebration,
     };
-  }, [clearToast, insertPost, openStatCard, closeStatCard, patch, refreshMe, replacePost, showToast, startStream, stopStream]);
+  }, [
+    clearToast,
+    insertPost,
+    openStatCard,
+    closeStatCard,
+    patch,
+    refreshMe,
+    replacePost,
+    showToast,
+    startStream,
+    stopStream,
+  ]);
 
   return (
     <StateCtx.Provider value={state}>

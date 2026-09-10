@@ -11,11 +11,7 @@ import type { Answer, VerifyReport } from "./types.js";
  */
 
 function esc(s: string): string {
-  return s
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
+  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 }
 
 const usd = (n: number, d = 4): string => `$${n.toFixed(d)}`;
@@ -84,8 +80,7 @@ pre{white-space:pre-wrap;word-break:break-word;margin:0;font:inherit}
 
 export function renderHtml(report: VerifyReport): string {
   const gems = gemEconomics(report.spend.usdPerWorld);
-  const bannerClass =
-    report.mode === "stub" ? "stub" : report.evidence.live ? "live" : "broken";
+  const bannerClass = report.mode === "stub" ? "stub" : report.evidence.live ? "live" : "broken";
   const bannerText =
     report.mode === "stub"
       ? "STUB RUN — NOT LIVE"

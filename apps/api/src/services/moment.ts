@@ -85,9 +85,7 @@ async function reactionsFor(
 ): Promise<MomentPayload["reactions"]> {
   const postId = cause.startsWith("post:") ? cause.slice("post:".length) : null;
   const rows = await prisma.post.findMany({
-    where: postId
-      ? { parentId: postId, kind: "character" }
-      : { personaId, kind: { in: ["character", "news"] } },
+    where: postId ? { parentId: postId, kind: "character" } : { personaId, kind: { in: ["character", "news"] } },
     orderBy: { createdAt: "desc" },
     take: REACTIONS,
     include: { authorCharacter: true },

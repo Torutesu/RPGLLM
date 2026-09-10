@@ -177,7 +177,17 @@ export async function runEval(gateway: Gateway, args: EvalRunArgs): Promise<Eval
 
     const checks =
       output === null
-        ? { schemaValid: false, notFallback: false, kSatisfied: false, handlesValid: false, noBannedWords: false, lengthOk: false, emojiOk: false, diverse: false, newsRespected: false }
+        ? {
+            schemaValid: false,
+            notFallback: false,
+            kSatisfied: false,
+            handlesValid: false,
+            noBannedWords: false,
+            lengthOk: false,
+            emojiOk: false,
+            diverse: false,
+            newsRespected: false,
+          }
         : machineChecksG1(input, output, fallback);
     const machineScore = machineScoreOf(checks);
     const judgeOut = judgeOutcome?.output ?? JUDGE_UNAVAILABLE;
@@ -208,7 +218,17 @@ export async function runEval(gateway: Gateway, args: EvalRunArgs): Promise<Eval
     results.push({
       key: c.key,
       label: c.label,
-      machine: { schemaValid: false, notFallback: false, kSatisfied: false, handlesValid: false, noBannedWords: false, lengthOk: false, emojiOk: false, diverse: false, newsRespected: false },
+      machine: {
+        schemaValid: false,
+        notFallback: false,
+        kSatisfied: false,
+        handlesValid: false,
+        noBannedWords: false,
+        lengthOk: false,
+        emojiOk: false,
+        diverse: false,
+        newsRespected: false,
+      },
       machineScore: 0,
       judge: { inCharacter: 0, diversity: 0, humour: 0, emoji: 0, safety: 0, jpNaturalness: 0 },
       judgeVerdict: "fail",
@@ -257,11 +277,9 @@ export interface GateVerdict {
 /** §6.2 verbatim: within 2 points and >= 20% cheaper, or >= 3 points better. */
 export function evaluateGate(input: GateInput): GateVerdict {
   const scoreDelta = round(input.score - input.championScore, 2);
-  const costDelta =
-    input.championUsdPerCase > 0 ? round(input.usdPerCase / input.championUsdPerCase - 1) : 0;
+  const costDelta = input.championUsdPerCase > 0 ? round(input.usdPerCase / input.championUsdPerCase - 1) : 0;
   const costSaving = round(-costDelta);
-  const cheaperAndCloseEnough =
-    scoreDelta >= -EVAL_GATE.MAX_SCORE_DROP && costSaving >= EVAL_GATE.MIN_COST_SAVING;
+  const cheaperAndCloseEnough = scoreDelta >= -EVAL_GATE.MAX_SCORE_DROP && costSaving >= EVAL_GATE.MIN_COST_SAVING;
   const clearlyBetter = scoreDelta >= EVAL_GATE.MIN_SCORE_GAIN;
   return { scoreDelta, costSaving, costDelta, passesGate: cheaperAndCloseEnough || clearlyBetter };
 }

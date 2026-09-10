@@ -34,10 +34,18 @@ export function StudioCast({ cast }: { cast: readonly WorldCastMember[] }) {
             <Avatar handle={member.handle} size={layout.avatarMd} ring />
             <View style={{ flex: 1, gap: 2 }}>
               <View style={{ flexDirection: "row", alignItems: "baseline", gap: spacing.xs }}>
-                <Text numberOfLines={1} importantForAccessibility="no" style={[typo.name, { color: colors.text, flexShrink: 1 }]}>
+                <Text
+                  numberOfLines={1}
+                  importantForAccessibility="no"
+                  style={[typo.name, { color: colors.text, flexShrink: 1 }]}
+                >
                   {member.displayName}
                 </Text>
-                <Text numberOfLines={1} importantForAccessibility="no" style={[typo.count, { color: colors.textMuted }]}>
+                <Text
+                  numberOfLines={1}
+                  importantForAccessibility="no"
+                  style={[typo.count, { color: colors.textMuted }]}
+                >
                   {`@${member.handle}`}
                 </Text>
               </View>

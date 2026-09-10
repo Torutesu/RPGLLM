@@ -9,7 +9,11 @@ import { Button, Screen } from "../src/components/ui";
 import { SkeletonList } from "../src/components/Skeleton";
 import type { Offerings } from "../src/api/types";
 
-const PERIOD_KEY: Record<string, "weekly" | "monthly" | "yearly"> = { week: "weekly", month: "monthly", year: "yearly" };
+const PERIOD_KEY: Record<string, "weekly" | "monthly" | "yearly"> = {
+  week: "weekly",
+  month: "monthly",
+  year: "yearly",
+};
 
 /** SCR-030 — soft paywall (modal). */
 export default function Paywall() {
@@ -96,7 +100,12 @@ export default function Paywall() {
             <Text accessibilityRole="header" style={{ color: colors.text, fontSize: font.xl, fontWeight: "800" }}>
               {t("plusTitle")}
             </Text>
-            <Pressable testID={T.paywallClose} accessibilityRole="button" accessibilityLabel={t("close")} onPress={close}>
+            <Pressable
+              testID={T.paywallClose}
+              accessibilityRole="button"
+              accessibilityLabel={t("close")}
+              onPress={close}
+            >
               <Text importantForAccessibility="no" style={{ color: colors.textMuted, fontSize: font.lg }}>
                 ×
               </Text>
@@ -136,7 +145,8 @@ export default function Paywall() {
                 {(offerings?.plans ?? []).map((p) => {
                   const active = selected === p.id;
                   const periodKey = PERIOD_KEY[p.period] ?? "monthly";
-                  const adFree = PLANS[p.id]?.energyDaily === PLANS.adfree_monthly.energyDaily && p.id === "adfree_monthly";
+                  const adFree =
+                    PLANS[p.id]?.energyDaily === PLANS.adfree_monthly.energyDaily && p.id === "adfree_monthly";
                   // Store price when the store gave us one, catalogue price otherwise.
                   const price = store[p.id]?.priceString ?? `$${p.usd.toFixed(2)}`;
                   // The store's own intro offer wins over the server-side experiment.

@@ -12,8 +12,7 @@ import { Button } from "./ui";
  * back tomorrow. `StreakChip` is the always-on reminder; `StreakCard` is the once-a-day payout.
  */
 
-const flameColor = (days: number): string =>
-  days >= 7 ? colors.hot : days >= 3 ? colors.negative : colors.energy;
+const flameColor = (days: number): string => (days >= 7 ? colors.hot : days >= 3 ? colors.negative : colors.energy);
 
 /** Compact flame + day count. Belongs in the feed header, and sits in every engagement header. */
 export function StreakChip({ onPress }: { onPress?: () => void }) {
@@ -52,13 +51,25 @@ export function StreakChip({ onPress }: { onPress?: () => void }) {
     );
   }
   return (
-    <Pressable testID={T.streakChip} onPress={onPress} accessibilityRole="button" accessibilityLabel={label} hitSlop={spacing.sm}>
+    <Pressable
+      testID={T.streakChip}
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      hitSlop={spacing.sm}
+    >
       {body}
     </Pressable>
   );
 }
 
-function Rung({ row, today }: { row: { day: number; energy: number; coffee: number; gems: number; reached: boolean }; today: boolean }) {
+function Rung({
+  row,
+  today,
+}: {
+  row: { day: number; energy: number; coffee: number; gems: number; reached: boolean };
+  today: boolean;
+}) {
   const tint = today ? colors.energy : row.reached ? colors.positive : colors.textMuted;
   return (
     <View
@@ -77,9 +88,19 @@ function Rung({ row, today }: { row: { day: number; energy: number; coffee: numb
         backgroundColor: today ? `${colors.energy}1A` : row.reached ? colors.cardHi : "transparent",
       }}
     >
-      <Text importantForAccessibility="no" style={[typo.micro, { color: tint }]}>{row.day}</Text>
-      <Icon name={row.gems > 0 ? "gem" : row.coffee > 0 ? "coffee" : "bolt"} size={15} color={tint} filled={row.reached} />
-      <Text importantForAccessibility="no" style={[typo.count, { color: row.reached ? colors.text : colors.textMuted }]}>
+      <Text importantForAccessibility="no" style={[typo.micro, { color: tint }]}>
+        {row.day}
+      </Text>
+      <Icon
+        name={row.gems > 0 ? "gem" : row.coffee > 0 ? "coffee" : "bolt"}
+        size={15}
+        color={tint}
+        filled={row.reached}
+      />
+      <Text
+        importantForAccessibility="no"
+        style={[typo.count, { color: row.reached ? colors.text : colors.textMuted }]}
+      >
         {row.gems > 0 ? row.gems : row.coffee > 0 ? row.coffee : row.energy}
       </Text>
     </View>

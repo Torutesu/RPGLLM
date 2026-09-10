@@ -4,11 +4,18 @@ import { call, getWallet, makeHarness, prisma, resetDatabase, setEnergy, signup,
 
 let h: Harness;
 
-beforeAll(() => { h = makeHarness(); });
-beforeEach(async () => { await resetDatabase(); h.clock.reset(); });
+beforeAll(() => {
+  h = makeHarness();
+});
+beforeEach(async () => {
+  await resetDatabase();
+  h.clock.reset();
+});
 
 interface StreakRes {
-  days: number; best: number; claimedToday: boolean;
+  days: number;
+  best: number;
+  claimedToday: boolean;
   reward: { energy: number; coffee: number; gems: number } | null;
   ladder: { day: number; energy: number; coffee: number; gems: number; reached: boolean }[];
 }
@@ -51,8 +58,9 @@ describe("daily streak (SCR-010 check-in)", () => {
       const after = (await getWallet(h, token)).data;
       // Coffee and gems are paid in full; energy is capped at the wallet's daily maximum.
       expect(after.coffee - before.coffee, `coffee on day ${day}`).toBe(rewardForStreakDay(day).coffee);
-      expect(after.energy, `energy never exceeds the daily max on day ${day}`)
-        .toBeLessThanOrEqual(Math.max(before.energy, ENERGY.FREE_DAILY));
+      expect(after.energy, `energy never exceeds the daily max on day ${day}`).toBeLessThanOrEqual(
+        Math.max(before.energy, ENERGY.FREE_DAILY),
+      );
       expect(res.data.ladder.filter((r) => r.reached)).toHaveLength(day);
     }
     expect((await streak(token)).data.best).toBe(STREAK_LADDER.length);
@@ -116,8 +124,12 @@ async function makeLegacyAccount(userId: string, day: Date, days: number, best: 
   const wallet = await prisma.wallet.findUniqueOrThrow({ where: { userId } });
   await prisma.ledgerEntry.create({
     data: {
-      walletId: wallet.id, currency: "energy", delta: 0, source: "daily_refill",
-      ref: `streak:${utcDay(day)}:${days}:${best}`, createdAt: day,
+      walletId: wallet.id,
+      currency: "energy",
+      delta: 0,
+      source: "daily_refill",
+      ref: `streak:${utcDay(day)}:${days}:${best}`,
+      createdAt: day,
     },
   });
   await prisma.user.update({ where: { id: userId }, data: { streakDays: 0, streakBestDays: 0, streakLastAt: null } });
@@ -137,7 +149,9 @@ describe("streak storage (User columns, with a migration from the ledger)", () =
     expect(utcDay(user.streakLastAt!)).toBe(utcDay(h.clock.now()));
 
     const wallet = await prisma.wallet.findUniqueOrThrow({ where: { userId } });
-    const entries = await prisma.ledgerEntry.findMany({ where: { walletId: wallet.id, ref: { startsWith: "streak:" } } });
+    const entries = await prisma.ledgerEntry.findMany({
+      where: { walletId: wallet.id, ref: { startsWith: "streak:" } },
+    });
     expect(entries.length).toBeGreaterThan(0);
   });
 

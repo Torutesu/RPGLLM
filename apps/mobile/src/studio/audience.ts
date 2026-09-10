@@ -50,12 +50,10 @@ const settled = (world: WorldState): boolean => world.status === "ready" || worl
  * "Share it with everyone" — offered unless everyone already has it. Notably offered for a `ready`
  * world that already says `public`: that is precisely the world with no way forward otherwise.
  */
-export const canAskForEveryone = (world: WorldState): boolean =>
-  settled(world) && audienceInForce(world) !== "public";
+export const canAskForEveryone = (world: WorldState): boolean => settled(world) && audienceInForce(world) !== "public";
 
 /** "Anyone with the link" — offered unless the world is already live behind one. */
-export const canPutBehindLink = (world: WorldState): boolean =>
-  settled(world) && audienceInForce(world) !== "unlisted";
+export const canPutBehindLink = (world: WorldState): boolean => settled(world) && audienceInForce(world) !== "unlisted";
 
 /** The share panel is only true when the link actually resolves for the person it is sent to. */
 export const isLiveBehindLink = (world: WorldState): boolean => audienceInForce(world) === "unlisted";

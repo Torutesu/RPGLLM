@@ -1,8 +1,18 @@
 import { expect, test, type APIRequestContext } from "@playwright/test";
 import { T, WORLD_MODERATION, WORLD_STUDIO } from "@rpgllm/shared";
 import {
-  apiSignup, apiUrl, bearer, gotoApp, loginInBrowser, resetDb, setLlmMode, unwrap, wallet,
-  type Account, setGems,} from "../fixtures";
+  apiSignup,
+  apiUrl,
+  bearer,
+  gotoApp,
+  loginInBrowser,
+  resetDb,
+  setLlmMode,
+  unwrap,
+  wallet,
+  type Account,
+  setGems,
+} from "../fixtures";
 
 /**
  * QA-001..QA-006 — the world lifecycle, attacked rather than demonstrated.
@@ -28,8 +38,15 @@ const PREMISE = "Seven trainees, one debut slot, and a group chat that leaked";
 const GENRE = "idol";
 
 interface StudioWorld {
-  id: string; slug: string; title: string; status: string; visibility: string;
-  playCount: number; creatorHandle: string | null; reason: string | null; pulled: boolean;
+  id: string;
+  slug: string;
+  title: string;
+  status: string;
+  visibility: string;
+  playCount: number;
+  creatorHandle: string | null;
+  reason: string | null;
+  pulled: boolean;
 }
 
 /* --------------------------------------------------------------- helpers ---- */
@@ -64,9 +81,7 @@ async function openReports(request: APIRequestContext): Promise<number> {
 }
 
 /** `POST /v1/worlds` without asserting the outcome — several cases want a specific refusal. */
-function createWorld(
-  request: APIRequestContext, jwt: string, opts: { premise?: string; visibility?: string } = {},
-) {
+function createWorld(request: APIRequestContext, jwt: string, opts: { premise?: string; visibility?: string } = {}) {
   return request.post(apiUrl("/v1/worlds"), {
     headers: bearer(jwt),
     data: {
@@ -81,17 +96,21 @@ function createWorld(
 
 const publish = (request: APIRequestContext, jwt: string, worldId: string, visibility: string) =>
   request.post(apiUrl(`/v1/worlds/${worldId}/publish`), {
-    headers: bearer(jwt), data: { visibility }, failOnStatusCode: false,
+    headers: bearer(jwt),
+    data: { visibility },
+    failOnStatusCode: false,
   });
 
 const review = (request: APIRequestContext, worldId: string, decision: "approve" | "reject", reason = "") =>
   request.post(apiUrl(`/v1/admin/worlds/${worldId}/review`), {
-    data: { decision, reason }, failOnStatusCode: false,
+    data: { decision, reason },
+    failOnStatusCode: false,
   });
 
 const reportWorld = (request: APIRequestContext, jwt: string, worldId: string) =>
   request.post(apiUrl("/v1/moderation/report"), {
-    headers: bearer(jwt), data: { target: "world", targetId: worldId, reason: "other", note: "" },
+    headers: bearer(jwt),
+    data: { target: "world", targetId: worldId, reason: "other", note: "" },
     failOnStatusCode: false,
   });
 
@@ -164,11 +183,14 @@ test.describe("World lifecycle — hostile pass", () => {
 
     const stranger = await apiSignup(request);
     const reach = await request.get(apiUrl(`/v1/worlds/${world.id}`), {
-      headers: bearer(stranger.jwt), failOnStatusCode: false,
+      headers: bearer(stranger.jwt),
+      failOnStatusCode: false,
     });
     expect(reach.status(), "a pulled world must not be readable by someone who was never in it").toBe(404);
-    expect((await publicWorlds(request, stranger.jwt)).map((w) => w.id), "nor back on the shelf")
-      .not.toContain(world.id);
+    expect(
+      (await publicWorlds(request, stranger.jwt)).map((w) => w.id),
+      "nor back on the shelf",
+    ).not.toContain(world.id);
   });
 
   /* ---------------------------------------------------------------- QA-002 ---- */
@@ -181,7 +203,10 @@ test.describe("World lifecycle — hostile pass", () => {
    *
    * See qa-findings.md QA-002.
    */
-  test("QA-002: the link an unlisted world lives behind opens for the person it is sent to", async ({ page, request }) => {
+  test("QA-002: the link an unlisted world lives behind opens for the person it is sent to", async ({
+    page,
+    request,
+  }) => {
     const author = await apiSignup(request);
     const world = await aBuiltWorld(request, author);
     await unwrap(await publish(request, author.jwt, world.id, "unlisted"), "publish unlisted");
@@ -195,33 +220,36 @@ test.describe("World lifecycle — hostile pass", () => {
      * assumed, because the original write-up guessed at the other fix.
      */
     const creatorOnly = await request.get(apiUrl(`/v1/worlds/${world.id}/status`), {
-      headers: bearer(friend.jwt), failOnStatusCode: false,
+      headers: bearer(friend.jwt),
+      failOnStatusCode: false,
     });
     expect(creatorOnly.status(), "the build screen stays the creator's").toBe(404);
 
     const detail = await request.get(apiUrl(`/v1/worlds/${world.id}`), {
-      headers: bearer(friend.jwt), failOnStatusCode: false,
+      headers: bearer(friend.jwt),
+      failOnStatusCode: false,
     });
     const seen = await unwrap<{ world: { creatorHandle: string | null; playCount: number } }>(
-      detail, "GET /v1/worlds/:id as the recipient",
+      detail,
+      "GET /v1/worlds/:id as the recipient",
     );
-    expect(seen.world.creatorHandle, "a world someone made is presented as someone's work")
-      .not.toBeNull();
+    expect(seen.world.creatorHandle, "a world someone made is presented as someone's work").not.toBeNull();
 
     await loginInBrowser(page, friend.jwt);
     // Where the share sheet's link ends up. It now points at the API's `/s/w/:id`, which is what
     // makes it unfurl (E2E-044/045); this case is about the destination, so it goes there directly.
     await gotoApp(page, `/world/${world.id}`);
-    await expect(page.getByTestId(T.worldPage), "a shared world must open, not fail to load")
-      .toBeVisible({ timeout: 20_000 });
-    await expect(page.getByTestId(T.worldPlay), "and must offer the thing the link was sent for")
-      .toBeVisible();
+    await expect(page.getByTestId(T.worldPage), "a shared world must open, not fail to load").toBeVisible({
+      timeout: 20_000,
+    });
+    await expect(page.getByTestId(T.worldPlay), "and must offer the thing the link was sent for").toBeVisible();
     await expect(page.getByTestId(T.worldCredit), "and say whose world it is").toBeVisible();
 
     // Links already sent out point at the old route; they must not become dead.
     await gotoApp(page, `/studio/${world.id}`);
-    await expect(page.getByTestId(T.worldPage), "an already-shared link must keep working")
-      .toBeVisible({ timeout: 20_000 });
+    await expect(page.getByTestId(T.worldPage), "an already-shared link must keep working").toBeVisible({
+      timeout: 20_000,
+    });
   });
 
   /* --------------------------------------------------------------- QA-003a ---- */
@@ -247,7 +275,8 @@ test.describe("World lifecycle — hostile pass", () => {
     expect(forLink.status, "a world created for link-sharing must actually be live").toBe("published");
     const friend = await apiSignup(request);
     const reach = await request.get(apiUrl(`/v1/worlds/${forLink.id}`), {
-      headers: bearer(friend.jwt), failOnStatusCode: false,
+      headers: bearer(friend.jwt),
+      failOnStatusCode: false,
     });
     expect(reach.status(), "…and reachable by whoever has the link").toBe(200);
   });
@@ -260,7 +289,10 @@ test.describe("World lifecycle — hostile pass", () => {
    * sits in no queue, and offers no control that would put it in one. The 120 gems are spent and the
    * screen has no way forward.
    */
-  test("QA-003b: a world created for everyone is never stranded without a way to publish it", async ({ page, request }) => {
+  test("QA-003b: a world created for everyone is never stranded without a way to publish it", async ({
+    page,
+    request,
+  }) => {
     const author = await apiSignup(request);
     const world = await aBuiltWorld(request, author, "public");
 
@@ -293,13 +325,20 @@ test.describe("World lifecycle — hostile pass", () => {
     const author = await apiSignup(request);
     const world = await aBuiltWorld(request, author);
     await unwrap(await publish(request, author.jwt, world.id, "public"), "publish public");
-    await unwrap(await review(request, world.id, "reject", "Reads as an existing show with the names changed."), "reject");
+    await unwrap(
+      await review(request, world.id, "reject", "Reads as an existing show with the names changed."),
+      "reject",
+    );
 
     // The direct path is refused, as E2E-035 already asserts.
-    expect((await publish(request, author.jwt, world.id, "public")).status(), "the direct resubmit is refused").toBe(409);
+    expect((await publish(request, author.jwt, world.id, "public")).status(), "the direct resubmit is refused").toBe(
+      409,
+    );
 
     // Making it private is a legitimate thing to do; it must not also reset the clock.
-    expect((await publish(request, author.jwt, world.id, "private")).status(), "keeping it private is allowed").toBe(200);
+    expect((await publish(request, author.jwt, world.id, "private")).status(), "keeping it private is allowed").toBe(
+      200,
+    );
 
     const laundered = await publish(request, author.jwt, world.id, "public");
     expect(laundered.status(), "a round trip through `private` must not wipe the cooldown").toBe(409);
@@ -320,7 +359,10 @@ test.describe("World lifecycle — hostile pass", () => {
     const before = (await wallet(request, account.jwt)).gems;
     expect(before, "a new account starts with exactly one world's worth").toBe(WORLD_STUDIO.STARTER_GEMS);
 
-    for (const [what, premise] of [["spaces", "          "], ["newlines", "\n\n\n\n\n\n\n\n\n\n"]] as const) {
+    for (const [what, premise] of [
+      ["spaces", "          "],
+      ["newlines", "\n\n\n\n\n\n\n\n\n\n"],
+    ] as const) {
       const res = await createWorld(request, account.jwt, { premise });
       expect(res.status(), `a premise of ${what} is not a premise`).toBe(400);
     }
@@ -346,8 +388,7 @@ test.describe("World lifecycle — hostile pass", () => {
 
     const trending = page.getByTestId(T.trendingList);
     await expect(trending, "the trending section must render").toBeVisible({ timeout: 15_000 });
-    await expect(trending, "a heading with nothing under it reads as a failure, not as empty")
-      .toHaveText(/\S/);
+    await expect(trending, "a heading with nothing under it reads as a failure, not as empty").toHaveText(/\S/);
   });
 
   /* ------------------------------------------------- guards on what is sound ---- */
@@ -362,21 +403,31 @@ test.describe("World lifecycle — hostile pass", () => {
     const author = await apiSignup(request);
     const world = await aBuiltWorld(request, author);
 
-    for (const path of [`/v1/worlds/${world.id}`, `/v1/worlds/${world.id}/status`, "/v1/worlds/public", "/v1/worlds/mine"]) {
+    for (const path of [
+      `/v1/worlds/${world.id}`,
+      `/v1/worlds/${world.id}/status`,
+      "/v1/worlds/public",
+      "/v1/worlds/mine",
+    ]) {
       const res = await request.get(apiUrl(path), { failOnStatusCode: false });
       expect(res.status(), `anonymous GET ${path}`).toBe(401);
     }
     const anonPublish = await request.post(apiUrl(`/v1/worlds/${world.id}/publish`), {
-      data: { visibility: "public" }, failOnStatusCode: false,
+      data: { visibility: "public" },
+      failOnStatusCode: false,
     });
     expect(anonPublish.status(), "anonymous publish").toBe(401);
 
     // Signed in, but not theirs: 404 rather than 403, so a guessed id is never confirmed to exist.
     const stranger = await apiSignup(request);
-    expect((await publish(request, stranger.jwt, world.id, "public")).status(),
-      "publishing someone else's world must not confirm it exists").toBe(404);
-    expect((await reportWorld(request, stranger.jwt, world.id)).status(),
-      "reporting must not be an existence oracle for a private world either").toBe(404);
+    expect(
+      (await publish(request, stranger.jwt, world.id, "public")).status(),
+      "publishing someone else's world must not confirm it exists",
+    ).toBe(404);
+    expect(
+      (await reportWorld(request, stranger.jwt, world.id)).status(),
+      "reporting must not be an existence oracle for a private world either",
+    ).toBe(404);
   });
 
   test("QA-008: two creates racing for the last 120 gems build exactly one world", async ({ request }) => {
@@ -384,10 +435,7 @@ test.describe("World lifecycle — hostile pass", () => {
     const before = (await wallet(request, account.jwt)).gems;
     expect(before, "exactly one world's worth, so the second create has to lose").toBe(WORLD_STUDIO.GEM_COST);
 
-    const [first, second] = await Promise.all([
-      createWorld(request, account.jwt),
-      createWorld(request, account.jwt),
-    ]);
+    const [first, second] = await Promise.all([createWorld(request, account.jwt), createWorld(request, account.jwt)]);
     const codes = [first.status(), second.status()].sort();
     expect(codes, "one create is paid for and the other is refused — never both").toEqual([201, 402]);
 

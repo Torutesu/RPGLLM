@@ -90,7 +90,11 @@ export function FreshWorldCard({ world, onPress }: { world: WorldFull; onPress: 
                 <Text numberOfLines={2} importantForAccessibility="no" style={[typo.h2, { color: colors.text }]}>
                   {world.title}
                 </Text>
-                <Text numberOfLines={2} importantForAccessibility="no" style={[typo.caption, { color: colors.textDim }]}>
+                <Text
+                  numberOfLines={2}
+                  importantForAccessibility="no"
+                  style={[typo.caption, { color: colors.textDim }]}
+                >
                   {line}
                 </Text>
                 {/*

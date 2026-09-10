@@ -28,13 +28,20 @@
 import type { Context, MiddlewareHandler } from "hono";
 import { verifySession } from "../auth";
 import {
-  rateLimitAdPerMin, rateLimitAuthPerMin, rateLimitDefaultPerMin, rateLimitEnabled, rateLimitWorldPerMin,
+  rateLimitAdPerMin,
+  rateLimitAuthPerMin,
+  rateLimitDefaultPerMin,
+  rateLimitEnabled,
+  rateLimitWorldPerMin,
   rateLimitWritePerMin,
 } from "../env";
 import { fail } from "../http";
 import type { AppEnv } from "../types";
 
-export interface Bucket { tokens: number; last: number }
+export interface Bucket {
+  tokens: number;
+  last: number;
+}
 export type RateLimitStore = Map<string, Bucket>;
 
 /**
@@ -50,7 +57,11 @@ export interface RateLimiter {
 const WINDOW_MS = 60_000;
 const MAX_TRACKED_KEYS = 20_000;
 
-export interface Decision { allowed: boolean; retryAfterSec: number; remaining: number }
+export interface Decision {
+  allowed: boolean;
+  retryAfterSec: number;
+  remaining: number;
+}
 
 /** Classic token bucket: capacity `perMin`, refilled continuously at `perMin` per minute. */
 export function take(store: RateLimitStore, key: string, perMin: number, nowMs: number): Decision {
@@ -142,10 +153,14 @@ export function budgetFor(method: string, path: string): BudgetKind {
 }
 
 export const perMinFor = (kind: Exclude<BudgetKind, "exempt">): number =>
-  kind === "auth" ? rateLimitAuthPerMin()
-    : kind === "write" ? rateLimitWritePerMin()
-      : kind === "ad" ? rateLimitAdPerMin()
-        : kind === "world" ? rateLimitWorldPerMin()
+  kind === "auth"
+    ? rateLimitAuthPerMin()
+    : kind === "write"
+      ? rateLimitWritePerMin()
+      : kind === "ad"
+        ? rateLimitAdPerMin()
+        : kind === "world"
+          ? rateLimitWorldPerMin()
           : rateLimitDefaultPerMin();
 
 /** Best-effort email extraction for the per-address auth budget. Hono caches the parsed body. */
@@ -176,8 +191,12 @@ async function subjectOf(c: Context<AppEnv>): Promise<string | null> {
 /** The historical in-process limiter: one `Map`, no I/O, correct for exactly one instance. */
 export class MemoryLimiter implements RateLimiter {
   constructor(private readonly store: RateLimitStore = new Map()) {}
-  take(key: string, perMin: number, nowMs: number): Decision { return take(this.store, key, perMin, nowMs); }
-  kind(): "memory" { return "memory"; }
+  take(key: string, perMin: number, nowMs: number): Decision {
+    return take(this.store, key, perMin, nowMs);
+  }
+  kind(): "memory" {
+    return "memory";
+  }
 }
 
 export function rateLimit(limiter: RateLimiter, now: () => number): MiddlewareHandler<AppEnv> {

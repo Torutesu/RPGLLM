@@ -63,7 +63,10 @@ export interface JobDefinition {
 export const jobTimeoutMs = (): number => envNum("JOB_TIMEOUT_MS", 10 * 60 * 1000);
 /** Comma-separated job names the worker must not run (still runnable by hand). */
 export const disabledJobs = (): string[] =>
-  envStr("JOBS_DISABLED", "").split(",").map((s) => s.trim()).filter(Boolean);
+  envStr("JOBS_DISABLED", "")
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
 export const jobEnabled = (name: string): boolean => !disabledJobs().includes(name);
 /** `JobRun` rows older than this are dropped by the purge job. */
 const runRetentionDays = (): number => envNum("JOB_RUN_RETENTION_DAYS", 14);
@@ -84,14 +87,20 @@ const RUNNERS: Record<ScheduledJobName, (deps: JobDeps, opts: JobOptions) => Pro
     const r = await run(deps.prisma, deps.gateway, deps.clock, {
       ...(opts.personaId ? { personaId: opts.personaId } : {}),
     });
-    return { processed: r.generated.length, detail: { considered: r.considered, generated: r.generated.length, skipped: r.skipped } };
+    return {
+      processed: r.generated.length,
+      detail: { considered: r.considered, generated: r.generated.length, skipped: r.skipped },
+    };
   },
   "memory-consolidate": async (deps, opts) => {
     const run = batchTierEnabled() ? runMemoryConsolidationBatchedJob : runMemoryConsolidation;
     const r = await run(deps.prisma, deps.gateway, deps.clock, {
       ...(opts.personaId ? { personaId: opts.personaId } : {}),
     });
-    return { processed: r.relationships, detail: { personas: r.personas, relationships: r.relationships, notes: r.notes } };
+    return {
+      processed: r.relationships,
+      detail: { personas: r.personas, relationships: r.relationships, notes: r.notes },
+    };
   },
   "ambient-refill": async (deps) => {
     const run = batchTierEnabled() ? runAmbientRefillBatchedJob : runAmbientRefill;
@@ -102,7 +111,13 @@ const RUNNERS: Record<ScheduledJobName, (deps: JobDeps, opts: JobOptions) => Pro
     const r = await purgeDeletedAccounts(deps.prisma, deps.clock.now());
     return {
       processed: r.users,
-      detail: { users: r.users, personas: r.personas, posts: r.posts, messages: r.messages, generations: r.generations },
+      detail: {
+        users: r.users,
+        personas: r.personas,
+        posts: r.posts,
+        messages: r.messages,
+        generations: r.generations,
+      },
     };
   },
   /**
@@ -149,8 +164,13 @@ const RUNNERS: Record<ScheduledJobName, (deps: JobDeps, opts: JobOptions) => Pro
     return {
       processed: r.built,
       detail: {
-        considered: r.considered, built: r.built, failed: r.failed, swept: r.swept,
-        inReview: backlog.inReview, overdueReviews: backlog.overdueReviews, pulledWorlds: backlog.pulledWorlds,
+        considered: r.considered,
+        built: r.built,
+        failed: r.failed,
+        swept: r.swept,
+        inReview: backlog.inReview,
+        overdueReviews: backlog.overdueReviews,
+        pulledWorlds: backlog.pulledWorlds,
       },
     };
   },
@@ -197,15 +217,20 @@ const HOST = hostname();
  * Never throws: a failing job comes back as `{ok:false, error}` so a scheduler tick — or an
  * operator's `POST /v1/jobs/run` — is never taken down by the work it triggered.
  */
-export async function runJobOnce(
-  deps: JobDeps,
-  name: ScheduledJobName,
-  opts: JobOptions = {},
-): Promise<JobRunRecord> {
+export async function runJobOnce(deps: JobDeps, name: ScheduledJobName, opts: JobOptions = {}): Promise<JobRunRecord> {
   const def = findJob(name);
   if (!def) {
     const at = deps.clock.now();
-    return { job: name, startedAt: at, finishedAt: at, ok: false, processed: 0, error: `unknown job "${name}"`, skipped: false, detail: {} };
+    return {
+      job: name,
+      startedAt: at,
+      finishedAt: at,
+      ok: false,
+      processed: 0,
+      error: `unknown job "${name}"`,
+      skipped: false,
+      detail: {},
+    };
   }
   return await runDefinitionOnce(deps, def, opts);
 }
@@ -241,7 +266,16 @@ export async function runDefinitionOnce(
     });
     if (!lock.locked) {
       logLine({ level: "warn", msg: "job.skipped", job: name, trigger, reason: "locked" });
-      return { job: name, startedAt, finishedAt: deps.clock.now(), ok: true, processed: 0, error: null, skipped: true, detail: {} };
+      return {
+        job: name,
+        startedAt,
+        finishedAt: deps.clock.now(),
+        ok: true,
+        processed: 0,
+        error: null,
+        skipped: true,
+        detail: {},
+      };
     }
     outcome = lock.value;
   } catch (err: unknown) {
@@ -263,7 +297,11 @@ export async function runDefinitionOnce(
   const runId = tracking.runId;
   if (runId !== null) {
     try {
-      await finishRun(deps.prisma, runId, finishedAt, { ok: record.ok, processed: record.processed, error: record.error });
+      await finishRun(deps.prisma, runId, finishedAt, {
+        ok: record.ok,
+        processed: record.processed,
+        error: record.error,
+      });
     } catch (err: unknown) {
       logLine({ level: "error", msg: "job.record.failed", job: name, error: shortError(err) });
     }
@@ -271,15 +309,24 @@ export async function runDefinitionOnce(
   logLine({
     level: record.ok ? "info" : "error",
     msg: record.ok ? "job.done" : "job.failed",
-    job: name, trigger, processed: record.processed,
+    job: name,
+    trigger,
+    processed: record.processed,
     durationMs: finishedAt.getTime() - startedAt.getTime(),
     ...(record.error ? { error: record.error } : {}),
   });
   return record;
 }
 
-export const toJobRunPayload = (row: JobRunRow | JobRunRecord & { id?: string }): {
-  job: string; startedAt: string; finishedAt: string | null; ok: boolean; processed: number; error: string | null;
+export const toJobRunPayload = (
+  row: JobRunRow | (JobRunRecord & { id?: string }),
+): {
+  job: string;
+  startedAt: string;
+  finishedAt: string | null;
+  ok: boolean;
+  processed: number;
+  error: string | null;
 } => ({
   job: row.job,
   startedAt: row.startedAt.toISOString(),

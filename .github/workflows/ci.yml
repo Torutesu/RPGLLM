@@ -29,11 +29,11 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter api exec prisma generate
       - run: pnpm lint
-      # Formatting is not enforced yet: the existing tree predates the Prettier config
-      # (140 files differ). Non-blocking until it is applied package by package —
-      # see pipeline/status/build-notes.md "Agent F: lint debt".
+      # Blocking, as of the production-readiness pass. The tree was formatted in one commit
+      # (recorded in .git-blame-ignore-revs so `git blame` skips it) and Markdown is excluded —
+      # the docs are hand-formatted prose in two languages. A check that can never fail is not
+      # a check; it is a line in a log that teaches people to ignore CI.
       - run: pnpm format:check
-        continue-on-error: true
 
   test:
     name: typecheck + unit tests

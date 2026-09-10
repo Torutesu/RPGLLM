@@ -61,7 +61,14 @@ function TabBar({ activeName }: { activeName: string }) {
      * entered from the world picker, Explore and the profile instead; see build-notes for what a
      * `tab-studio` item would need (a short notifications label, or an icon-first bar).
      */
-    { name: "notifications", label: t("notifications"), testID: T.tabNotifications, href: "/notifications" as const, push: true, badge: notifUnread },
+    {
+      name: "notifications",
+      label: t("notifications"),
+      testID: T.tabNotifications,
+      href: "/notifications" as const,
+      push: true,
+      badge: notifUnread,
+    },
     { name: "profile", label: t("profile"), testID: T.tabProfile, href: "/profile" as const, push: true, badge: 0 },
   ];
   return (

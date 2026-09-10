@@ -1,11 +1,23 @@
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { castCards, loadStoryContext } from "../src/services/story";
-import { call, makeHarness, prisma, resetDatabase, signupWithPersona, type Harness, type PersonaFixture } from "./helpers";
+import {
+  call,
+  makeHarness,
+  prisma,
+  resetDatabase,
+  signupWithPersona,
+  type Harness,
+  type PersonaFixture,
+} from "./helpers";
 
 let h: Harness;
 
-beforeAll(() => { h = makeHarness(); });
-beforeEach(async () => { await resetDatabase(); });
+beforeAll(() => {
+  h = makeHarness();
+});
+beforeEach(async () => {
+  await resetDatabase();
+});
 
 const bare = (handle: string) => handle.replace(/^@+/, "");
 
@@ -32,19 +44,34 @@ describe("S1-2 report (App Store Guideline 1.2)", () => {
     const fx = await signupWithPersona(h);
     const log = await prisma.generationLog.create({
       data: {
-        userId: fx.userId, generator: "G1", variantId: "v", model: "m", promptHash: "h",
-        inputTokens: 1, cacheWriteTokens: 0, cacheReadTokens: 0, outputTokens: 1, costUsd: 0, latencyMs: 1, stopReason: "end_turn",
+        userId: fx.userId,
+        generator: "G1",
+        variantId: "v",
+        model: "m",
+        promptHash: "h",
+        inputTokens: 1,
+        cacheWriteTokens: 0,
+        cacheReadTokens: 0,
+        outputTokens: 1,
+        costUsd: 0,
+        latencyMs: 1,
+        stopReason: "end_turn",
       },
     });
     const post = await prisma.post.create({
       data: {
-        worldId: fx.worldId, personaId: fx.personaId, authorCharacterId: fx.firstFollowerId,
-        kind: "character", text: "you will never be anything", generationId: log.id,
+        worldId: fx.worldId,
+        personaId: fx.personaId,
+        authorCharacterId: fx.firstFollowerId,
+        kind: "character",
+        text: "you will never be anything",
+        generationId: log.id,
       },
     });
 
     const res = await call<{ id: string; status: string }>(h, "POST", "/v1/moderation/report", {
-      token: fx.token, body: { target: "post", targetId: post.id, reason: "harassment", note: "cruel" },
+      token: fx.token,
+      body: { target: "post", targetId: post.id, reason: "harassment", note: "cruel" },
     });
     expect(res.status).toBe(201);
     expect(res.data.status).toBe("open");
@@ -73,12 +100,14 @@ describe("S1-2 report (App Store Guideline 1.2)", () => {
   it("404s on a target that does not exist and validates the reason", async () => {
     const fx = await signupWithPersona(h);
     const missing = await call(h, "POST", "/v1/moderation/report", {
-      token: fx.token, body: { target: "post", targetId: "nope", reason: "other", note: "" },
+      token: fx.token,
+      body: { target: "post", targetId: "nope", reason: "other", note: "" },
     });
     expect(missing.status).toBe(404);
 
     const bad = await call(h, "POST", "/v1/moderation/report", {
-      token: fx.token, body: { target: "post", targetId: "nope", reason: "not-a-reason", note: "" },
+      token: fx.token,
+      body: { target: "post", targetId: "nope", reason: "not-a-reason", note: "" },
     });
     expect(bad.status).toBe(400);
   });
@@ -86,12 +115,16 @@ describe("S1-2 report (App Store Guideline 1.2)", () => {
   it("reports a character and exposes the queue behind the test hook", async () => {
     const fx = await signupWithPersona(h);
     const created = await call<{ id: string }>(h, "POST", "/v1/moderation/report", {
-      token: fx.token, body: { target: "character", targetId: fx.firstFollowerId, reason: "off_character", note: "" },
+      token: fx.token,
+      body: { target: "character", targetId: fx.firstFollowerId, reason: "off_character", note: "" },
     });
     expect(created.status).toBe(201);
 
     const queue = await call<{ reports: { id: string; target: string; snapshot: string }[] }>(
-      h, "GET", "/v1/moderation/reports?status=open", { token: fx.token },
+      h,
+      "GET",
+      "/v1/moderation/reports?status=open",
+      { token: fx.token },
     );
     expect(queue.status).toBe(200);
     expect(queue.data.reports.map((r) => r.id)).toContain(created.data.id);
@@ -107,20 +140,25 @@ describe("S1-2 block", () => {
     await characterPost(fx, follower.id, "blocked-author post");
     await characterPost(fx, other.id, "other-author post");
     const thread = await call<{ thread: { id: string } }>(h, "POST", "/v1/dms", {
-      token: fx.token, body: { personaId: fx.personaId, characterId: follower.id },
+      token: fx.token,
+      body: { personaId: fx.personaId, characterId: follower.id },
     });
     expect(thread.status).toBe(201);
 
     expect(await feedTexts(fx.token, fx.personaId)).toContain("blocked-author post");
     const before = await call<{ threads: { id: string }[]; followers: { handle: string }[] }>(
-      h, "GET", `/v1/dms?personaId=${fx.personaId}`, { token: fx.token },
+      h,
+      "GET",
+      `/v1/dms?personaId=${fx.personaId}`,
+      { token: fx.token },
     );
     expect(before.data.threads.map((t) => t.id)).toContain(thread.data.thread.id);
     expect(before.data.followers.map((f) => bare(f.handle))).toContain(bare(follower.handle));
     expect(await cast(fx)).toContain(bare(follower.handle));
 
     const blocked = await call(h, "POST", "/v1/moderation/block", {
-      token: fx.token, body: { personaId: fx.personaId, characterId: follower.id },
+      token: fx.token,
+      body: { personaId: fx.personaId, characterId: follower.id },
     });
     expect(blocked.status).toBe(201);
 
@@ -129,7 +167,10 @@ describe("S1-2 block", () => {
     expect(texts).toContain("other-author post");
 
     const after = await call<{ threads: { id: string }[]; followers: { handle: string }[] }>(
-      h, "GET", `/v1/dms?personaId=${fx.personaId}`, { token: fx.token },
+      h,
+      "GET",
+      `/v1/dms?personaId=${fx.personaId}`,
+      { token: fx.token },
     );
     expect(after.data.threads.map((t) => t.id)).not.toContain(thread.data.thread.id);
     expect(after.data.followers.map((f) => bare(f.handle))).not.toContain(bare(follower.handle));
@@ -145,7 +186,10 @@ describe("S1-2 block", () => {
     expect(again.error?.code).toBe("BLOCKED");
 
     const list = await call<{ blocked: { characterId: string; handle: string; displayName: string }[] }>(
-      h, "GET", `/v1/moderation/blocked?personaId=${fx.personaId}`, { token: fx.token },
+      h,
+      "GET",
+      `/v1/moderation/blocked?personaId=${fx.personaId}`,
+      { token: fx.token },
     );
     expect(list.data.blocked.map((b) => b.characterId)).toEqual([fx.firstFollowerId]);
     expect(list.data.blocked[0]?.handle.startsWith("@")).toBe(false);
@@ -166,7 +210,9 @@ describe("S1-2 block", () => {
     expect(await feedTexts(fx.token, fx.personaId)).toContain("welcome back");
     expect(await cast(fx)).toContain(bare(follower.handle));
 
-    const list = await call<{ blocked: unknown[] }>(h, "GET", `/v1/moderation/blocked?personaId=${fx.personaId}`, { token: fx.token });
+    const list = await call<{ blocked: unknown[] }>(h, "GET", `/v1/moderation/blocked?personaId=${fx.personaId}`, {
+      token: fx.token,
+    });
     expect(list.data.blocked).toEqual([]);
   });
 
@@ -174,12 +220,14 @@ describe("S1-2 block", () => {
     const mine = await signupWithPersona(h);
     const theirs = await signupWithPersona(h);
     const un = await call(h, "POST", "/v1/moderation/unblock", {
-      token: mine.token, body: { personaId: mine.personaId, characterId: mine.firstFollowerId },
+      token: mine.token,
+      body: { personaId: mine.personaId, characterId: mine.firstFollowerId },
     });
     expect(un.status).toBe(404);
 
     const foreign = await call(h, "POST", "/v1/moderation/block", {
-      token: mine.token, body: { personaId: theirs.personaId, characterId: theirs.firstFollowerId },
+      token: mine.token,
+      body: { personaId: theirs.personaId, characterId: theirs.firstFollowerId },
     });
     expect(foreign.status).toBe(404);
     expect(await prisma.blockedCharacter.count()).toBe(0);

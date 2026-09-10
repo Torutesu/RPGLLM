@@ -2,7 +2,7 @@ import type { Persona, Post, PrismaClient, RelationshipState, User, World, World
 import type { CharacterCard, G1Input, G1Output, PersonaState, WorldSeed } from "@rpgllm/shared";
 import { PACING, STATS } from "@rpgllm/shared";
 import { normHandle, sameHandle } from "./handles";
-import { blockedCharacterIds, withoutBlocked } from "./moderation";   // Agent G (S1-2)
+import { blockedCharacterIds, withoutBlocked } from "./moderation"; // Agent G (S1-2)
 import { localized, roleFor, type LocaleKey } from "./locale";
 import { followText, notify } from "./notify";
 import type { Tx } from "../types";
@@ -20,20 +20,33 @@ export interface StoryContext {
   seed: WorldSeed | undefined;
 }
 
-export async function loadStoryContext(prisma: PrismaClient, user: User, personaId: string): Promise<StoryContext | null> {
+export async function loadStoryContext(
+  prisma: PrismaClient,
+  user: User,
+  personaId: string,
+): Promise<StoryContext | null> {
   const persona = await prisma.persona.findUnique({ where: { id: personaId }, include: { world: true } });
   if (!persona || persona.userId !== user.id) return null;
   const [characters, relationships, blocked] = await Promise.all([
     prisma.worldCharacter.findMany({ where: { worldId: persona.worldId }, orderBy: { handle: "asc" } }),
     prisma.relationshipState.findMany({ where: { personaId: persona.id } }),
-    blockedCharacterIds(prisma, persona.id),   // Agent G (S1-2)
+    blockedCharacterIds(prisma, persona.id), // Agent G (S1-2)
   ]);
   const locale = user.locale as LocaleKey;
   const { world, ...personaRow } = persona;
   // Agent G (S1-2): a blocked character leaves the cast, so it stops replying and stops being
   // offered in the DM picker.
   const cast = withoutBlocked(characters, blocked, (ch) => ch.id);
-  return { user, persona: personaRow as Persona, world, characters: cast, relationships, blockedCharacterIds: blocked, locale, seed: await getWorldSeed(world.slug, prisma) };
+  return {
+    user,
+    persona: personaRow as Persona,
+    world,
+    characters: cast,
+    relationships,
+    blockedCharacterIds: blocked,
+    locale,
+    seed: await getWorldSeed(world.slug, prisma),
+  };
 }
 
 export const characterByHandle = (characters: WorldCharacter[], handle: string): WorldCharacter | undefined =>
@@ -44,7 +57,7 @@ export const pressAccount = (characters: WorldCharacter[]): WorldCharacter | und
 
 export function castCards(ctx: StoryContext): CharacterCard[] {
   return ctx.characters.map((c) => ({
-    handle: normHandle(c.handle),   // generators and fixtures use bare handles
+    handle: normHandle(c.handle), // generators and fixtures use bare handles
     displayName: c.displayName,
     role: roleFor(c, ctx.locale),
     card: localized(c.card, ctx.locale),
@@ -117,19 +130,37 @@ export function baseCtx(ctx: StoryContext) {
 const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
 
 export interface AppliedStats {
-  followers: number; aura: number; humor: number; xp: number; level: number;
-  followersDelta: number; auraDelta: number; humorDelta: number;
+  followers: number;
+  aura: number;
+  humor: number;
+  xp: number;
+  level: number;
+  followersDelta: number;
+  auraDelta: number;
+  humorDelta: number;
 }
 
 /** followers += delta × level; aura/humor clamped 0..100; XP +10 with a level every 100. */
-export function applyStatDeltas(persona: Persona, deltas: { followers: number; aura: number; humor: number }): AppliedStats {
+export function applyStatDeltas(
+  persona: Persona,
+  deltas: { followers: number; aura: number; humor: number },
+): AppliedStats {
   const followersDelta = deltas.followers * persona.level;
   const followers = Math.max(0, persona.followers + followersDelta);
   const aura = clamp(persona.aura + deltas.aura, STATS.MIN, STATS.MAX);
   const humor = clamp(persona.humor + deltas.humor, STATS.MIN, STATS.MAX);
   const xp = persona.xp + 10;
   const level = Math.floor(xp / 100) + 1;
-  return { followers, aura, humor, xp, level, followersDelta, auraDelta: aura - persona.aura, humorDelta: humor - persona.humor };
+  return {
+    followers,
+    aura,
+    humor,
+    xp,
+    level,
+    followersDelta,
+    auraDelta: aura - persona.aura,
+    humorDelta: humor - persona.humor,
+  };
 }
 
 /** A character starts following you at this affinity and is never demoted. */
@@ -191,5 +222,7 @@ export async function writeMemoryNotes(
 /** Post rows whose parent is `postId` and which the character cast authored. */
 export const characterRepliesWhere = (postId: string) => ({ parentId: postId, kind: "character" as const });
 
-export const parentAuthorHandleOf = (parent: (Post & { authorCharacter: WorldCharacter | null }) | null, ctx: StoryContext): string | null =>
-  parent ? (parent.authorCharacter ? parent.authorCharacter.handle : ctx.persona.handle) : null;
+export const parentAuthorHandleOf = (
+  parent: (Post & { authorCharacter: WorldCharacter | null }) | null,
+  ctx: StoryContext,
+): string | null => (parent ? (parent.authorCharacter ? parent.authorCharacter.handle : ctx.persona.handle) : null);

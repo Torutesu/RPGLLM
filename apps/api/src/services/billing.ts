@@ -31,7 +31,8 @@ import type { Tx } from "../types";
 
 export const revenueCatWebhookSecret = (): string => envStr("REVENUECAT_WEBHOOK_SECRET", "");
 export const revenueCatSecretKey = (): string => envStr("REVENUECAT_SECRET_KEY", "");
-export const revenueCatApiUrl = (): string => envStr("REVENUECAT_API_URL", "https://api.revenuecat.com").replace(/\/+$/, "");
+export const revenueCatApiUrl = (): string =>
+  envStr("REVENUECAT_API_URL", "https://api.revenuecat.com").replace(/\/+$/, "");
 
 /* ------------------------------------------------------------------ signature ---- */
 
@@ -78,7 +79,9 @@ export function verifyWebhookSignature(headers: Headers, rawBody: string): Signa
 
   if (authorization) {
     const provided = authorization.replace(/^Bearer\s+/i, "").trim();
-    return constantTimeEquals(secret, provided) ? { ok: true, via: "shared-secret" } : { ok: false, reason: "mismatch" };
+    return constantTimeEquals(secret, provided)
+      ? { ok: true, via: "shared-secret" }
+      : { ok: false, reason: "mismatch" };
   }
 
   // A secret is configured and the request carried neither header: refuse. The test bypass above
@@ -221,7 +224,11 @@ export interface SubscriptionPatch {
  * `renewsAt` do the work**, because `entitlementsFor` already drops entitlements the moment the
  * period end passes. Only a REFUND revokes on the spot.
  */
-export function subscriptionPatchFor(event: RcEvent, current: Subscription | null, now: Date): SubscriptionPatch | null {
+export function subscriptionPatchFor(
+  event: RcEvent,
+  current: Subscription | null,
+  now: Date,
+): SubscriptionPatch | null {
   const currentPlan = current && current.plan in PLANS ? (current.plan as PlanId) : null;
   const productPlan = planFromProductId(event.new_product_id ?? event.product_id);
   const plan = productPlan ?? currentPlan;
@@ -365,7 +372,9 @@ async function topUpEnergy(tx: Tx, userId: string, dailyMax: number, now: Date, 
 async function grantGems(tx: Tx, userId: string, gems: number, now: Date, ref: string): Promise<number> {
   const wallet = await tx.wallet.upsert({ where: { userId }, create: newWalletData(userId, now), update: {} });
   const updated = await tx.wallet.update({ where: { id: wallet.id }, data: { gems: { increment: gems } } });
-  await tx.ledgerEntry.create({ data: { walletId: wallet.id, currency: "gems", delta: gems, source: "purchase", ref } });
+  await tx.ledgerEntry.create({
+    data: { walletId: wallet.id, currency: "gems", delta: gems, source: "purchase", ref },
+  });
   return updated.gems;
 }
 
@@ -439,8 +448,8 @@ export async function applyWebhookEvent(prisma: PrismaClient, clock: Clock, even
         const donated =
           donors.length > 0
             ? await tx.subscription.findFirst({
-              where: { OR: [{ userId: { in: donors } }, { rcSubscriberId: { in: donors } }] },
-            })
+                where: { OR: [{ userId: { in: donors } }, { rcSubscriberId: { in: donors } }] },
+              })
             : null;
         const source = donated ?? current;
         if (!source) return { ...skip(event, "no_subscription"), applied: true, userId };
@@ -486,8 +495,16 @@ export async function applyWebhookEvent(prisma: PrismaClient, clock: Clock, even
       if (event.type === "NON_RENEWING_PURCHASE" && isGemPack(purchased)) {
         const gems = await grantGems(tx, userId, GEM_PACKS[purchased].gems, now, `pack:${event.id}`);
         return {
-          applied: true, duplicate: false, eventId: event.id, type: event.type, reason: "gems_granted",
-          userId, plan: null, active: null, energy: null, gems,
+          applied: true,
+          duplicate: false,
+          eventId: event.id,
+          type: event.type,
+          reason: "gems_granted",
+          userId,
+          plan: null,
+          active: null,
+          energy: null,
+          gems,
         };
       }
 
@@ -512,7 +529,8 @@ export async function applyWebhookEvent(prisma: PrismaClient, clock: Clock, even
       let energy: number | null = null;
       if (GRANTS_ENERGY.includes(event.type)) {
         const ent = entitlementsFor(saved, now);
-        if (ent.entitled) energy = await topUpEnergy(tx, userId, ent.dailyEnergyMax, now, `${event.type.toLowerCase()}:${patch.plan}`);
+        if (ent.entitled)
+          energy = await topUpEnergy(tx, userId, ent.dailyEnergyMax, now, `${event.type.toLowerCase()}:${patch.plan}`);
       } else if (event.type === "REFUND") {
         energy = await clawBackEnergy(tx, userId, now, `refund:${event.id}`);
       }

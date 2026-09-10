@@ -62,10 +62,7 @@ export function renderFeed(items: readonly FeedItemCtx[], maxText = 160): string
 /** Handle whitelist. The model may only mention handles that appear here. */
 export function renderCastRoster(cast: readonly CharacterCard[]): string {
   return cast
-    .map(
-      (c) =>
-        `- ${c.handle} (${c.displayName}) — ${c.role}${c.isPressAccount ? " [PRESS ACCOUNT]" : ""}`,
-    )
+    .map((c) => `- ${c.handle} (${c.displayName}) — ${c.role}${c.isPressAccount ? " [PRESS ACCOUNT]" : ""}`)
     .join("\n");
 }
 

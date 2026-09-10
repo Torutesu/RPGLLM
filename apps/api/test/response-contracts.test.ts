@@ -1,11 +1,27 @@
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 import {
-  CreatorProfileResZ, MeResZ, ModerationMetricsResZ, MomentReelResZ, MyWorldsResZ, PublicWorldsResZ,
-  PublishWorldResZ, WORLD_MODERATION, WorldDetailResZ, WorldReviewQueueResZ, WorldsResZ,
+  CreatorProfileResZ,
+  MeResZ,
+  ModerationMetricsResZ,
+  MomentReelResZ,
+  MyWorldsResZ,
+  PublicWorldsResZ,
+  PublishWorldResZ,
+  WORLD_MODERATION,
+  WorldDetailResZ,
+  WorldReviewQueueResZ,
+  WorldsResZ,
 } from "@rpgllm/shared";
 import { runJobOnce, type JobDeps } from "../src/jobs/registry";
 import {
-  call, grantShelfGems, makeHarness, prisma, readSSE, resetDatabase, signup, signupWithPersona,
+  call,
+  grantShelfGems,
+  makeHarness,
+  prisma,
+  readSSE,
+  resetDatabase,
+  signup,
+  signupWithPersona,
   type Harness,
 } from "./helpers";
 
@@ -92,14 +108,15 @@ describe("responses parse against the schemas packages/shared publishes", () => 
   it("GET /v1/moments/:slug/reel — the share target a recording is made from", async () => {
     const fx = await signupWithPersona(h);
     const created = await call<{ post: { id: string }; streamUrl: string }>(h, "POST", "/v1/posts", {
-      token: fx.token, body: { personaId: fx.personaId, text: "the album leaked", parentId: null },
+      token: fx.token,
+      body: { personaId: fx.personaId, text: "the album leaked", parentId: null },
     });
     await readSSE(h, created.data.streamUrl, fx.token);
     const snapshot = await prisma.statSnapshot.findFirstOrThrow({ where: { cause: `post:${created.data.post.id}` } });
     await prisma.statSnapshot.update({ where: { id: snapshot.id }, data: { auraDelta: 6 } });
-    const list = await call<{ moments: { shareSlug: string }[] }>(
-      h, "GET", `/v1/moments?personaId=${fx.personaId}`, { token: fx.token },
-    );
+    const list = await call<{ moments: { shareSlug: string }[] }>(h, "GET", `/v1/moments?personaId=${fx.personaId}`, {
+      token: fx.token,
+    });
 
     // No bearer: the reel is public exactly like the card it comes from.
     const res = await call<unknown>(h, "GET", `/v1/moments/${list.data.moments[0]!.shareSlug}/reel`);
@@ -124,7 +141,9 @@ describe("responses parse against the schemas packages/shared publishes", () => 
       token,
       body: {
         premise: "Seven rookies, one debut slot, and a leaked group chat",
-        genre: "idol", locale: "en", visibility: "private",
+        genre: "idol",
+        locale: "en",
+        visibility: "private",
       },
     });
     expect(created.status).toBe(201);
@@ -134,7 +153,8 @@ describe("responses parse against the schemas packages/shared publishes", () => 
 
     // `PublishWorldResZ.charged` — what the shelf cost.
     const published = await call<unknown>(h, "POST", `/v1/worlds/${worldId}/publish`, {
-      token, body: { visibility: "public" },
+      token,
+      body: { visibility: "public" },
     });
     expect(published.status).toBe(202);
     const publishRes = PublishWorldResZ.parse(published.data);

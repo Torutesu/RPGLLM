@@ -1,7 +1,15 @@
 import { expect, test, type APIRequestContext } from "@playwright/test";
 import { T, WORLD_MODERATION } from "@rpgllm/shared";
 import {
-  apiSignup, apiUrl, bearer, loginInBrowser, resetDb, setGems, setLlmMode, unwrap, type Account,
+  apiSignup,
+  apiUrl,
+  bearer,
+  loginInBrowser,
+  resetDb,
+  setGems,
+  setLlmMode,
+  unwrap,
+  type Account,
 } from "../fixtures";
 
 /**
@@ -21,7 +29,13 @@ import {
 const PREMISE = "Seven trainees, one debut slot, and a group chat that leaked";
 const GENRE = "idol";
 
-interface StudioWorld { id: string; slug: string; title: string; status: string; visibility: string }
+interface StudioWorld {
+  id: string;
+  slug: string;
+  title: string;
+  status: string;
+  visibility: string;
+}
 
 async function buildWorlds(request: APIRequestContext): Promise<void> {
   await unwrap(
@@ -47,12 +61,12 @@ async function aBuiltWorld(request: APIRequestContext, account: Account): Promis
   return mine.worlds[0]!;
 }
 
-async function publish(
-  request: APIRequestContext, jwt: string, id: string, visibility: string,
-): Promise<void> {
+async function publish(request: APIRequestContext, jwt: string, id: string, visibility: string): Promise<void> {
   await unwrap(
     await request.post(apiUrl(`/v1/worlds/${id}/publish`), {
-      headers: bearer(jwt), data: { visibility }, failOnStatusCode: false,
+      headers: bearer(jwt),
+      data: { visibility },
+      failOnStatusCode: false,
     }),
     `publish ${visibility}`,
   );
@@ -84,8 +98,7 @@ test.describe("Share links", () => {
 
     const html = await res.text();
     expect(meta(html, "og:title"), "an unfurl with no title is a blue URL").toBe(world.title);
-    expect((meta(html, "og:description") ?? "").length, "and one with no description is a title")
-      .toBeGreaterThan(10);
+    expect((meta(html, "og:description") ?? "").length, "and one with no description is a title").toBeGreaterThan(10);
     expect(meta(html, "twitter:card")).toBe("summary_large_image");
     // Unlisted is not secret and not on a shelf: previewable by whoever holds the link, indexable
     // by nobody. This is the assertion that keeps the two apart.
@@ -119,8 +132,7 @@ test.describe("Share links", () => {
     await expect(page.getByTestId(T.sharePoster), "the card shows the world's own art").toBeVisible();
     await page.getByTestId(T.shareOpen).click();
     // One tap, and the recipient is in the product rather than on a landing page about it.
-    await expect(page.getByTestId(T.worldPage), "the link must land in the world")
-      .toBeVisible({ timeout: 20_000 });
+    await expect(page.getByTestId(T.worldPage), "the link must land in the world").toBeVisible({ timeout: 20_000 });
     await expect(page.getByTestId(T.worldPlay), "offering the thing the link was sent for").toBeVisible();
   });
 

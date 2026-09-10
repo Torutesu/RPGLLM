@@ -35,8 +35,16 @@ afterEach(() => {
 const FEE = WORLD_MODERATION.PUBLIC_SUBMIT_GEMS;
 const PREMISE = "Seven rookies, one debut slot, and a leaked group chat";
 
-interface WorldFull { id: string; status: string; visibility: string }
-interface PublishRes { world: WorldFull; needsReview: boolean; charged: { gems: number; remaining: number } }
+interface WorldFull {
+  id: string;
+  status: string;
+  visibility: string;
+}
+interface PublishRes {
+  world: WorldFull;
+  needsReview: boolean;
+  charged: { gems: number; remaining: number };
+}
 
 const gemsOf = async (userId: string): Promise<number> =>
   (await prisma.wallet.findUniqueOrThrow({ where: { userId } })).gems;
@@ -55,7 +63,8 @@ const decide = (id: string, decision: "approve" | "reject", reason = "") =>
 async function builtWorld(premise = PREMISE, packs = 0) {
   const { token, userId } = await signup(h);
   const created = await call<{ world: WorldFull }>(h, "POST", "/v1/worlds", {
-    token, body: { premise, genre: "idol", locale: "en", visibility: "private" },
+    token,
+    body: { premise, genre: "idol", locale: "en", visibility: "private" },
   });
   expect(created.status).toBe(201);
   expect((await runJobOnce(deps, "world-build", { trigger: "test" })).error).toBeNull();
@@ -166,7 +175,9 @@ describe("a submission nobody read comes back", () => {
   it("does not refund once a reviewer has opened it", async () => {
     const { token, userId, worldId } = await builtWorld(PREMISE, 1);
     await publish(token, worldId, "public");
-    expect((await call(h, "POST", `/v1/admin/worlds/${worldId}/claim`, { headers: { "x-reviewer": "kim" } })).status).toBe(200);
+    expect(
+      (await call(h, "POST", `/v1/admin/worlds/${worldId}/claim`, { headers: { "x-reviewer": "kim" } })).status,
+    ).toBe(200);
 
     const back = await publish(token, worldId, "private");
     expect(back.status).toBe(200);
@@ -197,9 +208,14 @@ describe("only the review a creator asked for is billed to them", () => {
     // Three distinct reporters take it off the shelf and back into the queue.
     for (let i = 0; i < WORLD_MODERATION.REPORTS_TO_PULL; i += 1) {
       const who = await signup(h);
-      expect((await call(h, "POST", "/v1/moderation/report", {
-        token: who.token, body: { target: "world", targetId: worldId, reason: "harassment", note: `complaint ${i}` },
-      })).status).toBe(201);
+      expect(
+        (
+          await call(h, "POST", "/v1/moderation/report", {
+            token: who.token,
+            body: { target: "world", targetId: worldId, reason: "harassment", note: `complaint ${i}` },
+          })
+        ).status,
+      ).toBe(201);
     }
     const pulled = await worldRow(worldId);
     expect(pulled.status).toBe("review");
@@ -224,7 +240,8 @@ describe("only the review a creator asked for is billed to them", () => {
     // An appeal is the answer to a decision *we* may have got wrong. Charging for our own error is
     // the wrong incentive on both sides of it.
     const appeal = await call<{ world: WorldFull }>(h, "POST", `/v1/worlds/${worldId}/appeal`, {
-      token, body: { message: "The names are invented and the format is a genre, not a programme." },
+      token,
+      body: { message: "The names are invented and the format is a genre, not a programme." },
     });
     expect(appeal.status).toBe(200);
     expect(appeal.data.world.status).toBe("review");
@@ -303,7 +320,8 @@ describe(`${WORLD_MODERATION_ENV.PUBLIC_SUBMIT_GEMS}`, () => {
     });
 
     const refused = await call<unknown>(h, "POST", "/v1/worlds", {
-      token, body: { premise: PREMISE, genre: "idol", locale: "en", visibility: "public" },
+      token,
+      body: { premise: PREMISE, genre: "idol", locale: "en", visibility: "public" },
     });
     expect(refused.status, "the build alone is not the price of this create").toBe(402);
     expect(refused.error?.code).toBe("GEMS_REQUIRED");
@@ -315,9 +333,9 @@ describe(`${WORLD_MODERATION_ENV.PUBLIC_SUBMIT_GEMS}`, () => {
 
     // The same wallet still affords a private world, which costs the build and nothing else.
     const priv = await call<unknown>(h, "POST", "/v1/worlds", {
-      token, body: { premise: PREMISE, genre: "idol", locale: "en", visibility: "private" },
+      token,
+      body: { premise: PREMISE, genre: "idol", locale: "en", visibility: "private" },
     });
     expect(priv.status, "private is the build price, unchanged").toBe(201);
   });
-
 });

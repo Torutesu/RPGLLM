@@ -29,17 +29,37 @@ beforeEach(async () => {
 /* ------------------------------------------------------------------ helpers ---- */
 
 interface WorldFull {
-  id: string; slug: string; status: string; visibility: string; premise: string;
-  reason: string | null; pulled: boolean; canAppeal: boolean; appealed: boolean;
+  id: string;
+  slug: string;
+  status: string;
+  visibility: string;
+  premise: string;
+  reason: string | null;
+  pulled: boolean;
+  canAppeal: boolean;
+  appealed: boolean;
 }
-interface PublishRes { world: WorldFull; needsReview: boolean }
-interface AppealRes { world: WorldFull }
-interface MineRes { worlds: WorldFull[]; remainingToday: number }
+interface PublishRes {
+  world: WorldFull;
+  needsReview: boolean;
+}
+interface AppealRes {
+  world: WorldFull;
+}
+interface MineRes {
+  worlds: WorldFull[];
+  remainingToday: number;
+}
 interface QueueRow extends WorldFull {
   reportCount: number;
   appeal: { message: string; createdAt: string; previousReason: string } | null;
 }
-interface QueueRes { worlds: QueueRow[]; overdueCount: number; appealCount: number; total: number }
+interface QueueRes {
+  worlds: QueueRow[];
+  overdueCount: number;
+  appealCount: number;
+  total: number;
+}
 
 const PREMISE = "Seven rookies, one debut slot, and a leaked group chat";
 const REASON = "Rule 1: this reads like a real show with the names changed.";
@@ -67,14 +87,17 @@ const mine = async (token: string, worldId: string): Promise<WorldFull> => {
 async function submittedWorld(premise: string) {
   const { token, userId } = await signup(h);
   const created = await call<{ world: WorldFull }>(h, "POST", "/v1/worlds", {
-    token, body: { premise, genre: "idol", locale: "en", visibility: "private" },
+    token,
+    body: { premise, genre: "idol", locale: "en", visibility: "private" },
   });
   expect(created.status).toBe(201);
   await buildOnce();
   // The shelf costs gems on top of the world (gtm.md §2 exit 1); a fresh account has none left.
   await grantShelfGems(userId, 4);
   const worldId = created.data.world.id;
-  expect((await call(h, "POST", `/v1/worlds/${worldId}/publish`, { token, body: { visibility: "public" } })).status).toBe(202);
+  expect(
+    (await call(h, "POST", `/v1/worlds/${worldId}/publish`, { token, body: { visibility: "public" } })).status,
+  ).toBe(202);
   return { token, userId, worldId };
 }
 
@@ -166,7 +189,8 @@ describe("an appealed world in the queue", () => {
     for (let i = 0; i < WORLD_MODERATION.REPORTS_TO_PULL; i += 1) {
       const who = await signup(h);
       await call(h, "POST", "/v1/moderation/report", {
-        token: who.token, body: { target: "world", targetId: pulled.worldId, reason: "harassment", note: `no ${i}` },
+        token: who.token,
+        body: { target: "world", targetId: pulled.worldId, reason: "harassment", note: `no ${i}` },
       });
     }
 
@@ -246,10 +270,13 @@ describe("an appeal is not a resubmit", () => {
     expect((await mine(token, worldId)).canAppeal).toBe(false);
 
     // The cooldown runs from the decision that closed the appeal, not from the first rejection.
-    expect((await call(h, "POST", `/v1/worlds/${worldId}/publish`, { token, body: { visibility: "public" } })).status).toBe(409);
+    expect(
+      (await call(h, "POST", `/v1/worlds/${worldId}/publish`, { token, body: { visibility: "public" } })).status,
+    ).toBe(409);
     h.clock.offsetDays(WORLD_MODERATION.RESUBMIT_COOLDOWN_HOURS / 24);
     const resubmitted = await call<PublishRes>(h, "POST", `/v1/worlds/${worldId}/publish`, {
-      token, body: { visibility: "public" },
+      token,
+      body: { visibility: "public" },
     });
     expect(resubmitted.status).toBe(202);
     // A new cycle: the queue card is a submission again, with no appeal attached to it.

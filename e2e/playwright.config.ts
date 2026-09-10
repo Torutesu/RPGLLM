@@ -51,8 +51,11 @@ if (process.env.E2E_PROD_WEB_URL) {
     name: "web-prod",
     grep: /E2E-012/,
     use: {
-    // Chromium preinstalled in this environment (Playwright build revision may differ; never run `playwright install`)
-    launchOptions: { executablePath: process.env.PW_CHROMIUM_PATH ?? "/opt/pw-browsers/chromium" }, ...desktop, baseURL: process.env.E2E_PROD_WEB_URL },
+      // Chromium preinstalled in this environment (Playwright build revision may differ; never run `playwright install`)
+      launchOptions: { executablePath: process.env.PW_CHROMIUM_PATH ?? "/opt/pw-browsers/chromium" },
+      ...desktop,
+      baseURL: process.env.E2E_PROD_WEB_URL,
+    },
   });
 }
 
@@ -70,10 +73,7 @@ export default defineConfig({
   workers: 1,
   retries: 0,
   forbidOnly: !!process.env.CI,
-  reporter: [
-    ["list"],
-    ["html", { outputFolder: "playwright-report", open: "never" }],
-  ],
+  reporter: [["list"], ["html", { outputFolder: "playwright-report", open: "never" }]],
   outputDir: "test-results",
   use: {
     // Chromium preinstalled in this environment (build revision differs from Playwright 1.62; never run `playwright install`)

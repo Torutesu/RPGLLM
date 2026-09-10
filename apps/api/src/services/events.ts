@@ -13,7 +13,11 @@ export const pendingEvent = (deps: Deps, personaId: string): Promise<DramaEvent 
 
 async function buildG5Input(deps: Deps, ctx: StoryContext, seedKey: string): Promise<G5Input> {
   const [snapshots, past] = await Promise.all([
-    deps.prisma.statSnapshot.findMany({ where: { personaId: ctx.persona.id }, orderBy: { createdAt: "desc" }, take: 5 }),
+    deps.prisma.statSnapshot.findMany({
+      where: { personaId: ctx.persona.id },
+      orderBy: { createdAt: "desc" },
+      take: 5,
+    }),
     deps.prisma.event.findMany({ where: { personaId: ctx.persona.id }, select: { title: true } }),
   ]);
   const byId = new Map(ctx.characters.map((c) => [c.id, c]));
@@ -25,7 +29,10 @@ async function buildG5Input(deps: Deps, ctx: StoryContext, seedKey: string): Pro
       return ch ? [{ handle: ch.handle, affinity: r.affinity, summary: r.summary, isFollower: r.isFollower }] : [];
     }),
     recentSnapshots: snapshots.map((s) => ({
-      narrative: s.narrative, followersDelta: s.followersDelta, auraDelta: s.auraDelta, humorDelta: s.humorDelta,
+      narrative: s.narrative,
+      followersDelta: s.followersDelta,
+      auraDelta: s.auraDelta,
+      humorDelta: s.humorDelta,
     })),
     pastEventTitles: past.map((p) => p.title),
     seed: seedFrom(seedKey),
@@ -33,7 +40,10 @@ async function buildG5Input(deps: Deps, ctx: StoryContext, seedKey: string): Pro
 }
 
 /** Preset event drawn from the world seed (AIF-011 fallback). */
-function presetEvent(ctx: StoryContext, usedTitles: Set<string>): { title: string; prompt: string; choices: StoredChoice[] } | null {
+function presetEvent(
+  ctx: StoryContext,
+  usedTitles: Set<string>,
+): { title: string; prompt: string; choices: StoredChoice[] } | null {
   const presets = ctx.seed?.presetEvents ?? [];
   for (const preset of presets) {
     const title = localized(preset.title, ctx.locale);

@@ -1,7 +1,15 @@
 import { expect, test } from "@playwright/test";
 import { DEV_EMAIL_CODE } from "@rpgllm/shared";
 import {
-  apiUrl, bearer, browserToken, errorOf, randomEmail, resetDb, uiAgeGate, uiEmailLogin, yearsAgo,
+  apiUrl,
+  bearer,
+  browserToken,
+  errorOf,
+  randomEmail,
+  resetDb,
+  uiAgeGate,
+  uiEmailLogin,
+  yearsAgo,
 } from "../fixtures";
 
 test.beforeEach(async ({ request }) => {
@@ -27,7 +35,8 @@ test("SEC-001: dev-code sign-in works end to end and the hardened doors stay shu
 
   // A wrong code is rejected (the dev code is one specific constant, not "any code").
   const wrong = await request.post(apiUrl("/v1/auth/email/verify"), {
-    data: { email: randomEmail(), code: "123456" }, failOnStatusCode: false,
+    data: { email: randomEmail(), code: "123456" },
+    failOnStatusCode: false,
   });
   expect(wrong.status(), "a code that was never issued").toBe(401);
   expect((await errorOf(wrong))?.code).toBe("UNAUTHORIZED");

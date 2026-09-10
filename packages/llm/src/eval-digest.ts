@@ -118,8 +118,7 @@ export function machineChecksDigest(args: DigestChecksArgs): MachineChecks {
     noVerdictLanguage: points.every((p) => !readsAsVerdict(p.concern)),
     emptyIsExplicit: (points.length === 0) === (digest.generatedAt === null),
     foundExpected: expect.every((r) => rules.has(r)),
-    rulesInTaxonomy:
-      points.every((p) => RULE_SET.has(p.rule)) && points.every((p) => CONFIDENCE_SET.has(p.confidence)),
+    rulesInTaxonomy: points.every((p) => RULE_SET.has(p.rule)) && points.every((p) => CONFIDENCE_SET.has(p.confidence)),
     boundedSize:
       points.length <= DIGEST_MAX_POINTS &&
       [...perRule.values()].every((n) => n <= DIGEST_MAX_PER_RULE) &&
@@ -209,10 +208,7 @@ export interface DigestEvalArgs {
  * in replay mode against nothing at all — in which case the digests are the deterministic half and
  * the table says so (`model: "skipped"` on every row).
  */
-export async function runEvalDigest(
-  gateway: ReviewDigestGateway,
-  args: DigestEvalArgs,
-): Promise<DigestEvalResult> {
+export async function runEvalDigest(gateway: ReviewDigestGateway, args: DigestEvalArgs): Promise<DigestEvalResult> {
   const built = await mapPooled(args.cases, args.concurrency ?? args.cases.length, async (spec) => {
     const world = caseWorld(spec);
     const res = await reviewDigest(gateway, {
@@ -290,8 +286,7 @@ export async function runEvalDigest(
     variantId: args.variantId,
     cases: results.length,
     passed: results.filter((r) => r.passed).length,
-    meanScore:
-      results.length === 0 ? 0 : round(results.reduce((s, r) => s + r.score, 0) / results.length, 2),
+    meanScore: results.length === 0 ? 0 : round(results.reduce((s, r) => s + r.score, 0) / results.length, 2),
     recall: plantedRules === 0 ? 1 : round(plantedHit / plantedRules),
     precision: totalPoints === 0 ? 1 : round(onTargetPoints / totalPoints),
     quiet,

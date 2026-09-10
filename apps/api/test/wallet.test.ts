@@ -4,8 +4,12 @@ import { call, getWallet, makeHarness, prisma, resetDatabase, setEnergy, signup,
 
 let h: Harness;
 
-beforeAll(() => { h = makeHarness(); });
-beforeEach(async () => { await resetDatabase(); });
+beforeAll(() => {
+  h = makeHarness();
+});
+beforeEach(async () => {
+  await resetDatabase();
+});
 
 describe("wallet (E2E-007, E2E-008, E2E-015)", () => {
   it("grants ad rewards up to the daily cap then answers 429 AD_LIMIT", async () => {
@@ -14,7 +18,8 @@ describe("wallet (E2E-007, E2E-008, E2E-015)", () => {
 
     for (let i = 1; i <= ENERGY.AD_DAILY_MAX; i++) {
       const res = await call<{ energy: number; adRewardsToday: number }>(h, "POST", "/v1/wallet/ad-reward", {
-        token, body: { adToken: TEST_AD_TOKEN },
+        token,
+        body: { adToken: TEST_AD_TOKEN },
       });
       expect(res.status).toBe(200);
       expect(res.data.energy).toBe(i * ENERGY.AD_REWARD);
@@ -35,7 +40,10 @@ describe("wallet (E2E-007, E2E-008, E2E-015)", () => {
     const { token, userId } = await signup(h);
     await prisma.wallet.update({ where: { userId }, data: { coffee: 2 } });
     await setEnergy(h, token, 0);
-    const res = await call<{ energy: number; coffee: number }>(h, "POST", "/v1/wallet/coffee", { token, body: { count: 1 } });
+    const res = await call<{ energy: number; coffee: number }>(h, "POST", "/v1/wallet/coffee", {
+      token,
+      body: { count: 1 },
+    });
     expect(res.data.energy).toBe(ENERGY.COFFEE_ENERGY);
     expect(res.data.coffee).toBe(1);
   });
@@ -44,14 +52,18 @@ describe("wallet (E2E-007, E2E-008, E2E-015)", () => {
     const { token } = await signup(h);
     await setEnergy(h, token, 0);
 
-    const offerings = await call<{ plans: { id: string; highlighted: boolean }[]; experiments: { trialDays: number; showAdFree: boolean } }>(
-      h, "GET", "/v1/billing/offerings", { token },
-    );
+    const offerings = await call<{
+      plans: { id: string; highlighted: boolean }[];
+      experiments: { trialDays: number; showAdFree: boolean };
+    }>(h, "GET", "/v1/billing/offerings", { token });
     expect(offerings.data.plans.find((p) => p.id === "plus_monthly")?.highlighted).toBe(true);
     expect([0, 7]).toContain(offerings.data.experiments.trialDays);
 
     const res = await call<{ subscription: { plan: string; active: boolean }; energy: number }>(
-      h, "POST", "/v1/billing/dev-purchase", { token, body: { plan: "plus_monthly" } },
+      h,
+      "POST",
+      "/v1/billing/dev-purchase",
+      { token, body: { plan: "plus_monthly" } },
     );
     expect(res.status).toBe(200);
     expect(res.data.energy).toBe(PLANS.plus_monthly.energyDaily);

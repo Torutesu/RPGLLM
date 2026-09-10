@@ -27,7 +27,11 @@ const defaultIdOf = (item: unknown): string | null => {
  * `idOf` defaults to `authorCharacterId` then `characterId`; pass one for other shapes
  * (e.g. the world cast, keyed on `id`).
  */
-export function withoutBlocked<T>(list: readonly T[], blockedIds: readonly string[], idOf: (item: T) => string | null = defaultIdOf): T[] {
+export function withoutBlocked<T>(
+  list: readonly T[],
+  blockedIds: readonly string[],
+  idOf: (item: T) => string | null = defaultIdOf,
+): T[] {
   if (blockedIds.length === 0) return [...list];
   const blocked = new Set(blockedIds);
   return list.filter((item) => {

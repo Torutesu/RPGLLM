@@ -68,7 +68,7 @@ function ambientInput(
     locale,
     worldSlug: world.slug,
     worldBible: localized(world.bible, locale),
-    isMinor: true,           // the pool is shared, so it is written to the strictest audience
+    isMinor: true, // the pool is shared, so it is written to the strictest audience
     persona: {
       handle: "world",
       displayName: localized(world.title, locale),
@@ -111,8 +111,8 @@ export async function refillPool(
   const rows: Prisma.AmbientPostCreateManyInput[] = [];
   for (const [i, reply] of result.output.replies.entries()) {
     const character =
-      characters.find((c) => normHandle(c.handle) === normHandle(reply.characterHandle))
-      ?? characters[i % Math.max(1, characters.length)];
+      characters.find((c) => normHandle(c.handle) === normHandle(reply.characterHandle)) ??
+      characters[i % Math.max(1, characters.length)];
     if (!character) continue;
     if (reply.text.trim().length === 0) continue;
     rows.push({ worldId: world.id, characterId: character.id, locale: locale as Locale, text: reply.text });
@@ -136,17 +136,22 @@ export async function runAmbientRefill(
   let pools = 0;
   let created = 0;
   for (const world of worlds) {
-    const characters = await prisma.worldCharacter.findMany({ where: { worldId: world.id }, orderBy: { handle: "asc" } });
+    const characters = await prisma.worldCharacter.findMany({
+      where: { worldId: world.id },
+      orderBy: { handle: "asc" },
+    });
     if (characters.length === 0) continue;
     for (const locale of locales) {
-      const n = await refillPool(prisma, gateway, world, characters, locale, { force: opts.force ?? false, target: opts.target ?? undefined });
+      const n = await refillPool(prisma, gateway, world, characters, locale, {
+        force: opts.force ?? false,
+        target: opts.target ?? undefined,
+      });
       if (n > 0) pools += 1;
       created += n;
     }
   }
   return { pools, created };
 }
-
 
 /* ------------------------------------------------------- the batch tier ---- */
 
@@ -170,8 +175,8 @@ async function writeAmbientPosts(
   const rows: Prisma.AmbientPostCreateManyInput[] = [];
   for (const [i, post] of posts.entries()) {
     const character =
-      characters.find((c) => normHandle(c.handle) === normHandle(post.characterHandle))
-      ?? characters[i % Math.max(1, characters.length)];
+      characters.find((c) => normHandle(c.handle) === normHandle(post.characterHandle)) ??
+      characters[i % Math.max(1, characters.length)];
     if (!character) continue;
     if (post.text.trim().length === 0) continue;
     rows.push({ worldId: world.id, characterId: character.id, locale: locale as Locale, text: post.text });
@@ -209,7 +214,10 @@ export async function runAmbientRefillBatchedJob(
   const pools = new Map<string, { world: World; characters: WorldCharacter[]; locale: LocaleKey }>();
 
   for (const world of worlds) {
-    const characters = await prisma.worldCharacter.findMany({ where: { worldId: world.id }, orderBy: { handle: "asc" } });
+    const characters = await prisma.worldCharacter.findMany({
+      where: { worldId: world.id },
+      orderBy: { handle: "asc" },
+    });
     if (characters.length === 0) continue;
     for (const locale of locales) {
       const key = `${world.id}:${locale}`;
@@ -230,7 +238,7 @@ export async function runAmbientRefillBatchedJob(
           locale,
           worldSlug: world.slug,
           worldBible: localized(world.bible, locale),
-          isMinor: true,        // the pool is shared, so it is written to the strictest audience
+          isMinor: true, // the pool is shared, so it is written to the strictest audience
           cast: cardsFor(characters, locale),
           n,
           avoid: avoid.map((a) => a.text),

@@ -13,7 +13,10 @@ import { fileURLToPath } from "node:url";
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { runJobOnce, type JobDeps } from "../src/jobs/registry";
 import {
-  CREATOR_HANDLE_RE, adoptFirstPersonaHandle, createUserWithCreatorHandle, placeholderHandle,
+  CREATOR_HANDLE_RE,
+  adoptFirstPersonaHandle,
+  createUserWithCreatorHandle,
+  placeholderHandle,
 } from "../src/services/creator-handle";
 import { creatorHandles } from "../src/services/world-studio";
 import { call, makeHarness, prisma, resetDatabase, signup, signupWithPersona, type Harness } from "./helpers";
@@ -33,14 +36,26 @@ beforeEach(async () => {
 
 /* ------------------------------------------------------------------ helpers ---- */
 
-interface WorldFull { id: string; slug: string; status: string; creatorHandle: string | null }
-interface CreateRes { world: WorldFull }
-interface DetailRes { world: WorldFull }
+interface WorldFull {
+  id: string;
+  slug: string;
+  status: string;
+  creatorHandle: string | null;
+}
+interface CreateRes {
+  world: WorldFull;
+}
+interface DetailRes {
+  world: WorldFull;
+}
 
 const PREMISE = "Seven rookies, one debut slot, and a leaked group chat";
 
 const createWorld = (token: string, visibility = "private") =>
-  call<CreateRes>(h, "POST", "/v1/worlds", { token, body: { premise: PREMISE, genre: "idol", locale: "en", visibility } });
+  call<CreateRes>(h, "POST", "/v1/worlds", {
+    token,
+    body: { premise: PREMISE, genre: "idol", locale: "en", visibility },
+  });
 
 async function buildOnce(): Promise<void> {
   const record = await runJobOnce(deps, "world-build", { trigger: "test" });
@@ -87,8 +102,9 @@ describe("every account has a name", () => {
   it("reads as a name a person might have picked, not as a row id", () => {
     // The credit is the aspirational half of "made by @someone"; `user_7x3k9q` is product-hostile.
     expect(placeholderHandle("seed-a")).toMatch(/^[a-z]{6,12}\d{2}$/);
-    expect(placeholderHandle("seed-a"), "deterministic, so a retry is not a new name")
-      .toBe(placeholderHandle("seed-a"));
+    expect(placeholderHandle("seed-a"), "deterministic, so a retry is not a new name").toBe(
+      placeholderHandle("seed-a"),
+    );
     expect(placeholderHandle("seed-b")).not.toBe(placeholderHandle("seed-a"));
   });
 
@@ -100,12 +116,33 @@ describe("every account has a name", () => {
   it("keeps the name unique when two signups race for it", async () => {
     const seed = "identical-seed";
     const [a, b] = await Promise.all([
-      createUserWithCreatorHandle(prisma, { email: "race-a@example.com", authProvider: "email", authSubject: "race-a@example.com", birthYear: 1995, isMinor: false }, seed),
-      createUserWithCreatorHandle(prisma, { email: "race-b@example.com", authProvider: "email", authSubject: "race-b@example.com", birthYear: 1995, isMinor: false }, seed),
+      createUserWithCreatorHandle(
+        prisma,
+        {
+          email: "race-a@example.com",
+          authProvider: "email",
+          authSubject: "race-a@example.com",
+          birthYear: 1995,
+          isMinor: false,
+        },
+        seed,
+      ),
+      createUserWithCreatorHandle(
+        prisma,
+        {
+          email: "race-b@example.com",
+          authProvider: "email",
+          authSubject: "race-b@example.com",
+          birthYear: 1995,
+          isMinor: false,
+        },
+        seed,
+      ),
     ]);
     expect(a.creatorHandle).not.toBe(b.creatorHandle);
-    expect([a.creatorHandle, b.creatorHandle], "one of them still gets the name the seed asked for")
-      .toContain(placeholderHandle(`${seed}:0`));
+    expect([a.creatorHandle, b.creatorHandle], "one of them still gets the name the seed asked for").toContain(
+      placeholderHandle(`${seed}:0`),
+    );
     expect(await prisma.user.count({ where: { id: { in: [a.id, b.id] } } })).toBe(2);
   });
 
@@ -113,11 +150,23 @@ describe("every account has a name", () => {
     const world = await prisma.world.findFirstOrThrow({ where: { isPreset: true } });
     const taken = placeholderHandle("cast-clash:0");
     await prisma.worldCharacter.create({
-      data: { worldId: world.id, handle: `@${taken}`, displayName: "Squatter", role: "rival", card: { en: "", ja: "" } },
+      data: {
+        worldId: world.id,
+        handle: `@${taken}`,
+        displayName: "Squatter",
+        role: "rival",
+        card: { en: "", ja: "" },
+      },
     });
     const user = await createUserWithCreatorHandle(
       prisma,
-      { email: "clash@example.com", authProvider: "email", authSubject: "clash@example.com", birthYear: 1995, isMinor: false },
+      {
+        email: "clash@example.com",
+        authProvider: "email",
+        authSubject: "clash@example.com",
+        birthYear: 1995,
+        isMinor: false,
+      },
       "cast-clash",
     );
     expect(user.creatorHandle).not.toBe(taken);
@@ -144,13 +193,21 @@ describe("the first persona names the account", () => {
 
     const secondWorldId = await aWorldOfTheirOwn(token);
     const detail = await call<{ characters: { id: string; canBeFirstFollower: boolean }[] }>(
-      h, "GET", `/v1/worlds/${secondWorldId}`, { token },
+      h,
+      "GET",
+      `/v1/worlds/${secondWorldId}`,
+      { token },
     );
     const created = await call(h, "POST", "/v1/personas", {
       token,
       body: {
-        worldId: secondWorldId, handle: "someoneelse", displayName: "Other", bio: "", avatarUrl: null,
-        voiceNotes: "", firstFollowerId: detail.data.characters.find((c) => c.canBeFirstFollower)!.id,
+        worldId: secondWorldId,
+        handle: "someoneelse",
+        displayName: "Other",
+        bio: "",
+        avatarUrl: null,
+        voiceNotes: "",
+        firstFollowerId: detail.data.characters.find((c) => c.canBeFirstFollower)!.id,
         idempotencyKey: `idem-${Math.random().toString(36).slice(2)}`,
       },
     });
@@ -167,19 +224,28 @@ describe("the first persona names the account", () => {
     const created = await createWorld(token);
     await buildOnce();
     const publish = await call(h, "POST", `/v1/worlds/${created.data.world.id}/publish`, {
-      token, body: { visibility: "unlisted" },
+      token,
+      body: { visibility: "unlisted" },
     });
     expect(publish.status).toBe(200);
 
     // Only now do they make a persona. The name the world went out under wins.
     const detail = await call<{ characters: { id: string; canBeFirstFollower: boolean }[] }>(
-      h, "GET", `/v1/worlds/${created.data.world.id}`, { token },
+      h,
+      "GET",
+      `/v1/worlds/${created.data.world.id}`,
+      { token },
     );
     const persona = await call(h, "POST", "/v1/personas", {
       token,
       body: {
-        worldId: created.data.world.id, handle: "latecomer", displayName: "Late", bio: "", avatarUrl: null,
-        voiceNotes: "", firstFollowerId: detail.data.characters.find((c) => c.canBeFirstFollower)!.id,
+        worldId: created.data.world.id,
+        handle: "latecomer",
+        displayName: "Late",
+        bio: "",
+        avatarUrl: null,
+        voiceNotes: "",
+        firstFollowerId: detail.data.characters.find((c) => c.canBeFirstFollower)!.id,
         idempotencyKey: `idem-${Math.random().toString(36).slice(2)}`,
       },
     });
@@ -286,12 +352,13 @@ describe("existing rows migrate", () => {
       const earlier = readdirSync(MIGRATIONS)
         .filter((name) => /^\d/.test(name) && name !== THIS_MIGRATION)
         .sort();
-      expect(earlier.length, "the suite must be replaying real history, not an empty directory")
-        .toBeGreaterThan(0);
+      expect(earlier.length, "the suite must be replaying real history, not an empty directory").toBeGreaterThan(0);
       for (const name of earlier) psqlFile(URL, join(MIGRATIONS, name, "migration.sql"));
 
       // 2. the rows that already exist, including every shape the backfill has to survive.
-      psql(URL, `
+      psql(
+        URL,
+        `
         INSERT INTO "World" ("id","slug","title","scenario","bible","bibleTokens","genre")
         VALUES ('w1','w-one','{}','{}','{}',0,'idol'), ('w2','w-two','{}','{}','{}',0,'idol');
         INSERT INTO "WorldCharacter" ("id","worldId","handle","displayName","role","card")
@@ -311,25 +378,38 @@ describe("existing rows migrate", () => {
           ('p4','u-late','w2','shared','C','2026-03-01'),
           -- a handle some world's cast already goes by
           ('p5','u-cast','w2','bigbossmei','D','2026-01-01');
-      `);
+      `,
+      );
 
       // 3. forward.
       psqlFile(URL, join(API, "prisma/migrations", THIS_MIGRATION, "migration.sql"));
 
-      interface Row { handle: string; claimed: string }
+      interface Row {
+        handle: string;
+        claimed: string;
+      }
       const rows = new Map<string, Row>(
-        psql(URL, `SELECT "id" || ' ' || "creatorHandle" || ' ' || (("creatorHandleClaimedAt" IS NOT NULL)::text) FROM "User" ORDER BY "id"`)
-          .trim().split("\n").map((line): [string, Row] => {
+        psql(
+          URL,
+          `SELECT "id" || ' ' || "creatorHandle" || ' ' || (("creatorHandleClaimedAt" IS NOT NULL)::text) FROM "User" ORDER BY "id"`,
+        )
+          .trim()
+          .split("\n")
+          .map((line): [string, Row] => {
             const [id = "", handle = "", claimed = ""] = line.split(" ");
             return [id, { handle, claimed }];
           }),
       );
       const row = (id: string): Row => rows.get(id) ?? { handle: "", claimed: "" };
 
-      expect(row("u-latest"), "the credit their worlds show today does not change on migration day")
-        .toEqual({ handle: "newname", claimed: "true" });
-      expect(row("u-early"), "the earlier persona keeps the shared handle")
-        .toEqual({ handle: "shared", claimed: "true" });
+      expect(row("u-latest"), "the credit their worlds show today does not change on migration day").toEqual({
+        handle: "newname",
+        claimed: "true",
+      });
+      expect(row("u-early"), "the earlier persona keeps the shared handle").toEqual({
+        handle: "shared",
+        claimed: "true",
+      });
       expect(row("u-late").handle, "and the later one is given a name of its own").not.toBe("shared");
       expect(row("u-cast").handle, "a cast handle is never adopted as a credit").not.toBe("bigbossmei");
       expect(row("u-none").handle, "an account that never had a persona still gets a name").toMatch(CREATOR_HANDLE_RE);
@@ -339,7 +419,10 @@ describe("existing rows migrate", () => {
       expect(new Set([...rows.values()].map((r) => r.handle)).size).toBe(5);
       expect(psql(URL, `SELECT count(*) FROM "User" WHERE "creatorHandle" IS NULL`).trim()).toBe("0");
       expect(
-        psql(URL, `SELECT count(*) FROM information_schema.columns WHERE table_name='User' AND column_name='creatorHandle' AND is_nullable='NO'`).trim(),
+        psql(
+          URL,
+          `SELECT count(*) FROM information_schema.columns WHERE table_name='User' AND column_name='creatorHandle' AND is_nullable='NO'`,
+        ).trim(),
         "and the invariant is the database's, not a convention",
       ).toBe("1");
     } finally {

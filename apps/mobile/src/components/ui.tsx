@@ -105,8 +105,7 @@ export function Button({
   const [focused, setFocused] = useState(false);
   const haptic = useHaptic();
   const off = disabled || loading;
-  const fg =
-    variant === "primary" ? colors.accentInk : variant === "danger" ? colors.danger : colors.text;
+  const fg = variant === "primary" ? colors.accentInk : variant === "danger" ? colors.danger : colors.text;
   const padV = compact ? spacing.sm : spacing.md;
   const padH = compact ? spacing.lg : spacing.xl;
 
@@ -114,7 +113,11 @@ export function Button({
     <>
       {loading ? <ActivityIndicator color={fg} size="small" /> : null}
       {icon && !loading ? <Icon name={icon} size={compact ? 15 : 17} color={fg} /> : null}
-      <Text importantForAccessibility="no" numberOfLines={1} style={[typo.label, { color: fg, fontSize: compact ? font.sm : font.md }]}>
+      <Text
+        importantForAccessibility="no"
+        numberOfLines={1}
+        style={[typo.label, { color: fg, fontSize: compact ? font.sm : font.md }]}
+      >
         {label}
       </Text>
     </>
@@ -149,7 +152,11 @@ export function Button({
       {({ pressed }) => (
         <View style={{ borderRadius: radius.pill, overflow: "hidden" }}>
           {variant === "primary" ? (
-            <Gradient colors={gradients.brand} angle={115} style={[inner, { paddingVertical: padV, paddingHorizontal: padH }]}>
+            <Gradient
+              colors={gradients.brand}
+              angle={115}
+              style={[inner, { paddingVertical: padV, paddingHorizontal: padH }]}
+            >
               {body}
             </Gradient>
           ) : (
@@ -159,8 +166,7 @@ export function Button({
                 {
                   paddingVertical: padV,
                   paddingHorizontal: padH,
-                  backgroundColor:
-                    variant === "secondary" ? (pressed ? colors.cardHi : colors.card) : "transparent",
+                  backgroundColor: variant === "secondary" ? (pressed ? colors.cardHi : colors.card) : "transparent",
                   borderWidth: variant === "ghost" || variant === "danger" ? 1 : 1,
                   borderColor:
                     variant === "danger" ? colors.danger : variant === "ghost" ? colors.border : colors.borderHi,
@@ -171,7 +177,17 @@ export function Button({
             </View>
           )}
           {pressed && variant === "primary" ? (
-            <View pointerEvents="none" style={{ position: "absolute", left: 0, right: 0, top: 0, bottom: 0, backgroundColor: "rgba(7,7,12,0.18)" }} />
+            <View
+              pointerEvents="none"
+              style={{
+                position: "absolute",
+                left: 0,
+                right: 0,
+                top: 0,
+                bottom: 0,
+                backgroundColor: "rgba(7,7,12,0.18)",
+              }}
+            />
           ) : null}
           {FOCUS_RING && focused ? (
             <View
@@ -230,7 +246,8 @@ export function IconButton({
         borderRadius: radius.pill,
         alignItems: "center",
         justifyContent: "center",
-        backgroundColor: tone === "filled" ? (pressed ? colors.cardHi : colors.card) : pressed ? colors.cardHi : "transparent",
+        backgroundColor:
+          tone === "filled" ? (pressed ? colors.cardHi : colors.card) : pressed ? colors.cardHi : "transparent",
         borderWidth: tone === "filled" ? 1 : 0,
         borderColor: colors.border,
       })}
@@ -288,7 +305,11 @@ export function Field({
         ]}
       />
       {error ? (
-        <Text accessibilityRole="alert" accessibilityLiveRegion="polite" style={[typo.caption, { color: colors.danger }]}>
+        <Text
+          accessibilityRole="alert"
+          accessibilityLiveRegion="polite"
+          style={[typo.caption, { color: colors.danger }]}
+        >
           {error}
         </Text>
       ) : null}
@@ -299,15 +320,7 @@ export function Field({
 
 /* ---------------------------------------------------------------- header ---- */
 
-export function HeaderBar({
-  title,
-  right,
-  onBack,
-}: {
-  title: string;
-  right?: React.ReactNode;
-  onBack?: () => void;
-}) {
+export function HeaderBar({ title, right, onBack }: { title: string; right?: React.ReactNode; onBack?: () => void }) {
   const { t } = useT();
   return (
     <View
@@ -327,7 +340,12 @@ export function HeaderBar({
     >
       <View style={{ flexDirection: "row", alignItems: "center", gap: spacing.xs, flexShrink: 1 }}>
         {onBack ? <IconButton name="chevronLeft" onPress={onBack} label={t("back")} color={colors.text} /> : null}
-        <Text numberOfLines={1} accessibilityRole="header" accessibilityLabel={title} style={[typo.h2, { color: colors.text }]}>
+        <Text
+          numberOfLines={1}
+          accessibilityRole="header"
+          accessibilityLabel={title}
+          style={[typo.h2, { color: colors.text }]}
+        >
           {title}
         </Text>
       </View>

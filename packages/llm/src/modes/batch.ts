@@ -1,7 +1,14 @@
 import type { z } from "zod";
 import type { Usage } from "@rpgllm/shared";
 import { GeneratorFailure } from "../errors.js";
-import { anthropicClient, buildRequest, extractJson, mapUsage, type BuildRequestArgs, type LiveRequest } from "./live.js";
+import {
+  anthropicClient,
+  buildRequest,
+  extractJson,
+  mapUsage,
+  type BuildRequestArgs,
+  type LiveRequest,
+} from "./live.js";
 
 /**
  * Batch tier (cost-architecture §5.4) — the Message Batches API.
@@ -193,7 +200,8 @@ export async function runLiveBatch<T>(args: RunLiveBatchArgs<T>): Promise<Map<st
   try {
     batch = await api.create(built.body);
   } catch (cause) {
-    for (const original of built.idMap.values()) out.set(original, miss("errored", `batch create failed: ${String(cause)}`));
+    for (const original of built.idMap.values())
+      out.set(original, miss("errored", `batch create failed: ${String(cause)}`));
     return out;
   }
 
@@ -201,7 +209,8 @@ export async function runLiveBatch<T>(args: RunLiveBatchArgs<T>): Promise<Map<st
   let ended = batch.processing_status === "ended";
   while (!ended) {
     if (now() >= deadline) {
-      for (const original of built.idMap.values()) out.set(original, miss("expired", "batch did not end before the deadline"));
+      for (const original of built.idMap.values())
+        out.set(original, miss("expired", "batch did not end before the deadline"));
       return out;
     }
     await sleep(pollIntervalMs());
@@ -209,7 +218,8 @@ export async function runLiveBatch<T>(args: RunLiveBatchArgs<T>): Promise<Map<st
       const polled = await api.retrieve(batch.id);
       ended = polled.processing_status === "ended";
     } catch (cause) {
-      for (const original of built.idMap.values()) out.set(original, miss("errored", `batch retrieve failed: ${String(cause)}`));
+      for (const original of built.idMap.values())
+        out.set(original, miss("errored", `batch retrieve failed: ${String(cause)}`));
       return out;
     }
   }
@@ -262,7 +272,14 @@ function resolveEntry<T>(entry: RawBatchResult, schema: z.ZodType<T> | undefined
     const parsed: unknown = JSON.parse(raw);
     const check = schema === undefined ? { success: false as const } : schema.safeParse(parsed);
     if (!check.success) {
-      return { status: "succeeded", output: null, usage, stopReason: "invalid_json", model, error: "output failed schema" };
+      return {
+        status: "succeeded",
+        output: null,
+        usage,
+        stopReason: "invalid_json",
+        model,
+        error: "output failed schema",
+      };
     }
     return {
       status: "succeeded",

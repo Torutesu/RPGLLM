@@ -50,7 +50,11 @@ export function creatorRoutes(): Hono<AppEnv> {
     const isYou = creator.id === viewer.id;
     const shelf = { createdBy: creator.id, status: "published", visibility: "public" } as const;
     const [worlds, totals, trust] = await Promise.all([
-      deps.prisma.world.findMany({ where: shelf, orderBy: [{ createdAt: "desc" }, { id: "desc" }], take: PROFILE_WORLDS }),
+      deps.prisma.world.findMany({
+        where: shelf,
+        orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+        take: PROFILE_WORLDS,
+      }),
       // Counted over the same set the list is drawn from: a "total plays" that included private
       // drafts would leak how much unpublished work someone has, and would not add up to the
       // numbers on the cards below it.

@@ -2,7 +2,16 @@ import type { Prisma } from "@prisma/client";
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { REEL, rank, scoreCandidate, statLine } from "../src/services/reel";
 import { textUnits, truncateToUnits } from "../src/services/reel-text";
-import { call, makeHarness, prisma, readSSE, resetDatabase, signupWithPersona, type Harness, type PersonaFixture } from "./helpers";
+import {
+  call,
+  makeHarness,
+  prisma,
+  readSSE,
+  resetDatabase,
+  signupWithPersona,
+  type Harness,
+  type PersonaFixture,
+} from "./helpers";
 
 /**
  * The reel (gtm.md §4) — a moment as something that moves.
@@ -17,17 +26,33 @@ import { call, makeHarness, prisma, readSSE, resetDatabase, signupWithPersona, t
 let h: Harness;
 
 interface Beat {
-  kind: string; at: number; holdMs: number;
-  handle: string | null; displayName: string | null; text: string;
+  kind: string;
+  at: number;
+  holdMs: number;
+  handle: string | null;
+  displayName: string | null;
+  text: string;
   delta: { followers: number; aura: number; humor: number } | null;
 }
 interface Reel {
-  slug: string; worldTitle: string; worldSlug: string; personaHandle: string;
-  creatorHandle: string | null; durationMs: number; beats: Beat[];
+  slug: string;
+  worldTitle: string;
+  worldSlug: string;
+  personaHandle: string;
+  creatorHandle: string | null;
+  durationMs: number;
+  beats: Beat[];
 }
 
-beforeAll(() => { h = makeHarness(); });
-beforeEach(async () => { await resetDatabase(); h.clock.reset(); h.gateway.setMode("replay"); h.gateway.calls.length = 0; });
+beforeAll(() => {
+  h = makeHarness();
+});
+beforeEach(async () => {
+  await resetDatabase();
+  h.clock.reset();
+  h.gateway.setMode("replay");
+  h.gateway.calls.length = 0;
+});
 
 /** A real post, its real reactions, and the swing they caused — turned into a shareable moment. */
 async function momentFrom(
@@ -36,7 +61,8 @@ async function momentFrom(
   patch: (snapshotId: string) => Promise<void> = async () => {},
 ): Promise<{ postId: string; slug: string }> {
   const created = await call<{ post: { id: string }; streamUrl: string }>(h, "POST", "/v1/posts", {
-    token: fx.token, body: { personaId: fx.personaId, text, parentId: null },
+    token: fx.token,
+    body: { personaId: fx.personaId, text, parentId: null },
   });
   expect(created.status).toBe(201);
   const postId = created.data.post.id;
@@ -47,9 +73,9 @@ async function momentFrom(
   await prisma.statSnapshot.update({ where: { id: snapshot.id }, data: { auraDelta: 6 } });
   await patch(snapshot.id);
 
-  const list = await call<{ moments: { shareSlug: string }[] }>(
-    h, "GET", `/v1/moments?personaId=${fx.personaId}`, { token: fx.token },
-  );
+  const list = await call<{ moments: { shareSlug: string }[] }>(h, "GET", `/v1/moments?personaId=${fx.personaId}`, {
+    token: fx.token,
+  });
   expect(list.data.moments).toHaveLength(1);
   return { postId, slug: list.data.moments[0]!.shareSlug };
 }
@@ -157,7 +183,9 @@ describe("GET /v1/moments/:slug/reel", () => {
   it("puts the reaction that turned against the player last, right before the number", async () => {
     const fx = await signupWithPersona(h);
     // The rival disagreeing is the sharpest thing in nine seconds; everyone else agreed.
-    const rival = await prisma.worldCharacter.findFirstOrThrow({ where: { worldId: fx.worldId, handle: "@the6ixdrey" } });
+    const rival = await prisma.worldCharacter.findFirstOrThrow({
+      where: { worldId: fx.worldId, handle: "@the6ixdrey" },
+    });
     const { slug } = await momentFrom(fx, "hot take incoming", async (snapshotId) => {
       const row = await prisma.statSnapshot.findUniqueOrThrow({ where: { id: snapshotId } });
       const previous = (row.relDeltas as { deltas?: Record<string, number>; after?: unknown }) ?? {};
@@ -185,11 +213,18 @@ describe("GET /v1/moments/:slug/reel", () => {
     const before = (await getReel(slug)).data;
 
     // `POST /posts/:id/more-replies` writes rows after the snapshot. A published reel must not move.
-    const late = await prisma.worldCharacter.findFirstOrThrow({ where: { worldId: fx.worldId, handle: "@hivequeenbea" } });
+    const late = await prisma.worldCharacter.findFirstOrThrow({
+      where: { worldId: fx.worldId, handle: "@hivequeenbea" },
+    });
     await prisma.post.create({
       data: {
-        worldId: fx.worldId, personaId: fx.personaId, authorCharacterId: late.id, kind: "character",
-        text: "AND ANOTHER THING 🐝", parentId: postId, heat: 99,
+        worldId: fx.worldId,
+        personaId: fx.personaId,
+        authorCharacterId: late.id,
+        kind: "character",
+        text: "AND ANOTHER THING 🐝",
+        parentId: postId,
+        heat: 99,
         createdAt: new Date(Date.now() + 60_000),
       },
     });
@@ -212,7 +247,10 @@ describe("the reel's judgement calls", () => {
   it("drops the lukewarm ones rather than padding the reel out to three", () => {
     const c = (id: string, score: number) => ({ id, score, handle: id, displayName: id, text: id, at: 0 });
     const kept = rank([c("a", 100), c("b", 80), c("c", 20), c("d", 5)]);
-    expect(kept.map((x) => x.id), "20 and 5 are below 45% of the best one").toEqual(["a", "b"]);
+    expect(
+      kept.map((x) => x.id),
+      "20 and 5 are below 45% of the best one",
+    ).toEqual(["a", "b"]);
     // Ties are broken by time then id, so the ranking is a total order and the reel never wobbles.
     expect(rank([c("z", 50), c("y", 50)]).map((x) => x.id)).toEqual(["y", "z"]);
     expect(rank([])).toEqual([]);

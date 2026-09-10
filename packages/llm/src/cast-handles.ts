@@ -36,8 +36,26 @@ import { fnv1a } from "./tokens.js";
 
 /** Human-readable account suffixes, tried before digits. They read as names, not as escapes. */
 const SUFFIXES: readonly string[] = [
-  "_hq", "_irl", "_live", "_here", "_now", "_daily", "_pls", "_tv", "_fm", "_x",
-  "2", "3", "7", "9", "_01", "_02", "_07", "_11", "_21", "_99",
+  "_hq",
+  "_irl",
+  "_live",
+  "_here",
+  "_now",
+  "_daily",
+  "_pls",
+  "_tv",
+  "_fm",
+  "_x",
+  "2",
+  "3",
+  "7",
+  "9",
+  "_01",
+  "_02",
+  "_07",
+  "_11",
+  "_21",
+  "_99",
 ];
 
 const MAX_HANDLE = 15;

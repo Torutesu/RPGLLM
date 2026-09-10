@@ -10,14 +10,7 @@ import {
   renderProse,
 } from "./blueprint.js";
 import { roleIn } from "./types.js";
-import type {
-  G9BibleOutput,
-  G9CardOutput,
-  G9CastEventsOutput,
-  G9Concept,
-  G9Input,
-  G9TextureOutput,
-} from "./types.js";
+import type { G9BibleOutput, G9CardOutput, G9CastEventsOutput, G9Concept, G9Input, G9TextureOutput } from "./types.js";
 
 /**
  * G9 — assembly (AIF-003).

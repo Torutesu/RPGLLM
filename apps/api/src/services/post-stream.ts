@@ -12,8 +12,18 @@ import { generateEvent, ensureEvent, pendingEvent } from "./events";
 import { LIKES_PER_POST, likeText, notify, notifyFollowerMilestones, replyText } from "./notify";
 import { currentEnergy, refundEnergy } from "./wallet";
 import {
-  applyRelationshipDeltas, applyStatDeltas, baseCtx, castCards, characterByHandle, involvedFor,
-  parentAuthorHandleOf, personaState, pressAccount, recentFeed, writeMemoryNotes, type StoryContext,
+  applyRelationshipDeltas,
+  applyStatDeltas,
+  baseCtx,
+  castCards,
+  characterByHandle,
+  involvedFor,
+  parentAuthorHandleOf,
+  personaState,
+  pressAccount,
+  recentFeed,
+  writeMemoryNotes,
+  type StoryContext,
 } from "./story";
 
 export type Emit = (ev: PostStreamEvent) => Promise<void>;
@@ -118,23 +128,31 @@ export async function materializeReplies(
   const carriers = carrierIndices(post.id, output.replies.length);
   for (const [i, reply] of output.replies.entries()) {
     const character: WorldCharacter | undefined =
-      characterByHandle(ctx.characters, reply.characterHandle) ?? ctx.characters[i % Math.max(1, ctx.characters.length)];
+      characterByHandle(ctx.characters, reply.characterHandle) ??
+      ctx.characters[i % Math.max(1, ctx.characters.length)];
     if (!character) continue;
     // The reply row and the notifications it causes are written together: a rolled-back reply must
     // never leave a "@x replied to you" row behind (Agent L).
     const row = await deps.prisma.$transaction(async (tx) => {
-      const created = await createPostWithMetrics(tx, {
-        worldId: ctx.world.id,
-        personaId: ctx.persona.id,
-        authorCharacterId: character.id,
-        kind: "character",
-        text: reply.text,
-        parentId: post.id,
-        generationId,
-        createdAt: deps.clock.now(),
-        metrics: {},
-        // A reaction to the player's post is a row in their feed, not a nested thread reply.
-      }, ctx.persona.followers, {}, true, carriers.has(i));
+      const created = await createPostWithMetrics(
+        tx,
+        {
+          worldId: ctx.world.id,
+          personaId: ctx.persona.id,
+          authorCharacterId: character.id,
+          kind: "character",
+          text: reply.text,
+          parentId: post.id,
+          generationId,
+          createdAt: deps.clock.now(),
+          metrics: {},
+          // A reaction to the player's post is a row in their feed, not a nested thread reply.
+        },
+        ctx.persona.followers,
+        {},
+        true,
+        carriers.has(i),
+      );
       if (notifiesPersona) {
         await notify(tx, {
           personaId: ctx.persona.id,
@@ -203,16 +221,21 @@ export async function runPostStream(
   if (result.output.news) {
     const press = pressAccount(ctx.characters);
     if (press) {
-      const newsRow = await createPostWithMetrics(deps.prisma, {
-        worldId: ctx.world.id,
-        personaId: ctx.persona.id,
-        authorCharacterId: press.id,
-        kind: "news",
-        text: result.output.news.text,
-        generationId,
-        createdAt: deps.clock.now(),
-        metrics: {},
-      }, ctx.persona.followers, { causedBy: statCause(post.id) });
+      const newsRow = await createPostWithMetrics(
+        deps.prisma,
+        {
+          worldId: ctx.world.id,
+          personaId: ctx.persona.id,
+          authorCharacterId: press.id,
+          kind: "news",
+          text: result.output.news.text,
+          generationId,
+          createdAt: deps.clock.now(),
+          metrics: {},
+        },
+        ctx.persona.followers,
+        { causedBy: statCause(post.id) },
+      );
       await emit({ type: "news", post: toApiPost(newsRow, ctx.persona) });
     }
   }
@@ -221,7 +244,13 @@ export async function runPostStream(
   const snapshot = await deps.prisma.$transaction(async (tx) => {
     await tx.persona.update({
       where: { id: ctx.persona.id },
-      data: { followers: applied.followers, aura: applied.aura, humor: applied.humor, xp: applied.xp, level: applied.level },
+      data: {
+        followers: applied.followers,
+        aura: applied.aura,
+        humor: applied.humor,
+        xp: applied.xp,
+        level: applied.level,
+      },
     });
     const relDeltas = await applyRelationshipDeltas(tx, ctx, result.output.relationship_deltas);
     await writeMemoryNotes(tx, ctx, result.output.memory_notes, statCause(post.id));

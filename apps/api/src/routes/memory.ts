@@ -42,7 +42,8 @@ export function memoryRoutes(): Hono<AppEnv> {
 
     const key = c.req.param("characterId");
     const characters = await deps.prisma.worldCharacter.findMany({ where: { worldId: persona.worldId } });
-    const character = characters.find((ch) => ch.id === key) ?? characters.find((ch) => normHandle(ch.handle) === normHandle(key));
+    const character =
+      characters.find((ch) => ch.id === key) ?? characters.find((ch) => normHandle(ch.handle) === normHandle(key));
     if (!character) return notFound("Character");
 
     const relationship = await deps.prisma.relationshipState.findUnique({
@@ -56,7 +57,11 @@ export function memoryRoutes(): Hono<AppEnv> {
 
     const [fresh, entries] = await Promise.all([
       deps.prisma.relationshipState.findUnique({ where: { id: relationship.id } }),
-      deps.prisma.memoryEntry.findMany({ where: { relationshipId: relationship.id }, orderBy: { createdAt: "desc" }, take: 100 }),
+      deps.prisma.memoryEntry.findMany({
+        where: { relationshipId: relationship.id },
+        orderBy: { createdAt: "desc" },
+        take: 100,
+      }),
     ]);
 
     const memories = [];
@@ -72,7 +77,11 @@ export function memoryRoutes(): Hono<AppEnv> {
     }
 
     return ok({
-      character: { handle: atHandle(character.handle), displayName: character.displayName, avatarUrl: character.avatarUrl },
+      character: {
+        handle: atHandle(character.handle),
+        displayName: character.displayName,
+        avatarUrl: character.avatarUrl,
+      },
       affinity: fresh?.affinity ?? relationship.affinity,
       summary: fresh?.summary ?? relationship.summary,
       memories,

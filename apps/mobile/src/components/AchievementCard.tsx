@@ -59,10 +59,7 @@ export function AchievementCard({ item, onPress }: { item: Achievement; onPress?
       ) : null}
 
       <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
-        <Text
-          importantForAccessibility="no"
-          style={{ fontSize: font.xl, opacity: unlocked ? 1 : 0.28 }}
-        >
+        <Text importantForAccessibility="no" style={{ fontSize: font.xl, opacity: unlocked ? 1 : 0.28 }}>
           {item.icon}
         </Text>
         <Icon
@@ -81,12 +78,12 @@ export function AchievementCard({ item, onPress }: { item: Achievement; onPress?
       </Text>
 
       {unlocked ? (
-        <Text style={[typo.micro, { color: tier.ink }]}>
-          {`${t("unlocked")} · ${date ?? ""}`}
-        </Text>
+        <Text style={[typo.micro, { color: tier.ink }]}>{`${t("unlocked")} · ${date ?? ""}`}</Text>
       ) : (
         <View style={{ gap: spacing.xxs }}>
-          <View style={{ height: 4, borderRadius: radius.pill, backgroundColor: colors.bgElevated, overflow: "hidden" }}>
+          <View
+            style={{ height: 4, borderRadius: radius.pill, backgroundColor: colors.bgElevated, overflow: "hidden" }}
+          >
             <View style={{ width: `${pct}%`, height: 4, borderRadius: radius.pill, backgroundColor: colors.accent }} />
           </View>
           <Text style={[typo.micro, { color: colors.textMuted }]}>{`${pct}%`}</Text>

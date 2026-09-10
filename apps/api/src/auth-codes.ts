@@ -40,7 +40,9 @@ export class ConsoleMailSender implements MailSender {
 let sender: MailSender = new ConsoleMailSender();
 export const mailSender = (): MailSender => sender;
 /** Swap the sender (tests, or a real provider wired in `index.ts`). */
-export const setMailSender = (next: MailSender): void => { sender = next; };
+export const setMailSender = (next: MailSender): void => {
+  sender = next;
+};
 
 export const normalizeEmail = (email: string): string => email.trim().toLowerCase();
 
@@ -94,8 +96,14 @@ export function consumeCode(
   const key = normalizeEmail(email);
   const rec = store.get(key);
   if (!rec) return "no_code";
-  if (rec.expiresAt <= nowMs) { store.delete(key); return "expired"; }
-  if (rec.attempts >= maxAttempts) { store.delete(key); return "too_many_attempts"; }
+  if (rec.expiresAt <= nowMs) {
+    store.delete(key);
+    return "expired";
+  }
+  if (rec.attempts >= maxAttempts) {
+    store.delete(key);
+    return "too_many_attempts";
+  }
   rec.attempts += 1;
   if (!constantTimeEqual(hashCode(code, rec.salt), rec.hash)) {
     if (rec.attempts >= maxAttempts) store.delete(key);

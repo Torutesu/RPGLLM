@@ -67,10 +67,7 @@ export function trustOf(counters: TrustCounters, suspended: boolean): CreatorTru
 }
 
 /** Creators with a world currently off the shelf under objection — trust is suspended for these. */
-export async function suspendedCreators(
-  prisma: PrismaClient,
-  userIds: readonly string[],
-): Promise<Set<string>> {
+export async function suspendedCreators(prisma: PrismaClient, userIds: readonly string[]): Promise<Set<string>> {
   const ids = [...new Set(userIds)];
   if (ids.length === 0) return new Set();
   const rows = await prisma.world.findMany({
@@ -82,10 +79,7 @@ export async function suspendedCreators(
 }
 
 /** `CreatorTrust` for a batch of creators, in two queries however many there are. */
-export async function trustFor(
-  prisma: PrismaClient,
-  userIds: readonly string[],
-): Promise<Map<string, CreatorTrust>> {
+export async function trustFor(prisma: PrismaClient, userIds: readonly string[]): Promise<Map<string, CreatorTrust>> {
   const ids = [...new Set(userIds)];
   if (ids.length === 0) return new Map();
   const [users, suspended] = await Promise.all([

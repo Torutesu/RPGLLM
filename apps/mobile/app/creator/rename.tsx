@@ -28,7 +28,11 @@ const MAX = 15;
 const VALID = /^[a-z0-9_]{3,15}$/;
 
 /** What the server will accept, from whatever was typed. */
-const normalize = (raw: string): string => raw.toLowerCase().replace(/[^a-z0-9_]/g, "").slice(0, MAX);
+const normalize = (raw: string): string =>
+  raw
+    .toLowerCase()
+    .replace(/[^a-z0-9_]/g, "")
+    .slice(0, MAX);
 
 export default function CreatorRename() {
   const { me } = useAppState();
@@ -70,10 +74,13 @@ export default function CreatorRename() {
       const err = e instanceof ApiError ? e : null;
       setSaved(false);
       setError(
-        err?.code === "HANDLE_TAKEN" || err?.status === 409 ? t("creatorRenameTaken")
-          : err?.code === "VALIDATION" || err?.status === 422 ? t("creatorRenameHint")
-          : err?.code === "RATE_LIMITED" ? t("rateLimited")
-          : t("loadFailed"),
+        err?.code === "HANDLE_TAKEN" || err?.status === 409
+          ? t("creatorRenameTaken")
+          : err?.code === "VALIDATION" || err?.status === 422
+            ? t("creatorRenameHint")
+            : err?.code === "RATE_LIMITED"
+              ? t("rateLimited")
+              : t("loadFailed"),
       );
     } finally {
       setBusy(false);
@@ -115,7 +122,14 @@ export default function CreatorRename() {
               pointerEvents="none"
               style={{ position: "absolute", left: 0, right: 0, top: 0, bottom: 0 }}
             />
-            <View style={{ flexDirection: "row", alignItems: "center", paddingHorizontal: spacing.lg, paddingVertical: spacing.lg }}>
+            <View
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                paddingHorizontal: spacing.lg,
+                paddingVertical: spacing.lg,
+              }}
+            >
               <Text importantForAccessibility="no" style={[typo.title, { color: colors.textMuted }]}>
                 @
               </Text>
@@ -147,7 +161,10 @@ export default function CreatorRename() {
               <Text
                 accessibilityRole="text"
                 accessibilityLabel={`${handle.length} / ${MAX}`}
-                style={[typo.count, { color: valid ? colors.positive : colors.textMuted, flexShrink: 0, paddingLeft: spacing.sm }]}
+                style={[
+                  typo.count,
+                  { color: valid ? colors.positive : colors.textMuted, flexShrink: 0, paddingLeft: spacing.sm },
+                ]}
               >
                 {`${handle.length}/${MAX}`}
               </Text>

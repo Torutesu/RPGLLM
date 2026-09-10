@@ -32,7 +32,19 @@ export interface ReelStageProps {
 function Node({ node, index }: { node: ReelNode; index: number }): React.ReactElement | null {
   switch (node.k) {
     case "fill":
-      return <View key={index} style={{ position: "absolute", left: 0, top: 0, width: STAGE.w, height: STAGE.h, backgroundColor: node.color }} />;
+      return (
+        <View
+          key={index}
+          style={{
+            position: "absolute",
+            left: 0,
+            top: 0,
+            width: STAGE.w,
+            height: STAGE.h,
+            backgroundColor: node.color,
+          }}
+        />
+      );
     case "rect":
       return (
         <View
@@ -58,7 +70,15 @@ function Node({ node, index }: { node: ReelNode; index: number }): React.ReactEl
           colors={[node.from, node.to]}
           angle={node.angle}
           pointerEvents="none"
-          style={{ position: "absolute", left: node.x, top: node.y, width: node.w, height: node.h, borderRadius: node.r, opacity: node.alpha }}
+          style={{
+            position: "absolute",
+            left: node.x,
+            top: node.y,
+            width: node.w,
+            height: node.h,
+            borderRadius: node.r,
+            opacity: node.alpha,
+          }}
         />
       );
     case "glow":
@@ -103,7 +123,15 @@ function Node({ node, index }: { node: ReelNode; index: number }): React.ReactEl
       );
     case "mark":
       return (
-        <View key={index} style={{ position: "absolute", left: node.x - node.size * 1.95, top: node.y - node.size * 0.62, opacity: node.alpha }}>
+        <View
+          key={index}
+          style={{
+            position: "absolute",
+            left: node.x - node.size * 1.95,
+            top: node.y - node.size * 0.62,
+            opacity: node.alpha,
+          }}
+        >
           <Wordmark size={node.size} />
         </View>
       );

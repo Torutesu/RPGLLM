@@ -8,8 +8,19 @@ import { assertProductionConfig } from "./config-guard";
 import { loadEnvFile } from "./env-file";
 import { loadGateway } from "./llm-loader";
 import {
-  adsMode, authCodeTtlMs, authDevCodeEnabled, billingMode, corsAllowAll, corsOrigins, isProduction,
-  llmMode, nodeEnv, port, rateLimitEnabled, shutdownGraceMs, testHooksEnabled,
+  adsMode,
+  authCodeTtlMs,
+  authDevCodeEnabled,
+  billingMode,
+  corsAllowAll,
+  corsOrigins,
+  isProduction,
+  llmMode,
+  nodeEnv,
+  port,
+  rateLimitEnabled,
+  shutdownGraceMs,
+  testHooksEnabled,
 } from "./env";
 import { logLine } from "./middleware/request-log";
 import { GoogleVerifierKeys, StaticVerifierKeys, setAdMobVerifierKeys } from "./services/ad-verify";
@@ -88,11 +99,22 @@ async function main(): Promise<void> {
   const p = port();
 
   logLine({
-    level: "info", msg: "api.start", nodeEnv: nodeEnv(), production: isProduction(),
-    envFiles: applied, llm: `${gateway.mode()} (${source})`, envLlmMode: llmMode(),
-    billing: billingMode(), ads: adsMode(), mail: mailProvider(), testHooks: testHooksEnabled(),
-    devLoginCode: authDevCodeEnabled(), rateLimit: rateLimitEnabled(), banditArms: arms,
-    cors: corsAllowAll() ? "*" : corsOrigins().join(","), port: p,
+    level: "info",
+    msg: "api.start",
+    nodeEnv: nodeEnv(),
+    production: isProduction(),
+    envFiles: applied,
+    llm: `${gateway.mode()} (${source})`,
+    envLlmMode: llmMode(),
+    billing: billingMode(),
+    ads: adsMode(),
+    mail: mailProvider(),
+    testHooks: testHooksEnabled(),
+    devLoginCode: authDevCodeEnabled(),
+    rateLimit: rateLimitEnabled(),
+    banditArms: arms,
+    cors: corsAllowAll() ? "*" : corsOrigins().join(","),
+    port: p,
     dailyBudgetUsd: dailyBudgetUsd() ?? "unlimited",
     // Visible on every boot until somebody names the product (packages/shared → PRODUCT).
     product: PRODUCT.isPlaceholder ? `${PRODUCT.name} (placeholder)` : PRODUCT.name,
@@ -111,8 +133,11 @@ async function main(): Promise<void> {
     logLine({ level: "info", msg: "api.shutdown", signal, graceMs: shutdownGraceMs() });
 
     const finish = (forced: boolean): void => {
-      void prisma.$disconnect()
-        .catch((err: unknown) => { logLine({ level: "error", msg: "api.shutdown.prisma", error: String(err) }); })
+      void prisma
+        .$disconnect()
+        .catch((err: unknown) => {
+          logLine({ level: "error", msg: "api.shutdown.prisma", error: String(err) });
+        })
         .finally(() => {
           logLine({ level: "info", msg: "api.shutdown.done", forced });
           process.exit(0);
@@ -123,10 +148,17 @@ async function main(): Promise<void> {
     // Idle keep-alive sockets are dropped immediately; streaming ones get the grace period.
     const maybeIdle = (server as { closeIdleConnections?: () => void }).closeIdleConnections;
     if (typeof maybeIdle === "function") maybeIdle.call(server);
-    server.close(() => { clearTimeout(deadline); finish(false); });
+    server.close(() => {
+      clearTimeout(deadline);
+      finish(false);
+    });
   };
-  process.on("SIGTERM", () => { shutdown("SIGTERM"); });
-  process.on("SIGINT", () => { shutdown("SIGINT"); });
+  process.on("SIGTERM", () => {
+    shutdown("SIGTERM");
+  });
+  process.on("SIGINT", () => {
+    shutdown("SIGINT");
+  });
 }
 
 main().catch((err: unknown) => {

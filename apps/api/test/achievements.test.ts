@@ -4,15 +4,31 @@ import { call, makeHarness, prisma, readSSE, resetDatabase, signupWithPersona, t
 
 let h: Harness;
 
-beforeAll(() => { h = makeHarness(); });
-beforeEach(async () => { await resetDatabase(); h.gateway.setMode("replay"); h.gateway.calls.length = 0; });
+beforeAll(() => {
+  h = makeHarness();
+});
+beforeEach(async () => {
+  await resetDatabase();
+  h.gateway.setMode("replay");
+  h.gateway.calls.length = 0;
+});
 
 interface AchievementRow {
-  key: string; title: string; description: string; icon: string;
-  tier: string; unlockedAt: string | null; seenAt: string | null; value: number; progress: number;
+  key: string;
+  title: string;
+  description: string;
+  icon: string;
+  tier: string;
+  unlockedAt: string | null;
+  seenAt: string | null;
+  value: number;
+  progress: number;
 }
 interface AchievementsRes {
-  achievements: AchievementRow[]; unlocked: number; total: number; pending: AchievementRow[];
+  achievements: AchievementRow[];
+  unlocked: number;
+  total: number;
+  pending: AchievementRow[];
 }
 
 const listFor = (token: string, personaId: string) =>
@@ -20,7 +36,8 @@ const listFor = (token: string, personaId: string) =>
 
 async function postAndStream(token: string, personaId: string, text: string): Promise<string> {
   const res = await call<{ post: { id: string }; streamUrl: string }>(h, "POST", "/v1/posts", {
-    token, body: { personaId, text, parentId: null },
+    token,
+    body: { personaId, text, parentId: null },
   });
   await readSSE(h, res.data.streamUrl, token);
   return res.data.post.id;
@@ -45,9 +62,11 @@ describe("achievements (SCR-044)", () => {
     await postAndStream(fx.token, fx.personaId, "second words");
     await listFor(fx.token, fx.personaId);
     expect(await prisma.achievementUnlock.count({ where: { personaId: fx.personaId, key: "first_post" } })).toBe(1);
-    expect(await prisma.notification.count({
-      where: { personaId: fx.personaId, kind: "unlock", target: "achievement:first_post" },
-    })).toBe(1);
+    expect(
+      await prisma.notification.count({
+        where: { personaId: fx.personaId, kind: "unlock", target: "achievement:first_post" },
+      }),
+    ).toBe(1);
   });
 
   it("returns the whole catalogue with titles from i18n and progress on locked rows", async () => {
@@ -88,7 +107,8 @@ describe("achievements (SCR-044)", () => {
     expect(before.data.pending.map((p) => p.key)).toContain("first_post");
 
     const seen = await call<{ pending: number }>(h, "POST", `/v1/achievements/seen?personaId=${fx.personaId}`, {
-      token: fx.token, body: { keys: ["first_post"] },
+      token: fx.token,
+      body: { keys: ["first_post"] },
     });
     expect(seen.status).toBe(200);
 
@@ -106,14 +126,18 @@ describe("achievements (SCR-044)", () => {
     expect(keys).toContain("followers_500");
     expect(keys).toContain("followers_5k");
     expect(keys).not.toContain("followers_50k");
-    expect(await prisma.notification.count({
-      where: { personaId: fx.personaId, kind: "unlock", target: "achievement:followers_5k" },
-    })).toBe(1);
+    expect(
+      await prisma.notification.count({
+        where: { personaId: fx.personaId, kind: "unlock", target: "achievement:followers_5k" },
+      }),
+    ).toBe(1);
 
     await listFor(fx.token, fx.personaId);
-    expect(await prisma.notification.count({
-      where: { personaId: fx.personaId, kind: "unlock", target: "achievement:followers_5k" },
-    })).toBe(1);
+    expect(
+      await prisma.notification.count({
+        where: { personaId: fx.personaId, kind: "unlock", target: "achievement:followers_5k" },
+      }),
+    ).toBe(1);
   });
 
   it("scopes to the caller's persona and needs a session", async () => {

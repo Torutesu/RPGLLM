@@ -33,10 +33,11 @@ export const G10InputZ = BaseCtxZ.extend({
 export type G10Input = z.infer<typeof G10InputZ>;
 
 export const G10OutputZ = z.object({
-  posts: z.array(z.object({ characterHandle: z.string(), text: z.string().max(280) })).min(1).max(5),
-  dm: z
-    .object({ characterHandle: z.string(), bubbles: z.array(z.string().max(160)).min(1).max(3) })
-    .nullable(),
+  posts: z
+    .array(z.object({ characterHandle: z.string(), text: z.string().max(280) }))
+    .min(1)
+    .max(5),
+  dm: z.object({ characterHandle: z.string(), bubbles: z.array(z.string().max(160)).min(1).max(3) }).nullable(),
   digest: z.string().max(400),
 });
 export type G10Output = z.infer<typeof G10OutputZ>;
@@ -66,10 +67,7 @@ function renderUser(input: G10Input): string {
     section("PLAYER PERSONA (absent)", renderPersona(input.persona)),
     section("CAST — ONLY THESE HANDLES MAY POST", renderCastRoster(input.cast)),
     section("RELATIONSHIPS", renderRelationships(input.relationships)),
-    section(
-      "PARAMETERS",
-      [`hours away: ${input.hoursAway}`, `seed: ${input.seed}`].join("\n"),
-    ),
+    section("PARAMETERS", [`hours away: ${input.hoursAway}`, `seed: ${input.seed}`].join("\n")),
   ]);
 }
 
@@ -117,7 +115,10 @@ const g10Spec: GeneratorSpec<G10Input, G10Output> = {
       .slice(0, 5);
     if (posts.length === 0) return null;
     const dmHandle = raw.dm?.characterHandle;
-    const bubbles = (raw.dm?.bubbles ?? []).map((b) => clamp(b, 160)).filter((b) => b.length > 0).slice(0, 3);
+    const bubbles = (raw.dm?.bubbles ?? [])
+      .map((b) => clamp(b, 160))
+      .filter((b) => b.length > 0)
+      .slice(0, 3);
     const dm =
       dmHandle !== undefined && (known.size === 0 || known.has(dmHandle)) && bubbles.length > 0
         ? { characterHandle: dmHandle, bubbles }

@@ -42,13 +42,22 @@ function Step({ label, state, delay }: { label: string; state: "done" | "active"
     <View
       accessibilityRole="text"
       accessibilityLabel={label}
-      style={{ flexDirection: "row", alignItems: "center", gap: spacing.md, paddingVertical: spacing.xs, opacity: state === "todo" ? 0.55 : 1 }}
+      style={{
+        flexDirection: "row",
+        alignItems: "center",
+        gap: spacing.md,
+        paddingVertical: spacing.xs,
+        opacity: state === "todo" ? 0.55 : 1,
+      }}
     >
       {state === "active" ? <Pulse scaleTo={1.12}>{dot}</Pulse> : dot}
       <Text
         importantForAccessibility="no"
         numberOfLines={1}
-        style={[state === "todo" ? typo.meta : typo.metaStrong, { color: state === "todo" ? colors.textMuted : colors.text, flex: 1 }]}
+        style={[
+          state === "todo" ? typo.meta : typo.metaStrong,
+          { color: state === "todo" ? colors.textMuted : colors.text, flex: 1 },
+        ]}
       >
         {label}
       </Text>
@@ -73,7 +82,11 @@ function FloatingDots({ delay }: { delay: number }) {
     return () => loop.stop();
   }, [anim, delay, reduce]);
   return (
-    <View style={{ flexDirection: "row", gap: 3 }} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
+    <View
+      style={{ flexDirection: "row", gap: 3 }}
+      accessibilityElementsHidden
+      importantForAccessibility="no-hide-descendants"
+    >
       {[0, 1, 2].map((i) => (
         <Animated.View
           key={i}
@@ -131,7 +144,11 @@ export function StudioProgress({ progress }: { progress: number }) {
       <View style={{ gap: spacing.xs }}>
         {BUILD_STEPS.map((step, i) => (
           <View key={step.key} testID={T.studioStep(step.key)}>
-            <Step label={t(step.label)} state={i < active ? "done" : i === active ? "active" : "todo"} delay={i * 120} />
+            <Step
+              label={t(step.label)}
+              state={i < active ? "done" : i === active ? "active" : "todo"}
+              delay={i * 120}
+            />
           </View>
         ))}
       </View>

@@ -32,8 +32,10 @@ export interface ReviewClaim {
 
 /** The live lease on a world, or null when nobody holds one — never claimed, or it lapsed. */
 export const activeClaim = (world: Pick<World, "claimedBy" | "claimedUntil">, now: Date): ReviewClaim | null =>
-  world.claimedBy !== null && world.claimedBy !== "" && world.claimedUntil !== null
-    && world.claimedUntil.getTime() > now.getTime()
+  world.claimedBy !== null &&
+  world.claimedBy !== "" &&
+  world.claimedUntil !== null &&
+  world.claimedUntil.getTime() > now.getTime()
     ? { by: world.claimedBy, until: world.claimedUntil }
     : null;
 
@@ -74,11 +76,7 @@ export async function claimWorldForReview(
     where: {
       id: worldId,
       status: "review",
-      OR: [
-        { claimedUntil: null },
-        { claimedUntil: { lte: now } },
-        { claimedBy: reviewer },
-      ],
+      OR: [{ claimedUntil: null }, { claimedUntil: { lte: now } }, { claimedBy: reviewer }],
     },
     data: { claimedBy: reviewer, claimedUntil: until },
   });

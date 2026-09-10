@@ -15,15 +15,42 @@
  * fallback output with `meta.fallback = true` (the gateway contract: generators never throw).
  */
 import {
-  PRICING, SAFETY_BLOCK_TEST_PHRASES,
-  type G1Input, type G1Output, type G4Input, type G4Output, type G5Input, type G5Output,
-  type G7Input, type G7Output, type G8Input, type G8Output,
-  type GenerationMeta, type GenerationResult, type GeneratorId, type ModelTier, type WorldSeed,
+  PRICING,
+  SAFETY_BLOCK_TEST_PHRASES,
+  type G1Input,
+  type G1Output,
+  type G4Input,
+  type G4Output,
+  type G5Input,
+  type G5Output,
+  type G7Input,
+  type G7Output,
+  type G8Input,
+  type G8Output,
+  type GenerationMeta,
+  type GenerationResult,
+  type GeneratorId,
+  type ModelTier,
+  type WorldSeed,
 } from "@rpgllm/shared";
 import type {
-  AnyBatchItem, AnyBatchOutcome, BatchItem, BatchResults, Gateway, LlmMode, RunOptions,
-  G2Input, G2Output, G9ScreenInput, G9ScreenOutput, G10Input, G10Output, GJInput, GJOutput,
-  DigestInput, DigestOutput,
+  AnyBatchItem,
+  AnyBatchOutcome,
+  BatchItem,
+  BatchResults,
+  Gateway,
+  LlmMode,
+  RunOptions,
+  G2Input,
+  G2Output,
+  G9ScreenInput,
+  G9ScreenOutput,
+  G10Input,
+  G10Output,
+  GJInput,
+  GJOutput,
+  DigestInput,
+  DigestOutput,
 } from "@rpgllm/llm";
 import { batchStopReason, scoreCandidateOffline } from "@rpgllm/llm";
 import { BATCH_DISCOUNT } from "@rpgllm/shared";
@@ -32,10 +59,24 @@ import { modelForTier } from "./env";
 import { buildStandInWorldSeed } from "./fake-world-seed";
 import type { G9Fn, G9Input } from "./services/g9";
 
-export interface FakeCall { generator: GeneratorId; tier: ModelTier; escalatedFrom: string | null; input: unknown }
+export interface FakeCall {
+  generator: GeneratorId;
+  tier: ModelTier;
+  escalatedFrom: string | null;
+  input: unknown;
+}
 
 const CHAMPION_TIER: Record<GeneratorId, ModelTier> = {
-  G1: "mid", G2: "light", G3: "light", G4: "mid", G5: "high", G7: "light", G8: "light", G9: "high", G10: "mid", GJ: "high",
+  G1: "mid",
+  G2: "light",
+  G3: "light",
+  G4: "mid",
+  G5: "high",
+  G7: "light",
+  G8: "light",
+  G9: "high",
+  G10: "mid",
+  GJ: "high",
 };
 
 const price = (model: string) => PRICING[model] ?? { input: 1, output: 5, cacheRead: 0.1, cacheWrite: 1.25 };
@@ -68,7 +109,11 @@ export function createFakeGateway(initialMode: LlmMode = "replay"): FakeGateway 
     const cacheWriteTokens = 0;
     const outputTokens = Math.max(20, outSize);
     const costUsd =
-      (inputTokens * p.input + outputTokens * p.output + cacheReadTokens * p.cacheRead + cacheWriteTokens * p.cacheWrite) / 1_000_000;
+      (inputTokens * p.input +
+        outputTokens * p.output +
+        cacheReadTokens * p.cacheRead +
+        cacheWriteTokens * p.cacheWrite) /
+      1_000_000;
     return {
       generator,
       variantId: opts?.variantId ?? `${generator.toLowerCase()}_${tier}_v1`,
@@ -87,7 +132,10 @@ export function createFakeGateway(initialMode: LlmMode = "replay"): FakeGateway 
 
   const shouldFail = (): boolean => {
     if (mode === "fail") return true;
-    if (forcedFailures > 0) { forcedFailures -= 1; return true; }
+    if (forcedFailures > 0) {
+      forcedFailures -= 1;
+      return true;
+    }
     return false;
   };
 
@@ -103,7 +151,7 @@ export function createFakeGateway(initialMode: LlmMode = "replay"): FakeGateway 
     const tier = opts?.tier ?? (assignedVariant.includes("light") ? "light" : "mid");
     const runOpts: RunOptions = { ...opts, tier, variantId: assignedVariant };
     record("G1", tier, opts, input);
-    const pool = (input.involved.length > 0 ? input.involved.map((r) => r.handle) : input.cast.map((c) => c.handle));
+    const pool = input.involved.length > 0 ? input.involved.map((r) => r.handle) : input.cast.map((c) => c.handle);
     const handles = pool.length > 0 ? pool : ["@unknown"];
     const failed = shouldFail();
     const seedKey = `${input.worldSlug}:${input.locale}:${input.seed}:${input.k}`;
@@ -129,12 +177,20 @@ export function createFakeGateway(initialMode: LlmMode = "replay"): FakeGateway 
     }
 
     const bodyEn = [
-      "iconic timing 👑", "hm. bold.", "SOURCES SAY: this changes the week.",
-      "screaming, respectfully", "we'll see friday", "noted. loudly.",
+      "iconic timing 👑",
+      "hm. bold.",
+      "SOURCES SAY: this changes the week.",
+      "screaming, respectfully",
+      "we'll see friday",
+      "noted. loudly.",
     ];
     const bodyJa = [
-      "神タイミング 👑", "ふーん、強気だな。", "関係者:これで今週の流れが変わる。",
-      "叫んでる、敬意を込めて", "金曜に見せてもらう", "記録した。大声で。",
+      "神タイミング 👑",
+      "ふーん、強気だな。",
+      "関係者:これで今週の流れが変わる。",
+      "叫んでる、敬意を込めて",
+      "金曜に見せてもらう",
+      "記録した。大声で。",
     ];
     const body = ja ? bodyJa : bodyEn;
     const k = Math.max(1, Math.min(4, input.k));
@@ -156,7 +212,9 @@ export function createFakeGateway(initialMode: LlmMode = "replay"): FakeGateway 
         : "The post left a ripple across the timeline; by morning everyone was quoting it.",
       relationship_deltas,
       memory_notes: [{ handle: handles[0] ?? "@unknown", note: input.post.text.slice(0, 60) }],
-      news: input.includeNews ? { text: ja ? "速報:タイムラインが一斉に振り向いた。" : "BREAKING: the timeline turned its head all at once." } : null,
+      news: input.includeNews
+        ? { text: ja ? "速報:タイムラインが一斉に振り向いた。" : "BREAKING: the timeline turned its head all at once." }
+        : null,
       safety_flag: input.softened,
     };
     return { output, meta: meta("G1", tier, seedKey, false, runOpts, 60 + k * 20) };
@@ -169,7 +227,12 @@ export function createFakeGateway(initialMode: LlmMode = "replay"): FakeGateway 
     const seedKey = `${input.worldSlug}:${input.locale}:${input.seed}:dm`;
     const ja = input.locale === "ja";
     if (failed) {
-      const output: G4Output = { bubbles: [ja ? "既読 ✓✓" : "seen ✓✓"], affinity_delta: 0, memory_note: null, safety_flag: false };
+      const output: G4Output = {
+        bubbles: [ja ? "既読 ✓✓" : "seen ✓✓"],
+        affinity_delta: 0,
+        memory_note: null,
+        safety_flag: false,
+      };
       return { output, meta: meta("G4", tier, seedKey, true, opts, 12) };
     }
     const bubbles = ja
@@ -215,21 +278,28 @@ export function createFakeGateway(initialMode: LlmMode = "replay"): FakeGateway 
         : "Anonymous 'sources' are flooding the timeline with fabricated screenshots. How do you respond?",
       choices: [
         {
-          id: "burn", label: ja ? "焼き払う" : "Burn it down",
+          id: "burn",
+          label: ja ? "焼き払う" : "Burn it down",
           outcomeText: ja ? "朝にはタイムラインはクレーターだった。" : "By morning the timeline is a crater.",
           statDeltas: { followers: 8, aura: 4, humor: -1 },
           relationshipDeltas: handles[0] ? { [handles[0]]: 1 } : {},
-          newsText: ja ? "速報:深夜の一撃でタイムラインが停止。" : "BREAKING: a midnight strike stops the timeline cold.",
+          newsText: ja
+            ? "速報:深夜の一撃でタイムラインが停止。"
+            : "BREAKING: a midnight strike stops the timeline cold.",
         },
         {
-          id: "receipts", label: ja ? "証拠を出す" : "Drop receipts",
-          outcomeText: ja ? "証拠は地味で、日付入りで、致命的だった。" : "The receipts are boring, dated and devastating.",
+          id: "receipts",
+          label: ja ? "証拠を出す" : "Drop receipts",
+          outcomeText: ja
+            ? "証拠は地味で、日付入りで、致命的だった。"
+            : "The receipts are boring, dated and devastating.",
           statDeltas: { followers: 5, aura: 6, humor: 0 },
           relationshipDeltas: handles[1] ? { [handles[1]]: 1 } : {},
           newsText: ja ? "独占:日付入りのメモが全てを覆した。" : "EXCLUSIVE: dated studio memos flip the story.",
         },
         {
-          id: "silence", label: ja ? "沈黙する" : "Stay silent",
+          id: "silence",
+          label: ja ? "沈黙する" : "Stay silent",
           outcomeText: ja ? "十一時間の沈黙が仕事をした。" : "Eleven hours of silence does the work.",
           statDeltas: { followers: 2, aura: 3, humor: 1 },
           relationshipDeltas: {},
@@ -250,7 +320,9 @@ export function createFakeGateway(initialMode: LlmMode = "replay"): FakeGateway 
         handle: r.handle,
         summary: failed ? r.oldSummary : [r.oldSummary, ...r.notes].filter(Boolean).join(" ").slice(0, 600),
       })),
-      worldSummary: failed ? input.persona.worldSummary : `${input.persona.handle}: ${input.persona.worldSummary}`.slice(0, 1600),
+      worldSummary: failed
+        ? input.persona.worldSummary
+        : `${input.persona.handle}: ${input.persona.worldSummary}`.slice(0, 1600),
     };
     return { output, meta: meta("G7", tier, seedKey, failed, opts, 60) };
   };
@@ -268,7 +340,6 @@ export function createFakeGateway(initialMode: LlmMode = "replay"): FakeGateway 
         : { verdict: "allow", category: null };
     return { output, meta: meta("G8", tier, `safety:${input.text}`, false, opts, 8) };
   };
-
 
   /**
    * G9 — World Studio (AIF-003). The one generator a *user* can trigger by hand, so the stand-in
@@ -302,13 +373,21 @@ export function createFakeGateway(initialMode: LlmMode = "replay"): FakeGateway 
     const handles = input.cast.map((c) => c.handle);
     const lines = ja
       ? ["リハ延びた。", "スタジオの自販機が壊れてる。", "誰か傘持ってない?", "今日の空、無料。"]
-      : ["rehearsal ran long.", "the studio vending machine is broken again.", "does anyone own an umbrella", "sky's free today."];
+      : [
+          "rehearsal ran long.",
+          "the studio vending machine is broken again.",
+          "does anyone own an umbrella",
+          "sky's free today.",
+        ];
     const n = Math.max(1, Math.min(input.n, 12));
     const posts = Array.from({ length: failed ? 1 : n }, (_v, i) => ({
       characterHandle: handles[i % Math.max(1, handles.length)] ?? "unknown",
       text: `${lines[i % lines.length] ?? "..."}${failed ? "" : ` #${i + 1}`}`,
     }));
-    return { output: { posts }, meta: meta("G2", tier, `${input.worldSlug}:${input.locale}:g2:${input.seed}`, failed, opts, 20 * posts.length) };
+    return {
+      output: { posts },
+      meta: meta("G2", tier, `${input.worldSlug}:${input.locale}:g2:${input.seed}`, failed, opts, 20 * posts.length),
+    };
   };
 
   const g10 = async (input: G10Input, opts?: RunOptions): Promise<GenerationResult<G10Output>> => {
@@ -324,10 +403,16 @@ export function createFakeGateway(initialMode: LlmMode = "replay"): FakeGateway 
     const closest = input.relationships[0];
     const output: G10Output = {
       posts,
-      dm: failed || closest === undefined ? null : { characterHandle: closest.handle, bubbles: [ja ? "戻ってきた?" : "you back?"] },
+      dm:
+        failed || closest === undefined
+          ? null
+          : { characterHandle: closest.handle, bubbles: [ja ? "戻ってきた?" : "you back?"] },
       digest: ja ? "世界は静かに動いた。" : "The world moved while you were away.",
     };
-    return { output, meta: meta("G10", tier, `${input.worldSlug}:${input.locale}:g10:${input.seed}`, failed, opts, 80) };
+    return {
+      output,
+      meta: meta("G10", tier, `${input.worldSlug}:${input.locale}:g10:${input.seed}`, failed, opts, 80),
+    };
   };
 
   const gj = async (input: GJInput, opts?: RunOptions): Promise<GenerationResult<GJOutput>> => {
@@ -335,7 +420,11 @@ export function createFakeGateway(initialMode: LlmMode = "replay"): FakeGateway 
     record("GJ", tier, opts, input);
     const failed = shouldFail();
     const output: GJOutput = failed
-      ? { scores: { inCharacter: 0, diversity: 0, humour: 0, emoji: 0, safety: 0, jpNaturalness: 0 }, verdict: "fail", notes: "judge unavailable" }
+      ? {
+          scores: { inCharacter: 0, diversity: 0, humour: 0, emoji: 0, safety: 0, jpNaturalness: 0 },
+          verdict: "fail",
+          notes: "judge unavailable",
+        }
       : scoreCandidateOffline(input);
     return { output, meta: meta("GJ", tier, `gj:${input.caseLabel}:${input.candidate.length}`, failed, opts, 40) };
   };
@@ -378,7 +467,9 @@ export function createFakeGateway(initialMode: LlmMode = "replay"): FakeGateway 
     record("G9", tier, opts, input);
     const lowered = input.premise.toLowerCase();
     const blocked = SAFETY_BLOCK_TEST_PHRASES.some((p) => lowered.includes(p.toLowerCase()));
-    const output: G9ScreenOutput = blocked ? { verdict: "block", category: "policy" } : { verdict: "allow", category: null };
+    const output: G9ScreenOutput = blocked
+      ? { verdict: "block", category: "policy" }
+      : { verdict: "allow", category: null };
     return { output, meta: meta("G9", tier, `screen:${input.premise}`, false, opts, 8) };
   };
 
@@ -408,14 +499,43 @@ export function createFakeGateway(initialMode: LlmMode = "replay"): FakeGateway 
     const merged = new Map<string, AnyBatchOutcome>();
     for (const item of items) {
       switch (item.generator) {
-        case "G1": for (const [id, o] of await batchG1([item])) merged.set(id, { generator: "G1", ...o }); break;
-        case "G2": for (const [id, o] of await batchG2([item])) merged.set(id, { generator: "G2", ...o }); break;
-        case "G4": for (const [id, o] of await batchG4([item])) merged.set(id, { generator: "G4", ...o }); break;
-        case "G5": for (const [id, o] of await batchG5([item])) merged.set(id, { generator: "G5", ...o }); break;
-        case "G7": for (const [id, o] of await batchG7([item])) merged.set(id, { generator: "G7", ...o }); break;
-        case "G8": { const r = await g8(item.input, item.opts); merged.set(item.customId, { generator: "G8", customId: item.customId, status: r.meta.fallback ? "errored" : "succeeded", output: r.output, meta: { ...r.meta, costUsd: r.meta.costUsd * BATCH_DISCOUNT, ttftMs: null, stopReason: batchStopReason(r.meta.stopReason) } }); break; }
-        case "G10": for (const [id, o] of await batchG10([item])) merged.set(id, { generator: "G10", ...o }); break;
-        case "GJ": for (const [id, o] of await batchGJ([item])) merged.set(id, { generator: "GJ", ...o }); break;
+        case "G1":
+          for (const [id, o] of await batchG1([item])) merged.set(id, { generator: "G1", ...o });
+          break;
+        case "G2":
+          for (const [id, o] of await batchG2([item])) merged.set(id, { generator: "G2", ...o });
+          break;
+        case "G4":
+          for (const [id, o] of await batchG4([item])) merged.set(id, { generator: "G4", ...o });
+          break;
+        case "G5":
+          for (const [id, o] of await batchG5([item])) merged.set(id, { generator: "G5", ...o });
+          break;
+        case "G7":
+          for (const [id, o] of await batchG7([item])) merged.set(id, { generator: "G7", ...o });
+          break;
+        case "G8": {
+          const r = await g8(item.input, item.opts);
+          merged.set(item.customId, {
+            generator: "G8",
+            customId: item.customId,
+            status: r.meta.fallback ? "errored" : "succeeded",
+            output: r.output,
+            meta: {
+              ...r.meta,
+              costUsd: r.meta.costUsd * BATCH_DISCOUNT,
+              ttftMs: null,
+              stopReason: batchStopReason(r.meta.stopReason),
+            },
+          });
+          break;
+        }
+        case "G10":
+          for (const [id, o] of await batchG10([item])) merged.set(id, { generator: "G10", ...o });
+          break;
+        case "GJ":
+          for (const [id, o] of await batchGJ([item])) merged.set(id, { generator: "GJ", ...o });
+          break;
       }
     }
     return merged;
@@ -432,12 +552,33 @@ export function createFakeGateway(initialMode: LlmMode = "replay"): FakeGateway 
 
   return {
     mode: () => mode,
-    setMode: (m: LlmMode) => { mode = m; },
-    g1, g2, g4, g5, g7, g8, g9, g9Screen, g9Digest, g10, gj,
-    batch, batchG1, batchG2, batchG4, batchG5, batchG7, batchG10, batchGJ,
+    setMode: (m: LlmMode) => {
+      mode = m;
+    },
+    g1,
+    g2,
+    g4,
+    g5,
+    g7,
+    g8,
+    g9,
+    g9Screen,
+    g9Digest,
+    g10,
+    gj,
+    batch,
+    batchG1,
+    batchG2,
+    batchG4,
+    batchG5,
+    batchG7,
+    batchG10,
+    batchGJ,
     assignments,
     champion: () => ({ G1: "fake:g1-mid", G4: "fake:g4-mid", G5: "fake:g5-high", G8: "fake:g8-light" }),
     calls,
-    failNext: (n: number) => { forcedFailures = n; },
+    failNext: (n: number) => {
+      forcedFailures = n;
+    },
   };
 }

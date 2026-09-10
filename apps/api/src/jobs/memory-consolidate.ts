@@ -136,7 +136,6 @@ export async function runMemoryConsolidation(
   return result;
 }
 
-
 /* ------------------------------------------------------- the batch tier ---- */
 
 interface PreparedConsolidation {

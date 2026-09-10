@@ -31,9 +31,7 @@ export interface AppealCase {
 }
 
 /** The appeal a world is in the queue *for*, or null when it is there as a plain submission. */
-export const liveAppeal = (
-  world: Pick<World, "appealedAt" | "appealMessage" | "appealReason">,
-): AppealCase | null =>
+export const liveAppeal = (world: Pick<World, "appealedAt" | "appealMessage" | "appealReason">): AppealCase | null =>
   world.appealedAt === null
     ? null
     : { message: world.appealMessage, createdAt: world.appealedAt.toISOString(), previousReason: world.appealReason };
@@ -49,10 +47,10 @@ export const hasAppealed = (world: Pick<World, "appealsUsed">): boolean => world
  * is not rejected has no decision to argue with.
  */
 export const canAppeal = (world: World, viewerId: string): boolean =>
-  world.createdBy !== null
-  && world.createdBy === viewerId
-  && world.status === "rejected"
-  && world.appealsUsed < worldModerationConfig().appealsPerRejection;
+  world.createdBy !== null &&
+  world.createdBy === viewerId &&
+  world.status === "rejected" &&
+  world.appealsUsed < worldModerationConfig().appealsPerRejection;
 
 /**
  * The patch that ends whatever appeal state a world carries. Applied wherever a **new** review

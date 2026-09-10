@@ -62,7 +62,10 @@ export default function SharedMomentScreen() {
 
   return (
     <Screen>
-      <HeaderBar title={t("shareMoment")} onBack={() => (router.canGoBack() ? router.back() : router.replace("/feed"))} />
+      <HeaderBar
+        title={t("shareMoment")}
+        onBack={() => (router.canGoBack() ? router.back() : router.replace("/feed"))}
+      />
       <ScrollView
         contentContainerStyle={{
           padding: spacing.lg,

@@ -11,7 +11,12 @@ import { DEV_EMAIL_CODE, TEST_AD_TOKEN } from "@rpgllm/shared";
 import { consumeCode, issueCode, setMailSender, type EmailCodeStore, type MailSender } from "../src/auth-codes";
 import { productionConfigProblems, assertProductionConfig } from "../src/config-guard";
 import { budgetFor, take, type RateLimitStore } from "../src/middleware/rate-limit";
-import { GoogleVerifierKeys, setAdMobVerifierKeys, StaticVerifierKeys, verifyAdMobSSV } from "../src/services/ad-verify";
+import {
+  GoogleVerifierKeys,
+  setAdMobVerifierKeys,
+  StaticVerifierKeys,
+  verifyAdMobSSV,
+} from "../src/services/ad-verify";
 import { call, makeHarness, resetDatabase, signup, type Harness } from "./helpers";
 
 let h: Harness;
@@ -44,9 +49,20 @@ function withEnv(patch: Record<string, string | undefined>): () => void {
 
 let restore: (() => void) | null = null;
 
-beforeAll(() => { h = makeHarness(); setMailSender(mail); });
-beforeEach(async () => { mail.sent.length = 0; h.clock.reset(); await resetDatabase(); });
-afterEach(() => { restore?.(); restore = null; h.clock.reset(); });
+beforeAll(() => {
+  h = makeHarness();
+  setMailSender(mail);
+});
+beforeEach(async () => {
+  mail.sent.length = 0;
+  h.clock.reset();
+  await resetDatabase();
+});
+afterEach(() => {
+  restore?.();
+  restore = null;
+  h.clock.reset();
+});
 
 const MINUTE_IN_DAYS = 1 / (24 * 60);
 
@@ -106,7 +122,8 @@ describe("S0-1 one-time email codes", () => {
     });
     expect(denied.status).toBe(401);
 
-    restore(); restore = null;
+    restore();
+    restore = null;
     const allowed = await call<{ jwt: string }>(h, "POST", "/v1/auth/email/verify", {
       body: { email: "devcode@example.com", code: DEV_EMAIL_CODE },
     });
@@ -137,17 +154,28 @@ describe("S0-2 production config guard", () => {
    * paying users, mail nobody a login code and give no reviewer a way in.
    */
   const prod = {
-    NODE_ENV: "production", JWT_SECRET: "x".repeat(48), BILLING_MODE: "revenuecat", ADS_MODE: "admob",
-    LLM_MODE: "live", ANTHROPIC_API_KEY: "sk-ant-xxx", CORS_ORIGINS: "https://app.example.com",
-    ADMIN_TOKEN: "y".repeat(32), PUBLIC_APP_URL: "https://app.example.com",
+    NODE_ENV: "production",
+    JWT_SECRET: "x".repeat(48),
+    BILLING_MODE: "revenuecat",
+    ADS_MODE: "admob",
+    LLM_MODE: "live",
+    ANTHROPIC_API_KEY: "sk-ant-xxx",
+    CORS_ORIGINS: "https://app.example.com",
+    ADMIN_TOKEN: "y".repeat(32),
+    PUBLIC_APP_URL: "https://app.example.com",
     REVENUECAT_WEBHOOK_SECRET: "z".repeat(32),
-    MAIL_PROVIDER: "resend", MAIL_API_KEY: "re_xxx", MAIL_FROM: "hello@example.com",
-    LLM_DAILY_BUDGET_USD: "250", RATE_LIMIT_STORE: "shared",
+    MAIL_PROVIDER: "resend",
+    MAIL_API_KEY: "re_xxx",
+    MAIL_FROM: "hello@example.com",
+    LLM_DAILY_BUDGET_USD: "250",
+    RATE_LIMIT_STORE: "shared",
   };
 
   it("accepts a hardened production env", () => {
     expect(productionConfigProblems(prod)).toEqual([]);
-    expect(() => { assertProductionConfig(prod); }).not.toThrow();
+    expect(() => {
+      assertProductionConfig(prod);
+    }).not.toThrow();
   });
 
   it("ignores non-production environments", () => {
@@ -188,7 +216,9 @@ describe("S0-2 production config guard", () => {
     for (const [patch, matcher] of cases) {
       const env = { ...prod, ...patch };
       expect(productionConfigProblems(env).join("\n"), JSON.stringify(patch)).toMatch(matcher);
-      expect(() => { assertProductionConfig(env); }, JSON.stringify(patch)).toThrow(/insecure configuration/);
+      expect(() => {
+        assertProductionConfig(env);
+      }, JSON.stringify(patch)).toThrow(/insecure configuration/);
     }
   });
 
@@ -209,7 +239,9 @@ describe("S0-2 production config guard", () => {
   });
 
   it("also treats APP_ENV=production as production", () => {
-    expect(productionConfigProblems({ APP_ENV: "production", JWT_SECRET: "dev-secret-change-me" }).length).toBeGreaterThan(0);
+    expect(
+      productionConfigProblems({ APP_ENV: "production", JWT_SECRET: "dev-secret-change-me" }).length,
+    ).toBeGreaterThan(0);
   });
 });
 
@@ -296,7 +328,10 @@ describe("S0-6 ad reward verification", () => {
   it("rejects the constant TEST_AD_TOKEN when ADS_MODE is not test", async () => {
     const account = await signup(h);
     restore = withEnv({ ADS_MODE: "admob" });
-    const res = await call(h, "POST", "/v1/wallet/ad-reward", { token: account.token, body: { adToken: TEST_AD_TOKEN } });
+    const res = await call(h, "POST", "/v1/wallet/ad-reward", {
+      token: account.token,
+      body: { adToken: TEST_AD_TOKEN },
+    });
     expect(res.status).toBe(400);
     expect(res.error?.message).toMatch(/could not be verified/i);
   });
@@ -304,7 +339,8 @@ describe("S0-6 ad reward verification", () => {
   it("still grants the reward in ADS_MODE=test", async () => {
     const account = await signup(h);
     const res = await call<{ energy: number }>(h, "POST", "/v1/wallet/ad-reward", {
-      token: account.token, body: { adToken: TEST_AD_TOKEN },
+      token: account.token,
+      body: { adToken: TEST_AD_TOKEN },
     });
     expect(res.status).toBe(200);
   });
@@ -324,13 +360,23 @@ describe("S0-6 ad reward verification", () => {
       expect(good.ok).toBe(true);
       expect(good.transactionId).toBe("tx1");
 
-      expect((await verifyAdMobSSV(callback, { expectedUserId: "someone-else", nowMs: now })).reason).toBe("user_mismatch");
+      expect((await verifyAdMobSSV(callback, { expectedUserId: "someone-else", nowMs: now })).reason).toBe(
+        "user_mismatch",
+      );
       expect((await verifyAdMobSSV(callback, { nowMs: now + 10 * 60 * 1000 })).reason).toBe("stale_callback");
       const tampered = callback.replace("reward_amount=1", "reward_amount=9");
       expect((await verifyAdMobSSV(tampered, { nowMs: now })).ok).toBe(false);
-      expect((await verifyAdMobSSV("https://api.example.com/ssv?no_signature=1", { nowMs: now })).reason).toBe("no_signature");
+      expect((await verifyAdMobSSV("https://api.example.com/ssv?no_signature=1", { nowMs: now })).reason).toBe(
+        "no_signature",
+      );
     } finally {
-      setAdMobVerifierKeys(new (class { get() { return Promise.resolve(null); } })());
+      setAdMobVerifierKeys(
+        new (class {
+          get() {
+            return Promise.resolve(null);
+          }
+        })(),
+      );
     }
   });
 
@@ -343,8 +389,9 @@ describe("S0-6 ad reward verification", () => {
     const account = await signup(h);
     const { publicKey, privateKey } = generateKeyPairSync("ec", { namedCurve: "prime256v1" });
     const now = Date.now();
-    const signed = `ad_network=1&reward_amount=1&reward_item=energy&timestamp=${now}`
-      + `&transaction_id=tx-replay&user_id=${account.userId}&key_id=1`;
+    const signed =
+      `ad_network=1&reward_amount=1&reward_item=energy&timestamp=${now}` +
+      `&transaction_id=tx-replay&user_id=${account.userId}&key_id=1`;
     const sig = createSign("SHA256").update(signed, "utf8").sign(privateKey).toString("base64url");
     const callback = `https://api.example.com/ssv?${signed}&signature=${sig}`;
 
@@ -352,19 +399,31 @@ describe("S0-6 ad reward verification", () => {
     setAdMobVerifierKeys(new StaticVerifierKeys({ "1": publicKey.export({ type: "spki", format: "pem" }).toString() }));
     try {
       const first = await call<{ energy: number }>(h, "POST", "/v1/wallet/ad-reward", {
-        token: account.token, body: { adToken: callback },
+        token: account.token,
+        body: { adToken: callback },
       });
       expect(first.status, "the genuine callback pays out").toBe(200);
 
-      const second = await call(h, "POST", "/v1/wallet/ad-reward", { token: account.token, body: { adToken: callback } });
+      const second = await call(h, "POST", "/v1/wallet/ad-reward", {
+        token: account.token,
+        body: { adToken: callback },
+      });
       expect(second.status, "and the identical one does not").toBe(409);
       expect(second.error?.code).toBe("ALREADY_DONE");
 
       // The rollback matters as much as the refusal: no energy, and no phantom ad against the cap.
-      const wallet = await call<{ energy: number; adRewardsToday: number }>(h, "GET", "/v1/wallet", { token: account.token });
+      const wallet = await call<{ energy: number; adRewardsToday: number }>(h, "GET", "/v1/wallet", {
+        token: account.token,
+      });
       expect(wallet.data.adRewardsToday, "a refused replay is not an ad watched").toBe(1);
     } finally {
-      setAdMobVerifierKeys(new (class { get() { return Promise.resolve(null); } })());
+      setAdMobVerifierKeys(
+        new (class {
+          get() {
+            return Promise.resolve(null);
+          }
+        })(),
+      );
     }
   });
 
@@ -376,11 +435,20 @@ describe("S0-6 ad reward verification", () => {
     const sig = createSign("SHA256").update(signed, "utf8").sign(privateKey).toString("base64url");
     setAdMobVerifierKeys(new StaticVerifierKeys({ "1": publicKey.export({ type: "spki", format: "pem" }).toString() }));
     try {
-      const verdict = await verifyAdMobSSV(`https://x/ssv?${signed}&signature=${sig}`, { expectedUserId: "u1", nowMs: now });
+      const verdict = await verifyAdMobSSV(`https://x/ssv?${signed}&signature=${sig}`, {
+        expectedUserId: "u1",
+        nowMs: now,
+      });
       expect(verdict.ok).toBe(false);
       expect(verdict.reason).toBe("no_transaction_id");
     } finally {
-      setAdMobVerifierKeys(new (class { get() { return Promise.resolve(null); } })());
+      setAdMobVerifierKeys(
+        new (class {
+          get() {
+            return Promise.resolve(null);
+          }
+        })(),
+      );
     }
   });
 

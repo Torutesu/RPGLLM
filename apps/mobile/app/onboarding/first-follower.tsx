@@ -6,7 +6,19 @@ import { useActions, useAppState, useT } from "../../src/state/store";
 import { Button, Chip, Screen } from "../../src/components/ui";
 import { SkeletonList } from "../../src/components/Skeleton";
 import { Aurora, FILL, SoftOrb, StepDots } from "../../src/components/Brand";
-import { Avatar, FadeSlideIn, Gradient, Icon, PressScale, duration, ease, timing, typo, useAnimatedValue, useReduceMotion } from "../../src/ui";
+import {
+  Avatar,
+  FadeSlideIn,
+  Gradient,
+  Icon,
+  PressScale,
+  duration,
+  ease,
+  timing,
+  typo,
+  useAnimatedValue,
+  useReduceMotion,
+} from "../../src/ui";
 import type { Character } from "../../src/api/types";
 
 const MAX_W = 560;
@@ -71,12 +83,21 @@ export default function FirstFollower() {
 
           {candidates.map((c, i) => (
             <FadeSlideIn key={c.id} delay={i * 55} distance={12}>
-              <FollowerCard character={c} selected={selected === c.id} changes={changes} onPress={() => setSelected(c.id)} />
+              <FollowerCard
+                character={c}
+                selected={selected === c.id}
+                changes={changes}
+                onPress={() => setSelected(c.id)}
+              />
             </FadeSlideIn>
           ))}
 
           {error ? (
-            <Text accessibilityRole="alert" accessibilityLiveRegion="polite" style={[typo.meta, { color: colors.danger }]}>
+            <Text
+              accessibilityRole="alert"
+              accessibilityLiveRegion="polite"
+              style={[typo.meta, { color: colors.danger }]}
+            >
               {error}
             </Text>
           ) : null}
@@ -101,7 +122,10 @@ export default function FirstFollower() {
         <View style={{ width: "100%", maxWidth: MAX_W, alignSelf: "center", gap: spacing.md }}>
           <View style={{ height: 34, justifyContent: "center" }}>
             {chosen ? (
-              <View style={{ flexDirection: "row", alignItems: "center", gap: spacing.sm }} accessibilityLiveRegion="polite">
+              <View
+                style={{ flexDirection: "row", alignItems: "center", gap: spacing.sm }}
+                accessibilityLiveRegion="polite"
+              >
                 <Avatar handle={chosen.handle} size={layout.avatarSm} />
                 <Text numberOfLines={1} style={[typo.metaStrong, { color: colors.text, flexShrink: 1 }]}>
                   {`${chosen.displayName} · ${t("follows")}`}
@@ -130,8 +154,16 @@ export default function FirstFollower() {
 /* ------------------------------------------------------------------ card ---- */
 
 function FollowerCard({
-  character, selected, changes, onPress,
-}: { character: Character; selected: boolean; changes: readonly string[]; onPress: () => void }) {
+  character,
+  selected,
+  changes,
+  onPress,
+}: {
+  character: Character;
+  selected: boolean;
+  changes: readonly string[];
+  onPress: () => void;
+}) {
   const id = identityFor(character.handle);
   return (
     <Pressable

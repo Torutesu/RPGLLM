@@ -31,8 +31,15 @@ export function loadEnvFile(): string[] {
       const eq = trimmed.indexOf("=");
       if (eq < 0) continue;
       const key = trimmed.slice(0, eq).trim();
-      const value = trimmed.slice(eq + 1).replace(/\s+#.*$/, "").trim().replace(/^["']|["']$/g, "");
-      if (process.env[key] === undefined) { process.env[key] = value; count += 1; }
+      const value = trimmed
+        .slice(eq + 1)
+        .replace(/\s+#.*$/, "")
+        .trim()
+        .replace(/^["']|["']$/g, "");
+      if (process.env[key] === undefined) {
+        process.env[key] = value;
+        count += 1;
+      }
     }
     applied.push(`${file} (+${count})`);
   }

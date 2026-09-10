@@ -27,9 +27,7 @@ import { tellCreator } from "./creator-notify";
 import type { Tx } from "../types";
 
 /** 1 is "the first person who is not you". After that it is a ladder, not a rate. */
-export const PLAY_MILESTONES = [
-  1, 5, 10, 25, 50, 100, 250, 500, 1_000, 2_500, 5_000, 10_000, 50_000, 100_000,
-] as const;
+export const PLAY_MILESTONES = [1, 5, 10, 25, 50, 100, 250, 500, 1_000, 2_500, 5_000, 10_000, 50_000, 100_000] as const;
 
 /** The highest milestone this play count has reached, or null below the first one. */
 export function milestoneAt(plays: number): number | null {

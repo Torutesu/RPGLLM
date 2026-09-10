@@ -34,9 +34,7 @@ export const notificationsModule: NotificationsModule = {
     return { granted: res.granted, canAskAgain: res.canAskAgain };
   },
   async getExpoPushTokenAsync() {
-    const res = await Notifications.getExpoPushTokenAsync(
-      EXPO_PROJECT_ID ? { projectId: EXPO_PROJECT_ID } : undefined,
-    );
+    const res = await Notifications.getExpoPushTokenAsync(EXPO_PROJECT_ID ? { projectId: EXPO_PROJECT_ID } : undefined);
     return { data: res.data };
   },
   async setAndroidChannelAsync() {

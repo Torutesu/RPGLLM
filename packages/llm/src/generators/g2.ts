@@ -26,7 +26,10 @@ export const G2InputZ = BaseCtxZ.extend({
 export type G2Input = z.infer<typeof G2InputZ>;
 
 export const G2OutputZ = z.object({
-  posts: z.array(z.object({ characterHandle: z.string(), text: z.string().max(280) })).min(1).max(12),
+  posts: z
+    .array(z.object({ characterHandle: z.string(), text: z.string().max(280) }))
+    .min(1)
+    .max(12),
 });
 export type G2Output = z.infer<typeof G2OutputZ>;
 

@@ -1,9 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, FlatList, Pressable, RefreshControl, Text, View } from "react-native";
 import { router, useFocusEffect } from "expo-router";
-import {
-  HEAT, T, colors, identityFor, layout, radius, spacing, type Post,
-} from "@rpgllm/shared";
+import { HEAT, T, colors, identityFor, layout, radius, spacing, type Post } from "@rpgllm/shared";
 import { useActions, useAppState, useT } from "../../src/state/store";
 import { Card, Screen } from "../../src/components/ui";
 import { EnergyBadge } from "../../src/components/EnergyBadge";
@@ -176,8 +174,17 @@ function FeedRow({
 /** SCR-010 — home feed. */
 export default function FeedScreen() {
   const {
-    me, feed, feedStatus, feedCursor, liveReplies, pendingEvent, toasts, lastSnapshot, blocked,
-    statCardOpen, worlds,
+    me,
+    feed,
+    feedStatus,
+    feedCursor,
+    liveReplies,
+    pendingEvent,
+    toasts,
+    lastSnapshot,
+    blocked,
+    statCardOpen,
+    worlds,
   } = useAppState();
   const { loadFeed, loadMoreFeed, openStatCard, clearToast, loadBlocked, loadWorlds } = useActions();
   const { t } = useT();
@@ -354,18 +361,16 @@ export default function FeedScreen() {
             reportable cell. Only for a world somebody else made: never a preset, never your own.
           */}
           {focused && reportableWorld && worldId ? (
-            <Overflow
-              id={worldSlug}
-              target="world"
-              targetId={worldId}
-              testID={T.reportWorld}
-              labelKey="reportWorld"
-            />
+            <Overflow id={worldSlug} target="world" targetId={worldId} testID={T.reportWorld} labelKey="reportWorld" />
           ) : null}
         </View>
         <View style={{ flexDirection: "row", alignItems: "center", gap: spacing.sm }}>
           <StreakChip />
-          <EnergyBadge energy={wallet?.energy ?? 0} coffee={wallet?.coffee ?? 0} onPress={() => router.push("/energy")} />
+          <EnergyBadge
+            energy={wallet?.energy ?? 0}
+            coffee={wallet?.coffee ?? 0}
+            onPress={() => router.push("/energy")}
+          />
           {/* Agent G (S1-3/4): the only entry point to SCR-033. */}
           <Pressable
             testID={T.settingsBtn}

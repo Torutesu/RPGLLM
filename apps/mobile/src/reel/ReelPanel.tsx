@@ -39,15 +39,15 @@ export function ReelPanel({ moment, reel }: ReelPanelProps) {
   const supported = canRecord();
 
   const timeline = useMemo(() => normalizeReel(reel ?? reelFromMoment(moment)), [reel, moment]);
-  const labels = useMemo(
-    () => ({ followers: t("followers"), aura: t("aura"), humor: t("humor") }),
-    [t],
-  );
+  const labels = useMemo(() => ({ followers: t("followers"), aura: t("aura"), humor: t("humor") }), [t]);
 
   // one object URL per recording, and never one left behind
-  useEffect(() => () => {
-    if (file) releaseFile(file);
-  }, [file]);
+  useEffect(
+    () => () => {
+      if (file) releaseFile(file);
+    },
+    [file],
+  );
 
   const onLayout = useCallback((e: LayoutChangeEvent) => {
     const w = Math.floor(e.nativeEvent.layout.width);

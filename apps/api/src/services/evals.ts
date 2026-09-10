@@ -15,13 +15,7 @@
  */
 import type { PrismaClient, EvalStatus } from "@prisma/client";
 import { G1InputZ, EVAL_SET_SIZE, PACING, type G1Input } from "@rpgllm/shared";
-import {
-  evaluateGate,
-  frozenEvalCases,
-  runEval,
-  type EvalCaseRun,
-  type EvalRunResult,
-} from "@rpgllm/llm";
+import { evaluateGate, frozenEvalCases, runEval, type EvalCaseRun, type EvalRunResult } from "@rpgllm/llm";
 import { localized, roleFor } from "./locale";
 import { logGeneration } from "./generation";
 import { normHandle } from "./handles";
@@ -69,7 +63,10 @@ async function upsertCase(
  * Real cases rebuilt from real rows: the last N player posts, each turned back into the G1 input
  * that produced it. `frozen: false` marks them as resamplable — the hand-written ones are not.
  */
-export async function productionCases(prisma: PrismaClient, limit: number): Promise<Array<{ label: string; locale: string; worldSlug: string; input: G1Input }>> {
+export async function productionCases(
+  prisma: PrismaClient,
+  limit: number,
+): Promise<Array<{ label: string; locale: string; worldSlug: string; input: G1Input }>> {
   if (limit <= 0) return [];
   const posts = await prisma.post.findMany({
     where: { kind: "user" },
@@ -172,16 +169,46 @@ export async function seedEvalCases(
 
   let created = 0;
   for (const c of hard) {
-    if (await upsertCase(prisma, { generator: GENERATOR, locale: c.locale, worldSlug: c.worldSlug, label: c.label, frozen: true, input: c.input })) created += 1;
+    if (
+      await upsertCase(prisma, {
+        generator: GENERATOR,
+        locale: c.locale,
+        worldSlug: c.worldSlug,
+        label: c.label,
+        frozen: true,
+        input: c.input,
+      })
+    )
+      created += 1;
   }
   for (const p of production) {
-    if (await upsertCase(prisma, { generator: GENERATOR, locale: p.locale, worldSlug: p.worldSlug, label: p.label, frozen: false, input: p.input })) created += 1;
+    if (
+      await upsertCase(prisma, {
+        generator: GENERATOR,
+        locale: p.locale,
+        worldSlug: p.worldSlug,
+        label: p.label,
+        frozen: false,
+        input: p.input,
+      })
+    )
+      created += 1;
   }
   // Fill whatever is left from the frozen pool, so the set is always the full size.
   for (const c of frozen.filter((f) => !f.label.startsWith("hard:"))) {
     const count = await prisma.evalCase.count({ where: { generator: GENERATOR } });
     if (count >= size) break;
-    if (await upsertCase(prisma, { generator: GENERATOR, locale: c.locale, worldSlug: c.worldSlug, label: c.label, frozen: true, input: c.input })) created += 1;
+    if (
+      await upsertCase(prisma, {
+        generator: GENERATOR,
+        locale: c.locale,
+        worldSlug: c.worldSlug,
+        label: c.label,
+        frozen: true,
+        input: c.input,
+      })
+    )
+      created += 1;
   }
 
   // The set is *frozen at EVAL_SET_SIZE*: when new production cases arrive, filler cases make room
@@ -229,7 +256,10 @@ export interface StartEvalArgs {
  * persist every case's score. Never throws — a failed run is recorded with `status: "failed"` so
  * the comparison can ignore it.
  */
-export async function startEvalRun(deps: Deps, args: StartEvalArgs): Promise<{ runId: string; result: EvalRunResult | null; status: EvalStatus }> {
+export async function startEvalRun(
+  deps: Deps,
+  args: StartEvalArgs,
+): Promise<{ runId: string; result: EvalRunResult | null; status: EvalStatus }> {
   const existing = await deps.prisma.evalCase.count({ where: { generator: args.generator } });
   if (existing === 0) await seedEvalCases(deps.prisma);
 

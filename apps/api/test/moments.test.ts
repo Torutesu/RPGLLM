@@ -1,18 +1,33 @@
 import type { Prisma } from "@prisma/client";
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { xpForNextLevel, XP_PER_LEVEL } from "@rpgllm/shared";
-import { call, makeHarness, prisma, resetDatabase, signupWithPersona, type Harness, type PersonaFixture } from "./helpers";
+import {
+  call,
+  makeHarness,
+  prisma,
+  resetDatabase,
+  signupWithPersona,
+  type Harness,
+  type PersonaFixture,
+} from "./helpers";
 
 let h: Harness;
 
 interface MomentRow {
-  id: string; shareSlug: string; headline: string; body: string;
+  id: string;
+  shareSlug: string;
+  headline: string;
+  body: string;
   payload: { deltas?: { followers: number; aura: number; humor: number }; reactions?: unknown[] };
   createdAt: string;
 }
 
-beforeAll(() => { h = makeHarness(); });
-beforeEach(async () => { await resetDatabase(); });
+beforeAll(() => {
+  h = makeHarness();
+});
+beforeEach(async () => {
+  await resetDatabase();
+});
 
 async function snapshot(
   p: PersonaFixture,
@@ -42,9 +57,11 @@ async function snapshot(
 describe("shareable moment (S2-4, AIF-005)", () => {
   it("creates exactly one moment for a qualifying swing and serves it publicly by slug", async () => {
     const p = await signupWithPersona(h);
-    await snapshot(p, { followersDelta: 2, auraDelta: 6 });   // aura ±5 qualifies
+    await snapshot(p, { followersDelta: 2, auraDelta: 6 }); // aura ±5 qualifies
 
-    const list = await call<{ moments: MomentRow[] }>(h, "GET", `/v1/moments?personaId=${p.personaId}`, { token: p.token });
+    const list = await call<{ moments: MomentRow[] }>(h, "GET", `/v1/moments?personaId=${p.personaId}`, {
+      token: p.token,
+    });
     expect(list.status).toBe(200);
     expect(list.data.moments).toHaveLength(1);
     const moment = list.data.moments[0]!;
@@ -53,7 +70,9 @@ describe("shareable moment (S2-4, AIF-005)", () => {
     expect(Array.isArray(moment.payload.reactions)).toBe(true);
 
     // A second read must not mint a duplicate card for the same snapshot.
-    const again = await call<{ moments: MomentRow[] }>(h, "GET", `/v1/moments?personaId=${p.personaId}`, { token: p.token });
+    const again = await call<{ moments: MomentRow[] }>(h, "GET", `/v1/moments?personaId=${p.personaId}`, {
+      token: p.token,
+    });
     expect(again.data.moments).toHaveLength(1);
     expect(await prisma.moment.count()).toBe(1);
 
@@ -69,13 +88,17 @@ describe("shareable moment (S2-4, AIF-005)", () => {
 
   it("ignores an ordinary action and cards a follower spike or an event resolution", async () => {
     const p = await signupWithPersona(h);
-    await snapshot(p, { followersDelta: 3, auraDelta: 1 });   // 3 of 120 followers, aura 1 → not a moment
-    const quiet = await call<{ moments: MomentRow[] }>(h, "GET", `/v1/moments?personaId=${p.personaId}`, { token: p.token });
+    await snapshot(p, { followersDelta: 3, auraDelta: 1 }); // 3 of 120 followers, aura 1 → not a moment
+    const quiet = await call<{ moments: MomentRow[] }>(h, "GET", `/v1/moments?personaId=${p.personaId}`, {
+      token: p.token,
+    });
     expect(quiet.data.moments).toHaveLength(0);
 
-    await snapshot(p, { followersDelta: 40, auraDelta: 0 });                    // >= 25% of 120
-    await snapshot(p, { followersDelta: 1, auraDelta: 1, cause: "event:x1" });  // event resolution
-    const loud = await call<{ moments: MomentRow[] }>(h, "GET", `/v1/moments?personaId=${p.personaId}`, { token: p.token });
+    await snapshot(p, { followersDelta: 40, auraDelta: 0 }); // >= 25% of 120
+    await snapshot(p, { followersDelta: 1, auraDelta: 1, cause: "event:x1" }); // event resolution
+    const loud = await call<{ moments: MomentRow[] }>(h, "GET", `/v1/moments?personaId=${p.personaId}`, {
+      token: p.token,
+    });
     expect(loud.data.moments).toHaveLength(2);
   });
 });
@@ -106,7 +129,8 @@ describe("profile (SCR-026, S2-6)", () => {
     // Level 3 at 250 XP (level = floor(xp/100) + 1); the bar's target is `level * XP_PER_LEVEL`.
     await prisma.persona.update({ where: { id: p.personaId }, data: { xp: 250, level: 3 } });
     const post = await call<{ post: { id: string } }>(h, "POST", "/v1/posts", {
-      token: p.token, body: { personaId: p.personaId, text: "back from the studio", parentId: null },
+      token: p.token,
+      body: { personaId: p.personaId, text: "back from the studio", parentId: null },
     });
     expect(post.status).toBe(201);
 

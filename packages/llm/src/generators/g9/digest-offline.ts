@@ -160,7 +160,11 @@ export function normaliseEvidence(text: string): string {
 
 /** The whole world as one normalised string, for substring grounding. */
 export function worldHaystack(world: WorldSeed): string {
-  return normaliseEvidence(worldPassages(world).map((p) => p.text).join("\n"));
+  return normaliseEvidence(
+    worldPassages(world)
+      .map((p) => p.text)
+      .join("\n"),
+  );
 }
 
 /** An elided quotation ("A … B") is grounded when every segment of it is. */
@@ -219,8 +223,7 @@ const CATEGORY_CONCERN: Readonly<Record<string, string>> = {
     "The premise screen's sexualised-minor rule matches this generated passage (§3.2, 13+). The premise itself passed; this is text the generator wrote.",
   sexual_explicit:
     "Sexual vocabulary in player-visible text of a 13+ world (§3.2). The premise passed the screen; this line did not come from it.",
-  self_harm:
-    "Self-harm treated as method or aesthetic rather than as something already in the past (§3.2).",
+  self_harm: "Self-harm treated as method or aesthetic rather than as something already in the past (§3.2).",
   hate: "Slur or dehumanising vocabulary in player-visible text (§3.2, assume a 13-year-old is reading it).",
   violence_graphic: "Graphic violence as the attraction rather than as drama (§3.2).",
   illegal: "Reads as real-world procedure rather than as fiction about it (§3.2).",
@@ -470,7 +473,11 @@ function jaccard(a: ReadonlySet<string>, b: ReadonlySet<string>): number {
 }
 
 function playablePoints(world: WorldSeed): ReviewPoint[] {
-  const cards = world.cast.map((c) => ({ handle: c.handle, text: (c.card.en ?? "").trim(), tokens: cardTokens(c.card.en ?? "") }));
+  const cards = world.cast.map((c) => ({
+    handle: c.handle,
+    text: (c.card.en ?? "").trim(),
+    tokens: cardTokens(c.card.en ?? ""),
+  }));
   for (let i = 0; i < cards.length; i += 1) {
     for (let j = i + 1; j < cards.length; j += 1) {
       const a = cards[i];

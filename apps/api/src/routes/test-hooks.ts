@@ -19,9 +19,22 @@ const GENERATORS: readonly string[] = ["G1", "G2", "G3", "G4", "G5", "G7", "G8",
 
 /** Everything that persona/user state touches; World/WorldCharacter/AmbientPost survive a reset. */
 const TRUNCATE_TABLES = [
-  "Rating", "ExperimentAssignment", "LedgerEntry", "Purchase", "Subscription", "Wallet",
-  "MemoryEntry", "RelationshipState", "StatSnapshot", "Event", "DMMessage", "DMThread",
-  "Post", "Persona", "GenerationLog", "User",
+  "Rating",
+  "ExperimentAssignment",
+  "LedgerEntry",
+  "Purchase",
+  "Subscription",
+  "Wallet",
+  "MemoryEntry",
+  "RelationshipState",
+  "StatSnapshot",
+  "Event",
+  "DMMessage",
+  "DMThread",
+  "Post",
+  "Persona",
+  "GenerationLog",
+  "User",
 ] as const;
 
 /** Mounted only when TEST_HOOKS=1 (build-plan §3). */
@@ -76,9 +89,10 @@ export function testHookRoutes(): Hono<AppEnv> {
     const user = c.get("user");
     const scopeUserId = c.req.query("userId") ?? user.id;
     const generatorParam = c.req.query("generator");
-    const generator = generatorParam && GENERATORS.includes(generatorParam as GeneratorId)
-      ? (generatorParam as GeneratorId)
-      : undefined;
+    const generator =
+      generatorParam && GENERATORS.includes(generatorParam as GeneratorId)
+        ? (generatorParam as GeneratorId)
+        : undefined;
 
     let linked: string[] | null = null;
     const postId = c.req.query("postId");
@@ -88,17 +102,24 @@ export function testHookRoutes(): Hono<AppEnv> {
         ? await deps.prisma.post.findMany({ where: { parentId: post.id }, select: { generationId: true } })
         : [];
       const news = post?.personaId
-        ? await deps.prisma.post.findMany({ where: { personaId: post.personaId, kind: "news" }, select: { generationId: true, metrics: true } })
+        ? await deps.prisma.post.findMany({
+            where: { personaId: post.personaId, kind: "news" },
+            select: { generationId: true, metrics: true },
+          })
         : [];
       const ids = new Set<string>();
       if (post?.generationId) ids.add(post.generationId);
       for (const child of children) if (child.generationId) ids.add(child.generationId);
-      for (const n of news) if (n.generationId && metricsCausedBy(n.metrics) === `post:${postId}`) ids.add(n.generationId);
+      for (const n of news)
+        if (n.generationId && metricsCausedBy(n.metrics) === `post:${postId}`) ids.add(n.generationId);
       linked = [...ids];
     }
     const messageId = c.req.query("messageId");
     if (messageId) {
-      const message = await deps.prisma.dMMessage.findUnique({ where: { id: messageId }, select: { generationId: true } });
+      const message = await deps.prisma.dMMessage.findUnique({
+        where: { id: messageId },
+        select: { generationId: true },
+      });
       linked = message?.generationId ? [message.generationId] : [];
     }
 

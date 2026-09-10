@@ -20,7 +20,11 @@ export function seededRandom(seed: number): () => number {
   };
 }
 
-export interface Metrics { likes: number; reposts: number; replies: number }
+export interface Metrics {
+  likes: number;
+  reposts: number;
+  replies: number;
+}
 
 /**
  * 演出 metrics (spec/02-schema.md: the LLM never generates these).

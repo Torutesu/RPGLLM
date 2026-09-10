@@ -97,7 +97,10 @@ export function adminWorldRoutes(): Hono<AppEnv> {
     const ids = worlds.map((w) => w.id);
     const [counts, handles, cast] = await Promise.all([
       castCounts(deps.prisma, ids),
-      creatorHandles(deps.prisma, worlds.flatMap((w) => (w.createdBy ? [w.createdBy] : []))),
+      creatorHandles(
+        deps.prisma,
+        worlds.flatMap((w) => (w.createdBy ? [w.createdBy] : [])),
+      ),
       ids.length > 0
         ? deps.prisma.worldCharacter.findMany({ where: { worldId: { in: ids } }, orderBy: { handle: "asc" } })
         : Promise.resolve([]),
@@ -230,31 +233,34 @@ export function adminWorldRoutes(): Hono<AppEnv> {
         where: { id: world.id },
         data: approved
           ? {
-            // Back on the shelf, and no longer pulled: a person has now looked at it.
-            status: "published", reviewedAt: now, reviewedBy: reviewer, rejectedReason: "",
-            pulledAt: null,
-            ...consumedCharge,
-            // An approval answers the appeal it was carrying, and there is no longer a rejection
-            // to argue with — so the next one, if this world is ever rejected again, starts fresh.
-            ...clearedAppeal,
-            ...releasedClaim,
-          }
+              // Back on the shelf, and no longer pulled: a person has now looked at it.
+              status: "published",
+              reviewedAt: now,
+              reviewedBy: reviewer,
+              rejectedReason: "",
+              pulledAt: null,
+              ...consumedCharge,
+              // An approval answers the appeal it was carrying, and there is no longer a rejection
+              // to argue with — so the next one, if this world is ever rejected again, starts fresh.
+              ...clearedAppeal,
+              ...releasedClaim,
+            }
           : {
-            status: "rejected",
-            // It stops being listed, but its creator keeps it: `pickerWhere` still returns a
-            // rejected world to the account that made it.
-            visibility: "private",
-            reviewedAt: now,
-            reviewedBy: reviewer,
-            rejectedReason: body.value.reason,
-            pulledAt: null,
-            ...consumedCharge,
-            // **The appeal state is deliberately left standing.** A world rejected *again* after an
-            // appeal has spent its appeal for that argument: `appealsUsed` stays at the limit, so
-            // `canAppeal` is false and the creator's next step is the ordinary cooldown. A new
-            // appeal only becomes available if a genuine resubmit is rejected again.
-            ...releasedClaim,
-          },
+              status: "rejected",
+              // It stops being listed, but its creator keeps it: `pickerWhere` still returns a
+              // rejected world to the account that made it.
+              visibility: "private",
+              reviewedAt: now,
+              reviewedBy: reviewer,
+              rejectedReason: body.value.reason,
+              pulledAt: null,
+              ...consumedCharge,
+              // **The appeal state is deliberately left standing.** A world rejected *again* after an
+              // appeal has spent its appeal for that argument: `appealsUsed` stays at the limit, so
+              // `canAppeal` is false and the creator's next step is the ordinary cooldown. A new
+              // appeal only becomes available if a genuine resubmit is rejected again.
+              ...releasedClaim,
+            },
       });
       await resolveWorldReports(tx, world.id, now, approved);
       if (world.createdBy) {

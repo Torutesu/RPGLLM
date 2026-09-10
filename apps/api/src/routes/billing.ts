@@ -69,7 +69,13 @@ export function billingRoutes(): Hono<AppEnv> {
     const updated = await deps.prisma.$transaction(async (tx) => {
       const w = await tx.wallet.update({ where: { id: wallet.id }, data: { energy: plan.energyDaily } });
       await tx.ledgerEntry.create({
-        data: { walletId: wallet.id, currency: "energy", delta: plan.energyDaily - wallet.energy, source: "purchase", ref: plan.id },
+        data: {
+          walletId: wallet.id,
+          currency: "energy",
+          delta: plan.energyDaily - wallet.energy,
+          source: "purchase",
+          ref: plan.id,
+        },
       });
       return w;
     });

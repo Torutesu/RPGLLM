@@ -5,7 +5,13 @@ import { requireAuth } from "../auth";
 import { testHooksEnabled } from "../env";
 import { fail, notFound, ok, parseBody } from "../http";
 import { requireActiveAccount } from "../services/account";
-import { adminTokenMatches, blockedCharacterIds, createReport, findOpenReport, loadReportedContent } from "../services/moderation";
+import {
+  adminTokenMatches,
+  blockedCharacterIds,
+  createReport,
+  findOpenReport,
+  loadReportedContent,
+} from "../services/moderation";
 import { pullWorldIfBrigaded, tellCreatorPulled } from "../services/world-moderation";
 import { logLine } from "../middleware/request-log";
 import type { LocaleKey } from "../services/locale";
@@ -71,7 +77,11 @@ export function moderationRoutes(): Hono<AppEnv> {
 
     if (filed.pulled) {
       logLine({
-        level: "warn", msg: "world.pulled", worldId: targetId, reporters: filed.reporters, reason,
+        level: "warn",
+        msg: "world.pulled",
+        worldId: targetId,
+        reporters: filed.reporters,
+        reason,
       });
     }
     return ok({ id: filed.report.id, status: filed.report.status }, 201);
@@ -140,12 +150,15 @@ export function moderationRoutes(): Hono<AppEnv> {
    */
   app.get("/reports", async (c) => {
     const header = c.req.header("authorization") ?? "";
-    const presented = header.toLowerCase().startsWith("bearer ") ? header.slice(7).trim() : c.req.header("x-admin-token");
+    const presented = header.toLowerCase().startsWith("bearer ")
+      ? header.slice(7).trim()
+      : c.req.header("x-admin-token");
     if (!testHooksEnabled() && !adminTokenMatches(presented)) return fail("UNAUTHORIZED", "Admin only", 401);
     const deps = c.get("deps");
     const status = c.req.query("status");
     const rows = await deps.prisma.report.findMany({
-      where: status === "open" || status === "triaged" || status === "actioned" || status === "dismissed" ? { status } : {},
+      where:
+        status === "open" || status === "triaged" || status === "actioned" || status === "dismissed" ? { status } : {},
       orderBy: { createdAt: "desc" },
       take: 200,
     });

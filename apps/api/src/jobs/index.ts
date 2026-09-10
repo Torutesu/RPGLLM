@@ -51,11 +51,14 @@ export interface RunJobResult {
   ambient: AmbientRefillResult | null;
 }
 
-export async function runJobs(deps: {
-  prisma: import("@prisma/client").PrismaClient;
-  gateway: import("@rpgllm/llm").Gateway;
-  clock: import("../clock").Clock;
-}, req: RunJobReq): Promise<RunJobResult> {
+export async function runJobs(
+  deps: {
+    prisma: import("@prisma/client").PrismaClient;
+    gateway: import("@rpgllm/llm").Gateway;
+    clock: import("../clock").Clock;
+  },
+  req: RunJobReq,
+): Promise<RunJobResult> {
   const wants = (name: Exclude<JobName, "all">): boolean => req.job === "all" || req.job === name;
   const result: RunJobResult = { ran: [], digest: null, memory: null, ambient: null };
 

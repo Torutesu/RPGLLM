@@ -84,9 +84,7 @@ function repairCast(raw: readonly G9ConceptCast[], reference: G9Concept): G9Conc
   for (const c of raw) {
     const handle = bareHandle(c.handle.trim().toLowerCase());
     if (!HANDLE_RE.test(handle) || seenHandles.has(handle)) continue;
-    const archetype = ARCHETYPE_KEYS.has(c.archetype) && !seenArchetypes.has(c.archetype)
-      ? c.archetype
-      : "";
+    const archetype = ARCHETYPE_KEYS.has(c.archetype) && !seenArchetypes.has(c.archetype) ? c.archetype : "";
     if (archetype === "") continue;
     seenHandles.add(handle);
     seenArchetypes.add(archetype);
@@ -97,8 +95,7 @@ function repairCast(raw: readonly G9ConceptCast[], reference: G9Concept): G9Conc
     // translated cast this field exists to remove — falls back to the archetype's own Japanese,
     // never to the English.
     const archetypeRole = archetypeByKey(archetype)?.roleLocalized;
-    const roleEn =
-      clamp(c.role, 60) || clamp(c.roleLocalized?.en ?? "", 60) || archetypeRole?.en || "account";
+    const roleEn = clamp(c.role, 60) || clamp(c.roleLocalized?.en ?? "", 60) || archetypeRole?.en || "account";
     const rawJa = clamp(c.roleLocalized?.ja ?? "", 60);
     const roleJa = rawJa.length > 0 && rawJa !== roleEn ? rawJa : (archetypeRole?.ja ?? roleEn);
 
@@ -173,11 +170,7 @@ export const g9Concept: GeneratorSpec<G9ConceptInput, G9Concept> = {
     const { base } = input;
     return {
       system: [STUDIO_GLOBAL[base.locale], genreBrief(base.genre, base.locale)],
-      user: joinSections([
-        G9_TASKS.concept[base.locale],
-        premiseSection(base),
-        parametersSection(base),
-      ]),
+      user: joinSections([G9_TASKS.concept[base.locale], premiseSection(base), parametersSection(base)]),
     };
   },
 
@@ -297,8 +290,7 @@ export const g9Card: GeneratorSpec<G9CardInput, G9CardOutput> = {
   },
 
   fallback(input: G9CardInput): G9CardOutput {
-    const member =
-      input.concept.cast.find((c) => c.handle === input.handle) ?? input.concept.cast[0];
+    const member = input.concept.cast.find((c) => c.handle === input.handle) ?? input.concept.cast[0];
     if (member === undefined) return { card: { en: "", ja: "" }, intro: { en: "", ja: "" } };
     return {
       card: {
@@ -348,8 +340,7 @@ function repairEvents(
   raw: G9CastEventsOutput["events"],
   reference: G9CastEventsOutput["events"],
 ): G9CastEventsOutput["events"] {
-  const clampDelta = (n: number, lo: number, hi: number): number =>
-    Math.max(lo, Math.min(hi, Math.round(n)));
+  const clampDelta = (n: number, lo: number, hi: number): number => Math.max(lo, Math.min(hi, Math.round(n)));
   const out: G9CastEventsOutput["events"] = [];
   const seenTitles = new Set<string>();
 
@@ -417,10 +408,7 @@ export const g9Texture: GeneratorSpec<G9TextureInput, G9TextureOutput> = {
 
   render(input: G9TextureInput): RenderedPrompt {
     const roster = input.concept.cast
-      .map(
-        (c) =>
-          `- @${c.handle} (${c.displayName}) — ${roleIn(c, input.locale)}${c.isPressAccount ? " [PRESS]" : ""}`,
-      )
+      .map((c) => `- @${c.handle} (${c.displayName}) — ${roleIn(c, input.locale)}${c.isPressAccount ? " [PRESS]" : ""}`)
       .join("\n");
     return {
       system: [STUDIO_GLOBAL[input.locale], worldBrief(input.concept, input.prose)],
@@ -461,9 +449,7 @@ export const g9Texture: GeneratorSpec<G9TextureInput, G9TextureOutput> = {
     const fallbackReplies: Record<string, string[]> = {};
     const welcomePosts: Record<string, string> = {};
     for (const c of input.concept.cast) {
-      const lines = (raw.fallbackReplies[c.handle] ?? [])
-        .map((l) => clamp(l, 160))
-        .filter((l) => l.length > 0);
+      const lines = (raw.fallbackReplies[c.handle] ?? []).map((l) => clamp(l, 160)).filter((l) => l.length > 0);
       const topped = [...lines];
       for (const l of reference.fallbackReplies[c.handle] ?? []) {
         if (topped.length >= 5) break;

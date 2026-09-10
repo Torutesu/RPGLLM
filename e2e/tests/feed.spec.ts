@@ -1,11 +1,34 @@
 import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
 import { PACING, T } from "@rpgllm/shared";
 import {
-  apiSignup, assignments, badgeEnergy, dismissStatCard, enterWorld, expectBadgeEnergy,
-  expectWalletEnergy, FIRST_FOLLOWER, FIRST_POST_TEXT, firstPostFlow, generations, gotoApp,
-  loginInBrowser, post, postAndSettle, postCells, postDetail, rateDownFor, repliesBy, replyButton,
-  replyCellById, resetDb, ROUTES, submitComposer, typeInComposer, userPostCell,
-  type Account, type ApiPost,
+  apiSignup,
+  assignments,
+  badgeEnergy,
+  dismissStatCard,
+  enterWorld,
+  expectBadgeEnergy,
+  expectWalletEnergy,
+  FIRST_FOLLOWER,
+  FIRST_POST_TEXT,
+  firstPostFlow,
+  generations,
+  gotoApp,
+  loginInBrowser,
+  post,
+  postAndSettle,
+  postCells,
+  postDetail,
+  rateDownFor,
+  repliesBy,
+  replyButton,
+  replyCellById,
+  resetDb,
+  ROUTES,
+  submitComposer,
+  typeInComposer,
+  userPostCell,
+  type Account,
+  type ApiPost,
 } from "../fixtures";
 
 test.beforeEach(async ({ request }) => {
@@ -41,8 +64,7 @@ test("E2E-004: replying in a thread gets a response", async ({ page, request }) 
 
   // --- open the post (SCR-012) ---
   await userPostCell(page, FIRST_POST_TEXT).getByTestId(T.postText).first().click();
-  await expect(page, "tapping a post cell opens SCR-012")
-    .toHaveURL(new RegExp(`/post/${postId}`), { timeout: 15_000 });
+  await expect(page, "tapping a post cell opens SCR-012").toHaveURL(new RegExp(`/post/${postId}`), { timeout: 15_000 });
 
   const bea = repliesBy(page, FIRST_FOLLOWER);
   await expect(bea, `@${FIRST_FOLLOWER} must be among the replies`).not.toHaveCount(0, { timeout: 15_000 });
@@ -81,8 +103,7 @@ test("E2E-005: the 8th action raises an event whose choice produces a result and
   await expectBadgeEnergy(page, 10 - PACING.EVENT_EVERY);
 
   const banner = page.getByTestId(T.eventBanner);
-  await expect(banner, "an event banner must be pinned to the feed after 8 actions")
-    .toBeVisible({ timeout: 20_000 });
+  await expect(banner, "an event banner must be pinned to the feed after 8 actions").toBeVisible({ timeout: 20_000 });
   await banner.click();
 
   await expect(page.getByTestId(T.eventCard), "SCR-014 event card").toBeVisible();
@@ -93,8 +114,9 @@ test("E2E-005: the 8th action raises an event whose choice produces a result and
 
   // "Drop receipts"
   await page.getByTestId(T.eventChoice(1)).click();
-  await expect(page.getByTestId(T.statCard), "the pre-generated result must show within 1s")
-    .toBeVisible({ timeout: 1_000 });
+  await expect(page.getByTestId(T.statCard), "the pre-generated result must show within 1s").toBeVisible({
+    timeout: 1_000,
+  });
   await expect(page.getByTestId(T.statNarrative)).toHaveText(/\S/);
 
   await page.getByTestId(T.statContinue).click();
@@ -118,8 +140,7 @@ test("E2E-013: every action leaves a GenerationLog and an experiment assignment"
   await expectBadgeEnergy(page, 9);
 
   const assigned = await assignments(request, account.jwt);
-  expect(Object.keys(assigned).length, "GET /v1/experiments/assignments must not be empty")
-    .toBeGreaterThan(0);
+  expect(Object.keys(assigned).length, "GET /v1/experiments/assignments must not be empty").toBeGreaterThan(0);
 
   const detail = await postDetail(request, account.jwt, postId);
   const replies = detail.replies.filter((r: ApiPost) => r.kind === "character");
@@ -160,15 +181,22 @@ test("E2E-014: 👎 replaces the reply using a higher tier", async ({ page, requ
   await (await rateDownFor(page, reply)).click();
 
   await expect
-    .poll(async () => (await replyCellById(page, reply.id).innerText().catch(() => "")).trim(), {
-      timeout: 2_000,
-      intervals: [100, 150, 200, 250, 250, 250, 250, 250],
-      message: "the reply must be replaced within 2s",
-    })
+    .poll(
+      async () =>
+        (
+          await replyCellById(page, reply.id)
+            .innerText()
+            .catch(() => "")
+        ).trim(),
+      {
+        timeout: 2_000,
+        intervals: [100, 150, 200, 250, 250, 250, 250, 250],
+        message: "the reply must be replaced within 2s",
+      },
+    )
     .not.toBe(before);
 
-  const escalated = (await generations(request, account.jwt, { postId: reply.id }))
-    .filter((l) => l.escalatedFrom);
+  const escalated = (await generations(request, account.jwt, { postId: reply.id })).filter((l) => l.escalatedFrom);
   expect(escalated.length, "the regeneration must log escalatedFrom").toBeGreaterThan(0);
   expect(
     escalated.some((l) => l.escalatedFrom === reply.generationId),

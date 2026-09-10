@@ -6,18 +6,33 @@
 import { expect, test, type APIRequestContext, type Locator, type Page } from "@playwright/test";
 import { REPORT_REASONS, T, strings } from "@rpgllm/shared";
 import {
-  apiUrl, bearer, gotoApp, postAndSettle, postCells, resetDb, ROUTES, signupAndEnter, unwrap,
+  apiUrl,
+  bearer,
+  gotoApp,
+  postAndSettle,
+  postCells,
+  resetDb,
+  ROUTES,
+  signupAndEnter,
+  unwrap,
 } from "../fixtures";
 
 interface ReportRow {
-  id: string; target: string; targetId: string; reason: string; note: string; snapshot: string; status: string;
+  id: string;
+  target: string;
+  targetId: string;
+  reason: string;
+  note: string;
+  snapshot: string;
+  status: string;
   generationId: string | null;
 }
 
 /** The moderation queue (TEST_HOOKS-gated read added by Agent G). */
 async function openReports(request: APIRequestContext, jwt: string): Promise<ReportRow[]> {
   const res = await request.get(apiUrl("/v1/moderation/reports?status=open"), {
-    headers: bearer(jwt), failOnStatusCode: false,
+    headers: bearer(jwt),
+    failOnStatusCode: false,
   });
   return (await unwrap<{ reports: ReportRow[] }>(res, "GET /v1/moderation/reports")).reports;
 }
@@ -29,7 +44,10 @@ const overflowIn = (scope: Locator): Locator => scope.locator('[data-testid^="ov
  * world seed so the case follows whichever first follower onboarding actually picked.
  */
 async function dmFollowers(request: APIRequestContext, jwt: string, personaId: string): Promise<{ handle: string }[]> {
-  const res = await request.get(apiUrl(`/v1/dms?personaId=${personaId}`), { headers: bearer(jwt), failOnStatusCode: false });
+  const res = await request.get(apiUrl(`/v1/dms?personaId=${personaId}`), {
+    headers: bearer(jwt),
+    failOnStatusCode: false,
+  });
   return (await unwrap<{ followers: { handle: string }[] }>(res, "GET /v1/dms")).followers;
 }
 
@@ -41,8 +59,7 @@ async function personaId(request: APIRequestContext, jwt: string): Promise<strin
 }
 
 /** Any feed/thread cell whose text mentions `@handle`. */
-const cellsByHandle = (page: Page, handle: string): Locator =>
-  postCells(page).filter({ hasText: `@${handle}` });
+const cellsByHandle = (page: Page, handle: string): Locator => postCells(page).filter({ hasText: `@${handle}` });
 
 const REPLY_CELL = `[data-testid^="reply-"]:not([data-testid="${T.replyBtn}"])`;
 
@@ -82,7 +99,10 @@ test("S1-2a: a character reply can be reported from the feed overflow", async ({
   expect(row?.snapshot ?? "", "the snapshot must quote the reported text").toContain(replyText);
 });
 
-test("S1-2b: blocking a character removes it from the feed and the DM picker until unblocked", async ({ page, request }) => {
+test("S1-2b: blocking a character removes it from the feed and the DM picker until unblocked", async ({
+  page,
+  request,
+}) => {
   test.setTimeout(120_000);
   const account = await signupAndEnter(page, request);
   const pid = await personaId(request, account.jwt);
@@ -103,19 +123,28 @@ test("S1-2b: blocking a character removes it from the feed and the DM picker unt
   await gotoApp(page, ROUTES.feed);
   await expect(page.getByTestId(T.feedList)).toBeVisible({ timeout: 15_000 });
   // the rest of the world is still there — otherwise "no cells for @handle" would be vacuous
-  await expect.poll(() => postCells(page).count(), {
-    timeout: 15_000, message: "the feed must still show the other characters",
-  }).toBeGreaterThan(0);
-  await expect.poll(() => cellsByHandle(page, handle).count(), {
-    timeout: 15_000, message: "a blocked character must not appear in the feed",
-  }).toBe(0);
+  await expect
+    .poll(() => postCells(page).count(), {
+      timeout: 15_000,
+      message: "the feed must still show the other characters",
+    })
+    .toBeGreaterThan(0);
+  await expect
+    .poll(() => cellsByHandle(page, handle).count(), {
+      timeout: 15_000,
+      message: "a blocked character must not appear in the feed",
+    })
+    .toBe(0);
 
   // ...and out of the "New message" picker
   await page.getByTestId(T.tabDms).click();
   await page.getByTestId(T.dmNew).click();
-  await expect.poll(() => page.getByTestId(T.dmChar(handle)).count(), {
-    timeout: 15_000, message: "a blocked character must not be offered in the DM picker",
-  }).toBe(0);
+  await expect
+    .poll(() => page.getByTestId(T.dmChar(handle)).count(), {
+      timeout: 15_000,
+      message: "a blocked character must not be offered in the DM picker",
+    })
+    .toBe(0);
 
   // unblock from SCR-033 → Safety
   await gotoApp(page, "/settings");
@@ -127,9 +156,12 @@ test("S1-2b: blocking a character removes it from the feed and the DM picker unt
 
   await gotoApp(page, ROUTES.feed);
   await expect(page.getByTestId(T.feedList)).toBeVisible({ timeout: 15_000 });
-  await expect.poll(() => cellsByHandle(page, handle).count(), {
-    timeout: 15_000, message: "unblocking must bring the character back",
-  }).toBeGreaterThan(0);
+  await expect
+    .poll(() => cellsByHandle(page, handle).count(), {
+      timeout: 15_000,
+      message: "unblocking must bring the character back",
+    })
+    .toBeGreaterThan(0);
 });
 
 test("S1-3/6: settings exposes the legal links and the analytics consent toggle", async ({ page, request }) => {
@@ -163,7 +195,10 @@ test("S1-3/6: settings exposes the legal links and the analytics consent toggle"
   await toggle.click();
   const res = await consent;
   expect(res.status(), "POST /v1/account/consent").toBe(200);
-  expect(await unwrap<{ analytics: boolean; locked: boolean }>(res, "consent")).toEqual({ analytics: true, locked: false });
+  expect(await unwrap<{ analytics: boolean; locked: boolean }>(res, "consent")).toEqual({
+    analytics: true,
+    locked: false,
+  });
   await expect(toggle).toContainText(strings.en.on);
 });
 
@@ -185,10 +220,15 @@ test("S1-1: the account can be deleted in-app and the session stops working", as
   await expect(page.getByTestId(T.deleteDone)).toBeVisible({ timeout: 15_000 });
 
   // the app returns to SCR-002 and forgets the session
-  await expect(page.getByTestId(T.authEmailBtn), "the app must return to the auth screen").toBeVisible({ timeout: 15_000 });
+  await expect(page.getByTestId(T.authEmailBtn), "the app must return to the auth screen").toBeVisible({
+    timeout: 15_000,
+  });
 
   // the old token is refused (410 ACCOUNT_DELETED)
-  const refused = await request.get(apiUrl("/v1/account/export"), { headers: bearer(account.jwt), failOnStatusCode: false });
+  const refused = await request.get(apiUrl("/v1/account/export"), {
+    headers: bearer(account.jwt),
+    failOnStatusCode: false,
+  });
   expect(refused.status()).toBe(410);
   expect((JSON.parse(await refused.text()) as { error: { code: string } }).error.code).toBe("ACCOUNT_DELETED");
 });

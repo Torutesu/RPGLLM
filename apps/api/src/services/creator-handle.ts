@@ -41,8 +41,23 @@ export const CREATOR_HANDLE_RE = /^[a-z0-9_]{3,15}$/;
 
 /** Names the product needs for itself, or that would read as the product speaking. */
 const RESERVED = new Set([
-  "admin", "administrator", "support", "staff", "team", "help", "root", "system",
-  "official", "moderator", "mod", "status", "rpgllm", "me", "you", "null", "undefined",
+  "admin",
+  "administrator",
+  "support",
+  "staff",
+  "team",
+  "help",
+  "root",
+  "system",
+  "official",
+  "moderator",
+  "mod",
+  "status",
+  "rpgllm",
+  "me",
+  "you",
+  "null",
+  "undefined",
 ]);
 
 /* ------------------------------------------------------------- the placeholder ---- */
@@ -56,16 +71,72 @@ const RESERVED = new Set([
  * these two lists — a migration must keep working when this file changes, so it does not import.
  */
 const ADJECTIVES = [
-  "amber", "brave", "calm", "clever", "cosmic", "dusty", "eager", "early",
-  "fair", "fleet", "gentle", "giddy", "glad", "golden", "happy", "keen",
-  "lucky", "mellow", "merry", "mild", "noble", "plain", "quiet", "rapid",
-  "sharp", "silver", "snowy", "soft", "solar", "sunny", "swift", "vivid",
+  "amber",
+  "brave",
+  "calm",
+  "clever",
+  "cosmic",
+  "dusty",
+  "eager",
+  "early",
+  "fair",
+  "fleet",
+  "gentle",
+  "giddy",
+  "glad",
+  "golden",
+  "happy",
+  "keen",
+  "lucky",
+  "mellow",
+  "merry",
+  "mild",
+  "noble",
+  "plain",
+  "quiet",
+  "rapid",
+  "sharp",
+  "silver",
+  "snowy",
+  "soft",
+  "solar",
+  "sunny",
+  "swift",
+  "vivid",
 ] as const;
 const NOUNS = [
-  "anchor", "atlas", "beacon", "cedar", "cinder", "comet", "coral", "delta",
-  "ember", "falcon", "fern", "forge", "harbor", "heron", "ivy", "kite",
-  "lark", "lotus", "maple", "meadow", "otter", "pebble", "quill", "raven",
-  "reef", "river", "sable", "stone", "thorn", "tide", "vale", "wren",
+  "anchor",
+  "atlas",
+  "beacon",
+  "cedar",
+  "cinder",
+  "comet",
+  "coral",
+  "delta",
+  "ember",
+  "falcon",
+  "fern",
+  "forge",
+  "harbor",
+  "heron",
+  "ivy",
+  "kite",
+  "lark",
+  "lotus",
+  "maple",
+  "meadow",
+  "otter",
+  "pebble",
+  "quill",
+  "raven",
+  "reef",
+  "river",
+  "sable",
+  "stone",
+  "thorn",
+  "tide",
+  "vale",
+  "wren",
 ] as const;
 
 /** `<adjective><noun><2 digits>` — always inside `CREATOR_HANDLE_RE`. */
@@ -127,9 +198,9 @@ export const isUsableCreatorHandle = (handle: string): boolean =>
   CREATOR_HANDLE_RE.test(handle) && !RESERVED.has(handle);
 
 const isTakenHandle = (err: unknown): boolean =>
-  err instanceof Prisma.PrismaClientKnownRequestError
-  && err.code === "P2002"
-  && String((err.meta as { target?: unknown } | undefined)?.target ?? "").includes("creatorHandle");
+  err instanceof Prisma.PrismaClientKnownRequestError &&
+  err.code === "P2002" &&
+  String((err.meta as { target?: unknown } | undefined)?.target ?? "").includes("creatorHandle");
 
 /* --------------------------------------------------------------------- signup ---- */
 

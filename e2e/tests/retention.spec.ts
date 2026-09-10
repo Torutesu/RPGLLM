@@ -1,8 +1,17 @@
 import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
 import { T } from "@rpgllm/shared";
 import {
-  apiSignup, apiUrl, bearer, enterWorld, FIRST_FOLLOWER, gotoApp, loginInBrowser, me, resetDb,
-  ROUTES, unwrap,
+  apiSignup,
+  apiUrl,
+  bearer,
+  enterWorld,
+  FIRST_FOLLOWER,
+  gotoApp,
+  loginInBrowser,
+  me,
+  resetDb,
+  ROUTES,
+  unwrap,
 } from "../fixtures";
 
 /**
@@ -43,7 +52,8 @@ async function personaIdOf(request: APIRequestContext, jwt: string): Promise<str
  */
 async function followerHandle(page: Page, jwt: string, personaId: string): Promise<string> {
   const res = await page.request.get(apiUrl(`/v1/dms?personaId=${personaId}`), {
-    headers: bearer(jwt), failOnStatusCode: false,
+    headers: bearer(jwt),
+    failOnStatusCode: false,
   });
   const { followers } = await unwrap<{ followers: { handle: string }[] }>(res, "GET /v1/dms");
   return followers[0]?.handle.replace(/^@/, "") ?? FIRST_FOLLOWER;
@@ -89,7 +99,10 @@ test("S2-1: the offline director leaves a digest that the feed pins and dismisse
   await expect(page.getByTestId(T.digestCard)).toBeHidden();
 
   const digest = await unwrap<{ digest: unknown }>(
-    await page.request.get(apiUrl(`/v1/digest?personaId=${personaId}`), { headers: bearer(account.jwt), failOnStatusCode: false }),
+    await page.request.get(apiUrl(`/v1/digest?personaId=${personaId}`), {
+      headers: bearer(account.jwt),
+      failOnStatusCode: false,
+    }),
     "GET /v1/digest",
   );
   expect(digest.digest, "no unseen digest is waiting anymore").toBeNull();
@@ -101,7 +114,9 @@ test("S2-6: the profile tab shows level, XP and the persona's posts", async ({ p
   await enterWorld(page);
 
   await page.getByTestId(T.tabProfile).click();
-  await expect(page.getByTestId(T.profileHandle), "SCR-026 must show the persona handle").toBeVisible({ timeout: 20_000 });
+  await expect(page.getByTestId(T.profileHandle), "SCR-026 must show the persona handle").toBeVisible({
+    timeout: 20_000,
+  });
   await expect(page.getByTestId(T.profileHandle)).toHaveText(/@\S+/);
   await expect(page.getByTestId(T.profileLevel), "level is visible progression").toHaveText(/\S/);
   await expect(page.getByTestId(T.profileXp), "XP against the shared curve").toHaveText(/\d+\s*XP/);
@@ -134,13 +149,17 @@ test("S2-3: the affinity hearts open the memory ledger, with receipts", async ({
   // The note is written when the G4 turn completes; open the ledger once it exists so the
   // assertion below is about the screen, not about the stream still being in flight.
   await expect
-    .poll(async () => {
-      const res = await page.request.get(apiUrl(`/v1/memory/${follower}?personaId=${personaId}`), {
-        headers: bearer(account.jwt), failOnStatusCode: false,
-      });
-      const body = await unwrap<{ memories: unknown[] }>(res, "GET /v1/memory");
-      return body.memories.length;
-    }, { timeout: 20_000, message: "the exchange must leave a memory note" })
+    .poll(
+      async () => {
+        const res = await page.request.get(apiUrl(`/v1/memory/${follower}?personaId=${personaId}`), {
+          headers: bearer(account.jwt),
+          failOnStatusCode: false,
+        });
+        const body = await unwrap<{ memories: unknown[] }>(res, "GET /v1/memory");
+        return body.memories.length;
+      },
+      { timeout: 20_000, message: "the exchange must leave a memory note" },
+    )
     .toBeGreaterThanOrEqual(1);
 
   await page.getByTestId(T.memoryOpen).click();

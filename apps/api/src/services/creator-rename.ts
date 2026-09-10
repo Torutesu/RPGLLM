@@ -54,9 +54,9 @@ export function renameAvailableAt(user: Pick<User, "creatorHandleClaimedAt" | "c
 }
 
 const isTakenHandle = (err: unknown): boolean =>
-  err instanceof Prisma.PrismaClientKnownRequestError
-  && err.code === "P2002"
-  && String((err.meta as { target?: unknown } | undefined)?.target ?? "").includes("creatorHandle");
+  err instanceof Prisma.PrismaClientKnownRequestError &&
+  err.code === "P2002" &&
+  String((err.meta as { target?: unknown } | undefined)?.target ?? "").includes("creatorHandle");
 
 /**
  * Take a new creator handle. Case-insensitive throughout: handles are stored normalised, so the
@@ -100,7 +100,11 @@ export async function renameCreatorHandle(
       });
       await tx.user.update({
         where: { id: user.id },
-        data: { creatorHandle: handle, creatorHandleClaimedAt: user.creatorHandleClaimedAt ?? now, creatorHandleRenamedAt: now },
+        data: {
+          creatorHandle: handle,
+          creatorHandleClaimedAt: user.creatorHandleClaimedAt ?? now,
+          creatorHandleRenamedAt: now,
+        },
       });
     });
   } catch (err: unknown) {

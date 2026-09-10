@@ -30,12 +30,16 @@ import type { Decision, RateLimiter } from "./rate-limit";
 
 const WINDOW_MS = 60_000;
 
-interface Row { tokens: number }
+interface Row {
+  tokens: number;
+}
 
 export class SharedLimiter implements RateLimiter {
   constructor(private readonly prisma: PrismaClient) {}
 
-  kind(): "shared" { return "shared"; }
+  kind(): "shared" {
+    return "shared";
+  }
 
   async take(key: string, perMin: number, nowMs: number): Promise<Decision> {
     if (perMin <= 0) return { allowed: false, retryAfterSec: 60, remaining: 0 };

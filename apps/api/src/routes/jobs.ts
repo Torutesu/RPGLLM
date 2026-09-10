@@ -62,9 +62,10 @@ export function jobsRoutes(): Hono<AppEnv> {
     const requested = body.value.job;
     const personaId = body.value.personaId;
 
-    const targets = requested === "all"
-      ? jobDefinitions.filter((d) => jobEnabled(d.name)).map((d) => d.name)
-      : [resolveJobName(requested)];
+    const targets =
+      requested === "all"
+        ? jobDefinitions.filter((d) => jobEnabled(d.name)).map((d) => d.name)
+        : [resolveJobName(requested)];
     if (targets.some((t) => t === null)) return fail("VALIDATION", `Unknown job "${requested}"`, 400);
 
     const runs = [];

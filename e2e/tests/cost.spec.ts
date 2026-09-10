@@ -1,7 +1,14 @@
 import { expect, test } from "@playwright/test";
 import { T } from "@rpgllm/shared";
 import {
-  apiUrl, dismissStatCard, enterWorld, firstPostFlow, loginInBrowser, apiSignup, resetDb, unwrap,
+  apiUrl,
+  dismissStatCard,
+  enterWorld,
+  firstPostFlow,
+  loginInBrowser,
+  apiSignup,
+  resetDb,
+  unwrap,
 } from "../fixtures";
 
 /**
@@ -13,22 +20,46 @@ import {
  */
 
 interface CostRow {
-  key: string; calls: number; inputTokens: number; cacheWriteTokens: number; cacheReadTokens: number;
-  outputTokens: number; costUsd: number; fallbacks: number; p50LatencyMs: number; p95LatencyMs: number;
+  key: string;
+  calls: number;
+  inputTokens: number;
+  cacheWriteTokens: number;
+  cacheReadTokens: number;
+  outputTokens: number;
+  costUsd: number;
+  fallbacks: number;
+  p50LatencyMs: number;
+  p95LatencyMs: number;
 }
 interface CostSummary {
-  since: string; until: string; days: number;
-  totals: CostRow; byDay: CostRow[]; byGenerator: CostRow[]; byVariant: CostRow[]; byModel: CostRow[];
+  since: string;
+  until: string;
+  days: number;
+  totals: CostRow;
+  byDay: CostRow[];
+  byGenerator: CostRow[];
+  byVariant: CostRow[];
+  byModel: CostRow[];
   perAction: { actions: number; usdPerAction: number; usdPerActiveUser: number };
   cacheHitRate: number;
   ratings: { up: number; down: number; regenerations: number };
   ttft: { p50Ms: number; p95Ms: number; samples: number };
   perDay: { day: string; actions: number; activeUsers: number; usdPerAction: number }[];
-  variants: { generator: string; variantId: string; isChampion: boolean; calls: number; allocation: number; usdPerCall: number }[];
+  variants: {
+    generator: string;
+    variantId: string;
+    isChampion: boolean;
+    calls: number;
+    allocation: number;
+    usdPerCall: number;
+  }[];
   alarms: { cacheHitRateLow: boolean; costPerActionOverChampion: boolean; ttftP95High: boolean };
 }
 interface CostLive {
-  usdPerAction: number; cacheHitRate: number; fallbackRate: number; p95LatencyMs: number;
+  usdPerAction: number;
+  cacheHitRate: number;
+  fallbackRate: number;
+  p95LatencyMs: number;
   alarms: { cacheHitRateLow: boolean; costPerActionOverChampion: boolean; ttftP95High: boolean };
 }
 

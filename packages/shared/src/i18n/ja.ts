@@ -174,7 +174,8 @@ export const ja: Strings = {
   exportReady: "データをダウンロードしました",
   signOut: "ログアウト",
   deleteAccount: "アカウントを削除",
-  deleteWarning: "ワールド、ペルソナ、メッセージがすべて削除されます。30日以内なら取り消せますが、その後は元に戻せません。",
+  deleteWarning:
+    "ワールド、ペルソナ、メッセージがすべて削除されます。30日以内なら取り消せますが、その後は元に戻せません。",
   deleteTypeToConfirm: "確認のため DELETE と入力してください",
   deleteConfirm: "アカウントを削除する",
   deleteDone: "アカウントの削除を受け付けました",

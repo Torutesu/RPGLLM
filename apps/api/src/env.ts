@@ -29,8 +29,10 @@ export const adsMode = (): string => envStr("ADS_MODE", isProduction() ? "admob"
 export const postStreamDelayMs = (): number => envNum("STREAM_DELAY_MS", 150);
 export const dmStreamDelayMs = (): number => envNum("DM_STREAM_DELAY_MS", 200);
 export const modelForTier = (tier: "light" | "mid" | "high"): string =>
-  tier === "high" ? envStr("LLM_MODEL_HIGH", "claude-opus-5")
-    : tier === "mid" ? envStr("LLM_MODEL_MID", "claude-sonnet-5")
+  tier === "high"
+    ? envStr("LLM_MODEL_HIGH", "claude-opus-5")
+    : tier === "mid"
+      ? envStr("LLM_MODEL_MID", "claude-sonnet-5")
       : envStr("LLM_MODEL_LIGHT", "claude-haiku-4-5");
 
 /**
@@ -73,7 +75,10 @@ export const DEFAULT_CORS_ORIGINS = ["http://localhost:8081", "http://localhost:
 export const corsOrigins = (): string[] => {
   const raw = envStr("CORS_ORIGINS", "");
   if (!raw) return [...DEFAULT_CORS_ORIGINS];
-  return raw.split(",").map((s) => s.trim()).filter(Boolean);
+  return raw
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
 };
 export const corsAllowAll = (): boolean => testHooksEnabled() || corsOrigins().includes("*");
 

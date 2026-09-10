@@ -1,10 +1,4 @@
-import {
-  BANDIT_FLOOR,
-  BANDIT_GUARDRAILS,
-  BANDIT_LAMBDA,
-  BANDIT_PROMOTION,
-  BANDIT_SAMPLES,
-} from "@rpgllm/shared";
+import { BANDIT_FLOOR, BANDIT_GUARDRAILS, BANDIT_LAMBDA, BANDIT_PROMOTION, BANDIT_SAMPLES } from "@rpgllm/shared";
 
 /**
  * Thompson sampling with guardrails (cost-architecture §6.3).
@@ -77,8 +71,7 @@ export interface RewardInput {
 export function rewardFor(input: RewardInput): number {
   const lambda = input.lambda ?? BANDIT_LAMBDA;
   const quality = qualityOf(input.signals);
-  const ratio =
-    input.championCostUsd > 0 ? input.costUsd / input.championCostUsd : input.costUsd > 0 ? 1 : 0;
+  const ratio = input.championCostUsd > 0 ? input.costUsd / input.championCostUsd : input.costUsd > 0 ? 1 : 0;
   return clamp01(quality - lambda * ratio);
 }
 
@@ -228,11 +221,7 @@ export function allocate(args: AllocateArgs): string | null {
 }
 
 /** Probability that each arm is the best one, by Monte Carlo over the posteriors. */
-export function pBestByArm(
-  arms: readonly ArmState[],
-  samples = BANDIT_SAMPLES,
-  seed = 1,
-): Map<string, number> {
+export function pBestByArm(arms: readonly ArmState[], samples = BANDIT_SAMPLES, seed = 1): Map<string, number> {
   const out = new Map<string, number>();
   const enabled = arms.filter((a) => !a.disabled);
   for (const arm of enabled) out.set(arm.variantId, 0);
@@ -243,7 +232,13 @@ export function pBestByArm(
     return out;
   }
 
-  const rng = mulberry32(seedFrom("pbest", seed, ...enabled.map((a) => `${a.variantId}:${Math.round(a.alpha * 100)}:${Math.round(a.beta * 100)}`)));
+  const rng = mulberry32(
+    seedFrom(
+      "pbest",
+      seed,
+      ...enabled.map((a) => `${a.variantId}:${Math.round(a.alpha * 100)}:${Math.round(a.beta * 100)}`),
+    ),
+  );
   for (let i = 0; i < samples; i += 1) {
     let bestArm = enabled[0];
     let bestDraw = -1;
@@ -289,10 +284,7 @@ export interface GuardrailBreach {
  * §6.3's guardrails. An arm under `minCalls` observations is never disabled — one bad draw is not
  * evidence — and the champion is never disabled either: there would be nothing to fall back to.
  */
-export function guardrailBreach(
-  metrics: ArmMetrics,
-  minCalls = GUARDRAIL_MIN_CALLS,
-): GuardrailBreach | null {
+export function guardrailBreach(metrics: ArmMetrics, minCalls = GUARDRAIL_MIN_CALLS): GuardrailBreach | null {
   if (metrics.calls < minCalls || metrics.calls === 0) return null;
   const regenerate = metrics.regenerations / metrics.calls;
   if (regenerate > BANDIT_GUARDRAILS.MAX_REGENERATE_RATE) {
@@ -342,7 +334,12 @@ export function promotionDecision(args: PromotionArgs): PromotionDecision {
   const leader = leaderOf(args.arms);
   const probabilities = pBestByArm(args.arms, args.samples ?? BANDIT_SAMPLES);
   const p = leader === null ? 0 : (probabilities.get(leader.variantId) ?? 0);
-  const base = { from: champion?.variantId ?? null, to: leader?.variantId ?? null, pBest: p, calls: leader?.calls ?? 0 };
+  const base = {
+    from: champion?.variantId ?? null,
+    to: leader?.variantId ?? null,
+    pBest: p,
+    calls: leader?.calls ?? 0,
+  };
 
   if (leader === null) return { promote: false, ...base, reason: "no enabled arm" };
   if (champion !== null && leader.variantId === champion.variantId) {

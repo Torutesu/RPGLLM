@@ -1,6 +1,5 @@
 /** Colour, easing and randomness for the reel — all of it pure, none of it reading a clock. */
 
-
 /** Token hex → rgba. Keeps every colour in the reel sourced from `packages/shared`. */
 export function withAlpha(hex: string, a: number): string {
   const h = hex.replace("#", "");
@@ -12,7 +11,6 @@ export function withAlpha(hex: string, a: number): string {
   const b = n & 255;
   return `rgba(${r},${g},${b},${Math.max(0, Math.min(1, a)).toFixed(3)})`;
 }
-
 
 export const clamp01 = (v: number): number => (v < 0 ? 0 : v > 1 ? 1 : v);
 export const lerp = (a: number, b: number, t: number): number => a + (b - a) * t;

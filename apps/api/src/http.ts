@@ -26,7 +26,11 @@ export async function parseBody<S extends z.ZodTypeAny>(
     raw = {};
   }
   const parsed = schema.safeParse(raw);
-  if (!parsed.success) return { ok: false, res: validationError(parsed.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`).join("; ")) };
+  if (!parsed.success)
+    return {
+      ok: false,
+      res: validationError(parsed.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`).join("; ")),
+    };
   return { ok: true, value: parsed.data as z.infer<S> };
 }
 
@@ -36,6 +40,10 @@ export function parseQuery<S extends z.ZodTypeAny>(
   schema: S,
 ): { ok: true; value: z.infer<S> } | { ok: false; res: Response } {
   const parsed = schema.safeParse(raw);
-  if (!parsed.success) return { ok: false, res: validationError(parsed.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`).join("; ")) };
+  if (!parsed.success)
+    return {
+      ok: false,
+      res: validationError(parsed.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`).join("; ")),
+    };
   return { ok: true, value: parsed.data as z.infer<S> };
 }

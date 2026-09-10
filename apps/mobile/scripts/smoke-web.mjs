@@ -11,20 +11,32 @@ import { chromium } from "playwright-core";
 const WEB = "http://localhost:8082";
 const log = [];
 const step = async (name, fn) => {
-  try { await fn(); log.push(`PASS ${name}`); }
-  catch (e) { log.push(`FAIL ${name}: ${String(e).slice(0, 300)}`); throw e; }
+  try {
+    await fn();
+    log.push(`PASS ${name}`);
+  } catch (e) {
+    log.push(`FAIL ${name}: ${String(e).slice(0, 300)}`);
+    throw e;
+  }
 };
 
 const browser = await chromium.launch({ executablePath: process.env.PW_CHROME });
 const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
 page.on("pageerror", (e) => log.push(`PAGEERROR ${e.message}`));
-page.on("console", (m) => { if (m.type() === "error") log.push(`CONSOLE ${m.text().slice(0,200)}`); });
-await page.addInitScript(() => { window.__ADS_MODE = "test"; });
+page.on("console", (m) => {
+  if (m.type() === "error") log.push(`CONSOLE ${m.text().slice(0, 200)}`);
+});
+await page.addInitScript(() => {
+  window.__ADS_MODE = "test";
+});
 
 const tid = (t) => page.getByTestId(t);
 
 try {
-  await step("load /", async () => { await page.goto(WEB + "/", { waitUntil: "networkidle" }); await tid("auth-provider-email").waitFor({ timeout: 10000 }); });
+  await step("load /", async () => {
+    await page.goto(WEB + "/", { waitUntil: "networkidle" });
+    await tid("auth-provider-email").waitFor({ timeout: 10000 });
+  });
   await step("email auth", async () => {
     await tid("auth-provider-email").click();
     await tid("auth-email-input").fill("e2e@example.com");
@@ -84,10 +96,16 @@ try {
     await first.click();
     await tid("reply-btn").waitFor({ timeout: 8000 });
     const rd = page.getByTestId(/^rate-down-/).first();
-    if (await rd.count()) { await rd.click(); await page.waitForTimeout(800); }
+    if (await rd.count()) {
+      await rd.click();
+      await page.waitForTimeout(800);
+    }
   });
   await step("load more", async () => {
-    if (await tid("load-more").count()) { await tid("load-more").click(); await page.waitForTimeout(600); }
+    if (await tid("load-more").count()) {
+      await tid("load-more").click();
+      await page.waitForTimeout(600);
+    }
   });
   await step("reply from thread", async () => {
     await tid("reply-btn").click();
@@ -183,7 +201,9 @@ try {
     const e = (await tid("energy-badge").innerText()).trim();
     if (e !== "5") throw new Error(`energy changed on safety block: ${e}`);
   });
-} catch { /* recorded */ }
+} catch {
+  /* recorded */
+}
 
 console.log(log.join("\n"));
 await browser.close();

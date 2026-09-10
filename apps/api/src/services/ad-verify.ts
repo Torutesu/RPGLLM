@@ -57,7 +57,9 @@ export class StaticVerifierKeys implements AdMobVerifierKeys {
 }
 
 let keys: AdMobVerifierKeys = new UnconfiguredVerifierKeys();
-export const setAdMobVerifierKeys = (next: AdMobVerifierKeys): void => { keys = next; };
+export const setAdMobVerifierKeys = (next: AdMobVerifierKeys): void => {
+  keys = next;
+};
 
 /** Max age of an SSV callback we still accept (replay window). */
 export const SSV_MAX_AGE_MS = 5 * 60 * 1000;
@@ -124,7 +126,11 @@ export async function verifyAdMobSSV(callback: string, opts: SsvOptions = {}): P
 /** Where Google publishes the reward verifier keys. */
 export const VERIFIER_KEYS_URL = "https://gstatic.com/admob/reward/verifier-keys.json";
 
-interface PublishedKey { keyId: number | string; pem?: string; base64?: string }
+interface PublishedKey {
+  keyId: number | string;
+  pem?: string;
+  base64?: string;
+}
 
 /**
  * The published key set, cached in process.
@@ -152,7 +158,9 @@ export class GoogleVerifierKeys implements AdMobVerifierKeys {
   }
 
   /** How many keys are loaded — for the boot log, so an operator can see this is configured. */
-  get size(): number { return this.#keys.size; }
+  get size(): number {
+    return this.#keys.size;
+  }
 
   async #refresh(): Promise<void> {
     const now = (this.opts.nowMs ?? Date.now)();
@@ -171,7 +179,11 @@ export class GoogleVerifierKeys implements AdMobVerifierKeys {
         for (const k of body.keys ?? []) {
           const pem = k.pem ?? (k.base64 ? `-----BEGIN PUBLIC KEY-----\n${k.base64}\n-----END PUBLIC KEY-----\n` : "");
           if (!pem) continue;
-          try { next.set(String(k.keyId), createPublicKey(pem)); } catch { /* one bad key is not a bad key set */ }
+          try {
+            next.set(String(k.keyId), createPublicKey(pem));
+          } catch {
+            /* one bad key is not a bad key set */
+          }
         }
         // Only replace a working set with a non-empty one.
         if (next.size > 0) this.#keys = next;

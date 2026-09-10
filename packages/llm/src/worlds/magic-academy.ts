@@ -255,36 +255,114 @@ const source: WorldSource = {
 
   fallbackReplies: {
     "@emberwyn": {
-      en: ["With respect, no.", "That isn't the argument.", "Noted. It's still wrong.", "Clean work or don't post it.", "I read the whole thing before replying."],
-      ja: ["失礼ながら、違います。", "それは論点ではありません。", "了解。それでも誤りです。", "きれいな仕事でないなら投稿しないで。", "全文読んでから返信しました。"],
+      en: [
+        "With respect, no.",
+        "That isn't the argument.",
+        "Noted. It's still wrong.",
+        "Clean work or don't post it.",
+        "I read the whole thing before replying.",
+      ],
+      ja: [
+        "失礼ながら、違います。",
+        "それは論点ではありません。",
+        "了解。それでも誤りです。",
+        "きれいな仕事でないなら投稿しないで。",
+        "全文読んでから返信しました。",
+      ],
     },
     "@thequill": {
-      en: ["It is reported.", "Faculty declined to comment.", "The Ledger records otherwise.", "This has happened before.", "Developing, as ever."],
-      ja: ["と報じられている。", "教職員はコメントを拒否した。", "序列表の記録は異なる。", "以前も起きている。", "例によって続報あり。"],
+      en: [
+        "It is reported.",
+        "Faculty declined to comment.",
+        "The Ledger records otherwise.",
+        "This has happened before.",
+        "Developing, as ever.",
+      ],
+      ja: [
+        "と報じられている。",
+        "教職員はコメントを拒否した。",
+        "序列表の記録は異なる。",
+        "以前も起きている。",
+        "例によって続報あり。",
+      ],
     },
     "@marrowfinch": {
-      en: ["Curious.", "There is a record of that.", "I would not, if I were you.", "Third floor, second shelf.", "Ask a better question."],
+      en: [
+        "Curious.",
+        "There is a record of that.",
+        "I would not, if I were you.",
+        "Third floor, second shelf.",
+        "Ask a better question.",
+      ],
       ja: ["興味深い。", "その記録はあります。", "私なら、やめておきます。", "3階、2番棚。", "もっと良い質問を。"],
     },
     "@kittarrow": {
-      en: ["ok wait", "genuinely though", "i've solved it (i have not)", "do NOT tell finch", "eleven seconds is a result"],
+      en: [
+        "ok wait",
+        "genuinely though",
+        "i've solved it (i have not)",
+        "do NOT tell finch",
+        "eleven seconds is a result",
+      ],
       ja: ["ちょっと待って", "マジでさ", "解決した(してない)", "フィンチには言うな", "11秒動いたら成果でしょ"],
     },
     "@prefectlocke": {
-      en: ["Noted.", "That's a warning, not a report.", "Take it to the stair.", "You know I have to log this.", "I just read the Ledger out loud."],
-      ja: ["了解。", "これは警告であって報告ではない。", "その話は階段で。", "記録しないといけない。わかるだろ。", "序列表を読み上げてるだけだ。"],
+      en: [
+        "Noted.",
+        "That's a warning, not a report.",
+        "Take it to the stair.",
+        "You know I have to log this.",
+        "I just read the Ledger out loud.",
+      ],
+      ja: [
+        "了解。",
+        "これは警告であって報告ではない。",
+        "その話は階段で。",
+        "記録しないといけない。わかるだろ。",
+        "序列表を読み上げてるだけだ。",
+      ],
     },
     "@profsableveil": {
-      en: ["And what did you expect?", "You are early.", "Come at four.", "I marked it as I found it.", "That was the interesting part."],
-      ja: ["で、何が起きると思っていたのですか?", "早すぎるだけです。", "4時にいらっしゃい。", "見たままに採点しました。", "そこが面白いところでした。"],
+      en: [
+        "And what did you expect?",
+        "You are early.",
+        "Come at four.",
+        "I marked it as I found it.",
+        "That was the interesting part.",
+      ],
+      ja: [
+        "で、何が起きると思っていたのですか?",
+        "早すぎるだけです。",
+        "4時にいらっしゃい。",
+        "見たままに採点しました。",
+        "そこが面白いところでした。",
+      ],
     },
     "@poppybramble": {
-      en: ["oh!!", "i made you one", "you don't have to explain", "come sit on the stair", "you've not eaten today have you"],
+      en: [
+        "oh!!",
+        "i made you one",
+        "you don't have to explain",
+        "come sit on the stair",
+        "you've not eaten today have you",
+      ],
       ja: ["わ!!", "1個作っといた", "説明しなくていいよ", "階段座りなよ", "今日なんも食べてないでしょ"],
     },
     "@cassnull": {
-      en: ["name the mechanism", "who does that serve", "that's not a rebuttal", "i was second. i know what it's worth.", "null it."],
-      ja: ["機構を名指しして", "それは誰の得になる", "それは反論じゃない", "私は2位だった。価値は知ってる。", "ヌルして。"],
+      en: [
+        "name the mechanism",
+        "who does that serve",
+        "that's not a rebuttal",
+        "i was second. i know what it's worth.",
+        "null it.",
+      ],
+      ja: [
+        "機構を名指しして",
+        "それは誰の得になる",
+        "それは反論じゃない",
+        "私は2位だった。価値は知ってる。",
+        "ヌルして。",
+      ],
     },
   },
 
@@ -325,52 +403,154 @@ const source: WorldSource = {
 
   ambientPool: {
     en: [
-      { handle: "@kittarrow", text: "ok wait if you bind the intent BEFORE you name it the thread doesn't argue with you. i've solved it. i have not solved it" },
-      { handle: "@poppybramble", text: "there's fen-tea on the second landing and i've put honey in it because it is legally undrinkable otherwise 🌱" },
-      { handle: "@thequill", text: "It is reported that the Ledger will be posted an hour late this week. Faculty declined to explain the delay." },
-      { handle: "@emberwyn", text: "If you are going to correct someone's diagram in public, correct all of it. Half a correction is just noise." },
-      { handle: "@marrowfinch", text: "Someone has returned a book to the wrong floor for the ninth time this term. I know who. Curious." },
-      { handle: "@cassnull", text: "genuine question for the hill: name the mechanism by which ranking sixteen-year-olds produces better work. i'll wait. i've been waiting four years" },
-      { handle: "@prefectlocke", text: "Reminder that the Long Stair is not a common room and I am not going to keep pretending I can't see you." },
-      { handle: "@kittarrow", text: "it worked for eleven seconds. ELEVEN. that's a result. finch says it's a fire hazard. it's both" },
-      { handle: "@poppybramble", text: "the stairwell tomatoes survived the cold snap and i genuinely cried about it, no notes" },
-      { handle: "@emberwyn", text: "The Thursday hall is not a performance. If you need an audience to hold a binding you have built it wrong." },
-      { handle: "@thequill", text: "The Ledger records four students moving three or more places this week. This is the largest weekly movement since the entrance rules changed." },
-      { handle: "@marrowfinch", text: "The archive is open until second bell. Bring your own light. I am not the lighting." },
-      { handle: "@cassnull", text: "thornmarket teaches filament work on saturdays, free, no board, no ranking. sixty people came. that's the whole post" },
+      {
+        handle: "@kittarrow",
+        text: "ok wait if you bind the intent BEFORE you name it the thread doesn't argue with you. i've solved it. i have not solved it",
+      },
+      {
+        handle: "@poppybramble",
+        text: "there's fen-tea on the second landing and i've put honey in it because it is legally undrinkable otherwise 🌱",
+      },
+      {
+        handle: "@thequill",
+        text: "It is reported that the Ledger will be posted an hour late this week. Faculty declined to explain the delay.",
+      },
+      {
+        handle: "@emberwyn",
+        text: "If you are going to correct someone's diagram in public, correct all of it. Half a correction is just noise.",
+      },
+      {
+        handle: "@marrowfinch",
+        text: "Someone has returned a book to the wrong floor for the ninth time this term. I know who. Curious.",
+      },
+      {
+        handle: "@cassnull",
+        text: "genuine question for the hill: name the mechanism by which ranking sixteen-year-olds produces better work. i'll wait. i've been waiting four years",
+      },
+      {
+        handle: "@prefectlocke",
+        text: "Reminder that the Long Stair is not a common room and I am not going to keep pretending I can't see you.",
+      },
+      {
+        handle: "@kittarrow",
+        text: "it worked for eleven seconds. ELEVEN. that's a result. finch says it's a fire hazard. it's both",
+      },
+      {
+        handle: "@poppybramble",
+        text: "the stairwell tomatoes survived the cold snap and i genuinely cried about it, no notes",
+      },
+      {
+        handle: "@emberwyn",
+        text: "The Thursday hall is not a performance. If you need an audience to hold a binding you have built it wrong.",
+      },
+      {
+        handle: "@thequill",
+        text: "The Ledger records four students moving three or more places this week. This is the largest weekly movement since the entrance rules changed.",
+      },
+      {
+        handle: "@marrowfinch",
+        text: "The archive is open until second bell. Bring your own light. I am not the lighting.",
+      },
+      {
+        handle: "@cassnull",
+        text: "thornmarket teaches filament work on saturdays, free, no board, no ranking. sixty people came. that's the whole post",
+      },
       { handle: "@prefectlocke", text: "That's a warning, not a report. You know which one of you this is for." },
-      { handle: "@poppybramble", text: "no because who told the first-years the Ledger matters in week three, i'm going to fight them, gently" },
-      { handle: "@kittarrow", text: "genuinely though the under-library smells like rain and paper and i would live there if finch let me. finch will not let me" },
-      { handle: "@emberwyn", text: "I'd note that 'it worked once' and 'it works' are different claims, and only one of them is examinable." },
-      { handle: "@thequill", text: "Faculty declined to comment on Thursday's hall result. This is the third such refusal this term." },
-      { handle: "@marrowfinch", text: "There is a record of that. There is a record of most things. That is rather the point of a record." },
-      { handle: "@cassnull", text: "'we're a meritocracy' says the school that lets you retake an exam if your family paid for the hall it's held in" },
-      { handle: "@poppybramble", text: "i made too much soup again. second landing. no you don't have to talk to me, just take some" },
-      { handle: "@prefectlocke", text: "The Ledger goes up at noon. I don't make it. I just read it out loud and then everyone is strange at me for a day." },
+      {
+        handle: "@poppybramble",
+        text: "no because who told the first-years the Ledger matters in week three, i'm going to fight them, gently",
+      },
+      {
+        handle: "@kittarrow",
+        text: "genuinely though the under-library smells like rain and paper and i would live there if finch let me. finch will not let me",
+      },
+      {
+        handle: "@emberwyn",
+        text: "I'd note that 'it worked once' and 'it works' are different claims, and only one of them is examinable.",
+      },
+      {
+        handle: "@thequill",
+        text: "Faculty declined to comment on Thursday's hall result. This is the third such refusal this term.",
+      },
+      {
+        handle: "@marrowfinch",
+        text: "There is a record of that. There is a record of most things. That is rather the point of a record.",
+      },
+      {
+        handle: "@cassnull",
+        text: "'we're a meritocracy' says the school that lets you retake an exam if your family paid for the hall it's held in",
+      },
+      {
+        handle: "@poppybramble",
+        text: "i made too much soup again. second landing. no you don't have to talk to me, just take some",
+      },
+      {
+        handle: "@prefectlocke",
+        text: "The Ledger goes up at noon. I don't make it. I just read it out loud and then everyone is strange at me for a day.",
+      },
     ],
     ja: [
-      { handle: "@kittarrow", text: "ちょっと待って、名付ける前に意図を結ぶと糸が反論してこないんだが。解決した。解決してない" },
-      { handle: "@poppybramble", text: "2階の踊り場にフェン茶置いといた。蜂蜜入れた。そうしないと法的に飲めない味だから🌱" },
-      { handle: "@thequill", text: "今週の序列表は1時間遅れて掲示されると報じられている。教職員は遅延の理由の説明を拒否した。" },
+      {
+        handle: "@kittarrow",
+        text: "ちょっと待って、名付ける前に意図を結ぶと糸が反論してこないんだが。解決した。解決してない",
+      },
+      {
+        handle: "@poppybramble",
+        text: "2階の踊り場にフェン茶置いといた。蜂蜜入れた。そうしないと法的に飲めない味だから🌱",
+      },
+      {
+        handle: "@thequill",
+        text: "今週の序列表は1時間遅れて掲示されると報じられている。教職員は遅延の理由の説明を拒否した。",
+      },
       { handle: "@emberwyn", text: "人の図を公開で訂正するなら全部訂正してください。半分の訂正はただの雑音です。" },
       { handle: "@marrowfinch", text: "今学期9回目、本が違う階に返却されています。誰かは知っています。興味深い。" },
-      { handle: "@cassnull", text: "丘の上に本気で訊きたい。16歳に順位を付けると良い仕事が出る、その機構を名指ししてくれ。待つよ。4年待ってる" },
+      {
+        handle: "@cassnull",
+        text: "丘の上に本気で訊きたい。16歳に順位を付けると良い仕事が出る、その機構を名指ししてくれ。待つよ。4年待ってる",
+      },
       { handle: "@prefectlocke", text: "ロング・ステアは談話室ではない。見えていないふりを続けるつもりはない。" },
       { handle: "@kittarrow", text: "11秒動いた。11秒。成果でしょ。フィンチは火災リスクだと言ってる。両方だよ" },
       { handle: "@poppybramble", text: "踊り場のトマトが寒波を越えた。マジで泣いた。補足なし" },
-      { handle: "@emberwyn", text: "木曜のホールは公演ではありません。結びを保つのに観客が要るなら、その結びは作りが間違っています。" },
-      { handle: "@thequill", text: "序列表の記録によれば今週3つ以上順位を動かした学生は4名。入学規定改定以降で最大の週次変動である。" },
-      { handle: "@marrowfinch", text: "アーカイブは第二の鐘まで開いています。灯りはご自分で。私は照明ではありません。" },
-      { handle: "@cassnull", text: "ソーンマーケットでは土曜にフィラメント術を無料で教えてる。板もない、順位もない。60人来た。以上" },
+      {
+        handle: "@emberwyn",
+        text: "木曜のホールは公演ではありません。結びを保つのに観客が要るなら、その結びは作りが間違っています。",
+      },
+      {
+        handle: "@thequill",
+        text: "序列表の記録によれば今週3つ以上順位を動かした学生は4名。入学規定改定以降で最大の週次変動である。",
+      },
+      {
+        handle: "@marrowfinch",
+        text: "アーカイブは第二の鐘まで開いています。灯りはご自分で。私は照明ではありません。",
+      },
+      {
+        handle: "@cassnull",
+        text: "ソーンマーケットでは土曜にフィラメント術を無料で教えてる。板もない、順位もない。60人来た。以上",
+      },
       { handle: "@prefectlocke", text: "これは警告であって報告ではない。誰に向けてかは自分でわかっているはずだ。" },
-      { handle: "@poppybramble", text: "だってさ、3週目の1年生に「序列表が大事」って吹き込んだの誰。やんわり戦いに行くけど" },
-      { handle: "@kittarrow", text: "マジでさ、アンダーライブラリって雨と紙の匂いがして、フィンチが許すなら住みたい。フィンチは許さない" },
+      {
+        handle: "@poppybramble",
+        text: "だってさ、3週目の1年生に「序列表が大事」って吹き込んだの誰。やんわり戦いに行くけど",
+      },
+      {
+        handle: "@kittarrow",
+        text: "マジでさ、アンダーライブラリって雨と紙の匂いがして、フィンチが許すなら住みたい。フィンチは許さない",
+      },
       { handle: "@emberwyn", text: "一点だけ。「一度動いた」と「動く」は別の主張であり、試験できるのは片方だけです。" },
       { handle: "@thequill", text: "木曜のホールの結果について教職員はコメントを拒否した。今学期3件目の拒否である。" },
-      { handle: "@marrowfinch", text: "その記録はあります。たいていのことに記録はあります。それが記録というものですから。" },
-      { handle: "@cassnull", text: "「うちは実力主義だ」と言う学校が、ホールの建設費を出した家の子には再試験を認めている件" },
+      {
+        handle: "@marrowfinch",
+        text: "その記録はあります。たいていのことに記録はあります。それが記録というものですから。",
+      },
+      {
+        handle: "@cassnull",
+        text: "「うちは実力主義だ」と言う学校が、ホールの建設費を出した家の子には再試験を認めている件",
+      },
       { handle: "@poppybramble", text: "またスープ作りすぎた。2階の踊り場。話しかけなくていいから、持っていって" },
-      { handle: "@prefectlocke", text: "序列表は正午に出る。作ってるのは俺じゃない。読み上げてるだけで、そのあと一日みんなの態度が変になる。" },
+      {
+        handle: "@prefectlocke",
+        text: "序列表は正午に出る。作ってるのは俺じゃない。読み上げてるだけで、そのあと一日みんなの態度が変になる。",
+      },
     ],
   },
 };

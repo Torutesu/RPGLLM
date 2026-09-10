@@ -15,9 +15,25 @@ setWorldSeeds(FALLBACK_WORLD_SEEDS);
 export const prisma = new PrismaClient({ datasources: { db: { url: process.env.DATABASE_URL } } });
 
 const TRUNCATE_ALL = [
-  "Rating", "ExperimentAssignment", "LedgerEntry", "Purchase", "Subscription", "Wallet",
-  "MemoryEntry", "RelationshipState", "StatSnapshot", "Event", "DMMessage", "DMThread",
-  "Post", "Persona", "GenerationLog", "User", "AmbientPost", "WorldCharacter", "World",
+  "Rating",
+  "ExperimentAssignment",
+  "LedgerEntry",
+  "Purchase",
+  "Subscription",
+  "Wallet",
+  "MemoryEntry",
+  "RelationshipState",
+  "StatSnapshot",
+  "Event",
+  "DMMessage",
+  "DMThread",
+  "Post",
+  "Persona",
+  "GenerationLog",
+  "User",
+  "AmbientPost",
+  "WorldCharacter",
+  "World",
   // No foreign key to anything, so `CASCADE` from `User` does not reach it.
   "RateLimitBucket",
 ];
@@ -37,7 +53,9 @@ export function makeHarness(): Harness {
 }
 
 export async function resetDatabase(): Promise<void> {
-  await prisma.$executeRawUnsafe(`TRUNCATE TABLE ${TRUNCATE_ALL.map((t) => `"${t}"`).join(", ")} RESTART IDENTITY CASCADE`);
+  await prisma.$executeRawUnsafe(
+    `TRUNCATE TABLE ${TRUNCATE_ALL.map((t) => `"${t}"`).join(", ")} RESTART IDENTITY CASCADE`,
+  );
   await seedDatabase(prisma);
 }
 
@@ -56,7 +74,11 @@ export async function grantShelfGems(userId: string, packs = 1): Promise<void> {
   });
 }
 
-export interface JsonResponse<T> { status: number; data: T; error: { code: string; message: string } | null }
+export interface JsonResponse<T> {
+  status: number;
+  data: T;
+  error: { code: string; message: string } | null;
+}
 
 export async function call<T = unknown>(
   h: Harness,
@@ -74,11 +96,16 @@ export async function call<T = unknown>(
     ...(opts.body !== undefined ? { body: JSON.stringify(opts.body) } : {}),
   });
   const text = await res.text();
-  const parsed = text ? (JSON.parse(text) as { data: T; error: { code: string; message: string } | null }) : { data: null as T, error: null };
+  const parsed = text
+    ? (JSON.parse(text) as { data: T; error: { code: string; message: string } | null })
+    : { data: null as T, error: null };
   return { status: res.status, data: parsed.data, error: parsed.error };
 }
 
-export interface SSEEvent { event: string; data: Record<string, unknown> }
+export interface SSEEvent {
+  event: string;
+  data: Record<string, unknown>;
+}
 
 export async function readSSE(h: Harness, path: string, token: string): Promise<SSEEvent[]> {
   const res = await h.app.request(path, { headers: { authorization: `Bearer ${token}` } });
@@ -135,10 +162,14 @@ export async function signupWithPersona(
   const worlds = await call<{ id: string; slug: string }[]>(h, "GET", "/v1/worlds", { token });
   const world = worlds.data.find((w) => w.slug === "popstar-era") ?? worlds.data[0]!;
   const detail = await call<{ characters: { id: string; handle: string; canBeFirstFollower: boolean }[] }>(
-    h, "GET", `/v1/worlds/${world.id}`, { token },
+    h,
+    "GET",
+    `/v1/worlds/${world.id}`,
+    { token },
   );
-  const firstFollower = detail.data.characters.find((ch) => ch.handle === "hivequeenbea")
-    ?? detail.data.characters.find((ch) => ch.canBeFirstFollower)!;
+  const firstFollower =
+    detail.data.characters.find((ch) => ch.handle === "hivequeenbea") ??
+    detail.data.characters.find((ch) => ch.canBeFirstFollower)!;
   const created = await call<{ persona: { id: string }; feedReady: boolean }>(h, "POST", "/v1/personas", {
     token,
     body: {
@@ -166,6 +197,11 @@ export const setEnergy = (h: Harness, token: string, energy: number) =>
   call<{ energy: number }>(h, "POST", "/v1/__test/set-energy", { token, body: { energy } });
 
 export const getWallet = (h: Harness, token: string) =>
-  call<{ energy: number; coffee: number; adRewardsToday: number; adsEnabled: boolean; dailyMax: number; dailyRefillAt: string }>(
-    h, "GET", "/v1/wallet", { token },
-  );
+  call<{
+    energy: number;
+    coffee: number;
+    adRewardsToday: number;
+    adsEnabled: boolean;
+    dailyMax: number;
+    dailyRefillAt: string;
+  }>(h, "GET", "/v1/wallet", { token });

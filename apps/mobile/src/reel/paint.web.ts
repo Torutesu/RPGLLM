@@ -154,12 +154,20 @@ function motif(ctx: CanvasRenderingContext2D, variant: number, seed: number, lig
       });
       return;
     case 1:
-      stroke(() => {
-        ctx.arc(50, 50, 38, 0, Math.PI * 2);
-      }, soft, 3);
-      stroke(() => {
-        ctx.arc(50, 50, 27, 0, Math.PI * 2);
-      }, light, 8);
+      stroke(
+        () => {
+          ctx.arc(50, 50, 38, 0, Math.PI * 2);
+        },
+        soft,
+        3,
+      );
+      stroke(
+        () => {
+          ctx.arc(50, 50, 27, 0, Math.PI * 2);
+        },
+        light,
+        8,
+      );
       disc(ctx, 50, 50, 11, ink);
       return;
     case 2:
@@ -187,23 +195,35 @@ function motif(ctx: CanvasRenderingContext2D, variant: number, seed: number, lig
       disc(ctx, 65, 43, 7.5, ink);
       disc(ctx, 38, 40, 2.4, light);
       disc(ctx, 68, 40, 2.4, light);
-      stroke(() => {
-        ctx.moveTo(31, 62);
-        ctx.quadraticCurveTo(50, 78, 69, 62);
-      }, ink, 6);
+      stroke(
+        () => {
+          ctx.moveTo(31, 62);
+          ctx.quadraticCurveTo(50, 78, 69, 62);
+        },
+        ink,
+        6,
+      );
       return;
     case 5:
       ctx.fillStyle = ink;
       roundRectPath(ctx, 4, 38, 92, 22, 11);
       ctx.fill();
-      stroke(() => {
-        ctx.moveTo(20, 58);
-        ctx.lineTo(40, 40);
-      }, light, 5);
-      stroke(() => {
-        ctx.moveTo(50, 58);
-        ctx.lineTo(62, 46);
-      }, soft, 4);
+      stroke(
+        () => {
+          ctx.moveTo(20, 58);
+          ctx.lineTo(40, 40);
+        },
+        light,
+        5,
+      );
+      stroke(
+        () => {
+          ctx.moveTo(50, 58);
+          ctx.lineTo(62, 46);
+        },
+        soft,
+        4,
+      );
       return;
     case 6:
       spun(spin / 2, () => {
@@ -219,11 +239,15 @@ function motif(ctx: CanvasRenderingContext2D, variant: number, seed: number, lig
       return;
     case 7:
       [30, 50, 70].forEach((y, i) => {
-        stroke(() => {
-          ctx.moveTo(26, y - 9);
-          ctx.lineTo(50, y + 8);
-          ctx.lineTo(74, y - 9);
-        }, i === 1 ? ink : light, 7);
+        stroke(
+          () => {
+            ctx.moveTo(26, y - 9);
+            ctx.lineTo(50, y + 8);
+            ctx.lineTo(74, y - 9);
+          },
+          i === 1 ? ink : light,
+          7,
+        );
       });
       return;
     case 8:
@@ -242,20 +266,35 @@ function motif(ctx: CanvasRenderingContext2D, variant: number, seed: number, lig
       return;
     default:
       disc(ctx, 50, 26, 10, light);
-      stroke(() => {
-        ctx.moveTo(2, 58);
-        ctx.quadraticCurveTo(26, 32, 50, 58);
-        ctx.quadraticCurveTo(74, 84, 98, 58);
-      }, light, 8);
-      stroke(() => {
-        ctx.moveTo(2, 76);
-        ctx.quadraticCurveTo(26, 50, 50, 76);
-        ctx.quadraticCurveTo(74, 102, 98, 76);
-      }, ink, 8);
+      stroke(
+        () => {
+          ctx.moveTo(2, 58);
+          ctx.quadraticCurveTo(26, 32, 50, 58);
+          ctx.quadraticCurveTo(74, 84, 98, 58);
+        },
+        light,
+        8,
+      );
+      stroke(
+        () => {
+          ctx.moveTo(2, 76);
+          ctx.quadraticCurveTo(26, 50, 50, 76);
+          ctx.quadraticCurveTo(74, 102, 98, 76);
+        },
+        ink,
+        8,
+      );
   }
 }
 
-function drawOrb(ctx: CanvasRenderingContext2D, x: number, y: number, size: number, handle: string, ring: boolean): void {
+function drawOrb(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  size: number,
+  handle: string,
+  ring: boolean,
+): void {
   const clean = handle.replace(/^@/, "").toLowerCase();
   const identity = identityFor(clean);
   const seed = hashString(clean);
@@ -265,13 +304,7 @@ function drawOrb(ctx: CanvasRenderingContext2D, x: number, y: number, size: numb
   const zoom = [0.86, 1, 1.14][(motifSeed >> 13) % 3] ?? 1;
   const angleIdx = (seed >> 3) % 4;
   const coords =
-    angleIdx === 0
-      ? [0, 0, 1, 1]
-      : angleIdx === 1
-        ? [0, 1, 1, 0]
-        : angleIdx === 2
-          ? [0, 0, 0, 1]
-          : [1, 0, 0, 1];
+    angleIdx === 0 ? [0, 0, 1, 1] : angleIdx === 1 ? [0, 1, 1, 0] : angleIdx === 2 ? [0, 0, 0, 1] : [1, 0, 0, 1];
   const orbR = ring ? 43 : 49;
 
   ctx.save();

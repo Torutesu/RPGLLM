@@ -7,8 +7,12 @@ import { call, makeHarness, prisma, readSSE, resetDatabase, signupWithPersona, t
 
 let h: Harness;
 
-beforeAll(() => { h = makeHarness(); });
-beforeEach(async () => { await resetDatabase(); });
+beforeAll(() => {
+  h = makeHarness();
+});
+beforeEach(async () => {
+  await resetDatabase();
+});
 
 type Trending = ReturnType<typeof TrendingResZ.parse>;
 
@@ -18,7 +22,8 @@ const trending = (token: string, personaId: string) =>
 /** Post and drain the stream, so replies / news / snapshots exist for the aggregate to chew on. */
 async function postAndSettle(token: string, personaId: string, text: string): Promise<string> {
   const res = await call<{ post: { id: string }; streamUrl: string }>(h, "POST", "/v1/posts", {
-    token, body: { personaId, text, parentId: null },
+    token,
+    body: { personaId, text, parentId: null },
   });
   await readSSE(h, res.data.streamUrl, token);
   return res.data.post.id;
@@ -32,7 +37,12 @@ describe("Agent K — heat", () => {
   it("is 0 for a post nobody touched and rises with engagement", () => {
     const cold = heatFor({ metrics: { likes: 0, reposts: 0, replies: 0 }, kind: "character", createdAt: now, now });
     const warm = heatFor({ metrics: { likes: 400, reposts: 60, replies: 12 }, kind: "character", createdAt: now, now });
-    const loud = heatFor({ metrics: { likes: 40_000, reposts: 6_000, replies: 900 }, kind: "character", createdAt: now, now });
+    const loud = heatFor({
+      metrics: { likes: 40_000, reposts: 6_000, replies: 900 },
+      kind: "character",
+      createdAt: now,
+      now,
+    });
     expect(cold).toBe(0);
     expect(warm).toBeGreaterThan(cold);
     expect(loud).toBeGreaterThan(warm);
@@ -61,7 +71,10 @@ describe("Agent K — procedural media", () => {
     const second = ids.map((id) => mediaFor(id, "character"));
     expect(second).toEqual(first);
     for (const m of first) {
-      if (m.mediaKind === null) { expect(m.mediaSeed).toBeNull(); continue; }
+      if (m.mediaKind === null) {
+        expect(m.mediaSeed).toBeNull();
+        continue;
+      }
       expect(MEDIA_KINDS).toContain(m.mediaKind);
       expect(m.mediaSeed).toBeTruthy();
     }
@@ -235,7 +248,8 @@ describe("GET /v1/trending", () => {
 
     const character = fx.characters.find((ch) => ch.handle.replace(/^@+/, "") === target!.handle)!;
     const blocked = await call(h, "POST", "/v1/moderation/block", {
-      token: fx.token, body: { personaId: fx.personaId, characterId: character.id },
+      token: fx.token,
+      body: { personaId: fx.personaId, characterId: character.id },
     });
     expect(blocked.status).toBe(201);
 
@@ -254,7 +268,8 @@ describe("GET /v1/trending", () => {
     const fx = await signupWithPersona(h);
     await postAndSettle(fx.token, fx.personaId, "the second chorus is doing the work of a bridge");
     const hottest = await prisma.post.findFirst({
-      where: { personaId: fx.personaId }, orderBy: { heat: "desc" },
+      where: { personaId: fx.personaId },
+      orderBy: { heat: "desc" },
     });
     expect(hottest?.heat).toBeGreaterThan(0);
   });
@@ -291,9 +306,13 @@ describe("media cadence in a seeded batch", () => {
 
   it("picks the same rows for the same parent, and different ones for different parents", () => {
     const a = [...carrierIndices("post-a", 8)].sort((x, y) => x - y);
-    expect([...carrierIndices("post-a", 8)].sort((x, y) => x - y), "a re-render draws the same feed").toEqual(a);
-    const differs = ["post-b", "post-c", "post-d", "post-e"]
-      .some((id) => [...carrierIndices(id, 8)].sort((x, y) => x - y).join() !== a.join());
+    expect(
+      [...carrierIndices("post-a", 8)].sort((x, y) => x - y),
+      "a re-render draws the same feed",
+    ).toEqual(a);
+    const differs = ["post-b", "post-c", "post-d", "post-e"].some(
+      (id) => [...carrierIndices(id, 8)].sort((x, y) => x - y).join() !== a.join(),
+    );
     expect(differs, "and the cadence is not the same four rows in every thread").toBe(true);
   });
 

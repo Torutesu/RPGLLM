@@ -81,7 +81,9 @@ const g8Spec: GeneratorSpec<G8Input, G8Output> = {
         TASK[input.locale] ?? TASK.en ?? "",
         section(
           "CONTEXT",
-          [`surface: ${input.surface}`, `author is a minor: ${yesNo(input.isMinor)}`, `locale: ${input.locale}`].join("\n"),
+          [`surface: ${input.surface}`, `author is a minor: ${yesNo(input.isMinor)}`, `locale: ${input.locale}`].join(
+            "\n",
+          ),
         ),
         section("TEXT", `"""\n${clamp(input.text, 2000)}\n"""`),
       ]),

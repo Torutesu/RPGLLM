@@ -1,9 +1,22 @@
 import { expect, test } from "@playwright/test";
 import { SAFETY_BLOCK_TEST_PHRASES, strings, T } from "@rpgllm/shared";
 import {
-  apiSignup, badgeEnergy, cellsOfKind, enterWorld, generations, loginInBrowser, openComposer,
-  reactionCount, resetDb, setEnergy, setLlmMode, submitComposer, typeInComposer, userPostCell,
-  wallet, syncWallet
+  apiSignup,
+  badgeEnergy,
+  cellsOfKind,
+  enterWorld,
+  generations,
+  loginInBrowser,
+  openComposer,
+  reactionCount,
+  resetDb,
+  setEnergy,
+  setLlmMode,
+  submitComposer,
+  typeInComposer,
+  userPostCell,
+  wallet,
+  syncWallet,
 } from "../fixtures";
 
 test.beforeEach(async ({ request }) => {
@@ -30,10 +43,9 @@ test("E2E-009: blocked input is refused and costs no energy", async ({ page, req
   // every phrase in the shared block list — EN and JA alike
   for (const phrase of SAFETY_BLOCK_TEST_PHRASES) {
     await typeInComposer(page, phrase);
-    const pending = page.waitForResponse(
-      (r) => /\/v1\/posts(\?|$)/.test(r.url()) && r.request().method() === "POST",
-      { timeout: 30_000 },
-    );
+    const pending = page.waitForResponse((r) => /\/v1\/posts(\?|$)/.test(r.url()) && r.request().method() === "POST", {
+      timeout: 30_000,
+    });
     await submitComposer(page);
     const res = await pending;
     expect(res.status(), `POST /v1/posts must be 422 for: "${phrase}"`).toBe(422);
@@ -54,10 +66,12 @@ test("E2E-009: blocked input is refused and costs no energy", async ({ page, req
   await expect.poll(() => badgeEnergy(page), { timeout: 10_000 }).toBe(5);
 
   // one G8 block verdict logged per attempt
-  const blocked = (await generations(request, account.jwt, { generator: "G8" }))
-    .filter((l) => l.safetyVerdict === "block");
-  expect(blocked.length, "one G8 GenerationLog with verdict=block per blocked attempt")
-    .toBe(SAFETY_BLOCK_TEST_PHRASES.length);
+  const blocked = (await generations(request, account.jwt, { generator: "G8" })).filter(
+    (l) => l.safetyVerdict === "block",
+  );
+  expect(blocked.length, "one G8 GenerationLog with verdict=block per blocked attempt").toBe(
+    SAFETY_BLOCK_TEST_PHRASES.length,
+  );
 });
 
 test("E2E-010: a total LLM outage degrades gracefully and is never charged", async ({ page, request }) => {
@@ -82,15 +96,17 @@ test("E2E-010: a total LLM outage degrades gracefully and is never charged", asy
   await expect(cell.getByTestId(T.postKind("user"))).toBeVisible();
 
   // canned fallback replies + the fallback notice
-  await expect(page.getByTestId(T.fallbackToast), "a fallback toast tells the user the world lagged")
-    .toBeVisible({ timeout: 20_000 });
+  await expect(page.getByTestId(T.fallbackToast), "a fallback toast tells the user the world lagged").toBeVisible({
+    timeout: 20_000,
+  });
   await expect(page.getByTestId(T.fallbackToast)).toContainText(strings.en.fallbackNotice);
   await expect
     .poll(() => reactionCount(page), { timeout: 20_000, message: "canned character replies still appear" })
     .toBeGreaterThan(reactionsBefore);
 
   // and the action is refunded
-  await expect.poll(() => badgeEnergy(page), { timeout: 20_000, message: "no energy is charged on fallback" })
+  await expect
+    .poll(() => badgeEnergy(page), { timeout: 20_000, message: "no energy is charged on fallback" })
     .toBe(energyBefore);
   expect((await wallet(request, account.jwt)).energy, "/v1/wallet is unchanged").toBe(energyBefore);
 });

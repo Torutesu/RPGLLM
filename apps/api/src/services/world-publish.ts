@@ -37,9 +37,7 @@ import { resubmitCooldownHours } from "./world-moderation";
 import { clearedAppeal } from "./world-appeal";
 import { releasedClaim } from "./world-review-claim";
 import { buildDigest, digestPatch } from "./review-digest";
-import {
-  countTrustedSubmission, samplingDecision, trustSnapshot, type FullReadReason,
-} from "./creator-trust";
+import { countTrustedSubmission, samplingDecision, trustSnapshot, type FullReadReason } from "./creator-trust";
 import { chargeForShelf, gemsOf, publicSubmitGems, refundShelfCharge } from "./world-submit-fee";
 import { GemsRequiredError } from "./world-studio";
 import { logLine } from "../middleware/request-log";
@@ -62,7 +60,10 @@ export function reviewText(
 }
 
 /** The wallet movement one publish caused: positive for the shelf fee, negative for a refund. */
-export interface Charged { gems: number; remaining: number }
+export interface Charged {
+  gems: number;
+  remaining: number;
+}
 
 export type VisibilityOutcome =
   /**
@@ -160,12 +161,16 @@ export async function setWorldVisibility(
   // A shared world's audience includes minors, so it is judged at the strictest setting no matter
   // who is asking. The gate reads the *generated* bible and cast — the premise was screened before
   // any of this existed, and is not what a stranger will be reading.
-  const gate = await safetyGate(deps, {
-    locale: ctx.locale,
-    isMinor: true,
-    text: reviewText(world, characters, ctx.locale),
-    surface: "post",
-  }, ctx.actorId);
+  const gate = await safetyGate(
+    deps,
+    {
+      locale: ctx.locale,
+      isMinor: true,
+      text: reviewText(world, characters, ctx.locale),
+      surface: "post",
+    },
+    ctx.actorId,
+  );
 
   if (gate.verdict === "block") {
     const updated = await deps.prisma.world.update({
@@ -223,8 +228,12 @@ async function goPrivate(deps: Deps, world: World): Promise<VisibilityOutcome> {
       // the complaint history survives the creator making it private. Whoever had claimed it is
       // reading a world that left the queue, so the lease goes too.
       data: {
-        visibility: "private", status: "ready", pulledAt: null, reviewRequestedAt: null,
-        ...clearedAppeal, ...releasedClaim,
+        visibility: "private",
+        status: "ready",
+        pulledAt: null,
+        reviewRequestedAt: null,
+        ...clearedAppeal,
+        ...releasedClaim,
       },
     });
     return { updated: row, refunded: gems };
@@ -268,9 +277,15 @@ async function goPublic(
   const snapshot = creatorId ? await trustSnapshot(deps.prisma, creatorId) : null;
 
   // No creator (a purged account) is nobody's standing: it is read, like every first submission.
-  const decision = snapshot && creatorId
-    ? samplingDecision({ id: world.id, safety: safetyVerdict, rejectedReason: world.rejectedReason }, creatorId, snapshot.trust, snapshot.counters)
-    : { read: true, reason: "untrusted" as FullReadReason, sampledAway: false };
+  const decision =
+    snapshot && creatorId
+      ? samplingDecision(
+          { id: world.id, safety: safetyVerdict, rejectedReason: world.rejectedReason },
+          creatorId,
+          snapshot.trust,
+          snapshot.counters,
+        )
+      : { read: true, reason: "untrusted" as FullReadReason, sampledAway: false };
 
   // Advice for the person who is going to read it. The model half — when `packages/llm` ships one
   // — is asked for only when there *is* such a person; a digest nobody reads is the cost this
@@ -320,7 +335,10 @@ async function goPublic(
 
     if (decision.sampledAway) {
       logLine({
-        level: "info", msg: "world.publish.sampled_away", worldId: world.id, userId: creatorId ?? "",
+        level: "info",
+        msg: "world.publish.sampled_away",
+        worldId: world.id,
+        userId: creatorId ?? "",
         approvals: snapshot?.counters.trustApprovals ?? 0,
       });
     }

@@ -1,8 +1,18 @@
 import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
 import { T, WORLD_MODERATION, WORLD_STUDIO } from "@rpgllm/shared";
 import {
-  apiSignup, apiUrl, bearer, gotoApp, loginInBrowser, resetDb, ROUTES, setLlmMode,
-  setGems, unwrap, worldPresets, type Account,
+  apiSignup,
+  apiUrl,
+  bearer,
+  gotoApp,
+  loginInBrowser,
+  resetDb,
+  ROUTES,
+  setLlmMode,
+  setGems,
+  unwrap,
+  worldPresets,
+  type Account,
 } from "../fixtures";
 
 /**
@@ -28,8 +38,14 @@ const REMIX_PREMISE = "The same corner, ten years later, and only one stall is l
 const GENRE = "slice_of_life";
 
 interface StudioWorld {
-  id: string; slug: string; title: string; status: string; visibility: string;
-  playCount: number; creatorHandle: string | null; remixCount: number;
+  id: string;
+  slug: string;
+  title: string;
+  status: string;
+  visibility: string;
+  playCount: number;
+  creatorHandle: string | null;
+  remixCount: number;
 }
 
 /* --------------------------------------------------------------- helpers ---- */
@@ -54,9 +70,7 @@ async function creatorHandleOf(request: APIRequestContext, jwt: string): Promise
 }
 
 /** A world built and published to Explore, approved by a reviewer — the state others can find. */
-async function aPublicWorld(
-  request: APIRequestContext, author: Account, premise = PREMISE,
-): Promise<StudioWorld> {
+async function aPublicWorld(request: APIRequestContext, author: Account, premise = PREMISE): Promise<StudioWorld> {
   await unwrap(
     await request.post(apiUrl("/v1/worlds"), {
       headers: bearer(author.jwt),
@@ -74,13 +88,17 @@ async function aPublicWorld(
   await setGems(request, author.jwt, WORLD_MODERATION.PUBLIC_SUBMIT_GEMS * 4);
   await unwrap(
     await request.post(apiUrl(`/v1/worlds/${world!.id}/publish`), {
-      headers: bearer(author.jwt), data: { visibility: "public" }, failOnStatusCode: false,
+      headers: bearer(author.jwt),
+      data: { visibility: "public" },
+      failOnStatusCode: false,
     }),
     "publish public",
   );
   await unwrap(
     await request.post(apiUrl(`/v1/admin/worlds/${world!.id}/review`), {
-      headers: bearer(author.jwt), data: { decision: "approve", reason: "" }, failOnStatusCode: false,
+      headers: bearer(author.jwt),
+      data: { decision: "approve", reason: "" },
+      failOnStatusCode: false,
     }),
     "approve",
   );
@@ -140,8 +158,7 @@ test.describe("The author circuits", () => {
     await expect(credit).toContainText(handle);
 
     await credit.click();
-    await expect(page.getByTestId(T.creatorPage), "and the name leads somewhere")
-      .toBeVisible({ timeout: 20_000 });
+    await expect(page.getByTestId(T.creatorPage), "and the name leads somewhere").toBeVisible({ timeout: 20_000 });
     await expect(page.getByTestId(T.creatorHandleText)).toContainText(handle);
     await expect(page.getByTestId(T.creatorWorld(world.slug)), "with their work on it").toBeVisible();
   });
@@ -153,20 +170,23 @@ test.describe("The author circuits", () => {
    * to be buried under — an empty "Just built" heading reads as a broken page, which is the exact
    * defect QA-006 found on the trending strip.
    */
-  test("E2E-037: the fresh rail is absent, not empty, on a shelf too small to bury anything", async ({ page, request }) => {
+  test("E2E-037: the fresh rail is absent, not empty, on a shelf too small to bury anything", async ({
+    page,
+    request,
+  }) => {
     const author = await apiSignup(request);
     await aPublicWorld(request, author);
 
     const visitor = await apiSignup(request);
     await loginInBrowser(page, visitor.jwt);
     await gotoApp(page, "/explore");
-    await expect(page.getByTestId(T.communityWorlds), "Explore must have loaded")
-      .toBeVisible({ timeout: 20_000 });
+    await expect(page.getByTestId(T.communityWorlds), "Explore must have loaded").toBeVisible({ timeout: 20_000 });
 
     await expect(page.getByTestId(T.freshWorlds), "no heading over nothing").toHaveCount(0);
 
     const shelf = await request.get(apiUrl("/v1/worlds/public"), {
-      headers: bearer(visitor.jwt), failOnStatusCode: false,
+      headers: bearer(visitor.jwt),
+      failOnStatusCode: false,
     });
     const body = await unwrap<{ worlds: StudioWorld[]; fresh: StudioWorld[] }>(shelf, "GET /v1/worlds/public");
     expect(body.fresh, "and the server agrees rather than the client hiding it").toHaveLength(0);
@@ -190,8 +210,9 @@ test.describe("The author circuits", () => {
     await expect(page.getByTestId(T.worldPage)).toBeVisible({ timeout: 20_000 });
 
     await page.getByTestId(T.remixOpen).click();
-    await expect(page.getByTestId(T.remixSource), "the studio says what this came out of")
-      .toBeVisible({ timeout: 15_000 });
+    await expect(page.getByTestId(T.remixSource), "the studio says what this came out of").toBeVisible({
+      timeout: 15_000,
+    });
     await page.getByTestId(T.studioPremiseInput).fill(REMIX_PREMISE);
     await page.getByTestId(T.remixCreate).click();
     await expect(page.getByTestId(T.studioBuilding)).toBeVisible({ timeout: 20_000 });
@@ -203,10 +224,12 @@ test.describe("The author circuits", () => {
     const mine = await myWorlds(request, player.jwt);
     expect(mine, "the remix is the player's own world").toHaveLength(1);
     const detail = await request.get(apiUrl(`/v1/worlds/${mine[0]!.id}`), {
-      headers: bearer(player.jwt), failOnStatusCode: false,
+      headers: bearer(player.jwt),
+      failOnStatusCode: false,
     });
     const seen = await unwrap<{ world: { remixOf: { slug: string } | null; genre: string | null } }>(
-      detail, "GET /v1/worlds/:id",
+      detail,
+      "GET /v1/worlds/:id",
     );
     expect(seen.world.remixOf?.slug, "a derivative credits its source").toBe(source.slug);
     expect(seen.world.genre, "and inherits what it did not have to decide").toBe(GENRE);
@@ -237,13 +260,13 @@ test.describe("The author circuits", () => {
     await input.fill("ramenpoet");
     await page.getByTestId(T.creatorRenameSave).click();
 
-    await expect.poll(async () => creatorHandleOf(request, author.jwt), { timeout: 20_000 })
-      .toBe("ramenpoet");
+    await expect.poll(async () => creatorHandleOf(request, author.jwt), { timeout: 20_000 }).toBe("ramenpoet");
 
     // Somebody else's view of the world carries the new name, with nothing left to migrate.
     const visitor = await apiSignup(request);
     const detail = await request.get(apiUrl(`/v1/worlds/${world.id}`), {
-      headers: bearer(visitor.jwt), failOnStatusCode: false,
+      headers: bearer(visitor.jwt),
+      failOnStatusCode: false,
     });
     const seen = await unwrap<{ world: { creatorHandle: string | null } }>(detail, "GET /v1/worlds/:id");
     expect(seen.world.creatorHandle, "the credit moved with the name").toBe("ramenpoet");
@@ -270,12 +293,13 @@ test.describe("The author circuits", () => {
 
     await loginInBrowser(page, author.jwt);
     await gotoApp(page, "/notifications");
-    await expect(page.getByTestId(T.notifList), "a creator with no persona still has an inbox")
-      .toBeVisible({ timeout: 20_000 });
-    await expect(
-      page.getByTestId(T.notifList),
-      "and it says somebody played the world they made",
-    ).toContainText(/played|遊ば/i, { timeout: 15_000 });
+    await expect(page.getByTestId(T.notifList), "a creator with no persona still has an inbox").toBeVisible({
+      timeout: 20_000,
+    });
+    await expect(page.getByTestId(T.notifList), "and it says somebody played the world they made").toContainText(
+      /played|遊ば/i,
+      { timeout: 15_000 },
+    );
   });
 
   /* ---------------------------------------------------------------- E2E-041 ---- */
@@ -293,7 +317,9 @@ test.describe("The author circuits", () => {
         headers: bearer(author.jwt),
         data: {
           premise: "深夜のラーメン屋台が二つ、角がひとつ、そして正体不明の評論家",
-          genre: GENRE, locale: "ja", visibility: "private",
+          genre: GENRE,
+          locale: "ja",
+          visibility: "private",
         },
         failOnStatusCode: false,
       }),
@@ -304,17 +330,21 @@ test.describe("The author circuits", () => {
     expect(world, "the JA build must finish").toBeDefined();
     await unwrap(
       await request.post(apiUrl(`/v1/worlds/${world!.id}/publish`), {
-        headers: bearer(author.jwt), data: { visibility: "unlisted" }, failOnStatusCode: false,
+        headers: bearer(author.jwt),
+        data: { visibility: "unlisted" },
+        failOnStatusCode: false,
       }),
       "publish unlisted",
     );
 
     const reader = await apiSignup(request, { locale: "en" });
     const detail = await request.get(apiUrl(`/v1/worlds/${world!.id}`), {
-      headers: bearer(reader.jwt), failOnStatusCode: false,
+      headers: bearer(reader.jwt),
+      failOnStatusCode: false,
     });
     const seen = await unwrap<{ characters: { handle: string; role: string; intro: string }[] }>(
-      detail, "GET /v1/worlds/:id as an EN reader",
+      detail,
+      "GET /v1/worlds/:id as an EN reader",
     );
     expect(seen.characters.length, "the cast comes across").toBeGreaterThan(0);
 
@@ -327,8 +357,9 @@ test.describe("The author circuits", () => {
 
     await loginInBrowser(page, reader.jwt);
     await gotoApp(page, `/world/${world!.id}`);
-    await expect(page.getByTestId(T.worldPage), "and it opens for a reader of the other language")
-      .toBeVisible({ timeout: 20_000 });
+    await expect(page.getByTestId(T.worldPage), "and it opens for a reader of the other language").toBeVisible({
+      timeout: 20_000,
+    });
     await expect(page.getByTestId(T.worldPlay)).toBeVisible();
   });
 });

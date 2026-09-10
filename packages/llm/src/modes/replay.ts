@@ -102,9 +102,7 @@ export function replayG1(input: G1Input): G1Output {
     if (handle === undefined) break;
     const text =
       lineFor(input.worldSlug, input.locale, handle, negative, input.seed, i, input.post.text) ??
-      seedWorld?.fallbackReplies[handle]?.[input.locale]?.[
-        pick(5, input.seed, handle, i)
-      ] ??
+      seedWorld?.fallbackReplies[handle]?.[input.locale]?.[pick(5, input.seed, handle, i)] ??
       "...";
     replies.push({ characterHandle: handle, text: clamp(text, 280) });
   }
@@ -144,8 +142,7 @@ export function replayG1(input: G1Input): G1Output {
       : null;
 
   const narrativePool = fixture.narratives[input.locale];
-  const narrative =
-    narrativePool[pick(Math.max(narrativePool.length, 1), input.seed, input.post.text, "narr")] ?? "";
+  const narrative = narrativePool[pick(Math.max(narrativePool.length, 1), input.seed, input.post.text, "narr")] ?? "";
 
   return {
     replies,
@@ -164,7 +161,10 @@ export function replayG4(input: G4Input): G4Output {
   if (sets.length === 0) return { ...g4Fallback(input) };
 
   const set = sets[pick(sets.length, input.seed, input.message, input.character.handle)] ?? [];
-  const bubbles = set.map((b) => clamp(b, 160)).filter((b) => b.length > 0).slice(0, 3);
+  const bubbles = set
+    .map((b) => clamp(b, 160))
+    .filter((b) => b.length > 0)
+    .slice(0, 3);
   if (bubbles.length === 0) return { ...g4Fallback(input) };
 
   const negative = isNegative(input.message);
@@ -173,9 +173,7 @@ export function replayG4(input: G4Input): G4Output {
 
   const notes = cf?.memory[input.locale] ?? [];
   const memory_note =
-    notes.length > 0
-      ? clamp(notes[pick(notes.length, input.seed, input.message, "mem")] ?? "", 200)
-      : null;
+    notes.length > 0 ? clamp(notes[pick(notes.length, input.seed, input.message, "mem")] ?? "", 200) : null;
 
   return { bubbles, affinity_delta, memory_note, safety_flag: input.softened };
 }
@@ -246,9 +244,7 @@ export function replayG7(input: G7Input): G7Output {
     handle: r.handle,
     summary: foldNotes(r.oldSummary, r.notes, 600),
   }));
-  const allNotes = input.relationships.flatMap((r) =>
-    r.notes.map((n) => `${r.handle}: ${n}`),
-  );
+  const allNotes = input.relationships.flatMap((r) => r.notes.map((n) => `${r.handle}: ${n}`));
   return {
     relationships,
     worldSummary: foldNotes(input.persona.worldSummary, allNotes, 1600),
@@ -312,12 +308,17 @@ export function replayG10(input: G10Input): G10Output {
   }
   if (posts.length === 0) return g10.fallback(input);
 
-  const closest = [...input.relationships].sort((a, b) => b.affinity - a.affinity || a.handle.localeCompare(b.handle))[0];
-  const dmSets = closest === undefined ? [] : (characterFixture(input.worldSlug, closest.handle)?.dm[input.locale] ?? []);
+  const closest = [...input.relationships].sort(
+    (a, b) => b.affinity - a.affinity || a.handle.localeCompare(b.handle),
+  )[0];
+  const dmSets =
+    closest === undefined ? [] : (characterFixture(input.worldSlug, closest.handle)?.dm[input.locale] ?? []);
   const dmSet = dmSets[pick(Math.max(dmSets.length, 1), input.seed, "g10dm", closest?.handle ?? "")] ?? [];
-  const bubbles = dmSet.map((b) => clamp(b, 160)).filter((b) => b.length > 0).slice(0, 3);
-  const dm =
-    closest !== undefined && bubbles.length > 0 ? { characterHandle: closest.handle, bubbles } : null;
+  const bubbles = dmSet
+    .map((b) => clamp(b, 160))
+    .filter((b) => b.length > 0)
+    .slice(0, 3);
+  const dm = closest !== undefined && bubbles.length > 0 ? { characterHandle: closest.handle, bubbles } : null;
 
   const narratives = fixture.narratives[input.locale];
   const digest = narratives

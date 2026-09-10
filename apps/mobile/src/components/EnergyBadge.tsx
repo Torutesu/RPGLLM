@@ -53,7 +53,10 @@ export function EnergyBadge({ energy, coffee, onPress }: { energy: number; coffe
         style={{ flexDirection: "row", alignItems: "center", gap: spacing.xxs }}
       >
         <Icon name="coffee" size={15} color={coffee > 0 ? colors.coffee : colors.textMuted} />
-        <Text importantForAccessibility="no" style={[typo.count, { color: coffee > 0 ? colors.coffee : colors.textMuted }]}>
+        <Text
+          importantForAccessibility="no"
+          style={[typo.count, { color: coffee > 0 ? colors.coffee : colors.textMuted }]}
+        >
           {String(coffee)}
         </Text>
       </View>

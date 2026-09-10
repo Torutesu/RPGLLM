@@ -7,7 +7,7 @@ import { evaluateQuietly } from "../services/achievements";
 import { runDMStream } from "../services/dm-stream";
 import { sameHandle } from "../services/handles";
 import { localized } from "../services/locale";
-import { withoutBlocked } from "../services/moderation";   // Agent G (S1-2)
+import { withoutBlocked } from "../services/moderation"; // Agent G (S1-2)
 import { safetyGate } from "../services/safety";
 import { toApiCharacter, toApiMessage, toApiThread } from "../services/serialize";
 import { loadStoryContext } from "../services/story";
@@ -38,15 +38,20 @@ export function dmRoutes(): Hono<AppEnv> {
       return s ? localized(s.intro, ctx.locale) : undefined;
     };
 
-    const threads = withoutBlocked(await deps.prisma.dMThread.findMany({
-      where: { personaId: persona.id },
-      orderBy: { lastMessageAt: "desc" },
-      include: { character: true, messages: { orderBy: { createdAt: "desc" }, take: 1 } },
-    }), ctx.blockedCharacterIds);   // Agent G (S1-2)
+    const threads = withoutBlocked(
+      await deps.prisma.dMThread.findMany({
+        where: { personaId: persona.id },
+        orderBy: { lastMessageAt: "desc" },
+        include: { character: true, messages: { orderBy: { createdAt: "desc" }, take: 1 } },
+      }),
+      ctx.blockedCharacterIds,
+    ); // Agent G (S1-2)
     const followerIds = new Set(ctx.relationships.filter((r) => r.isFollower).map((r) => r.characterId));
     return ok({
       threads: threads.map((t) => toApiThread(t, ctx.locale, t.messages[0] ?? null, intro(t.character.handle))),
-      followers: ctx.characters.filter((ch) => followerIds.has(ch.id)).map((ch) => toApiCharacter(ch, ctx.locale, intro(ch.handle))),
+      followers: ctx.characters
+        .filter((ch) => followerIds.has(ch.id))
+        .map((ch) => toApiCharacter(ch, ctx.locale, intro(ch.handle))),
     });
   });
 
@@ -75,19 +80,28 @@ export function dmRoutes(): Hono<AppEnv> {
     const deps = c.get("deps");
     const state = c.get("state");
     const user = c.get("user");
-    const thread = await deps.prisma.dMThread.findUnique({ where: { id: c.req.param("threadId") }, include: { character: true } });
+    const thread = await deps.prisma.dMThread.findUnique({
+      where: { id: c.req.param("threadId") },
+      include: { character: true },
+    });
     if (!thread) return notFound("Thread");
     const ctx = await loadStoryContext(deps.prisma, user, thread.personaId);
     if (!ctx) return notFound("Thread");
 
-    const gate = await safetyGate(deps, { locale: ctx.locale, isMinor: user.isMinor, text: body.value.text, surface: "dm" }, user.id);
+    const gate = await safetyGate(
+      deps,
+      { locale: ctx.locale, isMinor: user.isMinor, text: body.value.text, surface: "dm" },
+      user.id,
+    );
     if (gate.verdict === "block") return fail("SAFETY_BLOCKED", "This doesn't fit the world's guidelines.", 422);
 
     const { wallet } = await ensureWallet(deps.prisma, deps.clock, user.id);
     let message;
     try {
       message = await deps.prisma.$transaction(async (tx) => {
-        const row = await tx.dMMessage.create({ data: { threadId: thread.id, fromCharacter: false, text: body.value.text } });
+        const row = await tx.dMMessage.create({
+          data: { threadId: thread.id, fromCharacter: false, text: body.value.text },
+        });
         await spendEnergy(tx, wallet.id, `dm:${row.id}`);
         await tx.persona.update({ where: { id: ctx.persona.id }, data: { actionCount: { increment: 1 } } });
         await tx.dMThread.update({ where: { id: thread.id }, data: { lastMessageAt: deps.clock.now() } });
@@ -107,7 +121,10 @@ export function dmRoutes(): Hono<AppEnv> {
     const deps = c.get("deps");
     const state = c.get("state");
     const user = c.get("user");
-    const thread = await deps.prisma.dMThread.findUnique({ where: { id: c.req.param("threadId") }, include: { character: true } });
+    const thread = await deps.prisma.dMThread.findUnique({
+      where: { id: c.req.param("threadId") },
+      include: { character: true },
+    });
     if (!thread) return notFound("Thread");
     const ctx = await loadStoryContext(deps.prisma, user, thread.personaId);
     if (!ctx) return notFound("Thread");
@@ -123,7 +140,10 @@ export function dmRoutes(): Hono<AppEnv> {
         await runDMStream(deps, state, ctx, thread, relationship, wallet.id, emit);
       } catch (err) {
         console.error("[api] dm stream failed", err);
-        await stream.writeSSE({ event: "fallback", data: JSON.stringify({ type: "fallback", message: "Message not sent." }) });
+        await stream.writeSSE({
+          event: "fallback",
+          data: JSON.stringify({ type: "fallback", message: "Message not sent." }),
+        });
         await stream.writeSSE({ event: "done", data: JSON.stringify({ type: "done", energy: 0 }) });
       }
     });
@@ -132,7 +152,10 @@ export function dmRoutes(): Hono<AppEnv> {
   app.get("/:threadId", requireAuth, async (c) => {
     const deps = c.get("deps");
     const user = c.get("user");
-    const thread = await deps.prisma.dMThread.findUnique({ where: { id: c.req.param("threadId") }, include: { character: true } });
+    const thread = await deps.prisma.dMThread.findUnique({
+      where: { id: c.req.param("threadId") },
+      include: { character: true },
+    });
     if (!thread) return notFound("Thread");
     const ctx = await loadStoryContext(deps.prisma, user, thread.personaId);
     if (!ctx) return notFound("Thread");

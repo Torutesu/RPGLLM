@@ -3,13 +3,7 @@ import { bareHandle } from "../../handles.js";
 import { fnv1a, pick } from "../../tokens.js";
 import { OPEN_ARCHETYPES, PRESS_ARCHETYPE, archetypeByKey, type Archetype } from "./archetypes.js";
 import { sanitizePremise } from "./screen.js";
-import type {
-  G9CastEventsOutput,
-  G9Concept,
-  G9ConceptCast,
-  G9Input,
-  G9TextureOutput,
-} from "./types.js";
+import type { G9CastEventsOutput, G9Concept, G9ConceptCast, G9Input, G9TextureOutput } from "./types.js";
 import { NAME_POOLS, fill, packFor, type FillContext, type GenrePack } from "./vocab.js";
 
 /**
@@ -53,21 +47,168 @@ function cap(text: string): string {
  * Guild" even though "every" came first in the premise.
  */
 const EN_STOPWORDS = new Set([
-  "the", "a", "an", "and", "or", "but", "of", "in", "on", "at", "to", "for", "with", "from",
-  "who", "that", "this", "these", "those", "is", "are", "was", "were", "be", "been", "being",
-  "it", "its", "you", "your", "my", "our", "their", "his", "her", "hers", "they", "them", "we",
-  "us", "as", "by", "into", "about", "over", "under", "after", "before", "between", "through",
-  "during", "without", "within", "against", "around", "because", "while", "until", "since",
-  "where", "when", "what", "which", "how", "why", "there", "here", "then", "than", "not", "no",
-  "yes", "very", "just", "only", "also", "still", "even", "more", "less", "much", "many", "most",
-  "some", "any", "every", "each", "both", "few", "own", "same", "such", "other", "another",
-  "will", "can", "must", "should", "would", "could", "have", "has", "had", "does", "did", "doing",
-  "always", "never", "often", "sometimes", "everyone", "everything", "someone", "something",
-  "nobody", "nothing", "anyone", "anything", "people", "person", "thing", "things", "one", "all",
-  "world", "worlds", "story", "stories", "game", "games", "place", "places", "keep", "keeps",
-  "kept", "make", "makes", "made", "take", "takes", "took", "get", "gets", "got", "become",
-  "becomes", "turn", "turns", "goes", "going", "want", "wants", "know", "knows", "like", "likes",
-  "everybody", "nobody", "somebody", "really", "actually", "maybe",
+  "the",
+  "a",
+  "an",
+  "and",
+  "or",
+  "but",
+  "of",
+  "in",
+  "on",
+  "at",
+  "to",
+  "for",
+  "with",
+  "from",
+  "who",
+  "that",
+  "this",
+  "these",
+  "those",
+  "is",
+  "are",
+  "was",
+  "were",
+  "be",
+  "been",
+  "being",
+  "it",
+  "its",
+  "you",
+  "your",
+  "my",
+  "our",
+  "their",
+  "his",
+  "her",
+  "hers",
+  "they",
+  "them",
+  "we",
+  "us",
+  "as",
+  "by",
+  "into",
+  "about",
+  "over",
+  "under",
+  "after",
+  "before",
+  "between",
+  "through",
+  "during",
+  "without",
+  "within",
+  "against",
+  "around",
+  "because",
+  "while",
+  "until",
+  "since",
+  "where",
+  "when",
+  "what",
+  "which",
+  "how",
+  "why",
+  "there",
+  "here",
+  "then",
+  "than",
+  "not",
+  "no",
+  "yes",
+  "very",
+  "just",
+  "only",
+  "also",
+  "still",
+  "even",
+  "more",
+  "less",
+  "much",
+  "many",
+  "most",
+  "some",
+  "any",
+  "every",
+  "each",
+  "both",
+  "few",
+  "own",
+  "same",
+  "such",
+  "other",
+  "another",
+  "will",
+  "can",
+  "must",
+  "should",
+  "would",
+  "could",
+  "have",
+  "has",
+  "had",
+  "does",
+  "did",
+  "doing",
+  "always",
+  "never",
+  "often",
+  "sometimes",
+  "everyone",
+  "everything",
+  "someone",
+  "something",
+  "nobody",
+  "nothing",
+  "anyone",
+  "anything",
+  "people",
+  "person",
+  "thing",
+  "things",
+  "one",
+  "all",
+  "world",
+  "worlds",
+  "story",
+  "stories",
+  "game",
+  "games",
+  "place",
+  "places",
+  "keep",
+  "keeps",
+  "kept",
+  "make",
+  "makes",
+  "made",
+  "take",
+  "takes",
+  "took",
+  "get",
+  "gets",
+  "got",
+  "become",
+  "becomes",
+  "turn",
+  "turns",
+  "goes",
+  "going",
+  "want",
+  "wants",
+  "know",
+  "knows",
+  "like",
+  "likes",
+  "everybody",
+  "nobody",
+  "somebody",
+  "really",
+  "actually",
+  "maybe",
 ]);
 
 const LATIN_WORD_RE = /[a-z][a-z0-9']{2,}/g;
@@ -106,11 +247,7 @@ function slugWords(slug: string): string[] {
  */
 export function nameWords(base: G9Input): { en: string; ja: string; second: string } {
   const pack = packFor(base.genre);
-  const taken = new Set([
-    pack.titleWord.en.toLowerCase(),
-    base.genre.toLowerCase(),
-    ...base.genre.split("_"),
-  ]);
+  const taken = new Set([pack.titleWord.en.toLowerCase(), base.genre.toLowerCase(), ...base.genre.split("_")]);
   const kw = premiseKeywords(base.premise);
   const candidates = [...kw.en, ...slugWords(base.slug)].filter((w) => !taken.has(w));
   const en = cap(candidates[0] ?? "New");
@@ -122,12 +259,7 @@ export function nameWords(base: G9Input): { en: string; ja: string; second: stri
 /* ----------------------------------------------------------- fill context ---- */
 
 /** Everything a template may reference, for one locale of one world. */
-export function contextFor(
-  concept: G9Concept,
-  pack: GenrePack,
-  locale: Locale,
-  self?: G9ConceptCast,
-): FillContext {
+export function contextFor(concept: G9Concept, pack: GenrePack, locale: Locale, self?: G9ConceptCast): FillContext {
   const w = pack.words[locale];
   const press = concept.cast.find((c) => c.isPressAccount) ?? concept.cast[0];
   const others = concept.cast.filter((c) => c.handle !== self?.handle && !c.isPressAccount);
@@ -157,8 +289,7 @@ export function contextFor(
     ctx[`place${i + 1}`] = concept.places[i % Math.max(concept.places.length, 1)]?.name[locale] ?? w.room;
   }
   for (let i = concept.factions.length; i < 3; i += 1) {
-    ctx[`faction${i + 1}`] =
-      concept.factions[i % Math.max(concept.factions.length, 1)]?.name[locale] ?? w.crowd;
+    ctx[`faction${i + 1}`] = concept.factions[i % Math.max(concept.factions.length, 1)]?.name[locale] ?? w.crowd;
   }
   return ctx;
 }
@@ -212,9 +343,7 @@ export function deterministicConcept(base: G9Input): G9Concept {
   const names = nameWords(base);
   const seedKey = `${base.slug}|${base.genre}|${base.seed}`;
 
-  const archetypes: Archetype[] = [
-    ...shuffled(OPEN_ARCHETYPES, seedKey, "arch").slice(0, 7),
-  ];
+  const archetypes: Archetype[] = [...shuffled(OPEN_ARCHETYPES, seedKey, "arch").slice(0, 7)];
   // Press sits second so `cast[0]` is always a legal first-follower (SCR-006 picks the first).
   const roster: Archetype[] = [archetypes[0]!, PRESS_ARCHETYPE, ...archetypes.slice(1)];
 
@@ -228,9 +357,7 @@ export function deterministicConcept(base: G9Input): G9Concept {
   let openIndex = 0;
   const cast: G9ConceptCast[] = roster.map((a, i) => {
     const handle = a.isPressAccount ? pack.pressHandle : (handlePool[openIndex++] ?? `${pack.pressHandle}${i}`);
-    const displayName = a.isPressAccount
-      ? `The ${names.en} Wire`
-      : (namePool[i] ?? `Account ${i + 1}`);
+    const displayName = a.isPressAccount ? `The ${names.en} Wire` : (namePool[i] ?? `Account ${i + 1}`);
     const enWords = pack.words.en;
     const jaWords = pack.words.ja;
     // `role` is derived from `roleLocalized.en` rather than authored twice, so the single-language
@@ -439,9 +566,7 @@ export function renderProse(concept: G9Concept, genre: G9Input["genre"], locale:
     concept.slang.map((s) => `- **${s.term}** — ${f(s.gloss[locale])}`).join("\n"),
     "",
     factionHead,
-    concept.factions
-      .map((x, i) => `${i + 1}. **${x.name[locale]}** — ${f(x.blurb[locale])}`)
-      .join("\n"),
+    concept.factions.map((x, i) => `${i + 1}. **${x.name[locale]}** — ${f(x.blurb[locale])}`).join("\n"),
   ].join("\n");
 }
 
@@ -550,7 +675,10 @@ Bad: "Wow, big news for you today!! 🎉"`;
     f(STATS[locale]),
     "",
     outHead,
-    reminders.filter((r): r is string => r !== null).map((r) => `- ${r}`).join("\n"),
+    reminders
+      .filter((r): r is string => r !== null)
+      .map((r) => `- ${r}`)
+      .join("\n"),
   ].join("\n");
 }
 
@@ -562,20 +690,13 @@ const CARD_LABELS: Readonly<Record<Locale, readonly string[]>> = {
 };
 
 /** One cast card, in one locale. This is what `worlds/build.ts` splices into the bible. */
-export function renderCard(
-  concept: G9Concept,
-  genre: G9Input["genre"],
-  member: G9ConceptCast,
-  locale: Locale,
-): string {
+export function renderCard(concept: G9Concept, genre: G9Input["genre"], member: G9ConceptCast, locale: Locale): string {
   const pack = packFor(genre);
   const a = archetypeByKey(member.archetype) ?? PRESS_ARCHETYPE;
   const ctx = contextFor(concept, pack, locale, member);
   const parts = [a.roleLine, a.voice, a.values, a.catchphrases, a.ng, a.stance, a.praise, a.drama];
   const labels = CARD_LABELS[locale];
-  return parts
-    .map((p, i) => `${labels[i] ?? ""}: ${fill(p[locale], ctx)}`)
-    .join("\n");
+  return parts.map((p, i) => `${labels[i] ?? ""}: ${fill(p[locale], ctx)}`).join("\n");
 }
 
 export function renderIntro(
@@ -662,7 +783,6 @@ const PERSONA_TEMPLATES: readonly PersonaTemplate[] = [
  * apps/api cannot reserve it against creator handles.
  */
 export const PRESET_PERSONA_HANDLES: readonly string[] = PERSONA_TEMPLATES.map((p) => p.handle);
-
 
 interface EventTemplate {
   title: Record<Locale, string>;
@@ -988,11 +1108,7 @@ type FillContextWithHandles = FillContext;
 /* --------------------------------------------------------- G9e — the texture ---- */
 
 /** Ambient chatter, fallback replies and welcome posts for one locale. */
-export function deterministicTexture(
-  base: G9Input,
-  concept: G9Concept,
-  locale: Locale,
-): G9TextureOutput {
+export function deterministicTexture(base: G9Input, concept: G9Concept, locale: Locale): G9TextureOutput {
   const pack = packFor(base.genre);
   const fallbackReplies: Record<string, string[]> = {};
   const welcomePosts: Record<string, string> = {};

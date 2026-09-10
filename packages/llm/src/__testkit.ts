@@ -42,12 +42,7 @@ export function persona(handle = "taytay19"): PersonaState {
   };
 }
 
-export function g1Input(
-  slug: string,
-  locale: Locale,
-  seed: number,
-  overrides: Partial<G1Input> = {},
-): G1Input {
+export function g1Input(slug: string, locale: Locale, seed: number, overrides: Partial<G1Input> = {}): G1Input {
   const world = seedFor(slug);
   const cast = castFor(world, locale);
   const first = cast[0];
@@ -63,9 +58,7 @@ export function g1Input(
       first === undefined
         ? []
         : [{ handle: first.handle, affinity: 3, summary: "believed in you first", isFollower: true }],
-    recentFeed: [
-      { authorHandle: cast[1]?.handle ?? "x", kind: "character", text: "the room was loud tonight" },
-    ],
+    recentFeed: [{ authorHandle: cast[1]?.handle ?? "x", kind: "character", text: "the room was loud tonight" }],
     post: {
       text: locale === "ja" ? "新曲、金曜に出します" : "new song Friday",
       parentAuthorHandle: null,
@@ -79,12 +72,7 @@ export function g1Input(
   };
 }
 
-export function g4Input(
-  slug: string,
-  locale: Locale,
-  seed: number,
-  overrides: Partial<G4Input> = {},
-): G4Input {
+export function g4Input(slug: string, locale: Locale, seed: number, overrides: Partial<G4Input> = {}): G4Input {
   const world = seedFor(slug);
   const cast = castFor(world, locale);
   const character = cast[0];
@@ -106,12 +94,7 @@ export function g4Input(
   };
 }
 
-export function g5Input(
-  slug: string,
-  locale: Locale,
-  seed: number,
-  overrides: Partial<G5Input> = {},
-): G5Input {
+export function g5Input(slug: string, locale: Locale, seed: number, overrides: Partial<G5Input> = {}): G5Input {
   const world = seedFor(slug);
   return {
     userId: "user-1",

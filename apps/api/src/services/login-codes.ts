@@ -23,12 +23,7 @@ import { constantTimeEqual, generateCode, hashCode, newSalt, normalizeEmail, typ
 export type { VerifyResult };
 
 /** Issues a code, stores only its hash, and returns the plaintext for the mail sender. */
-export async function issueLoginCode(
-  prisma: PrismaClient,
-  email: string,
-  now: Date,
-  ttlMs: number,
-): Promise<string> {
+export async function issueLoginCode(prisma: PrismaClient, email: string, now: Date, ttlMs: number): Promise<string> {
   const key = normalizeEmail(email);
   const code = generateCode();
   const salt = newSalt();
@@ -36,7 +31,13 @@ export async function issueLoginCode(
     // One active code per email: whatever was pending is dead the moment a new one is issued.
     prisma.loginCode.updateMany({ where: { email: key, consumedAt: null }, data: { consumedAt: now } }),
     prisma.loginCode.create({
-      data: { email: key, salt, codeHash: hashCode(code, salt), expiresAt: new Date(now.getTime() + ttlMs), createdAt: now },
+      data: {
+        email: key,
+        salt,
+        codeHash: hashCode(code, salt),
+        expiresAt: new Date(now.getTime() + ttlMs),
+        createdAt: now,
+      },
     }),
   ]);
   return code;
@@ -72,7 +73,10 @@ export async function consumeLoginCode(
   }
 
   // Single use: only the update that flips a still-null `consumedAt` wins.
-  const claimed = await prisma.loginCode.updateMany({ where: { id: row.id, consumedAt: null }, data: { consumedAt: now } });
+  const claimed = await prisma.loginCode.updateMany({
+    where: { id: row.id, consumedAt: null },
+    data: { consumedAt: now },
+  });
   return claimed.count === 1 ? "ok" : "no_code";
 }
 

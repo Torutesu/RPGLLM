@@ -2,7 +2,19 @@ import React, { useCallback, useEffect, useState } from "react";
 import { Animated, Linking, Platform, Pressable, ScrollView, Text, View, useWindowDimensions } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Redirect, router } from "expo-router";
-import { AGE, DEV_EMAIL_CODE, LEGAL, LOCALES, T, colors, elevation, gradients, radius, spacing, type Locale } from "@rpgllm/shared";
+import {
+  AGE,
+  DEV_EMAIL_CODE,
+  LEGAL,
+  LOCALES,
+  T,
+  colors,
+  elevation,
+  gradients,
+  radius,
+  spacing,
+  type Locale,
+} from "@rpgllm/shared";
 import { useActions, useAppState, useT } from "../src/state/store";
 import { Button, Field, Screen, Wordmark } from "../src/components/ui";
 import { Aurora, SoftOrb } from "../src/components/Brand";
@@ -174,10 +186,20 @@ export default function AuthScreen() {
                     placeholder="2000"
                     error={yearError ?? undefined}
                   />
-                  <Button testID={T.ageContinue} label={t("continue")} onPress={() => void onAgeContinue()} loading={busy} />
+                  <Button
+                    testID={T.ageContinue}
+                    label={t("continue")}
+                    onPress={() => void onAgeContinue()}
+                    loading={busy}
+                  />
                 </View>
               ) : !emailMode ? (
-                <Button testID={T.authEmailBtn} label={t("continueWithEmail")} icon="send" onPress={() => setEmailMode(true)} />
+                <Button
+                  testID={T.authEmailBtn}
+                  label={t("continueWithEmail")}
+                  icon="send"
+                  onPress={() => setEmailMode(true)}
+                />
               ) : (
                 <View style={{ gap: spacing.lg }}>
                   <Field
@@ -200,7 +222,11 @@ export default function AuthScreen() {
                     maxLength={6}
                   />
                   {error ? (
-                    <Text accessibilityRole="alert" accessibilityLiveRegion="polite" style={[typo.meta, { color: colors.danger }]}>
+                    <Text
+                      accessibilityRole="alert"
+                      accessibilityLiveRegion="polite"
+                      style={[typo.meta, { color: colors.danger }]}
+                    >
                       {error}
                     </Text>
                   ) : null}
@@ -230,7 +256,10 @@ function LegalRow() {
       accessibilityLabel={label}
       hitSlop={6}
     >
-      <Text importantForAccessibility="no" style={[typo.caption, { color: colors.textMuted, textDecorationLine: "underline" }]}>
+      <Text
+        importantForAccessibility="no"
+        style={[typo.caption, { color: colors.textMuted, textDecorationLine: "underline" }]}
+      >
         {label}
       </Text>
     </Pressable>
@@ -276,7 +305,10 @@ function LocaleToggle({ locale, onChange }: { locale: Locale; onChange: (l: Loca
             backgroundColor: l === locale ? colors.accentMuted : "transparent",
           }}
         >
-          <Text importantForAccessibility="no" style={[typo.micro, { color: l === locale ? colors.text : colors.textMuted }]}>
+          <Text
+            importantForAccessibility="no"
+            style={[typo.micro, { color: l === locale ? colors.text : colors.textMuted }]}
+          >
             {l.toUpperCase()}
           </Text>
         </View>
@@ -306,7 +338,9 @@ function BlockedScreen({ onBack }: { onBack: () => void }) {
   return (
     <Screen wash={false}>
       <Aurora seed="status-blocked" intensity={0.5} />
-      <ScrollView contentContainerStyle={{ flexGrow: 1, justifyContent: "center", padding: spacing.xl, gap: spacing.xl }}>
+      <ScrollView
+        contentContainerStyle={{ flexGrow: 1, justifyContent: "center", padding: spacing.xl, gap: spacing.xl }}
+      >
         <View style={{ width: "100%", maxWidth: 460, alignSelf: "center", gap: spacing.xl }}>
           <View style={{ alignItems: "center", gap: spacing.lg }}>
             <Animated.View
@@ -338,7 +372,12 @@ function BlockedScreen({ onBack }: { onBack: () => void }) {
             <Gradient
               colors={gradients.cool}
               angle={115}
-              style={{ alignSelf: "flex-start", borderRadius: radius.pill, paddingHorizontal: spacing.md, paddingVertical: 3 }}
+              style={{
+                alignSelf: "flex-start",
+                borderRadius: radius.pill,
+                paddingHorizontal: spacing.md,
+                paddingVertical: 3,
+              }}
             >
               <Text importantForAccessibility="no" style={[typo.micro, { color: colors.textInverse }]}>
                 {`${AGE.MIN}+`}

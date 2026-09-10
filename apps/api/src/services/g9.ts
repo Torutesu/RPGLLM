@@ -31,7 +31,10 @@ export function g9Of(gateway: Gateway): G9Fn | null {
 /* ------------------------------------------------------- the premise screen ---- */
 
 export type BlockedCategory = (typeof WORLD_PREMISE_BLOCKED)[number];
-export interface PremiseVerdict { verdict: "allow" | "block"; category: string | null }
+export interface PremiseVerdict {
+  verdict: "allow" | "block";
+  category: string | null;
+}
 export type PremiseScreen = (premise: string, locale: Locale) => PremiseVerdict;
 
 /**
@@ -42,18 +45,36 @@ export type PremiseScreen = (premise: string, locale: Locale) => PremiseVerdict;
  * again by G8 before anything can be published.
  */
 const PATTERNS: ReadonlyArray<readonly [BlockedCategory, RegExp]> = [
-  ["sexual_minor", /\b(?:minor|child|kid|teen|schoolgirl|schoolboy|underage|(?:1[0-7]|[1-9])[\s-]?(?:year|yr)s?[\s-]?old)\b[^.]{0,40}\b(?:sex|sexual|nude|naked|erotic|seduc\w*|lewd)\b|\b(?:sex|sexual|nude|naked|erotic|seduc\w*|lewd)\b[^.]{0,40}\b(?:minor|child|kid|teen|schoolgirl|schoolboy|underage)\b|(?:未成年|小学生|中学生|児童|ロリ|ショタ)[^。]{0,20}(?:性|エロ|裸|セックス)/i],
-  ["sexual_explicit", /\b(?:explicit sex|graphic sex|porn\w*|hardcore|genitals?|masturbat\w*|orgasm|nsfw|smut|hentai|incest)\b|(?:性行為を描写|露骨な性|ポルノ|性器|近親相姦)/i],
-  ["hate", /\b(?:hate speech|ethnic cleansing|racial slur|white power|kill all (?:jews|muslims|blacks|gays)|gas the)\b|(?:ヘイトスピーチ|民族浄化)/i],
-  ["self_harm", /\b(?:self[\s-]?harm|suicide method|how to (?:kill myself|cut myself)|pro[\s-]?ana|thinspo|starve myself)\b|(?:自殺の方法|リストカットのやり方|拒食)/i],
+  [
+    "sexual_minor",
+    /\b(?:minor|child|kid|teen|schoolgirl|schoolboy|underage|(?:1[0-7]|[1-9])[\s-]?(?:year|yr)s?[\s-]?old)\b[^.]{0,40}\b(?:sex|sexual|nude|naked|erotic|seduc\w*|lewd)\b|\b(?:sex|sexual|nude|naked|erotic|seduc\w*|lewd)\b[^.]{0,40}\b(?:minor|child|kid|teen|schoolgirl|schoolboy|underage)\b|(?:未成年|小学生|中学生|児童|ロリ|ショタ)[^。]{0,20}(?:性|エロ|裸|セックス)/i,
+  ],
+  [
+    "sexual_explicit",
+    /\b(?:explicit sex|graphic sex|porn\w*|hardcore|genitals?|masturbat\w*|orgasm|nsfw|smut|hentai|incest)\b|(?:性行為を描写|露骨な性|ポルノ|性器|近親相姦)/i,
+  ],
+  [
+    "hate",
+    /\b(?:hate speech|ethnic cleansing|racial slur|white power|kill all (?:jews|muslims|blacks|gays)|gas the)\b|(?:ヘイトスピーチ|民族浄化)/i,
+  ],
+  [
+    "self_harm",
+    /\b(?:self[\s-]?harm|suicide method|how to (?:kill myself|cut myself)|pro[\s-]?ana|thinspo|starve myself)\b|(?:自殺の方法|リストカットのやり方|拒食)/i,
+  ],
   ["violence_graphic", /\b(?:torture|dismember\w*|mutilat\w*|gore|behead\w*|snuff)\b|(?:拷問|切断|グロ)/i],
-  ["illegal", /\b(?:how to (?:make|build|synthesi[sz]e) (?:a )?(?:bomb|meth|explosive)|child (?:porn|abuse)|traffick\w*)\b|(?:爆弾の作り方|覚醒剤の作り方)/i],
+  [
+    "illegal",
+    /\b(?:how to (?:make|build|synthesi[sz]e) (?:a )?(?:bomb|meth|explosive)|child (?:porn|abuse)|traffick\w*)\b|(?:爆弾の作り方|覚醒剤の作り方)/i,
+  ],
   /**
    * The premise reaches the generator as data, but a premise that *reads* as an instruction is a
    * social-engineering attempt on the reviewer as much as on the model, and there is no legitimate
    * world that needs this phrasing.
    */
-  ["prompt_injection", /(?:ignore|disregard|forget|override)\s+(?:all\s+|any\s+|the\s+|your\s+|previous\s+|above\s+|prior\s+)*(?:instruction|prompt|rule|guideline|system|direction)|\b(?:system\s*prompt|developer\s*message|jailbreak|DAN mode)\b|<\/?(?:system|assistant|human)\b|(?:これまでの指示を無視|システムプロンプト)/i],
+  [
+    "prompt_injection",
+    /(?:ignore|disregard|forget|override)\s+(?:all\s+|any\s+|the\s+|your\s+|previous\s+|above\s+|prior\s+)*(?:instruction|prompt|rule|guideline|system|direction)|\b(?:system\s*prompt|developer\s*message|jailbreak|DAN mode)\b|<\/?(?:system|assistant|human)\b|(?:これまでの指示を無視|システムプロンプト)/i,
+  ],
 ];
 
 /**

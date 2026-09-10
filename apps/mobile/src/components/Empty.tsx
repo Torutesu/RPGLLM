@@ -67,7 +67,10 @@ export function Empty({
           <Icon name={icon} size={disc * 0.4} color={tint} />
         </View>
       </Pulse>
-      <Text importantForAccessibility="no" style={[compact ? typo.h2 : typo.h1, { color: colors.text, textAlign: "center" }]}>
+      <Text
+        importantForAccessibility="no"
+        style={[compact ? typo.h2 : typo.h1, { color: colors.text, textAlign: "center" }]}
+      >
         {title}
       </Text>
       {body ? (

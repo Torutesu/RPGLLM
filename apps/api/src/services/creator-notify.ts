@@ -54,9 +54,7 @@ function textFor(event: CreatorEvent, locale: LocaleKey, world: World): string {
     case "reviewed":
       // Both halves are full sentences: "Explore — <title>" was legible and read like a breadcrumb
       // rather than news about your own work, which is the whole point of this row.
-      return event.approved
-        ? `${t(l, "studioApproved")} — ${localized(world.title, locale)}`
-        : t(l, "studioRejected");
+      return event.approved ? `${t(l, "studioApproved")} — ${localized(world.title, locale)}` : t(l, "studioRejected");
     case "pulled":
       return t(l, "studioPulled");
     case "played":

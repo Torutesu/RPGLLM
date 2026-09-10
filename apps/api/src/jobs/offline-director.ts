@@ -11,7 +11,13 @@ import { digestText, dmText, notify } from "../services/notify";
 import { notifyUser } from "../services/push";
 import { computeMetrics, seedFrom } from "../services/rng";
 import {
-  baseCtx, castCards, characterByHandle, involvedFor, loadStoryContext, personaState, pressAccount,
+  baseCtx,
+  castCards,
+  characterByHandle,
+  involvedFor,
+  loadStoryContext,
+  personaState,
+  pressAccount,
   type StoryContext,
 } from "../services/story";
 import type { Deps } from "../types";
@@ -75,12 +81,13 @@ async function createPost(
   return created.id;
 }
 
-async function directorBeat(
-  deps: Deps,
-  ctx: StoryContext,
-): Promise<{ headline: string; body: string }> {
+async function directorBeat(deps: Deps, ctx: StoryContext): Promise<{ headline: string; body: string }> {
   const [snapshots, past] = await Promise.all([
-    deps.prisma.statSnapshot.findMany({ where: { personaId: ctx.persona.id }, orderBy: { createdAt: "desc" }, take: 5 }),
+    deps.prisma.statSnapshot.findMany({
+      where: { personaId: ctx.persona.id },
+      orderBy: { createdAt: "desc" },
+      take: 5,
+    }),
     deps.prisma.event.findMany({ where: { personaId: ctx.persona.id }, select: { title: true } }),
   ]);
   const byId = new Map(ctx.characters.map((c) => [c.id, c]));
@@ -89,10 +96,15 @@ async function directorBeat(
     persona: personaState(ctx),
     relationships: ctx.relationships.flatMap((r) => {
       const ch = byId.get(r.characterId);
-      return ch ? [{ handle: normHandle(ch.handle), affinity: r.affinity, summary: r.summary, isFollower: r.isFollower }] : [];
+      return ch
+        ? [{ handle: normHandle(ch.handle), affinity: r.affinity, summary: r.summary, isFollower: r.isFollower }]
+        : [];
     }),
     recentSnapshots: snapshots.map((s) => ({
-      narrative: s.narrative, followersDelta: s.followersDelta, auraDelta: s.auraDelta, humorDelta: s.humorDelta,
+      narrative: s.narrative,
+      followersDelta: s.followersDelta,
+      auraDelta: s.auraDelta,
+      humorDelta: s.humorDelta,
     })),
     pastEventTitles: past.map((p) => p.title),
     seed: seedFrom(`digest:${ctx.persona.id}:${deps.clock.now().toISOString().slice(0, 13)}`),
@@ -104,11 +116,7 @@ async function directorBeat(
 }
 
 /** Character chatter about the beat. Returns the created post ids, newest last. */
-async function worldPosts(
-  deps: Deps,
-  ctx: StoryContext,
-  beat: { headline: string; body: string },
-): Promise<string[]> {
+async function worldPosts(deps: Deps, ctx: StoryContext, beat: { headline: string; body: string }): Promise<string[]> {
   const wanted = DIGEST.POSTS_PER_DIGEST;
   const ids: string[] = [];
   const now = deps.clock.now();
@@ -135,33 +143,46 @@ async function worldPosts(
     for (const [i, reply] of result.output.replies.entries()) {
       if (ids.length >= wanted) break;
       const character: WorldCharacter | undefined =
-        characterByHandle(ctx.characters, reply.characterHandle) ?? ctx.characters[i % Math.max(1, ctx.characters.length)];
+        characterByHandle(ctx.characters, reply.characterHandle) ??
+        ctx.characters[i % Math.max(1, ctx.characters.length)];
       if (!character) continue;
       // Stamped a minute apart so the digest reads chronologically at the top of the feed.
       const createdAt = new Date(now.getTime() - (wanted - ids.length) * 60_000);
-      ids.push(await createPost(deps.prisma, {
-        worldId: ctx.world.id,
-        personaId: ctx.persona.id,
-        authorCharacterId: character.id,
-        kind: "character",
-        text: reply.text,
-        generationId,
-        createdAt,
-        metrics: {},
-      }, ctx.persona.followers));
+      ids.push(
+        await createPost(
+          deps.prisma,
+          {
+            worldId: ctx.world.id,
+            personaId: ctx.persona.id,
+            authorCharacterId: character.id,
+            kind: "character",
+            text: reply.text,
+            generationId,
+            createdAt,
+            metrics: {},
+          },
+          ctx.persona.followers,
+        ),
+      );
     }
 
     if (result.output.news && press) {
-      ids.push(await createPost(deps.prisma, {
-        worldId: ctx.world.id,
-        personaId: ctx.persona.id,
-        authorCharacterId: press.id,
-        kind: "news",
-        text: result.output.news.text,
-        generationId,
-        createdAt: now,
-        metrics: { causedBy: `digest:${ctx.persona.id}` } as unknown as Prisma.InputJsonValue,
-      }, ctx.persona.followers));
+      ids.push(
+        await createPost(
+          deps.prisma,
+          {
+            worldId: ctx.world.id,
+            personaId: ctx.persona.id,
+            authorCharacterId: press.id,
+            kind: "news",
+            text: result.output.news.text,
+            generationId,
+            createdAt: now,
+            metrics: { causedBy: `digest:${ctx.persona.id}` } as unknown as Prisma.InputJsonValue,
+          },
+          ctx.persona.followers,
+        ),
+      );
     }
     round += 1;
     if (result.output.replies.length === 0) break;
@@ -230,7 +251,10 @@ async function dmFromFavourite(
     return row;
   });
   // upsert's `create` branch cannot also bump the counter
-  await deps.prisma.dMThread.update({ where: { id: thread.id }, data: { unreadCount: Math.max(1, thread.unreadCount) } });
+  await deps.prisma.dMThread.update({
+    where: { id: thread.id },
+    data: { unreadCount: Math.max(1, thread.unreadCount) },
+  });
   return message.id;
 }
 
@@ -280,7 +304,14 @@ export async function generateDigestFor(
     data: { digestId: digest.id, personaId: persona.id },
   });
 
-  return { personaId: persona.id, digestId: digest.id, headline: beat.headline, postIds, dmMessageId, pushed: push.sent };
+  return {
+    personaId: persona.id,
+    digestId: digest.id,
+    headline: beat.headline,
+    postIds,
+    dmMessageId,
+    pushed: push.sent,
+  };
 }
 
 /**
@@ -309,7 +340,6 @@ export async function runOfflineDirector(
   }
   return { considered: personas.length, generated, skipped };
 }
-
 
 /* ------------------------------------------------------- the batch tier ---- */
 
@@ -352,7 +382,9 @@ async function prepareDigest(deps: Deps, persona: Persona, force: boolean): Prom
       relationships: ctx.relationships
         .flatMap((r) => {
           const ch = byId.get(r.characterId);
-          return ch ? [{ handle: normHandle(ch.handle), affinity: r.affinity, summary: r.summary, isFollower: r.isFollower }] : [];
+          return ch
+            ? [{ handle: normHandle(ch.handle), affinity: r.affinity, summary: r.summary, isFollower: r.isFollower }]
+            : [];
         })
         .sort((a, b) => (b.isFollower ? 1 : 0) - (a.isFollower ? 1 : 0) || b.affinity - a.affinity)
         .slice(0, 8),
@@ -377,21 +409,27 @@ async function applyDigest(
 
   const postIds: string[] = [];
   for (const [i, post] of output.posts.entries()) {
-    const character = characterByHandle(ctx.characters, post.characterHandle)
-      ?? ctx.characters[i % Math.max(1, ctx.characters.length)];
+    const character =
+      characterByHandle(ctx.characters, post.characterHandle) ?? ctx.characters[i % Math.max(1, ctx.characters.length)];
     if (!character || post.text.trim() === "") continue;
     // Stamped a minute apart so the digest reads chronologically at the top of the feed.
     const createdAt = new Date(now.getTime() - (output.posts.length - i) * 60_000);
-    postIds.push(await createPost(deps.prisma, {
-      worldId: ctx.world.id,
-      personaId: persona.id,
-      authorCharacterId: character.id,
-      kind: "character",
-      text: post.text,
-      generationId,
-      createdAt,
-      metrics: {},
-    }, persona.followers));
+    postIds.push(
+      await createPost(
+        deps.prisma,
+        {
+          worldId: ctx.world.id,
+          personaId: persona.id,
+          authorCharacterId: character.id,
+          kind: "character",
+          text: post.text,
+          generationId,
+          createdAt,
+          metrics: {},
+        },
+        persona.followers,
+      ),
+    );
   }
 
   let dmMessageId: string | null = null;
@@ -419,7 +457,10 @@ async function applyDigest(
       });
       return row;
     });
-    await deps.prisma.dMThread.update({ where: { id: thread.id }, data: { unreadCount: Math.max(1, thread.unreadCount) } });
+    await deps.prisma.dMThread.update({
+      where: { id: thread.id },
+      data: { unreadCount: Math.max(1, thread.unreadCount) },
+    });
     dmMessageId = message.id;
   }
 

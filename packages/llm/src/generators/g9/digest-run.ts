@@ -9,13 +9,7 @@ import {
 } from "@rpgllm/shared";
 import type { z } from "zod";
 import { measuredPoints, worldPassages, type ReviewPoint } from "./digest-offline.js";
-import {
-  capPoints,
-  worldChars,
-  worldExcerpt,
-  type DigestInput,
-  type DigestOutput,
-} from "./digest.js";
+import { capPoints, worldChars, worldExcerpt, type DigestInput, type DigestOutput } from "./digest.js";
 
 /**
  * G9 — building one review digest (docs/moderation.md §3).
@@ -145,10 +139,7 @@ async function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T | null
  * The one invariant it enforces in both directions: `points` is empty **iff** `generatedAt` is
  * null. Pure, and exported so a test can hold it without a gateway.
  */
-export function toReviewDigest(
-  points: readonly ReviewPoint[],
-  opts: { sampled: boolean; at: string },
-): ReviewDigest {
+export function toReviewDigest(points: readonly ReviewPoint[], opts: { sampled: boolean; at: string }): ReviewDigest {
   const capped = capPoints(points);
   return {
     points: capped,
@@ -161,10 +152,7 @@ export function toReviewDigest(
  * Build the digest for one world. Never throws, never rejects: every failure mode resolves to one
  * of the three shapes above and says which.
  */
-export async function reviewDigest(
-  gateway: ReviewDigestGateway,
-  args: ReviewDigestArgs,
-): Promise<ReviewDigestResult> {
+export async function reviewDigest(gateway: ReviewDigestGateway, args: ReviewDigestArgs): Promise<ReviewDigestResult> {
   const measured = measuredPoints(args.world);
   const input: DigestInput = {
     world: args.world,
@@ -187,9 +175,7 @@ export async function reviewDigest(
   ): ReviewDigestResult => {
     // "It could not run and found nothing" is not an empty digest, it is no digest.
     const digest =
-      model === "error" && points.length === 0
-        ? null
-        : toReviewDigest(points, { sampled: args.sampled, at: args.at });
+      model === "error" && points.length === 0 ? null : toReviewDigest(points, { sampled: args.sampled, at: args.at });
     return {
       digest,
       model,

@@ -140,12 +140,19 @@ export default function ReportScreen() {
         {handle ? (
           <View style={{ gap: spacing.md, borderTopWidth: 1, borderTopColor: colors.border, paddingTop: spacing.lg }}>
             {blocked ? (
-              <Text style={{ color: colors.positive, fontSize: font.md, fontWeight: "700" }}>{`${t("blocked")} @${handle}`}</Text>
+              <Text
+                style={{ color: colors.positive, fontSize: font.md, fontWeight: "700" }}
+              >{`${t("blocked")} @${handle}`}</Text>
             ) : confirmBlock ? (
               <>
                 <Text style={{ color: colors.text, fontSize: font.md, fontWeight: "700" }}>{t("blockTitle")}</Text>
                 <Text style={{ color: colors.textMuted, fontSize: font.sm }}>{t("blockWarning")}</Text>
-                <Button testID={T.blockConfirm} label={`${t("block")} @${handle}`} onPress={() => void onBlock()} loading={busy} />
+                <Button
+                  testID={T.blockConfirm}
+                  label={`${t("block")} @${handle}`}
+                  onPress={() => void onBlock()}
+                  loading={busy}
+                />
               </>
             ) : (
               <Button

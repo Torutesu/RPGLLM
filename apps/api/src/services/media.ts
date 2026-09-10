@@ -81,8 +81,9 @@ export function carrierIndices(parentId: string, n: number, every: number = MEDI
   const carriers = Math.max(1, Math.ceil(n / Math.max(1, every)));
   const seed = hashString(parentId);
   // Ranked by a per-position hash so the choice is spread rather than always the first rows.
-  const ranked = Array.from({ length: n }, (_, i) => i)
-    .sort((a, b) => hashString(`${seed}:${a}`) - hashString(`${seed}:${b}`) || a - b);
+  const ranked = Array.from({ length: n }, (_, i) => i).sort(
+    (a, b) => hashString(`${seed}:${a}`) - hashString(`${seed}:${b}`) || a - b,
+  );
   for (const i of ranked.slice(0, carriers)) out.add(i);
   return out;
 }

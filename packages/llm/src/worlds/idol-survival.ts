@@ -234,7 +234,10 @@ const source: WorldSource = {
           statDeltas: { followers: 5, aura: 8, humor: 0 },
         },
         {
-          label: { en: "Ask them to redirect it to the trainee below the line", ja: "ラインの下の練習生に回してほしいと頼む" },
+          label: {
+            en: "Ask them to redirect it to the trainee below the line",
+            ja: "ラインの下の練習生に回してほしいと頼む",
+          },
           outcomeText: {
             en: "It is the right thing and it is also, unavoidably, a move. @hina_sudo posts 'i'm not your underdog story' and then votes for you anyway, which she will deny forever.",
             ja: "正しい行いであり、同時にどうしても「手」でもある。@hina_sudo が「私、あんたの下剋上ストーリーの部品じゃないから」と投稿し、そのうえで投票した。永久に否認するだろう。",
@@ -255,36 +258,126 @@ const source: WorldSource = {
 
   fallbackReplies: {
     "@mikan_hoshino": {
-      en: ["ok ok ok", "we run it again", "floor three was busy tonight", "you did the hard part already", "i'm not being nice, i'm being right"],
-      ja: ["はいはいはい", "もう一回まわそ", "今夜の3階は混んでた", "難しいとこはもう終わってるよ", "優しくしてるんじゃなくて正しいこと言ってる"],
+      en: [
+        "ok ok ok",
+        "we run it again",
+        "floor three was busy tonight",
+        "you did the hard part already",
+        "i'm not being nice, i'm being right",
+      ],
+      ja: [
+        "はいはいはい",
+        "もう一回まわそ",
+        "今夜の3階は混んでた",
+        "難しいとこはもう終わってるよ",
+        "優しくしてるんじゃなくて正しいこと言ってる",
+      ],
     },
     "@stagewire": {
-      en: ["[NEXT STAGE] Noted.", "According to Sunday's broadcast.", "The production company has not commented.", "The figure has not been confirmed.", "This is the first time since season one."],
-      ja: ["【NEXT STAGE】記録。", "日曜の放送によると。", "制作側はコメントを出していない。", "数値は未確認。", "シーズン1以来のことである。"],
+      en: [
+        "[NEXT STAGE] Noted.",
+        "According to Sunday's broadcast.",
+        "The production company has not commented.",
+        "The figure has not been confirmed.",
+        "This is the first time since season one.",
+      ],
+      ja: [
+        "【NEXT STAGE】記録。",
+        "日曜の放送によると。",
+        "制作側はコメントを出していない。",
+        "数値は未確認。",
+        "シーズン1以来のことである。",
+      ],
     },
     "@ruri_kurosaki": {
-      en: ["Fine.", "From the second eight.", "That was better and you know it.", "Rank isn't a personality.", "I don't do camera-off."],
-      ja: ["いい。", "2エイト目から。", "今のは良くなった。自分でわかってるでしょ。", "順位は人格じゃない。", "カメラ切れてからの話はしない。"],
+      en: [
+        "Fine.",
+        "From the second eight.",
+        "That was better and you know it.",
+        "Rank isn't a personality.",
+        "I don't do camera-off.",
+      ],
+      ja: [
+        "いい。",
+        "2エイト目から。",
+        "今のは良くなった。自分でわかってるでしょ。",
+        "順位は人格じゃない。",
+        "カメラ切れてからの話はしない。",
+      ],
     },
     "@pd_takagi": {
-      en: ["Please keep supporting them.", "That's the show.", "Real growth this week.", "I don't edit the votes.", "Everyone here chose to be here."],
-      ja: ["引き続き応援をお願いします。", "それが番組です。", "今週は確かな成長が見えました。", "票は編集できません。", "ここにいる全員が、自分でここを選びました。"],
+      en: [
+        "Please keep supporting them.",
+        "That's the show.",
+        "Real growth this week.",
+        "I don't edit the votes.",
+        "Everyone here chose to be here.",
+      ],
+      ja: [
+        "引き続き応援をお願いします。",
+        "それが番組です。",
+        "今週は確かな成長が見えました。",
+        "票は編集できません。",
+        "ここにいる全員が、自分でここを選びました。",
+      ],
     },
     "@aoi_nanase": {
-      en: ["i wrote it down", "one more run", "sorry — not sorry, working on it", "thank you for the real version", "i genuinely can't see it yet"],
-      ja: ["書いときました", "もう一回だけ", "すみません、あ、直します", "本当のほう言ってくれてありがとうございます", "まだ自分では見えないんです"],
+      en: [
+        "i wrote it down",
+        "one more run",
+        "sorry — not sorry, working on it",
+        "thank you for the real version",
+        "i genuinely can't see it yet",
+      ],
+      ja: [
+        "書いときました",
+        "もう一回だけ",
+        "すみません、あ、直します",
+        "本当のほう言ってくれてありがとうございます",
+        "まだ自分では見えないんです",
+      ],
     },
     "@wotaking": {
-      en: ["ok team", "i've done the maths", "deadline is 23:00 JST", "step 4 is the important one", "this is not a drill"],
+      en: [
+        "ok team",
+        "i've done the maths",
+        "deadline is 23:00 JST",
+        "step 4 is the important one",
+        "this is not a drill",
+      ],
       ja: ["はいチーム", "計算した", "締切は23時JST", "重要なのは手順4です", "これは訓練ではありません"],
     },
     "@umeda_vocal": {
-      en: ["Breathe first.", "That note isn't the problem.", "Sit down. Drink something.", "You already know what I'm going to say.", "It'll be there next week."],
-      ja: ["まず息。", "その音は問題じゃない。", "座って。何か飲め。", "俺が何て言うか、もうわかってるだろ。", "その曲は来週もある。"],
+      en: [
+        "Breathe first.",
+        "That note isn't the problem.",
+        "Sit down. Drink something.",
+        "You already know what I'm going to say.",
+        "It'll be there next week.",
+      ],
+      ja: [
+        "まず息。",
+        "その音は問題じゃない。",
+        "座って。何か飲め。",
+        "俺が何て言うか、もうわかってるだろ。",
+        "その曲は来週もある。",
+      ],
     },
     "@hina_sudo": {
-      en: ["listen —", "i said what i said", "be so serious", "rank 12 is a personality disorder", "i'm not your underdog story"],
-      ja: ["あのさ、", "言ったことは言った", "真面目にやって", "12位って病名でしょ", "私、あんたの下剋上ストーリーの部品じゃないから"],
+      en: [
+        "listen —",
+        "i said what i said",
+        "be so serious",
+        "rank 12 is a personality disorder",
+        "i'm not your underdog story",
+      ],
+      ja: [
+        "あのさ、",
+        "言ったことは言った",
+        "真面目にやって",
+        "12位って病名でしょ",
+        "私、あんたの下剋上ストーリーの部品じゃないから",
+      ],
     },
   },
 
@@ -326,51 +419,135 @@ const source: WorldSource = {
   ambientPool: {
     en: [
       { handle: "@mikan_hoshino", text: "floor three was busy tonight. everyone's fine. we run it again tomorrow" },
-      { handle: "@aoi_nanase", text: "i wrote down what sensei said about the second verse and then i wrote down why, which is the part i keep forgetting to do 🙇" },
-      { handle: "@stagewire", text: "[NEXT STAGE] Sunday's broadcast ran eleven minutes long. According to the schedule, this is the third overrun this season." },
-      { handle: "@hina_sudo", text: "listen — rank 12 is not a rank, it's a personality disorder. anyway. good practice today" },
-      { handle: "@wotaking", text: "ok team. step 1: vote. step 2: do NOT reply to the anti accounts. step 3: sleep. deadline is 23:00 JST. i've done the maths" },
-      { handle: "@umeda_vocal", text: "Three of you were still in the building at 1:40am. It will be there next week. You might not be, if you keep this up." },
+      {
+        handle: "@aoi_nanase",
+        text: "i wrote down what sensei said about the second verse and then i wrote down why, which is the part i keep forgetting to do 🙇",
+      },
+      {
+        handle: "@stagewire",
+        text: "[NEXT STAGE] Sunday's broadcast ran eleven minutes long. According to the schedule, this is the third overrun this season.",
+      },
+      {
+        handle: "@hina_sudo",
+        text: "listen — rank 12 is not a rank, it's a personality disorder. anyway. good practice today",
+      },
+      {
+        handle: "@wotaking",
+        text: "ok team. step 1: vote. step 2: do NOT reply to the anti accounts. step 3: sleep. deadline is 23:00 JST. i've done the maths",
+      },
+      {
+        handle: "@umeda_vocal",
+        text: "Three of you were still in the building at 1:40am. It will be there next week. You might not be, if you keep this up.",
+      },
       { handle: "@ruri_kurosaki", text: "From the second eight. Not the first. The first one is fine." },
-      { handle: "@pd_takagi", text: "The trainees worked incredibly hard on this mission. We're seeing real growth. Please keep supporting them." },
-      { handle: "@mikan_hoshino", text: "someone put honey in the practice room kettle and i have to know who so i can thank them and also ask why" },
+      {
+        handle: "@pd_takagi",
+        text: "The trainees worked incredibly hard on this mission. We're seeing real growth. Please keep supporting them.",
+      },
+      {
+        handle: "@mikan_hoshino",
+        text: "someone put honey in the practice room kettle and i have to know who so i can thank them and also ask why",
+      },
       { handle: "@aoi_nanase", text: "one more run. ok two more. sorry — not sorry, i'm working on that" },
-      { handle: "@hina_sudo", text: "be so serious right now. the position battle is in four days and half of you are picking based on who won't be mean about it" },
-      { handle: "@wotaking", text: "reminder: we do not send anything to a trainee's family, ever. if you see it, report it, don't quote it. step 4 is the important one" },
-      { handle: "@stagewire", text: "[NEXT STAGE] Two trainees outside the top thirty were given solo lines in Sunday's mission. The production company has not commented." },
+      {
+        handle: "@hina_sudo",
+        text: "be so serious right now. the position battle is in four days and half of you are picking based on who won't be mean about it",
+      },
+      {
+        handle: "@wotaking",
+        text: "reminder: we do not send anything to a trainee's family, ever. if you see it, report it, don't quote it. step 4 is the important one",
+      },
+      {
+        handle: "@stagewire",
+        text: "[NEXT STAGE] Two trainees outside the top thirty were given solo lines in Sunday's mission. The production company has not commented.",
+      },
       { handle: "@umeda_vocal", text: "Breathe first. That note isn't the problem. It has never once been the note." },
       { handle: "@ruri_kurosaki", text: "Rank isn't a personality. Neither is being humble about it." },
-      { handle: "@mikan_hoshino", text: "i'm not being nice, i'm being right: the back line is carrying that formation and nobody has said so on camera" },
-      { handle: "@aoi_nanase", text: "the mirrors on floor 5 are the honest ones. i've been avoiding floor 5 for a week and that's the whole post" },
-      { handle: "@hina_sudo", text: "i said what i said and then the edit cut it in half so now i've said something else. incredible" },
-      { handle: "@wotaking", text: "ninety minutes. NINETY. the station ad is funded. team, i'm going to sit down now" },
-      { handle: "@pd_takagi", text: "Everyone here chose to be here. That is not a small thing and I don't take it lightly." },
-      { handle: "@umeda_vocal", text: "Sit down. Drink something. The room isn't going anywhere and neither is the chorus." },
-      { handle: "@stagewire", text: "[NEXT STAGE] The Sunday reading will run forty minutes as usual. This is the first time since season one that the order has leaked in advance." },
+      {
+        handle: "@mikan_hoshino",
+        text: "i'm not being nice, i'm being right: the back line is carrying that formation and nobody has said so on camera",
+      },
+      {
+        handle: "@aoi_nanase",
+        text: "the mirrors on floor 5 are the honest ones. i've been avoiding floor 5 for a week and that's the whole post",
+      },
+      {
+        handle: "@hina_sudo",
+        text: "i said what i said and then the edit cut it in half so now i've said something else. incredible",
+      },
+      {
+        handle: "@wotaking",
+        text: "ninety minutes. NINETY. the station ad is funded. team, i'm going to sit down now",
+      },
+      {
+        handle: "@pd_takagi",
+        text: "Everyone here chose to be here. That is not a small thing and I don't take it lightly.",
+      },
+      {
+        handle: "@umeda_vocal",
+        text: "Sit down. Drink something. The room isn't going anywhere and neither is the chorus.",
+      },
+      {
+        handle: "@stagewire",
+        text: "[NEXT STAGE] The Sunday reading will run forty minutes as usual. This is the first time since season one that the order has leaked in advance.",
+      },
     ],
     ja: [
       { handle: "@mikan_hoshino", text: "今夜の3階は混んでた。みんな大丈夫。明日もう一回まわそ" },
-      { handle: "@aoi_nanase", text: "先生が2番について言ったこと書き留めて、そのあと理由も書きました。理由の方をいつも書き忘れるので🙇" },
+      {
+        handle: "@aoi_nanase",
+        text: "先生が2番について言ったこと書き留めて、そのあと理由も書きました。理由の方をいつも書き忘れるので🙇",
+      },
       { handle: "@stagewire", text: "【NEXT STAGE】日曜の放送は11分押した。編成表によれば、今季3度目の超過である。" },
       { handle: "@hina_sudo", text: "あのさ、12位って順位じゃなくて病名だから。まあいいや。今日の練習は良かった" },
-      { handle: "@wotaking", text: "はいチーム。手順1、投票。手順2、アンチには絶対返信しない。手順3、寝る。締切は23時JST。計算した" },
-      { handle: "@umeda_vocal", text: "3人がまだ1時40分に建物にいた。その曲は来週もある。このままだと君らの方がない。" },
+      {
+        handle: "@wotaking",
+        text: "はいチーム。手順1、投票。手順2、アンチには絶対返信しない。手順3、寝る。締切は23時JST。計算した",
+      },
+      {
+        handle: "@umeda_vocal",
+        text: "3人がまだ1時40分に建物にいた。その曲は来週もある。このままだと君らの方がない。",
+      },
       { handle: "@ruri_kurosaki", text: "2エイト目から。1エイト目じゃない。あれはいい。" },
-      { handle: "@pd_takagi", text: "練習生たちは今回のミッションを本当によく頑張りました。確かな成長が見えています。引き続き応援をお願いします。" },
+      {
+        handle: "@pd_takagi",
+        text: "練習生たちは今回のミッションを本当によく頑張りました。確かな成長が見えています。引き続き応援をお願いします。",
+      },
       { handle: "@mikan_hoshino", text: "練習室のケトルに蜂蜜入れたの誰。お礼を言いたいのと、あと理由を聞きたい" },
       { handle: "@aoi_nanase", text: "もう一回だけ。あと2回だけ。すみません、あ、直します" },
-      { handle: "@hina_sudo", text: "真面目にやって。ポジションバトル4日後だよ。半分が「怒らなさそうな人」で選んでるでしょ" },
-      { handle: "@wotaking", text: "再周知。練習生のご家族には何も送りません。見かけたら通報、引用はしない。重要なのは手順4です" },
-      { handle: "@stagewire", text: "【NEXT STAGE】30位圏外の練習生2名が日曜のミッションでソロパートを与えられた。制作側はコメントを出していない。" },
+      {
+        handle: "@hina_sudo",
+        text: "真面目にやって。ポジションバトル4日後だよ。半分が「怒らなさそうな人」で選んでるでしょ",
+      },
+      {
+        handle: "@wotaking",
+        text: "再周知。練習生のご家族には何も送りません。見かけたら通報、引用はしない。重要なのは手順4です",
+      },
+      {
+        handle: "@stagewire",
+        text: "【NEXT STAGE】30位圏外の練習生2名が日曜のミッションでソロパートを与えられた。制作側はコメントを出していない。",
+      },
       { handle: "@umeda_vocal", text: "まず息。その音は問題じゃない。一度も音が問題だったことはない。" },
       { handle: "@ruri_kurosaki", text: "順位は人格じゃない。それを謙遜するのも人格じゃない。" },
-      { handle: "@mikan_hoshino", text: "優しくしてるんじゃなくて正しいこと言ってる。あのフォーメーション、後列が支えてる。カメラの前で誰も言ってない" },
+      {
+        handle: "@mikan_hoshino",
+        text: "優しくしてるんじゃなくて正しいこと言ってる。あのフォーメーション、後列が支えてる。カメラの前で誰も言ってない",
+      },
       { handle: "@aoi_nanase", text: "5階の鏡は正直なんです。1週間5階を避けてます。以上です" },
-      { handle: "@hina_sudo", text: "言ったことは言ったのに編集が半分に切ったから、今は別のことを言ったことになってる。すごい" },
+      {
+        handle: "@hina_sudo",
+        text: "言ったことは言ったのに編集が半分に切ったから、今は別のことを言ったことになってる。すごい",
+      },
       { handle: "@wotaking", text: "90分。90分です。駅広告の資金が集まりました。チーム、私はいったん座ります" },
-      { handle: "@pd_takagi", text: "ここにいる全員が、自分でここを選びました。それは小さなことではないし、軽く扱うつもりもありません。" },
+      {
+        handle: "@pd_takagi",
+        text: "ここにいる全員が、自分でここを選びました。それは小さなことではないし、軽く扱うつもりもありません。",
+      },
       { handle: "@umeda_vocal", text: "座って。何か飲め。部屋も逃げないし、サビも逃げない。" },
-      { handle: "@stagewire", text: "【NEXT STAGE】日曜の読み上げは例年通り40分の予定。順番が事前に流出したのはシーズン1以来である。" },
+      {
+        handle: "@stagewire",
+        text: "【NEXT STAGE】日曜の読み上げは例年通り40分の予定。順番が事前に流出したのはシーズン1以来である。",
+      },
     ],
   },
 };

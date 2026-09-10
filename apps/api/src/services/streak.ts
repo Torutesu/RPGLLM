@@ -45,7 +45,12 @@ export interface StreakState {
 }
 
 /** What the columns say, normalised: `day` is the UTC date of the last check-in. */
-interface Columns { date: string | null; days: number; best: number; lastAt: Date | null }
+interface Columns {
+  date: string | null;
+  days: number;
+  best: number;
+  lastAt: Date | null;
+}
 
 const ladderFor = (days: number): StreakLadderRow[] =>
   STREAK_LADDER.map((row) => ({ ...row, reached: row.day <= Math.min(days, STREAK_LADDER.length) }));
@@ -71,7 +76,12 @@ export async function migrateLegacyStreak(
   walletId: string,
 ): Promise<Columns> {
   if (user.streakLastAt) {
-    return { date: utcDay(user.streakLastAt), days: user.streakDays, best: user.streakBestDays, lastAt: user.streakLastAt };
+    return {
+      date: utcDay(user.streakLastAt),
+      days: user.streakDays,
+      best: user.streakBestDays,
+      lastAt: user.streakLastAt,
+    };
   }
   const row = await prisma.ledgerEntry.findFirst({
     where: { walletId, currency: "energy", source: "daily_refill", ref: { startsWith: PREFIX } },
@@ -100,8 +110,13 @@ async function loadColumns(prisma: PrismaClient, userId: string, walletId: strin
   return await migrateLegacyStreak(prisma, user, walletId);
 }
 
-const stateFor = (days: number, best: number, claimedToday: boolean, reward: StreakState["reward"]): StreakState =>
-  ({ days, best, claimedToday, reward, ladder: ladderFor(days) });
+const stateFor = (days: number, best: number, claimedToday: boolean, reward: StreakState["reward"]): StreakState => ({
+  days,
+  best,
+  claimedToday,
+  reward,
+  ladder: ladderFor(days),
+});
 
 /**
  * Advance the streak for today and pay the ladder. Idempotent per UTC day: a second call the same

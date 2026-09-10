@@ -30,7 +30,14 @@ const text = async (path: string, headers: Record<string, string> = {}): Promise
 /** `content` of a `<meta>` by its name/property, un-escaped enough to compare. */
 function metaOf(html: string, key: string): string | null {
   const m = new RegExp(`<meta (?:name|property)="${key}" content="([^"]*)">`).exec(html);
-  return m ? (m[1] as string).replace(/&#39;/g, "'").replace(/&quot;/g, '"').replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&amp;/g, "&") : null;
+  return m
+    ? (m[1] as string)
+        .replace(/&#39;/g, "'")
+        .replace(/&quot;/g, '"')
+        .replace(/&lt;/g, "<")
+        .replace(/&gt;/g, ">")
+        .replace(/&amp;/g, "&")
+    : null;
 }
 
 /**
@@ -193,7 +200,14 @@ describe("GET /s/m/:slug — a moment", () => {
     const p = await signupWithPersona(h);
     await prisma.world.update({ where: { id: p.worldId }, data: { visibility: "private", status: "ready" } });
     const moment = await prisma.moment.create({
-      data: { personaId: p.personaId, cause: "post:none", headline: "Quiet room", body: "Nobody replied.", payload: {}, shareSlug: "priv1234" },
+      data: {
+        personaId: p.personaId,
+        cause: "post:none",
+        headline: "Quiet room",
+        body: "Nobody replied.",
+        payload: {},
+        shareSlug: "priv1234",
+      },
     });
 
     const html = await text(`/s/m/${moment.shareSlug}`);
@@ -202,7 +216,9 @@ describe("GET /s/m/:slug — a moment", () => {
     expect(res.status, "a public moment's card must have a picture that exists").toBe(200);
     expect(res.headers.get("content-type")).toBe("image/png");
     // And the world's own page is still private, which is the whole point of the split.
-    expect((await get(`/s/w/${(await prisma.world.findUniqueOrThrow({ where: { id: p.worldId } })).slug}`)).status).toBe(404);
+    expect(
+      (await get(`/s/w/${(await prisma.world.findUniqueOrThrow({ where: { id: p.worldId } })).slug}`)).status,
+    ).toBe(404);
   });
 
   it("404s a slug that is not a moment", async () => {

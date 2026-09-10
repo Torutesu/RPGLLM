@@ -9,19 +9,62 @@ const now = () => new Date().toISOString();
 const uid = (p) => `${p}_${Math.random().toString(36).slice(2, 10)}`;
 
 const CHARACTERS = [
-  { id: "c_hive", handle: "hivequeenbea", displayName: "Bea", role: "bestie", avatarUrl: null, isPressAccount: false, canBeFirstFollower: true, intro: "Your loudest defender." },
-  { id: "c_drey", handle: "the6ixdrey", displayName: "Drey", role: "rival", avatarUrl: null, isPressAccount: false, canBeFirstFollower: true, intro: "Never lets a beat go." },
-  { id: "c_gmz", handle: "gmz", displayName: "GMZ", role: "press", avatarUrl: null, isPressAccount: true, canBeFirstFollower: false, intro: "Sources say…" },
+  {
+    id: "c_hive",
+    handle: "hivequeenbea",
+    displayName: "Bea",
+    role: "bestie",
+    avatarUrl: null,
+    isPressAccount: false,
+    canBeFirstFollower: true,
+    intro: "Your loudest defender.",
+  },
+  {
+    id: "c_drey",
+    handle: "the6ixdrey",
+    displayName: "Drey",
+    role: "rival",
+    avatarUrl: null,
+    isPressAccount: false,
+    canBeFirstFollower: true,
+    intro: "Never lets a beat go.",
+  },
+  {
+    id: "c_gmz",
+    handle: "gmz",
+    displayName: "GMZ",
+    role: "press",
+    avatarUrl: null,
+    isPressAccount: true,
+    canBeFirstFollower: false,
+    intro: "Sources say…",
+  },
 ];
 const PRESETS = [
   { handle: "taytay19", displayName: "Tay", bio: "songs about you", avatarUrl: null },
   { handle: "kingkay", displayName: "Kay", bio: "the crown fits", avatarUrl: null },
 ];
-const WORLD = { id: "w_pop", slug: "popstar-era", title: "Popstar Era", scenario: "One song from everything changing.", difficulty: 2, coverUrl: null };
+const WORLD = {
+  id: "w_pop",
+  slug: "popstar-era",
+  title: "Popstar Era",
+  scenario: "One song from everything changing.",
+  difficulty: 2,
+  coverUrl: null,
+};
 
 const db = {
   user: { id: "u_1", locale: "en", isMinor: false, birthYear: null },
-  wallet: { energy: 10, coffee: 2, gems: 0, dailyRefillAt: new Date(Date.now() + 6 * 3600e3).toISOString(), adRewardsToday: 0, adsEnabled: true, adPersonalized: false, dailyMax: 10 },
+  wallet: {
+    energy: 10,
+    coffee: 2,
+    gems: 0,
+    dailyRefillAt: new Date(Date.now() + 6 * 3600e3).toISOString(),
+    adRewardsToday: 0,
+    adsEnabled: true,
+    adPersonalized: false,
+    dailyMax: 10,
+  },
   subscription: null,
   persona: null,
   posts: [],
@@ -35,20 +78,39 @@ const db = {
 };
 
 const mkPost = (kind, handle, text, opts = {}) => ({
-  id: uid("p"), kind, text, parentId: opts.parentId ?? null,
-  author: { handle, displayName: handle, avatarUrl: null, verified: kind === "character" || kind === "news", isYou: kind === "user" },
+  id: uid("p"),
+  kind,
+  text,
+  parentId: opts.parentId ?? null,
+  author: {
+    handle,
+    displayName: handle,
+    avatarUrl: null,
+    verified: kind === "character" || kind === "news",
+    isYou: kind === "user",
+  },
   metrics: { likes: 120, reposts: 18, replies: 4 },
-  generationId: kind === "user" ? null : uid("g"), createdAt: now(), replies: [],
+  generationId: kind === "user" ? null : uid("g"),
+  createdAt: now(),
+  replies: [],
 });
 
 const snapshot = (cause) => ({
-  id: uid("s"), cause, narrative: "By morning the timeline had picked a side.",
-  followersDelta: 12, auraDelta: 5, humorDelta: 1, relDeltas: { hivequeenbea: 1, the6ixdrey: -1 },
-  after: { followers: (db.persona?.followers ?? 120) + 12, aura: 25, humor: 21 }, createdAt: now(),
+  id: uid("s"),
+  cause,
+  narrative: "By morning the timeline had picked a side.",
+  followersDelta: 12,
+  auraDelta: 5,
+  humorDelta: 1,
+  relDeltas: { hivequeenbea: 1, the6ixdrey: -1 },
+  after: { followers: (db.persona?.followers ?? 120) + 12, aura: 25, humor: 21 },
+  createdAt: now(),
 });
 
 const mkEvent = () => ({
-  id: uid("e"), title: "Fabricated screenshots", prompt: "Anonymous sources are flooding the timeline. How do you respond?",
+  id: uid("e"),
+  title: "Fabricated screenshots",
+  prompt: "Anonymous sources are flooding the timeline. How do you respond?",
   choices: [
     { id: "burn", label: "Burn it down: drop a diss track at midnight" },
     { id: "receipts", label: "Drop receipts: post the studio voice memos" },
@@ -63,15 +125,26 @@ const send = (res, status, data, error = null) => {
 };
 const fail = (res, status, code, message) => send(res, status, null, { code, message });
 
-const body = (req) => new Promise((resolve) => {
-  let b = "";
-  req.on("data", (c) => { b += c; });
-  req.on("end", () => { try { resolve(b ? JSON.parse(b) : {}); } catch { resolve({}); } });
-});
+const body = (req) =>
+  new Promise((resolve) => {
+    let b = "";
+    req.on("data", (c) => {
+      b += c;
+    });
+    req.on("end", () => {
+      try {
+        resolve(b ? JSON.parse(b) : {});
+      } catch {
+        resolve({});
+      }
+    });
+  });
 
 function sse(res) {
   res.writeHead(200, {
-    "content-type": "text/event-stream", "cache-control": "no-cache", connection: "keep-alive",
+    "content-type": "text/event-stream",
+    "cache-control": "no-cache",
+    connection: "keep-alive",
     "access-control-allow-origin": "*",
   });
   return (event, payload) => res.write(`event: ${event}\ndata: ${JSON.stringify({ type: event, ...payload })}\n\n`);
@@ -83,7 +156,9 @@ const server = http.createServer(async (req, res) => {
   const m = req.method ?? "GET";
   if (m === "OPTIONS") {
     res.writeHead(204, {
-      "access-control-allow-origin": "*", "access-control-allow-headers": "*", "access-control-allow-methods": "*",
+      "access-control-allow-origin": "*",
+      "access-control-allow-headers": "*",
+      "access-control-allow-methods": "*",
     });
     return res.end();
   }
@@ -91,7 +166,8 @@ const server = http.createServer(async (req, res) => {
 
   if (p === "/health") return send(res, 200, { ok: true, llmMode: "replay", champion: {} });
   if (p === "/auth/email/start") return send(res, 200, {});
-  if (p === "/auth/email") return send(res, 200, { jwt: "mock.jwt.token", isNew: true, needsAgeGate: db.user.birthYear === null });
+  if (p === "/auth/email")
+    return send(res, 200, { jwt: "mock.jwt.token", isNew: true, needsAgeGate: db.user.birthYear === null });
   if (p === "/auth/age-gate") {
     const age = new Date().getFullYear() - Number(b.birthYear ?? 0);
     if (age < 13) return fail(res, 403, "UNDER_13", "too young");
@@ -101,21 +177,44 @@ const server = http.createServer(async (req, res) => {
     db.wallet.adPersonalized = !db.user.isMinor;
     return send(res, 200, { isMinor: db.user.isMinor });
   }
-  if (p === "/me") return send(res, 200, { user: db.user, wallet: db.wallet, subscription: db.subscription, persona: db.persona });
+  if (p === "/me")
+    return send(res, 200, { user: db.user, wallet: db.wallet, subscription: db.subscription, persona: db.persona });
   if (p === "/worlds") return send(res, 200, [WORLD]);
-  if (p.startsWith("/worlds/")) return send(res, 200, { world: WORLD, characters: CHARACTERS, presetPersonas: PRESETS });
+  if (p.startsWith("/worlds/"))
+    return send(res, 200, { world: WORLD, characters: CHARACTERS, presetPersonas: PRESETS });
   if (p === "/personas/check") return send(res, 200, { available: true });
   if (p === "/personas") {
     db.persona = {
-      id: "pe_1", worldId: WORLD.id, worldSlug: WORLD.slug, handle: b.handle, displayName: b.displayName, bio: b.bio ?? "",
-      avatarUrl: null, followers: 120, aura: 20, humor: 20, level: 1, xp: 0, actionCount: 0,
+      id: "pe_1",
+      worldId: WORLD.id,
+      worldSlug: WORLD.slug,
+      handle: b.handle,
+      displayName: b.displayName,
+      bio: b.bio ?? "",
+      avatarUrl: null,
+      followers: 120,
+      aura: 20,
+      humor: 20,
+      level: 1,
+      xp: 0,
+      actionCount: 0,
     };
     const welcome = mkPost("character", "hivequeenbea", "you're finally here. the timeline is not ready.");
-    db.posts = [welcome, ...Array.from({ length: 5 }, (_, i) => mkPost("ambient", "the6ixdrey", `the room is always colder at ${i + 1}am`))];
+    db.posts = [
+      welcome,
+      ...Array.from({ length: 5 }, (_, i) =>
+        mkPost("ambient", "the6ixdrey", `the room is always colder at ${i + 1}am`),
+      ),
+    ];
     return send(res, 200, { persona: db.persona, feedReady: true });
   }
   if (p === "/feed") {
-    return send(res, 200, { posts: db.posts, nextCursor: null, pendingEvent: db.pendingEvent, lastSnapshot: db.lastSnapshot });
+    return send(res, 200, {
+      posts: db.posts,
+      nextCursor: null,
+      pendingEvent: db.pendingEvent,
+      lastSnapshot: db.lastSnapshot,
+    });
   }
   if (p === "/posts" && m === "POST") {
     const text = String(b.text ?? "");
@@ -131,15 +230,27 @@ const server = http.createServer(async (req, res) => {
   if (streamMatch) {
     const write = sse(res);
     const rootId = streamMatch[1];
-    setTimeout(() => write("reply", { post: mkPost("character", "hivequeenbea", "iconic timing 👑", { parentId: rootId }) }), 200);
-    setTimeout(() => write("reply", { post: mkPost("character", "the6ixdrey", "the song better not be about me", { parentId: rootId }) }), 500);
+    setTimeout(
+      () => write("reply", { post: mkPost("character", "hivequeenbea", "iconic timing 👑", { parentId: rootId }) }),
+      200,
+    );
+    setTimeout(
+      () =>
+        write("reply", {
+          post: mkPost("character", "the6ixdrey", "the song better not be about me", { parentId: rootId }),
+        }),
+      500,
+    );
     if (/FALLBACK/i.test(db.posts.find((x) => x.id === rootId)?.text ?? "")) {
       setTimeout(() => write("fallback", { message: "signal lost" }), 300);
       db.wallet.energy += 1; // refunded
     }
     setTimeout(() => write("stat", { snapshot: (db.lastSnapshot = snapshot("post")) }), 700);
     if (db.actionCount % 8 === 0) setTimeout(() => write("event", { event: (db.pendingEvent = mkEvent()) }), 800);
-    setTimeout(() => { write("done", { energy: db.wallet.energy }); res.end(); }, 1000);
+    setTimeout(() => {
+      write("done", { energy: db.wallet.energy });
+      res.end();
+    }, 1000);
     return;
   }
   const postMatch = p.match(/^\/posts\/([^/]+)$/);
@@ -149,7 +260,9 @@ const server = http.createServer(async (req, res) => {
     return send(res, 200, { post, replies, moreAvailable: true });
   }
   if (p.endsWith("/more-replies")) {
-    return send(res, 200, { replies: [mkPost("character", "kingkay", "late but loud"), mkPost("character", "gmz", "sources say…")] });
+    return send(res, 200, {
+      replies: [mkPost("character", "kingkay", "late but loud"), mkPost("character", "gmz", "sources say…")],
+    });
   }
   if (p === "/events/pending") return send(res, 200, { event: db.pendingEvent });
   if (p.match(/^\/events\/[^/]+\/choose$/)) {
@@ -161,8 +274,13 @@ const server = http.createServer(async (req, res) => {
     db.lastSnapshot = snapshot("event");
     return send(res, 200, { snapshot: db.lastSnapshot, newsPost: news, energy: db.wallet.energy });
   }
-  if (p.startsWith("/stats/")) return send(res, 200, { snapshot: db.lastSnapshot ?? snapshot("post"), persona: { followers: 132, aura: 25, humor: 21 } });
-  if (p === "/dms" && m === "GET") return send(res, 200, { threads: db.threads, followers: CHARACTERS.filter((c) => c.canBeFirstFollower) });
+  if (p.startsWith("/stats/"))
+    return send(res, 200, {
+      snapshot: db.lastSnapshot ?? snapshot("post"),
+      persona: { followers: 132, aura: 25, humor: 21 },
+    });
+  if (p === "/dms" && m === "GET")
+    return send(res, 200, { threads: db.threads, followers: CHARACTERS.filter((c) => c.canBeFirstFollower) });
   if (p === "/dms" && m === "POST") {
     const ch = CHARACTERS.find((c) => c.id === b.characterId) ?? CHARACTERS[0];
     let thread = db.threads.find((t) => t.character.id === ch.id);
@@ -177,7 +295,13 @@ const server = http.createServer(async (req, res) => {
   if (dmMsg && m === "POST") {
     if (db.wallet.energy < 1) return fail(res, 402, "ENERGY_REQUIRED", "no energy");
     db.wallet.energy -= 1;
-    const msg = { id: uid("dm"), fromCharacter: false, text: String(b.text ?? ""), generationId: null, createdAt: now() };
+    const msg = {
+      id: uid("dm"),
+      fromCharacter: false,
+      text: String(b.text ?? ""),
+      generationId: null,
+      createdAt: now(),
+    };
     (db.messages[dmMsg[1]] ??= []).push(msg);
     return send(res, 200, { message: msg, streamUrl: `/v1/dms/${dmMsg[1]}/stream` });
   }
@@ -186,12 +310,24 @@ const server = http.createServer(async (req, res) => {
     const write = sse(res);
     const tid = dmStream[1];
     setTimeout(() => {
-      const msg = { id: uid("dm"), fromCharacter: true, text: "girl. did you see gmz", generationId: uid("g"), createdAt: now() };
+      const msg = {
+        id: uid("dm"),
+        fromCharacter: true,
+        text: "girl. did you see gmz",
+        generationId: uid("g"),
+        createdAt: now(),
+      };
       (db.messages[tid] ??= []).push(msg);
       write("message", { message: msg });
     }, 400);
-    setTimeout(() => { db.affinity += 2; write("affinity", { delta: 2, affinity: db.affinity }); }, 600);
-    setTimeout(() => { write("done", { energy: db.wallet.energy }); res.end(); }, 800);
+    setTimeout(() => {
+      db.affinity += 2;
+      write("affinity", { delta: 2, affinity: db.affinity });
+    }, 600);
+    setTimeout(() => {
+      write("done", { energy: db.wallet.energy });
+      res.end();
+    }, 800);
     return;
   }
   const dmGet = p.match(/^\/dms\/([^/]+)$/);
@@ -199,8 +335,14 @@ const server = http.createServer(async (req, res) => {
     const thread = db.threads.find((t) => t.id === dmGet[1]) ?? db.threads[0];
     if (!thread) return fail(res, 404, "NOT_FOUND", "no thread");
     return send(res, 200, {
-      thread, messages: db.messages[thread.id] ?? [],
-      relationship: { characterHandle: thread.character.handle, affinity: db.affinity, summary: "knows your worst takes", isFollower: true },
+      thread,
+      messages: db.messages[thread.id] ?? [],
+      relationship: {
+        characterHandle: thread.character.handle,
+        affinity: db.affinity,
+        summary: "knows your worst takes",
+        isFollower: true,
+      },
       nextCursor: null,
     });
   }
@@ -234,15 +376,33 @@ const server = http.createServer(async (req, res) => {
     return send(res, 200, { subscription: db.subscription, energy: db.wallet.energy });
   }
   if (p.match(/^\/generations\/[^/]+\/rate$/)) {
-    const replacement = b.regenerate ? mkPost("character", "hivequeenbea", "regenerated: this is the take of the year") : null;
+    const replacement = b.regenerate
+      ? mkPost("character", "hivequeenbea", "regenerated: this is the take of the year")
+      : null;
     return send(res, 200, { replacement, newGenerationId: replacement ? replacement.generationId : null });
   }
   if (p === "/experiments/assignments") return send(res, 200, { paywall_copy: "A" });
   if (p === "/__test/reset") {
     db.user = { id: "u_1", locale: "en", isMinor: false, birthYear: null };
-    db.wallet = { energy: 10, coffee: 2, gems: 0, dailyRefillAt: new Date(Date.now() + 6 * 3600e3).toISOString(), adRewardsToday: 0, adsEnabled: true, adPersonalized: false, dailyMax: 10 };
-    db.subscription = null; db.persona = null; db.posts = []; db.actionCount = 0;
-    db.pendingEvent = null; db.lastSnapshot = null; db.threads = []; db.messages = {}; db.affinity = 40;
+    db.wallet = {
+      energy: 10,
+      coffee: 2,
+      gems: 0,
+      dailyRefillAt: new Date(Date.now() + 6 * 3600e3).toISOString(),
+      adRewardsToday: 0,
+      adsEnabled: true,
+      adPersonalized: false,
+      dailyMax: 10,
+    };
+    db.subscription = null;
+    db.persona = null;
+    db.posts = [];
+    db.actionCount = 0;
+    db.pendingEvent = null;
+    db.lastSnapshot = null;
+    db.threads = [];
+    db.messages = {};
+    db.affinity = 40;
     return send(res, 200, {});
   }
   if (p === "/__test/plus-off") {
@@ -252,7 +412,10 @@ const server = http.createServer(async (req, res) => {
     db.wallet.adRewardsToday = 0;
     return send(res, 200, {});
   }
-  if (p === "/__test/set-energy") { db.wallet.energy = Number(b.energy ?? 0); return send(res, 200, {}); }
+  if (p === "/__test/set-energy") {
+    db.wallet.energy = Number(b.energy ?? 0);
+    return send(res, 200, {});
+  }
   return fail(res, 404, "NOT_FOUND", `no route ${p}`);
 });
 

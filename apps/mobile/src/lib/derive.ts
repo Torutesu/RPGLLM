@@ -50,7 +50,7 @@ export function heatOf(post: Pick<Post, "kind" | "metrics" | "createdAt">, now: 
   const created = new Date(post.createdAt).getTime();
   const hours = Number.isFinite(created) ? Math.max(0, (now.getTime() - created) / 3_600_000) : 0;
   const recency = 1 - Math.min(1, hours / DECAY_HOURS) * DECAY_MAX;
-  const scored = (100 * Math.log(1 + engagement) / SATURATION) * recency + (post.kind === "news" ? NEWS_BONUS : 0);
+  const scored = ((100 * Math.log(1 + engagement)) / SATURATION) * recency + (post.kind === "news" ? NEWS_BONUS : 0);
   return Math.min(HEAT.MAX, Math.max(0, Math.round(scored)));
 }
 
@@ -67,5 +67,5 @@ export const seededIn = (seed: string, channel: number, lo: number, hi: number):
   lo + seeded(seed, channel) * (hi - lo);
 
 /** `seeded` mapped onto one entry of a list. */
-export const seededOf = <T,>(seed: string, channel: number, list: readonly T[]): T =>
+export const seededOf = <T>(seed: string, channel: number, list: readonly T[]): T =>
   list[Math.floor(seeded(seed, channel) * list.length) % list.length] ?? list[0]!;

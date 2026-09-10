@@ -22,7 +22,6 @@ import type { AppEnv } from "../types";
  * rather than added to `src/env.ts`, which Agent F owns.
  */
 
-
 export function costAccessAllowed(presentedToken: string | undefined): boolean {
   if (testHooksEnabled()) return true;
   // Per-reviewer secrets (`ADMIN_TOKENS`) open this too: an operator who can be revoked

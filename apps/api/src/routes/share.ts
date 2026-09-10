@@ -35,7 +35,10 @@ const PAGE_CACHE = "public, max-age=3600";
 const IMG_CACHE = "public, max-age=31536000, immutable";
 
 const html = (body: string): Response =>
-  new Response(body, { status: 200, headers: { "content-type": "text/html; charset=utf-8", "cache-control": PAGE_CACHE } });
+  new Response(body, {
+    status: 200,
+    headers: { "content-type": "text/html; charset=utf-8", "cache-control": PAGE_CACHE },
+  });
 
 /**
  * A 404 here is HTML too. A crawler that gets JSON for a missing world renders the JSON, and a
@@ -108,11 +111,15 @@ export function shareRoutes(): Hono<AppEnv> {
     if (!world || world.status !== "published" || world.visibility === "private") return gone(locale);
 
     const creator = world.createdBy
-      ? await deps.prisma.user.findUnique({ where: { id: world.createdBy }, select: { creatorHandle: true, deletedAt: true } })
+      ? await deps.prisma.user.findUnique({
+          where: { id: world.createdBy },
+          select: { creatorHandle: true, deletedAt: true },
+        })
       : null;
-    const credit = creator && creator.deletedAt === null && creator.creatorHandle
-      ? `${t(locale, "shareBy")} ${mention(creator.creatorHandle)}`
-      : "";
+    const credit =
+      creator && creator.deletedAt === null && creator.creatorHandle
+        ? `${t(locale, "shareBy")} ${mention(creator.creatorHandle)}`
+        : "";
 
     const origin = selfOrigin(c);
     const page: SharePageInput = {
@@ -192,14 +199,15 @@ export function shareRoutes(): Hono<AppEnv> {
       locale,
       title: mention(creator.creatorHandle),
       // Their work is the description: three titles say more about a creator than any number does.
-      description: worlds > 0
-        ? newest.map((w) => localized(w.title, locale)).filter((s) => s.length > 0).join(" · ")
-        : t(locale, "creatorNoWorlds"),
+      description:
+        worlds > 0
+          ? newest
+              .map((w) => localized(w.title, locale))
+              .filter((s) => s.length > 0)
+              .join(" · ")
+          : t(locale, "creatorNoWorlds"),
       kicker: t(locale, "shareCreatorKicker"),
-      facts: [
-        `${worlds} ${t(locale, "shareCreatorWorlds")}`,
-        plays > 0 ? `${plays} ${t(locale, "studioPlays")}` : "",
-      ],
+      facts: [`${worlds} ${t(locale, "shareCreatorWorlds")}`, plays > 0 ? `${plays} ${t(locale, "studioPlays")}` : ""],
       imageUrl: `${origin}/s/c/${encodeURIComponent(creator.creatorHandle)}/poster.png`,
       canonicalUrl: withLang(`${origin}/s/c/${encodeURIComponent(creator.creatorHandle)}`, locale),
       appUrl: `${publicAppUrl()}/creator/${encodeURIComponent(creator.creatorHandle)}`,
@@ -241,7 +249,10 @@ export function shareRoutes(): Hono<AppEnv> {
   app.get("/c/:handle/poster.png", async (c) => {
     const deps = c.get("deps");
     const handle = normHandle(c.req.param("handle"));
-    const creator = await deps.prisma.user.findUnique({ where: { creatorHandle: handle }, select: { deletedAt: true } });
+    const creator = await deps.prisma.user.findUnique({
+      where: { creatorHandle: handle },
+      select: { deletedAt: true },
+    });
     if (!creator || creator.deletedAt !== null) return gone("en");
     return png(posterPng(handle));
   });

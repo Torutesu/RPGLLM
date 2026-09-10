@@ -115,7 +115,13 @@ export default function PostDetailScreen() {
           ) : null}
           <View style={{ paddingHorizontal: spacing.lg }}>
             {merged.map((r) => (
-              <ReplyCell key={r.id} post={r} rate={rate} selected={selected === r.id} onPress={(p) => setSelected(p.id)} />
+              <ReplyCell
+                key={r.id}
+                post={r}
+                rate={rate}
+                selected={selected === r.id}
+                onPress={(p) => setSelected(p.id)}
+              />
             ))}
           </View>
           {detail?.moreAvailable && !moreUsed ? (

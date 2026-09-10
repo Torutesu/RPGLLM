@@ -53,11 +53,7 @@ function Meta({ world }: { world: WorldFull }) {
 /** The shelf's own refusal, inside the box that states its price. */
 function ShelfRefusal({ text }: { text: string }) {
   return (
-    <Text
-      accessibilityRole="alert"
-      accessibilityLiveRegion="polite"
-      style={[typo.meta, { color: colors.danger }]}
-    >
+    <Text accessibilityRole="alert" accessibilityLiveRegion="polite" style={[typo.meta, { color: colors.danger }]}>
       {text}
     </Text>
   );
@@ -237,7 +233,11 @@ export default function StudioWorldScreen() {
       const poorForShelf = visibility === "public" && (err?.isGems === true || err?.status === 402);
       // The safety gate runs on every publish, unlisted included.
       setPublishError({
-        text: poorForShelf ? t("studioNotEnoughForPublic") : err?.isSafety ? t("studioPremiseBlocked") : t("loadFailed"),
+        text: poorForShelf
+          ? t("studioNotEnoughForPublic")
+          : err?.isSafety
+            ? t("studioPremiseBlocked")
+            : t("loadFailed"),
         shelf: poorForShelf,
       });
       return false;
@@ -296,7 +296,11 @@ export default function StudioWorldScreen() {
           {/* ------------------------------------------------- the endpoint is not there ---- */}
           {phase === "error" && !world ? (
             <View style={{ gap: spacing.md, paddingTop: spacing.xxl }}>
-              <Text accessibilityRole="alert" accessibilityLiveRegion="polite" style={[typo.h2, { color: colors.text }]}>
+              <Text
+                accessibilityRole="alert"
+                accessibilityLiveRegion="polite"
+                style={[typo.h2, { color: colors.text }]}
+              >
                 {t("loadFailed")}
               </Text>
               <Button label={t("retry")} variant="secondary" onPress={() => void reload()} />
@@ -310,7 +314,13 @@ export default function StudioWorldScreen() {
               height={COVER_H}
               /* The cover develops as the world builds: the scrim thins with `progress`, so the
                  picture arriving *is* the progress bar's second voice. 0 once it is ready. */
-              veil={ready ? 0 : buildFailed || reviewRejected ? 0.8 : 0.86 - 0.5 * Math.max(0, Math.min(1, data?.progress ?? 0))}
+              veil={
+                ready
+                  ? 0
+                  : buildFailed || reviewRejected
+                    ? 0.8
+                    : 0.86 - 0.5 * Math.max(0, Math.min(1, data?.progress ?? 0))
+              }
             />
           ) : null}
 
@@ -318,7 +328,11 @@ export default function StudioWorldScreen() {
           {showBuilding ? (
             <View testID={T.studioBuilding} style={{ gap: spacing.xl }}>
               <View style={{ gap: spacing.sm }}>
-                <Text accessibilityRole="header" accessibilityLiveRegion="polite" style={[typo.title, { color: colors.text }]}>
+                <Text
+                  accessibilityRole="header"
+                  accessibilityLiveRegion="polite"
+                  style={[typo.title, { color: colors.text }]}
+                >
                   {t("studioBuilding")}
                 </Text>
                 <Text style={[typo.meta, { color: colors.textDim }]}>{t("studioBuildingWait")}</Text>
@@ -382,7 +396,11 @@ export default function StudioWorldScreen() {
               </View>
 
               {publishError && !publishError.shelf ? (
-                <Text accessibilityRole="alert" accessibilityLiveRegion="polite" style={[typo.meta, { color: colors.danger }]}>
+                <Text
+                  accessibilityRole="alert"
+                  accessibilityLiveRegion="polite"
+                  style={[typo.meta, { color: colors.danger }]}
+                >
                   {publishError.text}
                 </Text>
               ) : null}
@@ -410,10 +428,17 @@ export default function StudioWorldScreen() {
                         }}
                       >
                         <Icon name="share" size={16} color={colors.accentHi} />
-                        <Text numberOfLines={1} importantForAccessibility="no" style={[typo.meta, { color: colors.textDim, flex: 1 }]}>
+                        <Text
+                          numberOfLines={1}
+                          importantForAccessibility="no"
+                          style={[typo.meta, { color: colors.textDim, flex: 1 }]}
+                        >
                           {worldShareUrl(world.id, locale)}
                         </Text>
-                        <Text importantForAccessibility="no" style={[typo.label, { color: copied ? colors.positive : colors.accentHi }]}>
+                        <Text
+                          importantForAccessibility="no"
+                          style={[typo.label, { color: copied ? colors.positive : colors.accentHi }]}
+                        >
                           {copied ? t("copied") : t("copyLink")}
                         </Text>
                       </View>
@@ -497,9 +522,7 @@ export default function StudioWorldScreen() {
                 takes the accent and the cooldown gives up its warning voice; once it is spent, the
                 resubmit is the only story left and gets the volume back.
               */}
-              {step === "appealPending" ? (
-                <AppealStatus sent={appealSent} />
-              ) : null}
+              {step === "appealPending" ? <AppealStatus sent={appealSent} /> : null}
 
               {step === "appeal" ? (
                 appealOpen ? (
@@ -531,7 +554,11 @@ export default function StudioWorldScreen() {
               {showResubmit ? (
                 <>
                   {publishError && !publishError.shelf ? (
-                    <Text accessibilityRole="alert" accessibilityLiveRegion="polite" style={[typo.meta, { color: colors.danger }]}>
+                    <Text
+                      accessibilityRole="alert"
+                      accessibilityLiveRegion="polite"
+                      style={[typo.meta, { color: colors.danger }]}
+                    >
                       {publishError.text}
                     </Text>
                   ) : null}
@@ -573,9 +600,7 @@ export default function StudioWorldScreen() {
               ) : null}
 
               {showResubmitWait ? (
-                <View
-                  style={{ flexDirection: "row", alignItems: "center", gap: spacing.sm, paddingTop: spacing.xxs }}
-                >
+                <View style={{ flexDirection: "row", alignItems: "center", gap: spacing.sm, paddingTop: spacing.xxs }}>
                   <Icon name="clock" size={15} color={quietResubmit ? colors.textMuted : colors.warning} />
                   <Text
                     accessibilityRole={quietResubmit ? "text" : "alert"}

@@ -22,11 +22,11 @@ export default function Compose() {
   const [error, setError] = useState<string | null>(null);
 
   const parent = parentId
-    ? feed.find((p) => p.id === parentId) ??
+    ? (feed.find((p) => p.id === parentId) ??
       Object.values(liveReplies)
         .flat()
         .find((p) => p.id === parentId) ??
-      null
+      null)
     : null;
   const energy = me?.wallet.energy ?? 0;
 

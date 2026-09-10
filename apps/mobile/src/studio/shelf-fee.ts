@@ -20,4 +20,6 @@ export function rememberShelfFee(gems: number | undefined): void {
 export const shelfFee = (): number => known ?? WORLD_MODERATION.PUBLIC_SUBMIT_GEMS;
 
 /** Test seam: forget what the server said. */
-export const forgetShelfFee = (): void => { known = null; };
+export const forgetShelfFee = (): void => {
+  known = null;
+};

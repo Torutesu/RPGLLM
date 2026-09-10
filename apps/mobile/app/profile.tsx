@@ -94,7 +94,15 @@ export default function ProfileScreen() {
           </View>
 
           {persona ? (
-            <View style={{ flexDirection: "row", paddingVertical: spacing.md, borderTopWidth: 1, borderBottomWidth: 1, borderColor: colors.border }}>
+            <View
+              style={{
+                flexDirection: "row",
+                paddingVertical: spacing.md,
+                borderTopWidth: 1,
+                borderBottomWidth: 1,
+                borderColor: colors.border,
+              }}
+            >
               <Stat label={t("followers")} value={persona.followers} />
               <Stat label={t("aura")} value={persona.aura} />
               <Stat label={t("humor")} value={persona.humor} />
@@ -161,7 +169,9 @@ export default function ProfileScreen() {
                 {`${profile?.levelProgress.xp ?? 0} XP · ${toNext} ${t("xpToNext")}`}
               </Text>
             </View>
-            <View style={{ height: 8, backgroundColor: colors.bgElevated, borderRadius: radius.pill, overflow: "hidden" }}>
+            <View
+              style={{ height: 8, backgroundColor: colors.bgElevated, borderRadius: radius.pill, overflow: "hidden" }}
+            >
               <View style={{ height: 8, width: `${Math.round(progress * 100)}%`, backgroundColor: colors.accent }} />
             </View>
           </View>

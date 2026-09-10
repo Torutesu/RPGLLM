@@ -98,13 +98,36 @@ const PRESS: Archetype = {
     ja: `SOURCES SAY: 新しいアカウントが現れ、いつもの面々がすでに返信している。関係者2名によれば、偶然ではない。`,
   },
   ambient: [
-    { en: `SOURCES SAY: two names on {board} are refusing to be scheduled together this week. Per two people familiar, neither will say why.`, ja: `SOURCES SAY: {board}に載る2名が今週、同席を拒んでいる。関係者2名によれば、どちらも理由を語らない。` },
-    { en: `SOURCES SAY: {item} was circulating in {room} before it reached anyone official. We are told the timing is being looked into.`, ja: `SOURCES SAY: {item}は公式に届く前に{room}で回っていた。時系列が確認されていると聞いている。` },
-    { en: `SOURCES SAY: {boss} has quietly moved the date of {night}. No announcement is planned.`, ja: `SOURCES SAY: {boss}が{night}の日程を静かに動かした。発表の予定はない。` },
+    {
+      en: `SOURCES SAY: two names on {board} are refusing to be scheduled together this week. Per two people familiar, neither will say why.`,
+      ja: `SOURCES SAY: {board}に載る2名が今週、同席を拒んでいる。関係者2名によれば、どちらも理由を語らない。`,
+    },
+    {
+      en: `SOURCES SAY: {item} was circulating in {room} before it reached anyone official. We are told the timing is being looked into.`,
+      ja: `SOURCES SAY: {item}は公式に届く前に{room}で回っていた。時系列が確認されていると聞いている。`,
+    },
+    {
+      en: `SOURCES SAY: {boss} has quietly moved the date of {night}. No announcement is planned.`,
+      ja: `SOURCES SAY: {boss}が{night}の日程を静かに動かした。発表の予定はない。`,
+    },
   ],
   lines: {
-    en: ["Developing.", "Noted, per two people familiar.", "No comment from the other side.", "File that away.", "We are told there is more.", "That is one version of it."],
-    ja: ["続報あり。", "関係者2名によると、と記録しておく。", "相手側のコメントはなし。", "覚えておくといい。", "まだ続きがあると聞いている。", "それは一つの説だ。"],
+    en: [
+      "Developing.",
+      "Noted, per two people familiar.",
+      "No comment from the other side.",
+      "File that away.",
+      "We are told there is more.",
+      "That is one version of it.",
+    ],
+    ja: [
+      "続報あり。",
+      "関係者2名によると、と記録しておく。",
+      "相手側のコメントはなし。",
+      "覚えておくといい。",
+      "まだ続きがあると聞いている。",
+      "それは一つの説だ。",
+    ],
   },
 };
 
@@ -154,13 +177,36 @@ const SUPERFAN: Archetype = {
     ja: `はい全員集合。新しいアカウント、本物、確認済み。何ヶ月も言ってて誰も聞かなかったから、今もっと大きい声で言う。フォローして。以上。`,
   },
   ambient: [
-    { en: `i need everyone to be normal about {item}. i will not be normal about it. do as i say not as i do`, ja: `{item}の件、全員落ち着いて。私は落ち着かない。言う通りにして。私のようにではなく` },
-    { en: `four minutes to decode that post. four. we are unwell and we are efficient`, ja: `あの投稿の解読に4分。4分。病んでるし有能` },
-    { en: `receipts are in the quotes. i'm not doing this in the replies again`, ja: `レシートは引用に置いた。返信欄でもう一回やるつもりはない` },
+    {
+      en: `i need everyone to be normal about {item}. i will not be normal about it. do as i say not as i do`,
+      ja: `{item}の件、全員落ち着いて。私は落ち着かない。言う通りにして。私のようにではなく`,
+    },
+    {
+      en: `four minutes to decode that post. four. we are unwell and we are efficient`,
+      ja: `あの投稿の解読に4分。4分。病んでるし有能`,
+    },
+    {
+      en: `receipts are in the quotes. i'm not doing this in the replies again`,
+      ja: `レシートは引用に置いた。返信欄でもう一回やるつもりはない`,
+    },
   ],
   lines: {
-    en: ["👀", "the way you just said that", "we move", "not me defending you again", "receipts in the quotes", "ok but be normal about it"],
-    ja: ["👀", "まってその言い方", "進むよ", "また庇ってるんだけど私", "レシートは引用に置いた", "落ち着いてって言ってるでしょ"],
+    en: [
+      "👀",
+      "the way you just said that",
+      "we move",
+      "not me defending you again",
+      "receipts in the quotes",
+      "ok but be normal about it",
+    ],
+    ja: [
+      "👀",
+      "まってその言い方",
+      "進むよ",
+      "また庇ってるんだけど私",
+      "レシートは引用に置いた",
+      "落ち着いてって言ってるでしょ",
+    ],
   },
 };
 
@@ -210,9 +256,18 @@ const RIVAL: Archetype = {
     ja: `本当にやるんだ。いいと思う。私が見るのは1つ目じゃなくて2つ目の方だから。`,
   },
   ambient: [
-    { en: `people keep asking about the next one. the next one is fine. next question.`, ja: `次のやつについて何度も訊かれる。次のやつは問題ない。次の質問。` },
-    { en: `someone sub-posted me at 2am and deleted it at 2:04. i have the screenshot and no interest.`, ja: `深夜2時に匂わせされて2時4分に消された。スクショはあるし興味はない。` },
-    { en: `congrats to everyone who has always liked {crafts} since this week.`, ja: `今週から{crafts}をずっと好きだった全員におめでとう。` },
+    {
+      en: `people keep asking about the next one. the next one is fine. next question.`,
+      ja: `次のやつについて何度も訊かれる。次のやつは問題ない。次の質問。`,
+    },
+    {
+      en: `someone sub-posted me at 2am and deleted it at 2:04. i have the screenshot and no interest.`,
+      ja: `深夜2時に匂わせされて2時4分に消された。スクショはあるし興味はない。`,
+    },
+    {
+      en: `congrats to everyone who has always liked {crafts} since this week.`,
+      ja: `今週から{crafts}をずっと好きだった全員におめでとう。`,
+    },
   ],
   lines: {
     en: ["cute.", "interesting choice", "sure.", "we'll see", "that's a start", "i've seen worse this week"],
@@ -266,13 +321,36 @@ const MENTOR: Archetype = {
     ja: `初めての人へ。これから来るやつは見た。扉は火曜なら開いてる。言えるのはそれだけ。`,
   },
   ambient: [
-    { en: `spent four hours on one detail. it's the same detail. it's better now. i can't explain it`, ja: `一箇所に4時間かけた。同じ箇所だよ。でも良くなった。説明はできない` },
-    { en: `if the rough one moves you and the finished one doesn't, the finished one is wrong. that's not a hot take`, ja: `粗いやつで心が動いて完成品で動かないなら、間違ってるのは完成品。過激な意見じゃない` },
-    { en: `the one with the mistake in it is the one. put it out. stop calling me`, ja: `ミスが入ってる方が正解。出しなよ。電話してこないで` },
+    {
+      en: `spent four hours on one detail. it's the same detail. it's better now. i can't explain it`,
+      ja: `一箇所に4時間かけた。同じ箇所だよ。でも良くなった。説明はできない`,
+    },
+    {
+      en: `if the rough one moves you and the finished one doesn't, the finished one is wrong. that's not a hot take`,
+      ja: `粗いやつで心が動いて完成品で動かないなら、間違ってるのは完成品。過激な意見じゃない`,
+    },
+    {
+      en: `the one with the mistake in it is the one. put it out. stop calling me`,
+      ja: `ミスが入ってる方が正解。出しなよ。電話してこないで`,
+    },
   ],
   lines: {
-    en: ["leave it in", "come by {room}", "that's the take", "honestly? fine", "do it again tomorrow", "it's not ready and that's ok"],
-    ja: ["そこは残しなよ", "{room}おいでよ", "それが正解のやつ", "正直、悪くない", "明日もう一回やりなよ", "まだだよ。それでいい"],
+    en: [
+      "leave it in",
+      "come by {room}",
+      "that's the take",
+      "honestly? fine",
+      "do it again tomorrow",
+      "it's not ready and that's ok",
+    ],
+    ja: [
+      "そこは残しなよ",
+      "{room}おいでよ",
+      "それが正解のやつ",
+      "正直、悪くない",
+      "明日もう一回やりなよ",
+      "まだだよ。それでいい",
+    ],
   },
 };
 
@@ -322,13 +400,36 @@ const HANDLER: Archetype = {
     ja: `これだけ芯のある方と組めて嬉しいです。大きな一年になります。チームの認識は揃っています。`,
   },
   ambient: [
-    { en: `Proud of this team today. More news soon.`, ja: `今日のチームを誇りに思います。近日中にお知らせがあります。` },
-    { en: `Reminder that {night} is a working night, not a night out. Set an alarm, team.`, ja: `{night}は仕事の夜であって遊びの夜ではありません。アラームを設定してください、チーム。` },
-    { en: `A lot of noise about {item} today. There is nothing to add and I would rather we all said nothing.`, ja: `{item}の件で騒がしい一日でした。付け加えることはありませんし、全員が黙っているのが最善です。` },
+    {
+      en: `Proud of this team today. More news soon.`,
+      ja: `今日のチームを誇りに思います。近日中にお知らせがあります。`,
+    },
+    {
+      en: `Reminder that {night} is a working night, not a night out. Set an alarm, team.`,
+      ja: `{night}は仕事の夜であって遊びの夜ではありません。アラームを設定してください、チーム。`,
+    },
+    {
+      en: `A lot of noise about {item} today. There is nothing to add and I would rather we all said nothing.`,
+      ja: `{item}の件で騒がしい一日でした。付け加えることはありませんし、全員が黙っているのが最善です。`,
+    },
   ],
   lines: {
-    en: ["call me", "let's park that", "team is aligned", "we love the energy", "i'm going to say this once", "no notes"],
-    ja: ["電話ちょうだい", "それは一旦置こう", "チームの認識は揃ってる", "熱量はすごくいい", "一度だけ言うね", "直しはなし"],
+    en: [
+      "call me",
+      "let's park that",
+      "team is aligned",
+      "we love the energy",
+      "i'm going to say this once",
+      "no notes",
+    ],
+    ja: [
+      "電話ちょうだい",
+      "それは一旦置こう",
+      "チームの認識は揃ってる",
+      "熱量はすごくいい",
+      "一度だけ言うね",
+      "直しはなし",
+    ],
   },
 };
 
@@ -378,13 +479,36 @@ const CRITIC: Archetype = {
     ja: `敬意を込めて言うが、今年見た中で最も有望で、構造は破綻している。この文の後半については間違っていたい。`,
   },
   ambient: [
-    { en: `respectfully, the second half of that is doing the work of the whole thing and nobody is talking about it`, ja: `敬意を込めて言うが、あれの後半が全体分の仕事をしていて、誰もその話をしていない` },
-    { en: `the thing about a comeback is that it has to be good first and a comeback second. this order is not optional`, ja: `復帰について言うと、まず良いものであり、そのあとで復帰であるべきだ。この順番は交渉不可` },
-    { en: `three good ones is a body of work. eleven fine ones is a content strategy. i'll die on this hill`, ja: `良いのが3つあれば作品群だ。まあまあが11個あるのはコンテンツ戦略だ。ここは譲れない` },
+    {
+      en: `respectfully, the second half of that is doing the work of the whole thing and nobody is talking about it`,
+      ja: `敬意を込めて言うが、あれの後半が全体分の仕事をしていて、誰もその話をしていない`,
+    },
+    {
+      en: `the thing about a comeback is that it has to be good first and a comeback second. this order is not optional`,
+      ja: `復帰について言うと、まず良いものであり、そのあとで復帰であるべきだ。この順番は交渉不可`,
+    },
+    {
+      en: `three good ones is a body of work. eleven fine ones is a content strategy. i'll die on this hill`,
+      ja: `良いのが3つあれば作品群だ。まあまあが11個あるのはコンテンツ戦略だ。ここは譲れない`,
+    },
   ],
   lines: {
-    en: ["respectfully,", "i want to be wrong about this", "the thing about this is", "that is not what that word means", "three good ones is enough", "i have notes and you will get them"],
-    ja: ["敬意を込めて言うが、", "間違っていたい", "これについて言うと", "その語はそういう意味ではない", "良いのが3つあれば十分だ", "指摘はある。あとで送る"],
+    en: [
+      "respectfully,",
+      "i want to be wrong about this",
+      "the thing about this is",
+      "that is not what that word means",
+      "three good ones is enough",
+      "i have notes and you will get them",
+    ],
+    ja: [
+      "敬意を込めて言うが、",
+      "間違っていたい",
+      "これについて言うと",
+      "その語はそういう意味ではない",
+      "良いのが3つあれば十分だ",
+      "指摘はある。あとで送る",
+    ],
   },
 };
 
@@ -434,8 +558,14 @@ const CHAOS: Archetype = {
     ja: `は?アカウント作ってる。この人が泣いた部屋、全部一緒にいたんだけど。復活じゃん`,
   },
   ambient: [
-    { en: `{room} smells like burnt coffee and ambition. mostly burnt coffee`, ja: `{room}、焦げたコーヒーと野心の匂い。ほぼ焦げたコーヒー` },
-    { en: `hello??? who scheduled that for the same day as {night}. i'm counting out loud in a lift like a lunatic`, ja: `え待って???それ{night}と同じ日に入れたの誰。エレベーターで声出して数えてる不審者になってる` },
+    {
+      en: `{room} smells like burnt coffee and ambition. mostly burnt coffee`,
+      ja: `{room}、焦げたコーヒーと野心の匂い。ほぼ焦げたコーヒー`,
+    },
+    {
+      en: `hello??? who scheduled that for the same day as {night}. i'm counting out loud in a lift like a lunatic`,
+      ja: `え待って???それ{night}と同じ日に入れたの誰。エレベーターで声出して数えてる不審者になってる`,
+    },
     { en: `we're so back. i don't know from what. we're back`, ja: `復活じゃん。何からかは知らない。復活` },
   ],
   lines: {
@@ -490,13 +620,36 @@ const OLDFRIEND: Archetype = {
     ja: `新しい人が多いから言っておくと、この人とは{room}の頃からの付き合いで、あの頃からこうだった。推薦文はそれで全部。`,
   },
   ambient: [
-    { en: `back in {room} on a tuesday, same broken heater. i'm not complaining, i'm just saying it's the same`, ja: `同じ{room}、同じ火曜、同じ壊れたヒーター。文句じゃなくて、同じだなって話` },
-    { en: `someone asked me today if i was still doing this. yes. that was the whole conversation`, ja: `今日、まだやってるのって訊かれた。やってる。会話はそれで終わり` },
-    { en: `people leave and then the good ones come back to say hello. i'm keeping count`, ja: `みんな出ていく。良いやつは挨拶しに戻ってくる。数えてる` },
+    {
+      en: `back in {room} on a tuesday, same broken heater. i'm not complaining, i'm just saying it's the same`,
+      ja: `同じ{room}、同じ火曜、同じ壊れたヒーター。文句じゃなくて、同じだなって話`,
+    },
+    {
+      en: `someone asked me today if i was still doing this. yes. that was the whole conversation`,
+      ja: `今日、まだやってるのって訊かれた。やってる。会話はそれで終わり`,
+    },
+    {
+      en: `people leave and then the good ones come back to say hello. i'm keeping count`,
+      ja: `みんな出ていく。良いやつは挨拶しに戻ってくる。数えてる`,
+    },
   ],
   lines: {
-    en: ["remember when", "you were there", "no it's good, genuinely", "i'm still doing the same thing", "let me know when you're back", "i saw. i always see"],
-    ja: ["あの時さ", "いたよね", "いや本当に良いと思ってる", "こっちは変わらずやってる", "戻ったら教えて", "見たよ。いつも見てる"],
+    en: [
+      "remember when",
+      "you were there",
+      "no it's good, genuinely",
+      "i'm still doing the same thing",
+      "let me know when you're back",
+      "i saw. i always see",
+    ],
+    ja: [
+      "あの時さ",
+      "いたよね",
+      "いや本当に良いと思ってる",
+      "こっちは変わらずやってる",
+      "戻ったら教えて",
+      "見たよ。いつも見てる",
+    ],
   },
 };
 
@@ -546,13 +699,36 @@ const NEWCOMER: Archetype = {
     ja: `はじめまして。新入りです。この仕組みを理解したいならこのアカウントを見ろと言われたので。フォローしました。長くてすみません。`,
   },
   ambient: [
-    { en: `ok so i looked up how {board} actually works and i have questions for literally everyone`, ja: `{board}の仕組みをちゃんと調べたんですけど、全員に訊きたいことがあります` },
-    { en: `genuine question: does anyone here sleep during {night} or is that just a thing people say`, ja: `素朴な疑問なんですけど、{night}のあいだ寝てる人います?それとも言ってるだけ?` },
-    { en: `tried the boring version of {craft} and it worked?? sorry this is long`, ja: `{craft}を地味なやり方でやってみたらできた??長くてすみません` },
+    {
+      en: `ok so i looked up how {board} actually works and i have questions for literally everyone`,
+      ja: `{board}の仕組みをちゃんと調べたんですけど、全員に訊きたいことがあります`,
+    },
+    {
+      en: `genuine question: does anyone here sleep during {night} or is that just a thing people say`,
+      ja: `素朴な疑問なんですけど、{night}のあいだ寝てる人います?それとも言ってるだけ?`,
+    },
+    {
+      en: `tried the boring version of {craft} and it worked?? sorry this is long`,
+      ja: `{craft}を地味なやり方でやってみたらできた??長くてすみません`,
+    },
   ],
   lines: {
-    en: ["ok so i looked it up", "sorry this is long", "genuine question", "i tried it and it worked??", "someone explain {board} to me", "noted, thank you!!"],
-    ja: ["調べてきました", "長くてすみません", "素朴な疑問なんですけど", "やってみたらできた??", "{board}の仕組み、誰か教えて", "メモしました。ありがとうございます"],
+    en: [
+      "ok so i looked it up",
+      "sorry this is long",
+      "genuine question",
+      "i tried it and it worked??",
+      "someone explain {board} to me",
+      "noted, thank you!!",
+    ],
+    ja: [
+      "調べてきました",
+      "長くてすみません",
+      "素朴な疑問なんですけど",
+      "やってみたらできた??",
+      "{board}の仕組み、誰か教えて",
+      "メモしました。ありがとうございます",
+    ],
   },
 };
 
@@ -602,20 +778,48 @@ const VETERAN: Archetype = {
     ja: `新しいアカウント。この手の始まりを40くらい見てきた。これは間の取り方が良い方。悪くない。`,
   },
   ambient: [
-    { en: `everyone panicking about {item} should know this exact thing happened back when {board} was new, and nobody remembers who it was about`, ja: `{item}で騒いでる全員に言うけど、昔の{board}で全く同じことが起きて、今は誰の話だったかも誰も覚えてない` },
+    {
+      en: `everyone panicking about {item} should know this exact thing happened back when {board} was new, and nobody remembers who it was about`,
+      ja: `{item}で騒いでる全員に言うけど、昔の{board}で全く同じことが起きて、今は誰の話だったかも誰も覚えてない`,
+    },
     { en: `give it a week. it's always a week`, ja: `一週間待ちなよ。毎回一週間なんだよ` },
-    { en: `i still have the old sign from before they redid {stage}. nobody wants it. i'm keeping it`, ja: `{stage}が改装される前の看板、まだ持ってる。誰もいらないって言う。持っとく` },
+    {
+      en: `i still have the old sign from before they redid {stage}. nobody wants it. i'm keeping it`,
+      ja: `{stage}が改装される前の看板、まだ持ってる。誰もいらないって言う。持っとく`,
+    },
   ],
   lines: {
-    en: ["i've seen this one", "it was worse before {board} existed", "give it a week", "somebody always says that", "you'll be fine, mostly", "that's not new"],
-    ja: ["これ見たことある", "昔の{board}はもっとひどかった", "一週間待ちなよ", "毎回誰かがそう言う", "だいたい大丈夫だよ", "それ新しくないよ"],
+    en: [
+      "i've seen this one",
+      "it was worse before {board} existed",
+      "give it a week",
+      "somebody always says that",
+      "you'll be fine, mostly",
+      "that's not new",
+    ],
+    ja: [
+      "これ見たことある",
+      "昔の{board}はもっとひどかった",
+      "一週間待ちなよ",
+      "毎回誰かがそう言う",
+      "だいたい大丈夫だよ",
+      "それ新しくないよ",
+    ],
   },
 };
 
 /** The press archetype is always cast; seven of the other nine fill the rest of the roster. */
 export const PRESS_ARCHETYPE: Archetype = PRESS;
 export const OPEN_ARCHETYPES: readonly Archetype[] = [
-  SUPERFAN, RIVAL, MENTOR, HANDLER, CRITIC, CHAOS, OLDFRIEND, NEWCOMER, VETERAN,
+  SUPERFAN,
+  RIVAL,
+  MENTOR,
+  HANDLER,
+  CRITIC,
+  CHAOS,
+  OLDFRIEND,
+  NEWCOMER,
+  VETERAN,
 ];
 export const ALL_ARCHETYPES: readonly Archetype[] = [PRESS, ...OPEN_ARCHETYPES];
 

@@ -4,8 +4,16 @@ import { PLANS, WORLD_MODERATION } from "./constants";
 
 /** ---------- Common ---------- */
 export const ErrorCodeZ = z.enum([
-  "UNAUTHORIZED", "UNDER_13", "VALIDATION", "NOT_FOUND", "ENERGY_REQUIRED", "SAFETY_BLOCKED",
-  "AD_LIMIT", "HANDLE_TAKEN", "ALREADY_DONE", "INTERNAL",
+  "UNAUTHORIZED",
+  "UNDER_13",
+  "VALIDATION",
+  "NOT_FOUND",
+  "ENERGY_REQUIRED",
+  "SAFETY_BLOCKED",
+  "AD_LIMIT",
+  "HANDLE_TAKEN",
+  "ALREADY_DONE",
+  "INTERNAL",
   /** S0-4 rate limiting (429) */
   "RATE_LIMITED",
   /** S1-1 the account is scheduled for deletion (410) */
@@ -32,19 +40,41 @@ export const AgeGateResZ = z.object({ isMinor: z.boolean() });
 
 /** ---------- Me ---------- */
 export const WalletZ = z.object({
-  energy: z.number().int(), coffee: z.number().int(), gems: z.number().int(),
-  dailyRefillAt: z.string(), adRewardsToday: z.number().int(), adsEnabled: z.boolean(), adPersonalized: z.boolean(),
+  energy: z.number().int(),
+  coffee: z.number().int(),
+  gems: z.number().int(),
+  dailyRefillAt: z.string(),
+  adRewardsToday: z.number().int(),
+  adsEnabled: z.boolean(),
+  adPersonalized: z.boolean(),
   dailyMax: z.number().int(),
 });
-export const SubscriptionZ = z.object({ plan: z.enum(Object.keys(PLANS) as [keyof typeof PLANS, ...(keyof typeof PLANS)[]]), active: z.boolean(), renewsAt: z.string().nullable() });
+export const SubscriptionZ = z.object({
+  plan: z.enum(Object.keys(PLANS) as [keyof typeof PLANS, ...(keyof typeof PLANS)[]]),
+  active: z.boolean(),
+  renewsAt: z.string().nullable(),
+});
 export const PersonaZ = z.object({
-  id: z.string(), worldId: z.string(), worldSlug: z.string(), handle: z.string(), displayName: z.string(), bio: z.string(),
-  avatarUrl: z.string().nullable(), followers: z.number().int(), aura: z.number().int(), humor: z.number().int(),
-  level: z.number().int(), xp: z.number().int(), actionCount: z.number().int(),
+  id: z.string(),
+  worldId: z.string(),
+  worldSlug: z.string(),
+  handle: z.string(),
+  displayName: z.string(),
+  bio: z.string(),
+  avatarUrl: z.string().nullable(),
+  followers: z.number().int(),
+  aura: z.number().int(),
+  humor: z.number().int(),
+  level: z.number().int(),
+  xp: z.number().int(),
+  actionCount: z.number().int(),
 });
 export const MeResZ = z.object({
   user: z.object({
-    id: z.string(), locale: LocaleZ, isMinor: z.boolean(), birthYear: z.number().int().nullable(),
+    id: z.string(),
+    locale: LocaleZ,
+    isMinor: z.boolean(),
+    birthYear: z.number().int().nullable(),
     /** SCR-033 shows the signed-in address; null for providers that do not give one. */
     email: z.string().nullable().default(null),
     /** S1-6 current consent, so the settings switch starts from the server value rather than a default. */
@@ -52,17 +82,49 @@ export const MeResZ = z.object({
     /** The name this account's worlds are credited to. Stable, unique, and renameable once claimed. */
     creatorHandle: z.string().default(""),
   }),
-  wallet: WalletZ, subscription: SubscriptionZ.nullable(), persona: PersonaZ.nullable(),
+  wallet: WalletZ,
+  subscription: SubscriptionZ.nullable(),
+  persona: PersonaZ.nullable(),
 });
 
 /** ---------- Worlds (SCR-003/004/006) ---------- */
 /** Mirrors `WORLD_GENRES`. Declared up here because the world detail needs it. */
-export const WorldGenreZ = z.enum(["fame", "academy", "idol", "office", "sports", "fantasy", "mystery", "slice_of_life"]);
+export const WorldGenreZ = z.enum([
+  "fame",
+  "academy",
+  "idol",
+  "office",
+  "sports",
+  "fantasy",
+  "mystery",
+  "slice_of_life",
+]);
 
-export const WorldSummaryZ = z.object({ id: z.string(), slug: z.string(), title: z.string(), scenario: z.string(), difficulty: z.number().int(), coverUrl: z.string().nullable() });
+export const WorldSummaryZ = z.object({
+  id: z.string(),
+  slug: z.string(),
+  title: z.string(),
+  scenario: z.string(),
+  difficulty: z.number().int(),
+  coverUrl: z.string().nullable(),
+});
 export const WorldsResZ = z.array(WorldSummaryZ);
-export const CharacterZ = z.object({ id: z.string(), handle: z.string(), displayName: z.string(), role: z.string(), avatarUrl: z.string().nullable(), isPressAccount: z.boolean(), canBeFirstFollower: z.boolean(), intro: z.string() });
-export const PresetPersonaZ = z.object({ handle: z.string(), displayName: z.string(), bio: z.string(), avatarUrl: z.string().nullable() });
+export const CharacterZ = z.object({
+  id: z.string(),
+  handle: z.string(),
+  displayName: z.string(),
+  role: z.string(),
+  avatarUrl: z.string().nullable(),
+  isPressAccount: z.boolean(),
+  canBeFirstFollower: z.boolean(),
+  intro: z.string(),
+});
+export const PresetPersonaZ = z.object({
+  handle: z.string(),
+  displayName: z.string(),
+  bio: z.string(),
+  avatarUrl: z.string().nullable(),
+});
 /**
  * The world detail every player can read — including one they were sent a link to.
  *
@@ -80,7 +142,10 @@ export const WorldDetailResZ = z.object({
      * creator's own screen credits nobody — the same shape of defect as a share link that only
      * works for the person who made it.
      */
-    remixOf: z.object({ id: z.string(), slug: z.string(), title: z.string(), creatorHandle: z.string().nullable() }).nullable().default(null),
+    remixOf: z
+      .object({ id: z.string(), slug: z.string(), title: z.string(), creatorHandle: z.string().nullable() })
+      .nullable()
+      .default(null),
     remixCount: z.number().int().default(0),
     /** What a remix inherits. Without these the remix form can only guess or stay silent. */
     genre: WorldGenreZ.nullable().default(null),
@@ -94,31 +159,66 @@ export const WorldDetailResZ = z.object({
 export const HandleCheckReqZ = z.object({ worldId: z.string(), handle: z.string() });
 export const HandleCheckResZ = z.object({ available: z.boolean() });
 export const CreatePersonaReqZ = z.object({
-  worldId: z.string(), handle: z.string().regex(/^[a-z0-9_]{3,15}$/), displayName: z.string().min(1).max(40), bio: z.string().max(160).default(""),
-  avatarUrl: z.string().nullable().default(null), voiceNotes: z.string().max(200).default(""), firstFollowerId: z.string(), idempotencyKey: z.string(),
+  worldId: z.string(),
+  handle: z.string().regex(/^[a-z0-9_]{3,15}$/),
+  displayName: z.string().min(1).max(40),
+  bio: z.string().max(160).default(""),
+  avatarUrl: z.string().nullable().default(null),
+  voiceNotes: z.string().max(200).default(""),
+  firstFollowerId: z.string(),
+  idempotencyKey: z.string(),
 });
 export const CreatePersonaResZ = z.object({ persona: PersonaZ, feedReady: z.boolean() });
 
 /** ---------- Feed / Posts (SCR-010/011/012) ---------- */
 export const PostKindZ = z.enum(["user", "character", "news", "ambient", "system"]);
 export const PostZ = z.object({
-  id: z.string(), kind: PostKindZ, text: z.string(), parentId: z.string().nullable(),
-  author: z.object({ handle: z.string(), displayName: z.string(), avatarUrl: z.string().nullable(), verified: z.boolean(), isYou: z.boolean() }),
+  id: z.string(),
+  kind: PostKindZ,
+  text: z.string(),
+  parentId: z.string().nullable(),
+  author: z.object({
+    handle: z.string(),
+    displayName: z.string(),
+    avatarUrl: z.string().nullable(),
+    verified: z.boolean(),
+    isYou: z.boolean(),
+  }),
   metrics: z.object({ likes: z.number().int(), reposts: z.number().int(), replies: z.number().int() }),
-  generationId: z.string().nullable(), createdAt: z.string(),
+  generationId: z.string().nullable(),
+  createdAt: z.string(),
   replies: z.array(z.lazy((): z.ZodTypeAny => PostZ)).optional(),
 });
 export type Post = z.infer<typeof PostZ>;
 export const StatSnapshotZ = z.object({
-  id: z.string(), cause: z.string(), narrative: z.string(), followersDelta: z.number().int(), auraDelta: z.number().int(), humorDelta: z.number().int(),
-  relDeltas: z.record(z.string(), z.number().int()), after: z.object({ followers: z.number().int(), aura: z.number().int(), humor: z.number().int() }), createdAt: z.string(),
+  id: z.string(),
+  cause: z.string(),
+  narrative: z.string(),
+  followersDelta: z.number().int(),
+  auraDelta: z.number().int(),
+  humorDelta: z.number().int(),
+  relDeltas: z.record(z.string(), z.number().int()),
+  after: z.object({ followers: z.number().int(), aura: z.number().int(), humor: z.number().int() }),
+  createdAt: z.string(),
 });
 export const EventZ = z.object({
-  id: z.string(), title: z.string(), prompt: z.string(),
-  choices: z.array(z.object({ id: z.string(), label: z.string() })).length(3), chosenId: z.string().nullable(),
+  id: z.string(),
+  title: z.string(),
+  prompt: z.string(),
+  choices: z.array(z.object({ id: z.string(), label: z.string() })).length(3),
+  chosenId: z.string().nullable(),
 });
-export const FeedResZ = z.object({ posts: z.array(PostZ), nextCursor: z.string().nullable(), pendingEvent: EventZ.nullable(), lastSnapshot: StatSnapshotZ.nullable() });
-export const CreatePostReqZ = z.object({ personaId: z.string(), text: z.string().min(1).max(280), parentId: z.string().nullable().default(null) });
+export const FeedResZ = z.object({
+  posts: z.array(PostZ),
+  nextCursor: z.string().nullable(),
+  pendingEvent: EventZ.nullable(),
+  lastSnapshot: StatSnapshotZ.nullable(),
+});
+export const CreatePostReqZ = z.object({
+  personaId: z.string(),
+  text: z.string().min(1).max(280),
+  parentId: z.string().nullable().default(null),
+});
 export const CreatePostResZ = z.object({ post: PostZ, streamUrl: z.string() });
 export const PostDetailResZ = z.object({ post: PostZ, replies: z.array(PostZ), moreAvailable: z.boolean() });
 export const MoreRepliesResZ = z.object({ replies: z.array(PostZ) });
@@ -137,19 +237,46 @@ export type PostStreamEvent = z.infer<typeof PostStreamEventZ>;
 /** ---------- Events (SCR-014) ---------- */
 export const PendingEventResZ = z.object({ event: EventZ.nullable() });
 export const ChooseEventReqZ = z.object({ choiceId: z.string() });
-export const ChooseEventResZ = z.object({ snapshot: StatSnapshotZ, newsPost: PostZ.nullable(), energy: z.number().int() });
-export const StatResZ = z.object({ snapshot: StatSnapshotZ, persona: z.object({ followers: z.number().int(), aura: z.number().int(), humor: z.number().int() }) });
+export const ChooseEventResZ = z.object({
+  snapshot: StatSnapshotZ,
+  newsPost: PostZ.nullable(),
+  energy: z.number().int(),
+});
+export const StatResZ = z.object({
+  snapshot: StatSnapshotZ,
+  persona: z.object({ followers: z.number().int(), aura: z.number().int(), humor: z.number().int() }),
+});
 
 /** ---------- DMs (SCR-020/021) ---------- */
 export const DMThreadZ = z.object({
-  id: z.string(), character: CharacterZ, lastMessage: z.string().nullable(), lastMessageAt: z.string(), unreadCount: z.number().int(),
+  id: z.string(),
+  character: CharacterZ,
+  lastMessage: z.string().nullable(),
+  lastMessageAt: z.string(),
+  unreadCount: z.number().int(),
 });
-export const DMMessageZ = z.object({ id: z.string(), fromCharacter: z.boolean(), text: z.string(), generationId: z.string().nullable(), createdAt: z.string() });
-export const RelationshipZ = z.object({ characterHandle: z.string(), affinity: z.number().int(), summary: z.string(), isFollower: z.boolean() });
+export const DMMessageZ = z.object({
+  id: z.string(),
+  fromCharacter: z.boolean(),
+  text: z.string(),
+  generationId: z.string().nullable(),
+  createdAt: z.string(),
+});
+export const RelationshipZ = z.object({
+  characterHandle: z.string(),
+  affinity: z.number().int(),
+  summary: z.string(),
+  isFollower: z.boolean(),
+});
 export const DMListResZ = z.object({ threads: z.array(DMThreadZ), followers: z.array(CharacterZ) });
 export const CreateThreadReqZ = z.object({ personaId: z.string(), characterId: z.string() });
 export const CreateThreadResZ = z.object({ thread: DMThreadZ });
-export const DMThreadResZ = z.object({ thread: DMThreadZ, messages: z.array(DMMessageZ), relationship: RelationshipZ, nextCursor: z.string().nullable() });
+export const DMThreadResZ = z.object({
+  thread: DMThreadZ,
+  messages: z.array(DMMessageZ),
+  relationship: RelationshipZ,
+  nextCursor: z.string().nullable(),
+});
 export const SendDMReqZ = z.object({ text: z.string().min(1).max(500) });
 export const SendDMResZ = z.object({ message: DMMessageZ, streamUrl: z.string() });
 export const DMStreamEventZ = z.discriminatedUnion("type", [
@@ -178,10 +305,20 @@ export const DevPurchaseResZ = z.object({ subscription: SubscriptionZ, energy: z
 export const RestoreReqZ = z.object({ rcAppUserId: z.string() });
 
 /** ---------- Ratings / Experiments ---------- */
-export const RateReqZ = z.object({ value: z.union([z.literal(-1), z.literal(1)]), regenerate: z.boolean().default(false) });
-export const RateResZ = z.object({ replacement: z.union([PostZ, DMMessageZ]).nullable(), newGenerationId: z.string().nullable() });
+export const RateReqZ = z.object({
+  value: z.union([z.literal(-1), z.literal(1)]),
+  regenerate: z.boolean().default(false),
+});
+export const RateResZ = z.object({
+  replacement: z.union([PostZ, DMMessageZ]).nullable(),
+  newGenerationId: z.string().nullable(),
+});
 export const AssignmentsResZ = z.record(z.string(), z.string());
-export const HealthResZ = z.object({ ok: z.boolean(), llmMode: z.string(), champion: z.record(z.string(), z.string()) });
+export const HealthResZ = z.object({
+  ok: z.boolean(),
+  llmMode: z.string(),
+  champion: z.record(z.string(), z.string()),
+});
 
 /** ---------- Test hooks (only when TEST_HOOKS=1) ---------- */
 export const TestTimeTravelReqZ = z.object({ days: z.number().int().min(-30).max(30) });
@@ -189,7 +326,6 @@ export const TestLlmModeReqZ = z.object({ mode: z.enum(["replay", "live", "fail"
 export const TestSetEnergyReqZ = z.object({ energy: z.number().int().min(0).max(999) });
 
 export { StatDeltasZ };
-
 
 /* ============================================================
  * S1 — account, legal, moderation (store-review requirements)
@@ -203,7 +339,13 @@ export const CancelDeletionResZ = z.object({ restored: z.boolean() });
 /** GDPR/APPI data export (SCR-036). Returned inline; large accounts get a truncated flag. */
 export const ExportDataResZ = z.object({
   exportedAt: z.string(),
-  user: z.object({ id: z.string(), email: z.string().nullable(), locale: LocaleZ, birthYear: z.number().int().nullable(), createdAt: z.string() }),
+  user: z.object({
+    id: z.string(),
+    email: z.string().nullable(),
+    locale: LocaleZ,
+    birthYear: z.number().int().nullable(),
+    createdAt: z.string(),
+  }),
   personas: z.array(z.record(z.string(), z.unknown())),
   posts: z.array(z.record(z.string(), z.unknown())),
   dms: z.array(z.record(z.string(), z.unknown())),
@@ -227,7 +369,9 @@ export const ReportResZ = z.object({ id: z.string(), status: z.string() });
 
 export const BlockReqZ = z.object({ personaId: z.string(), characterId: z.string() });
 export const BlockedListResZ = z.object({
-  blocked: z.array(z.object({ characterId: z.string(), handle: z.string(), displayName: z.string(), createdAt: z.string() })),
+  blocked: z.array(
+    z.object({ characterId: z.string(), handle: z.string(), displayName: z.string(), createdAt: z.string() }),
+  ),
 });
 
 /* ============================================================
@@ -241,14 +385,16 @@ export const RegisterPushResZ = z.object({ registered: z.boolean() });
 
 /** S2-1 Offline World Director — "While you were away". */
 export const DigestResZ = z.object({
-  digest: z.object({
-    id: z.string(),
-    headline: z.string(),
-    body: z.string(),
-    postIds: z.array(z.string()),
-    createdAt: z.string(),
-    seenAt: z.string().nullable(),
-  }).nullable(),
+  digest: z
+    .object({
+      id: z.string(),
+      headline: z.string(),
+      body: z.string(),
+      postIds: z.array(z.string()),
+      createdAt: z.string(),
+      seenAt: z.string().nullable(),
+    })
+    .nullable(),
 });
 export const MarkDigestSeenResZ = z.object({ seenAt: z.string() });
 
@@ -257,15 +403,17 @@ export const MemoryLedgerResZ = z.object({
   character: z.object({ handle: z.string(), displayName: z.string(), avatarUrl: z.string().nullable() }),
   affinity: z.number().int(),
   summary: z.string(),
-  memories: z.array(z.object({
-    id: z.string(),
-    note: z.string(),
-    sourceRef: z.string(),
-    /** the quoted text of the post/message that created the memory, when it still exists */
-    quote: z.string().nullable(),
-    consolidated: z.boolean(),
-    createdAt: z.string(),
-  })),
+  memories: z.array(
+    z.object({
+      id: z.string(),
+      note: z.string(),
+      sourceRef: z.string(),
+      /** the quoted text of the post/message that created the memory, when it still exists */
+      quote: z.string().nullable(),
+      consolidated: z.boolean(),
+      createdAt: z.string(),
+    }),
+  ),
 });
 
 /** S2-4 Shareable Moment — a vertical card the user can screenshot/share. */
@@ -300,7 +448,10 @@ export const ReelBeatZ = z.object({
   displayName: z.string().nullable().default(null),
   text: z.string(),
   /** for `stat`: what moved and by how much, so the number can count rather than appear */
-  delta: z.object({ followers: z.number().int(), aura: z.number().int(), humor: z.number().int() }).nullable().default(null),
+  delta: z
+    .object({ followers: z.number().int(), aura: z.number().int(), humor: z.number().int() })
+    .nullable()
+    .default(null),
 });
 export const MomentReelResZ = z.object({
   slug: z.string(),
@@ -372,15 +523,17 @@ export const ProfileResZ = z.object({
   persona: PersonaZ,
   levelProgress: z.object({ level: z.number().int(), xp: z.number().int(), xpForNext: z.number().int() }),
   posts: z.array(PostZ),
-  relationships: z.array(z.object({
-    characterId: z.string(),
-    handle: z.string(),
-    displayName: z.string(),
-    avatarUrl: z.string().nullable(),
-    affinity: z.number().int(),
-    isFollower: z.boolean(),
-    memoryCount: z.number().int(),
-  })),
+  relationships: z.array(
+    z.object({
+      characterId: z.string(),
+      handle: z.string(),
+      displayName: z.string(),
+      avatarUrl: z.string().nullable(),
+      affinity: z.number().int(),
+      isFollower: z.boolean(),
+      memoryCount: z.number().int(),
+    }),
+  ),
   recentSnapshots: z.array(StatSnapshotZ),
 });
 
@@ -419,9 +572,20 @@ export const CostSummaryResZ = z.object({
  * ========================================================== */
 
 export const NotificationKindZ = z.enum([
-  "like", "reply", "follow", "mention", "dm", "milestone", "event", "digest", "unlock",
+  "like",
+  "reply",
+  "follow",
+  "mention",
+  "dm",
+  "milestone",
+  "event",
+  "digest",
+  "unlock",
   /** Circuit ① — the author's return signal. A play count in a table is not a return signal. */
-  "world_played", "world_ready", "world_reviewed", "world_pulled",
+  "world_played",
+  "world_ready",
+  "world_reviewed",
+  "world_pulled",
 ]);
 export const NotificationZ = z.object({
   id: z.string(),
@@ -449,7 +613,15 @@ export const StreakResZ = z.object({
   /** what today's check-in paid, null when it was already claimed */
   reward: z.object({ energy: z.number().int(), coffee: z.number().int(), gems: z.number().int() }).nullable(),
   /** the next seven days of the ladder, for the strip in the UI */
-  ladder: z.array(z.object({ day: z.number().int(), energy: z.number().int(), coffee: z.number().int(), gems: z.number().int(), reached: z.boolean() })),
+  ladder: z.array(
+    z.object({
+      day: z.number().int(),
+      energy: z.number().int(),
+      coffee: z.number().int(),
+      gems: z.number().int(),
+      reached: z.boolean(),
+    }),
+  ),
 });
 
 export const AchievementZ = z.object({
@@ -475,20 +647,24 @@ export const MarkAchievementsSeenReqZ = z.object({ keys: z.array(z.string()) });
 
 /** What the world is talking about right now. Derived from recent posts, no table. */
 export const TrendingResZ = z.object({
-  topics: z.array(z.object({
-    label: z.string(),
-    posts: z.number().int(),
-    heat: z.number().int(),
-    /** the single hottest post carrying this topic, so the row can be tapped */
-    postId: z.string().nullable(),
-  })),
-  risingCharacters: z.array(z.object({
-    handle: z.string(),
-    displayName: z.string(),
-    avatarUrl: z.string().nullable(),
-    affinity: z.number().int(),
-    delta: z.number().int(),
-  })),
+  topics: z.array(
+    z.object({
+      label: z.string(),
+      posts: z.number().int(),
+      heat: z.number().int(),
+      /** the single hottest post carrying this topic, so the row can be tapped */
+      postId: z.string().nullable(),
+    }),
+  ),
+  risingCharacters: z.array(
+    z.object({
+      handle: z.string(),
+      displayName: z.string(),
+      avatarUrl: z.string().nullable(),
+      affinity: z.number().int(),
+      delta: z.number().int(),
+    }),
+  ),
   yourRank: z.object({ percentile: z.number(), followers: z.number().int(), trending: z.boolean() }),
 });
 
@@ -496,7 +672,12 @@ export const TrendingResZ = z.object({
 export const CharacterProfileResZ = z.object({
   character: CharacterZ,
   bio: z.string(),
-  relationship: z.object({ affinity: z.number().int(), summary: z.string(), isFollower: z.boolean(), memoryCount: z.number().int() }),
+  relationship: z.object({
+    affinity: z.number().int(),
+    summary: z.string(),
+    isFollower: z.boolean(),
+    memoryCount: z.number().int(),
+  }),
   posts: z.array(PostZ),
   blocked: z.boolean(),
 });
@@ -524,18 +705,24 @@ export const BanditArmZ = z.object({
   allocation: z.number(),
 });
 export const BanditStateResZ = z.object({
-  generators: z.array(z.object({
-    generator: z.string(),
-    champion: z.string(),
-    arms: z.array(BanditArmZ),
-    /** probability the leader is genuinely best, from the sampler */
-    pBest: z.number(),
-    promotable: z.boolean(),
-  })),
+  generators: z.array(
+    z.object({
+      generator: z.string(),
+      champion: z.string(),
+      arms: z.array(BanditArmZ),
+      /** probability the leader is genuinely best, from the sampler */
+      pBest: z.number(),
+      promotable: z.boolean(),
+    }),
+  ),
   lambda: z.number(),
   updatedAt: z.string(),
 });
-export const PromoteReqZ = z.object({ generator: z.string(), variantId: z.string(), reason: z.string().max(200).default("manual") });
+export const PromoteReqZ = z.object({
+  generator: z.string(),
+  variantId: z.string(),
+  reason: z.string().max(200).default("manual"),
+});
 export const PromoteResZ = z.object({ generator: z.string(), champion: z.string(), previous: z.string().nullable() });
 
 export const EvalStatusZ = z.enum(["running", "finished", "failed"]);
@@ -561,19 +748,21 @@ export const StartEvalReqZ = z.object({
 export const EvalCompareResZ = z.object({
   generator: z.string(),
   /** one row per variant with the numbers a promotion decision is made on */
-  rows: z.array(z.object({
-    variantId: z.string(),
-    runs: z.number().int(),
-    cases: z.number().int(),
-    passRate: z.number(),
-    meanScore: z.number(),
-    usdPerCase: z.number(),
-    /** versus the champion, negative is cheaper */
-    costDelta: z.number(),
-    scoreDelta: z.number(),
-    /** the §6.2 gate: within 2 points of quality and at least 20% cheaper, or 3 points better */
-    passesGate: z.boolean(),
-  })),
+  rows: z.array(
+    z.object({
+      variantId: z.string(),
+      runs: z.number().int(),
+      cases: z.number().int(),
+      passRate: z.number(),
+      meanScore: z.number(),
+      usdPerCase: z.number(),
+      /** versus the champion, negative is cheaper */
+      costDelta: z.number(),
+      scoreDelta: z.number(),
+      /** the §6.2 gate: within 2 points of quality and at least 20% cheaper, or 3 points better */
+      passesGate: z.boolean(),
+    }),
+  ),
 });
 
 /** Scheduler visibility — which jobs exist, when they last ran, and what they did. */
@@ -586,13 +775,15 @@ export const JobRunZ = z.object({
   error: z.string().nullable(),
 });
 export const JobsResZ = z.object({
-  jobs: z.array(z.object({
-    name: z.string(),
-    schedule: z.string(),
-    enabled: z.boolean(),
-    lastRun: JobRunZ.nullable(),
-    nextRunAt: z.string().nullable(),
-  })),
+  jobs: z.array(
+    z.object({
+      name: z.string(),
+      schedule: z.string(),
+      enabled: z.boolean(),
+      lastRun: JobRunZ.nullable(),
+      nextRunAt: z.string().nullable(),
+    }),
+  ),
 });
 export const RunJobReqZ = z.object({ job: z.string(), personaId: z.string().nullable().default(null) });
 
@@ -674,7 +865,10 @@ export const WorldSummaryFullZ = WorldSummaryZ.extend({
   canAppeal: z.boolean().default(false),
   appealed: z.boolean().default(false),
   /** The world this one was remixed from, so a derivative credits what it came out of. */
-  remixOf: z.object({ id: z.string(), slug: z.string(), title: z.string(), creatorHandle: z.string().nullable() }).nullable().default(null),
+  remixOf: z
+    .object({ id: z.string(), slug: z.string(), title: z.string(), creatorHandle: z.string().nullable() })
+    .nullable()
+    .default(null),
   remixCount: z.number().int().default(0),
 });
 export const CreateWorldResZ = z.object({
@@ -750,34 +944,39 @@ export const PublishWorldResZ = z.object({
 
 /** Admin review queue for worlds asking to go public. */
 export const WorldReviewQueueResZ = z.object({
-  worlds: z.array(WorldSummaryFullZ.extend({
-    bibleExcerpt: z.string(),
-    cast: z.array(z.object({ handle: z.string(), displayName: z.string(), role: z.string() })),
-    safety: z.string().nullable(),
-    safetyNote: z.string(),
-    /** distinct reporters on this world — a queue sorted by luck is not a queue */
-    reportCount: z.number().int(),
-    /** how long it has been waiting, and whether that is past WORLD_MODERATION.REVIEW_SLA_HOURS */
-    waitingHours: z.number(),
-    overdue: z.boolean(),
-    /** what people said about it, newest first, so the reviewer reads the complaint not just the world */
-    reports: z.array(z.object({ reason: z.string(), note: z.string(), createdAt: z.string() })),
-    /** the creator's case, when this is back in the queue because they appealed a rejection */
-    appeal: z.object({ message: z.string(), createdAt: z.string(), previousReason: z.string() }).nullable(),
-    /** who is looking at it right now, so two reviewers do not spend the same twenty minutes */
-    claimedBy: z.string().nullable(),
-    claimedUntil: z.string().nullable(),
-    /** what to look at first, and whether this one was drawn for a full read */
-    digest: ReviewDigestZ.nullable().default(null),
-    creatorTrust: CreatorTrustZ.nullable().default(null),
-  })),
+  worlds: z.array(
+    WorldSummaryFullZ.extend({
+      bibleExcerpt: z.string(),
+      cast: z.array(z.object({ handle: z.string(), displayName: z.string(), role: z.string() })),
+      safety: z.string().nullable(),
+      safetyNote: z.string(),
+      /** distinct reporters on this world — a queue sorted by luck is not a queue */
+      reportCount: z.number().int(),
+      /** how long it has been waiting, and whether that is past WORLD_MODERATION.REVIEW_SLA_HOURS */
+      waitingHours: z.number(),
+      overdue: z.boolean(),
+      /** what people said about it, newest first, so the reviewer reads the complaint not just the world */
+      reports: z.array(z.object({ reason: z.string(), note: z.string(), createdAt: z.string() })),
+      /** the creator's case, when this is back in the queue because they appealed a rejection */
+      appeal: z.object({ message: z.string(), createdAt: z.string(), previousReason: z.string() }).nullable(),
+      /** who is looking at it right now, so two reviewers do not spend the same twenty minutes */
+      claimedBy: z.string().nullable(),
+      claimedUntil: z.string().nullable(),
+      /** what to look at first, and whether this one was drawn for a full read */
+      digest: ReviewDigestZ.nullable().default(null),
+      creatorTrust: CreatorTrustZ.nullable().default(null),
+    }),
+  ),
   overdueCount: z.number().int(),
   appealCount: z.number().int(),
 });
 
 /** A reviewer takes a world for `WORLD_MODERATION.CLAIM_MINUTES`; it returns to the queue after. */
 export const ClaimWorldResZ = z.object({ worldId: z.string(), claimedUntil: z.string(), claimedByYou: z.boolean() });
-export const ReviewWorldReqZ = z.object({ decision: z.enum(["approve", "reject"]), reason: z.string().max(300).default("") });
+export const ReviewWorldReqZ = z.object({
+  decision: z.enum(["approve", "reject"]),
+  reason: z.string().max(300).default(""),
+});
 
 /** SCR-049 → a rejected world's creator says the decision read it wrong. Once per rejection. */
 export const AppealWorldReqZ = z.object({ message: z.string().min(10).max(500) });

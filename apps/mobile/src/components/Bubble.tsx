@@ -49,25 +49,46 @@ export function Bubble({ text, fromCharacter, footer, grouped = false, last = tr
   const corner = radius.lg;
   const tight = grouped ? radius.xs : corner;
   const shape = mine
-    ? { borderTopLeftRadius: corner, borderTopRightRadius: tight, borderBottomLeftRadius: corner, borderBottomRightRadius: last ? radius.xs : tight }
-    : { borderTopRightRadius: corner, borderTopLeftRadius: tight, borderBottomRightRadius: corner, borderBottomLeftRadius: last ? radius.xs : tight };
+    ? {
+        borderTopLeftRadius: corner,
+        borderTopRightRadius: tight,
+        borderBottomLeftRadius: corner,
+        borderBottomRightRadius: last ? radius.xs : tight,
+      }
+    : {
+        borderTopRightRadius: corner,
+        borderTopLeftRadius: tight,
+        borderBottomRightRadius: corner,
+        borderBottomLeftRadius: last ? radius.xs : tight,
+      };
   const pad = { paddingHorizontal: spacing.lg, paddingVertical: spacing.md } as const;
   const stamp = createdAt ? timeAgo(createdAt) : "";
 
-  const body = (
-    <Text style={[typo.body, { color: mine ? colors.accentInk : colors.text }]}>{text}</Text>
-  );
+  const body = <Text style={[typo.body, { color: mine ? colors.accentInk : colors.text }]}>{text}</Text>;
 
   return (
-    <View style={{ alignItems: mine ? "flex-end" : "flex-start", marginBottom: grouped ? spacing.xxs : spacing.sm, maxWidth: "100%" }}>
+    <View
+      style={{
+        alignItems: mine ? "flex-end" : "flex-start",
+        marginBottom: grouped ? spacing.xxs : spacing.sm,
+        maxWidth: "100%",
+      }}
+    >
       <View style={{ maxWidth: "82%" }}>
-        <View testID={T.dmBubble} accessibilityRole="text" accessibilityLabel={text} style={[shape, { overflow: "hidden" }]}>
+        <View
+          testID={T.dmBubble}
+          accessibilityRole="text"
+          accessibilityLabel={text}
+          style={[shape, { overflow: "hidden" }]}
+        >
           {mine ? (
             <Gradient colors={gradients.brand} angle={135} style={[pad, shape]}>
               {body}
             </Gradient>
           ) : (
-            <View style={[pad, shape, { backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border }]}>{body}</View>
+            <View style={[pad, shape, { backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border }]}>
+              {body}
+            </View>
           )}
         </View>
         {last ? <Tail mine={mine} color={tailColor} /> : null}

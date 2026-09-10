@@ -11,8 +11,7 @@ import type { WorldSummary } from "../api/types";
  */
 
 /** A community card: someone else's world, never a preset, never your own. */
-export const isReportableWorld = (w: Pick<WorldFull, "isMine" | "isPreset">): boolean =>
-  !w.isMine && !w.isPreset;
+export const isReportableWorld = (w: Pick<WorldFull, "isMine" | "isPreset">): boolean => !w.isMine && !w.isPreset;
 
 /**
  * The world you are *playing* carries no ownership flags — the feed only knows a slug. But the

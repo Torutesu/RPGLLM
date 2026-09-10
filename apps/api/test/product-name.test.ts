@@ -17,7 +17,9 @@ import { publicAppName } from "../src/env";
  * has decided.
  */
 
-interface AppJson { expo: { name: string; slug: string } }
+interface AppJson {
+  expo: { name: string; slug: string };
+}
 
 const appJson = (): AppJson =>
   JSON.parse(readFileSync(new URL("../../mobile/app.json", import.meta.url), "utf8")) as AppJson;

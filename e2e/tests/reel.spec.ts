@@ -1,8 +1,18 @@
 import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
 import { PACING, T, strings } from "@rpgllm/shared";
 import {
-  apiUrl, bearer, browserToken, dismissStatCard, gotoApp, postAndSettle, resetDb, setEnergy,
-  setLlmMode, signupAndEnter, unwrap, type Account,
+  apiUrl,
+  bearer,
+  browserToken,
+  dismissStatCard,
+  gotoApp,
+  postAndSettle,
+  resetDb,
+  setEnergy,
+  setLlmMode,
+  signupAndEnter,
+  unwrap,
+  type Account,
 } from "../fixtures";
 
 /**
@@ -17,9 +27,13 @@ import {
 
 const MOMENT_TEXT = "the demo leaked and the label is pretending it didn't";
 
-interface Moment { shareSlug: string }
+interface Moment {
+  shareSlug: string;
+}
 interface Reel {
-  slug: string; durationMs: number; personaHandle: string;
+  slug: string;
+  durationMs: number;
+  personaHandle: string;
   beats: { kind: string; at: number; holdMs: number; text: string; delta: unknown }[];
 }
 
@@ -47,9 +61,12 @@ async function aMoment(page: Page, request: APIRequestContext, account: Account)
   await dismissStatCard(page);
 
   const jwt = (await browserToken(page)) ?? account.jwt;
-  const personaId = (await unwrap<{ persona: { id: string } | null }>(
-    await request.get(apiUrl("/v1/me"), { headers: bearer(jwt), failOnStatusCode: false }), "GET /v1/me",
-  )).persona?.id;
+  const personaId = (
+    await unwrap<{ persona: { id: string } | null }>(
+      await request.get(apiUrl("/v1/me"), { headers: bearer(jwt), failOnStatusCode: false }),
+      "GET /v1/me",
+    )
+  ).persona?.id;
   const list = await unwrap<{ moments: Moment[] }>(
     await request.get(apiUrl(`/v1/moments?personaId=${personaId}`), { headers: bearer(jwt), failOnStatusCode: false }),
     "GET /v1/moments",
@@ -77,8 +94,7 @@ test.describe("The reel", () => {
     const again = await reelOf(request, slug);
     expect(again, "a recording is a contract with the timeline that produced it").toEqual(reel);
 
-    expect(reel.durationMs, "long enough to read, over before a thumb moves")
-      .toBeGreaterThan(3_000);
+    expect(reel.durationMs, "long enough to read, over before a thumb moves").toBeGreaterThan(3_000);
     expect(reel.durationMs).toBeLessThanOrEqual(9_800);
     expect(reel.beats.length).toBeGreaterThan(2);
     // The numbers are the punchline, so nothing comes after them except the headline and the sign-off.
@@ -98,23 +114,21 @@ test.describe("The reel", () => {
     const record = page.getByTestId(T.momentReelRecord);
     await expect(record, "Chromium can record, so the button must be offered").toBeVisible();
     await record.click();
-    await expect(page.getByTestId(T.momentReelProgress), "recording says it is recording")
-      .toBeVisible({ timeout: 10_000 });
+    await expect(page.getByTestId(T.momentReelProgress), "recording says it is recording").toBeVisible({
+      timeout: 10_000,
+    });
 
     // The reel records in real time, so this waits out its own duration plus the lead-in and tail.
     const ready = page.getByTestId(T.momentReelDownload);
     await expect(ready, "a file, not a spinner that stopped").toBeVisible({ timeout: 60_000 });
 
     // The size is the assertion. A recorder that writes nothing passes a click test.
-    await expect(
-      panel,
-      "the file is real — an empty recording would still have rendered this row",
-    ).toContainText(new RegExp(`${strings.en.reelReady}.*\\d`), { timeout: 10_000 });
+    await expect(panel, "the file is real — an empty recording would still have rendered this row").toContainText(
+      new RegExp(`${strings.en.reelReady}.*\\d`),
+      { timeout: 10_000 },
+    );
 
-    const [download] = await Promise.all([
-      page.waitForEvent("download", { timeout: 30_000 }),
-      ready.click(),
-    ]);
+    const [download] = await Promise.all([page.waitForEvent("download", { timeout: 30_000 }), ready.click()]);
     expect(download.suggestedFilename(), "a video, named for what it is").toMatch(/\.(mp4|webm)$/);
   });
 
@@ -132,10 +146,8 @@ test.describe("The reel", () => {
 
     await gotoApp(page, `/moment/${slug}`);
     await expect(page.getByTestId(T.momentReel)).toBeVisible({ timeout: 20_000 });
-    await expect(page.getByTestId(T.momentReelUnsupported), "it says so rather than failing silently")
-      .toBeVisible();
-    await expect(page.getByTestId(T.momentReelRecord), "and offers no button that cannot work")
-      .toHaveCount(0);
+    await expect(page.getByTestId(T.momentReelUnsupported), "it says so rather than failing silently").toBeVisible();
+    await expect(page.getByTestId(T.momentReelRecord), "and offers no button that cannot work").toHaveCount(0);
     await expect(page.getByTestId(T.momentReelPlay), "the animation still plays").toBeVisible();
     await expect(page.getByTestId(T.momentShare), "and the card it came from still shares").toBeVisible();
   });

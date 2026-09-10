@@ -80,9 +80,11 @@ export async function sweepPushReceipts(
   const result: ReceiptSweepResult = { checked: 0, pruned: 0, dropped: 0 };
 
   // Expired tickets go whether or not push is on: they can never be answered again.
-  result.dropped += (await prisma.pushTicket.deleteMany({
-    where: { sentAt: { lt: new Date(now.getTime() - receiptTtlMs()) } },
-  })).count;
+  result.dropped += (
+    await prisma.pushTicket.deleteMany({
+      where: { sentAt: { lt: new Date(now.getTime() - receiptTtlMs()) } },
+    })
+  ).count;
   if (!pushEnabled()) return result;
 
   const due = await prisma.pushTicket.findMany({

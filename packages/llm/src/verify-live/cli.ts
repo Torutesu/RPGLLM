@@ -5,14 +5,7 @@ import { isWorldGenre, planRun } from "./plan.js";
 import { renderHtml } from "./report-html.js";
 import { estimateBanner, renderText } from "./report-text.js";
 import { createStubLiveGateway } from "./stub-gateway.js";
-import {
-  API_KEY_ENV,
-  createCollector,
-  estimateRun,
-  preflightLive,
-  runVerification,
-  VerifyRefusal,
-} from "./run.js";
+import { API_KEY_ENV, createCollector, estimateRun, preflightLive, runVerification, VerifyRefusal } from "./run.js";
 import type { VerifyReport } from "./types.js";
 
 /**
@@ -85,13 +78,28 @@ export function parseArgs(argv: readonly string[]): CliArgs {
     else if (a === "--no-hard") args.hard = false;
     else if (a === "--json") args.json = true;
     else if (a === "--help" || a === "-h") args.help = true;
-    else if (a === "--genres") { args.genres = value(i).split(",").map((s) => s.trim()).filter((s) => s !== ""); i += 1; }
-    else if (a === "--pairs") { args.pairs = Number(value(i)); i += 1; }
-    else if (a === "--max-usd") { args.maxUsd = Number(value(i)); i += 1; }
-    else if (a === "--concurrency") { args.concurrency = Math.max(1, Number(value(i))); i += 1; }
-    else if (a === "--timeout") { args.timeoutMs = Math.max(1, Number(value(i))) * 1000; i += 1; }
-    else if (a === "--out") { args.out = value(i); i += 1; }
-    else throw new VerifyRefusal(`unknown argument: ${a}`, USAGE);
+    else if (a === "--genres") {
+      args.genres = value(i)
+        .split(",")
+        .map((s) => s.trim())
+        .filter((s) => s !== "");
+      i += 1;
+    } else if (a === "--pairs") {
+      args.pairs = Number(value(i));
+      i += 1;
+    } else if (a === "--max-usd") {
+      args.maxUsd = Number(value(i));
+      i += 1;
+    } else if (a === "--concurrency") {
+      args.concurrency = Math.max(1, Number(value(i)));
+      i += 1;
+    } else if (a === "--timeout") {
+      args.timeoutMs = Math.max(1, Number(value(i))) * 1000;
+      i += 1;
+    } else if (a === "--out") {
+      args.out = value(i);
+      i += 1;
+    } else throw new VerifyRefusal(`unknown argument: ${a}`, USAGE);
   }
   for (const g of args.genres) {
     if (!isWorldGenre(g)) throw new VerifyRefusal(`unknown genre: ${g}`, USAGE);
@@ -136,9 +144,7 @@ export async function main(argv: readonly string[], io: CliIo = nodeIo): Promise
   }
 
   const plan = planRun({
-    ...(args.genres.length > 0
-      ? { genres: args.genres.filter(isWorldGenre) }
-      : {}),
+    ...(args.genres.length > 0 ? { genres: args.genres.filter(isWorldGenre) } : {}),
     ...(args.pairs === undefined ? {} : { maxPairs: args.pairs }),
     hard: args.hard,
   });
@@ -226,8 +232,6 @@ export async function main(argv: readonly string[], io: CliIo = nodeIo): Promise
  * `human` is not a failure: it means the machine got as far as a machine can.
  */
 export function exitCodeFor(report: VerifyReport): number {
-  const broken =
-    report.answers.some((a) => a.verdict === "fail") ||
-    (report.mode === "live" && !report.evidence.live);
+  const broken = report.answers.some((a) => a.verdict === "fail") || (report.mode === "live" && !report.evidence.live);
   return broken ? 2 : 0;
 }

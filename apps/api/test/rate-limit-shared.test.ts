@@ -18,8 +18,12 @@ import { prisma, resetDatabase } from "./helpers";
 
 let limiter: SharedLimiter;
 
-beforeAll(() => { limiter = new SharedLimiter(prisma); });
-beforeEach(async () => { await resetDatabase(); });
+beforeAll(() => {
+  limiter = new SharedLimiter(prisma);
+});
+beforeEach(async () => {
+  await resetDatabase();
+});
 
 const t0 = Date.UTC(2026, 8, 10, 12, 0, 0);
 
@@ -81,8 +85,10 @@ describe("the shared bucket", () => {
     for (const at of [t0, t0, t0 + 5_000, t0 + 30_000]) {
       const a = await limiter.take("clean", 5, at);
       const b = memory.take("clean", 5, at);
-      expect({ allowed: a.allowed, remaining: a.remaining }, `at ${at - t0}ms`)
-        .toEqual({ allowed: b.allowed, remaining: b.remaining });
+      expect({ allowed: a.allowed, remaining: a.remaining }, `at ${at - t0}ms`).toEqual({
+        allowed: b.allowed,
+        remaining: b.remaining,
+      });
     }
   });
 
@@ -101,9 +107,7 @@ describe("the shared bucket", () => {
   });
 
   it("lets a burst of twenty spend a budget of five, once", async () => {
-    const results = await Promise.all(
-      Array.from({ length: 20 }, () => limiter.take("burst", 5, t0)),
-    );
+    const results = await Promise.all(Array.from({ length: 20 }, () => limiter.take("burst", 5, t0)));
     expect(results.filter((r) => r.allowed)).toHaveLength(5);
   });
 
@@ -125,7 +129,9 @@ describe("the shared bucket", () => {
 
   it("refuses a zero budget without asking the database", async () => {
     const exploding = new SharedLimiter({
-      $queryRaw: () => { throw new Error("must not be called"); },
+      $queryRaw: () => {
+        throw new Error("must not be called");
+      },
     } as unknown as typeof prisma);
     expect((await exploding.take("k", 0, t0)).allowed).toBe(false);
   });

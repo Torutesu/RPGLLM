@@ -6,3 +6,13 @@ playwright-report
 test-results
 pnpm-lock.yaml
 apps/mobile/dist
+
+# Documentation is hand-formatted prose, in two languages, with tables whose columns are aligned
+# by eye and comparison rows that must stay on one line to be readable. Prettier reflows all of
+# that into something a reader has to work harder at, for no consistency anyone benefits from —
+# so the formatter owns the code and the writers own the prose.
+*.md
+
+# Generated verification reports (`pnpm --filter llm verify:live`). Gitignored, but Prettier walks
+# the working tree, not the index — and CI failing on somebody's local artifact is a false alarm.
+packages/llm/.verify

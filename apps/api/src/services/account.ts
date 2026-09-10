@@ -17,7 +17,8 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 export const purgeAtFor = (deletedAt: Date): Date => new Date(deletedAt.getTime() + DELETION_GRACE_DAYS * DAY_MS);
 
 /** True while the user can still cancel the deletion. */
-export const withinGraceWindow = (deletedAt: Date, now: Date): boolean => purgeAtFor(deletedAt).getTime() > now.getTime();
+export const withinGraceWindow = (deletedAt: Date, now: Date): boolean =>
+  purgeAtFor(deletedAt).getTime() > now.getTime();
 
 export const isDeleted = (user: Pick<User, "deletedAt">): boolean => user.deletedAt !== null;
 
@@ -71,7 +72,8 @@ export async function purgeDeletedAccounts(prisma: PrismaClient, now: Date): Pro
   const walletIds = wallets.map((w) => w.id);
 
   await prisma.$transaction(async (tx) => {
-    if (threadIds.length) result.messages = (await tx.dMMessage.deleteMany({ where: { threadId: { in: threadIds } } })).count;
+    if (threadIds.length)
+      result.messages = (await tx.dMMessage.deleteMany({ where: { threadId: { in: threadIds } } })).count;
     if (threadIds.length) await tx.dMThread.deleteMany({ where: { id: { in: threadIds } } });
     if (relationshipIds.length) await tx.memoryEntry.deleteMany({ where: { relationshipId: { in: relationshipIds } } });
     if (relationshipIds.length) await tx.relationshipState.deleteMany({ where: { id: { in: relationshipIds } } });
@@ -115,7 +117,11 @@ export const EXPORT_LIMIT = 1000;
 export interface ExportPayload {
   exportedAt: string;
   user: {
-    id: string; email: string | null; locale: "en" | "ja"; birthYear: number | null; createdAt: string;
+    id: string;
+    email: string | null;
+    locale: "en" | "ja";
+    birthYear: number | null;
+    createdAt: string;
     /** The name their worlds are credited to (services/creator-handle.ts) — public, and theirs. */
     creatorHandle: string;
   };
@@ -137,19 +143,19 @@ export async function buildExport(prisma: PrismaClient, user: User, now: Date): 
 
   const posts = personaIds.length
     ? await prisma.post.findMany({
-      where: { personaId: { in: personaIds } },
-      orderBy: { createdAt: "asc" },
-      take: EXPORT_LIMIT + 1,
-      include: { authorCharacter: { select: { handle: true, displayName: true } } },
-    })
+        where: { personaId: { in: personaIds } },
+        orderBy: { createdAt: "asc" },
+        take: EXPORT_LIMIT + 1,
+        include: { authorCharacter: { select: { handle: true, displayName: true } } },
+      })
     : [];
   const messages = personaIds.length
     ? await prisma.dMMessage.findMany({
-      where: { thread: { personaId: { in: personaIds } } },
-      orderBy: { createdAt: "asc" },
-      take: EXPORT_LIMIT + 1,
-      include: { thread: { select: { id: true, character: { select: { handle: true } } } } },
-    })
+        where: { thread: { personaId: { in: personaIds } } },
+        orderBy: { createdAt: "asc" },
+        take: EXPORT_LIMIT + 1,
+        include: { thread: { select: { id: true, character: { select: { handle: true } } } } },
+      })
     : [];
   const purchases = await prisma.purchase.findMany({ where: { userId: user.id }, orderBy: { createdAt: "asc" } });
 
@@ -207,7 +213,10 @@ export async function buildExport(prisma: PrismaClient, user: User, now: Date): 
 }
 
 /** S1-6: minors can never turn analytics/personalised ads on. */
-export function resolveConsent(user: Pick<User, "isMinor">, requested: boolean): { analytics: boolean; locked: boolean } {
+export function resolveConsent(
+  user: Pick<User, "isMinor">,
+  requested: boolean,
+): { analytics: boolean; locked: boolean } {
   if (user.isMinor) return { analytics: false, locked: true };
   return { analytics: requested, locked: false };
 }

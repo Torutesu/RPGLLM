@@ -114,10 +114,15 @@ export function nextCronRun(expr: CronExpression, from: Date): Date | null {
     const dayMatches = cronMatches(
       expr,
       // probe the day at a minute/hour the expression definitely allows
-      new Date(Date.UTC(
-        cursor.getUTCFullYear(), cursor.getUTCMonth(), cursor.getUTCDate(),
-        [...expr.hour.values][0] ?? 0, [...expr.minute.values][0] ?? 0,
-      )),
+      new Date(
+        Date.UTC(
+          cursor.getUTCFullYear(),
+          cursor.getUTCMonth(),
+          cursor.getUTCDate(),
+          [...expr.hour.values][0] ?? 0,
+          [...expr.minute.values][0] ?? 0,
+        ),
+      ),
     );
     if (dayMatches) {
       const endOfDay = Date.UTC(cursor.getUTCFullYear(), cursor.getUTCMonth(), cursor.getUTCDate() + 1);

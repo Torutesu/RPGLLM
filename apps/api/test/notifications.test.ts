@@ -4,22 +4,37 @@ import { call, makeHarness, prisma, readSSE, resetDatabase, signupWithPersona, t
 
 let h: Harness;
 
-beforeAll(() => { h = makeHarness(); });
-beforeEach(async () => { await resetDatabase(); h.gateway.setMode("replay"); h.gateway.calls.length = 0; });
+beforeAll(() => {
+  h = makeHarness();
+});
+beforeEach(async () => {
+  await resetDatabase();
+  h.gateway.setMode("replay");
+  h.gateway.calls.length = 0;
+});
 
 interface NotificationRow {
-  id: string; kind: string; text: string; target: string | null;
+  id: string;
+  kind: string;
+  text: string;
+  target: string | null;
   actor: { handle: string; displayName: string; avatarUrl: string | null } | null;
-  readAt: string | null; createdAt: string;
+  readAt: string | null;
+  createdAt: string;
 }
-interface ListRes { notifications: NotificationRow[]; unread: number; nextCursor: string | null }
+interface ListRes {
+  notifications: NotificationRow[];
+  unread: number;
+  nextCursor: string | null;
+}
 
 const list = (token: string, personaId: string, cursor?: string) =>
   call<ListRes>(h, "GET", `/v1/notifications?personaId=${personaId}${cursor ? `&cursor=${cursor}` : ""}`, { token });
 
 async function postAndStream(token: string, personaId: string, text: string): Promise<string> {
   const res = await call<{ post: { id: string }; streamUrl: string }>(h, "POST", "/v1/posts", {
-    token, body: { personaId, text, parentId: null },
+    token,
+    body: { personaId, text, parentId: null },
   });
   await readSSE(h, res.data.streamUrl, token);
   return res.data.post.id;
@@ -50,9 +65,11 @@ describe("notifications (SCR-042)", () => {
     const postId = await postAndStream(fx.token, fx.personaId, "load more reactions");
     const more = await call(h, "POST", `/v1/posts/${postId}/more-replies`, { token: fx.token });
     expect(more.status).toBe(200);
-    expect(await prisma.notification.count({
-      where: { personaId: fx.personaId, kind: "like", target: `post:${postId}` },
-    })).toBeLessThanOrEqual(3);
+    expect(
+      await prisma.notification.count({
+        where: { personaId: fx.personaId, kind: "like", target: `post:${postId}` },
+      }),
+    ).toBeLessThanOrEqual(3);
   });
 
   it("lists newest first with an unread count, a resolved actor and localized text", async () => {
@@ -81,7 +98,8 @@ describe("notifications (SCR-042)", () => {
     expect(before.data.unread).toBeGreaterThan(0);
 
     const marked = await call<{ unread: number }>(h, "POST", `/v1/notifications/read?personaId=${fx.personaId}`, {
-      token: fx.token, body: { ids: null },
+      token: fx.token,
+      body: { ids: null },
     });
     expect(marked.status).toBe(200);
     expect(marked.data.unread).toBe(0);
@@ -95,7 +113,8 @@ describe("notifications (SCR-042)", () => {
     const one = before.data.notifications[0]!;
 
     const marked = await call<{ unread: number }>(h, "POST", `/v1/notifications/read?personaId=${fx.personaId}`, {
-      token: fx.token, body: { ids: [one.id] },
+      token: fx.token,
+      body: { ids: [one.id] },
     });
     expect(marked.data.unread).toBe(before.data.unread - 1);
   });

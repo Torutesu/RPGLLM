@@ -47,7 +47,11 @@ export async function lastActivityAt(prisma: PrismaClient, persona: Persona): Pr
       orderBy: { createdAt: "desc" },
       select: { createdAt: true },
     }),
-    prisma.digest.findFirst({ where: { personaId: persona.id }, orderBy: { createdAt: "desc" }, select: { createdAt: true } }),
+    prisma.digest.findFirst({
+      where: { personaId: persona.id },
+      orderBy: { createdAt: "desc" },
+      select: { createdAt: true },
+    }),
   ]);
   const times = [persona.createdAt, post?.createdAt, dm?.createdAt, digest?.createdAt]
     .filter((d): d is Date => d instanceof Date)
@@ -66,11 +70,7 @@ export async function isAway(prisma: PrismaClient, clock: Clock, persona: Person
  * Persona lookup shared by the S2 reads: an explicit `?personaId=` must belong to the caller,
  * otherwise the newest persona of the account is used (same rule as `GET /v1/feed`).
  */
-export async function personaFor(
-  prisma: PrismaClient,
-  userId: string,
-  personaId?: string,
-): Promise<Persona | null> {
+export async function personaFor(prisma: PrismaClient, userId: string, personaId?: string): Promise<Persona | null> {
   const persona = personaId
     ? await prisma.persona.findUnique({ where: { id: personaId } })
     : await prisma.persona.findFirst({ where: { userId }, orderBy: { createdAt: "desc" } });

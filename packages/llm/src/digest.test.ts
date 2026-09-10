@@ -97,7 +97,9 @@ describe("what a point is allowed to quote", () => {
   });
 
   it("is deterministic in the world alone", () => {
-    expect(JSON.stringify(worldPassages(CLEAN))).toBe(JSON.stringify(worldPassages(deterministicWorld(G9_CASES[0]!.input))));
+    expect(JSON.stringify(worldPassages(CLEAN))).toBe(
+      JSON.stringify(worldPassages(deterministicWorld(G9_CASES[0]!.input))),
+    );
   });
 });
 
@@ -177,7 +179,9 @@ describe("the deterministic half is quiet about worlds that are fine", () => {
   });
 
   it("does not read a handle list or a markdown heading as untranslated Japanese", () => {
-    expect(isJapaneseProse({ locale: "ja", field: "bible[1]", text: "## noorposts — Bea Solano (the analyst)" })).toBe(null);
+    expect(isJapaneseProse({ locale: "ja", field: "bible[1]", text: "## noorposts — Bea Solano (the analyst)" })).toBe(
+      null,
+    );
     const handles =
       "- ハンドルは正確に次の8つ: @noorposts, @thefeedwire, @marlowsaid, @lolaquotes, @brixmode, " +
       "@okaycassian, @havenrun, @aprilsees。9人目は存在しない。";
@@ -189,7 +193,10 @@ describe("the deterministic half is quiet about worlds that are fine", () => {
   it("needs more than one odd line before it says the Japanese is English", () => {
     const one = structuredClone(CLEAN_JA);
     const first = one.cast[0]!;
-    one.cast[0] = { ...first, card: { ...first.card, ja: "This card is written in English, at some length, in the Japanese column." } };
+    one.cast[0] = {
+      ...first,
+      card: { ...first.card, ja: "This card is written in English, at some length, in the Japanese column." },
+    };
     expect(measuredPoints(one).filter((p) => p.rule === "locales")).toEqual([]);
     expect(measuredPoints(DAMAGES.jaEchoesEn(CLEAN_JA)).some((p) => p.rule === "locales")).toBe(true);
   });
@@ -213,7 +220,12 @@ describe("a point that decides is deleted, not softened", () => {
     // The trade is deliberate: a lost point is a reviewer reading one more paragraph, and a kept
     // one is a digest that sounds like it decided something.
     expect(readsAsVerdict("The bible describes a rejection letter the player receives.")).toBe(true);
-    expect(cleanModelPoint({ ...groundedPoint(CLEAN), concern: "A rejection letter arrives in act two." }, worldHaystack(CLEAN))).toBeNull();
+    expect(
+      cleanModelPoint(
+        { ...groundedPoint(CLEAN), concern: "A rejection letter arrives in act two." },
+        worldHaystack(CLEAN),
+      ),
+    ).toBeNull();
   });
 
   it("drops the point rather than rewriting it", () => {
@@ -294,8 +306,7 @@ describe("confidence says what kind of claim a point is", () => {
 describe("postprocess is where every promise is kept", () => {
   const input = inputFor(CLEAN);
 
-  const run = (points: DigestOutput["points"]): DigestOutput | null =>
-    g9Digest.postprocess({ points }, input);
+  const run = (points: DigestOutput["points"]): DigestOutput | null => g9Digest.postprocess({ points }, input);
 
   it("keeps a point that quotes the world, stays in the taxonomy and does not decide", () => {
     const out = run([groundedPoint(CLEAN)]);
@@ -318,7 +329,9 @@ describe("postprocess is where every promise is kept", () => {
   });
 
   it("returns null — a malfunction, not a clean world — when every point was unusable", () => {
-    expect(run([{ rule: "age", concern: "x", evidence: "nothing like this exists here", confidence: "high" }])).toBeNull();
+    expect(
+      run([{ rule: "age", concern: "x", evidence: "nothing like this exists here", confidence: "high" }]),
+    ).toBeNull();
   });
 
   it("returns an empty list — a clean read — when the model said nothing", () => {
@@ -326,8 +339,11 @@ describe("postprocess is where every promise is kept", () => {
   });
 
   it("clamps a concern and a quote instead of dropping them", () => {
-    const long = worldPassages(CLEAN).find((p) => p.text.length > DIGEST_EVIDENCE_MAX)?.text
-      ?? worldPassages(CLEAN).map((p) => p.text).sort((a, b) => b.length - a.length)[0]!;
+    const long =
+      worldPassages(CLEAN).find((p) => p.text.length > DIGEST_EVIDENCE_MAX)?.text ??
+      worldPassages(CLEAN)
+        .map((p) => p.text)
+        .sort((a, b) => b.length - a.length)[0]!;
     const out = run([{ ...groundedPoint(CLEAN), concern: "x".repeat(400), evidence: long }]);
     expect(out?.points[0]?.concern.length).toBe(DIGEST_CONCERN_MAX);
     expect(out?.points[0]?.evidence.length).toBeLessThanOrEqual(DIGEST_EVIDENCE_MAX);
@@ -346,9 +362,7 @@ describe("caps and order", () => {
   });
 
   it("keeps at most two points per rule and six in total", () => {
-    const many = DIGEST_RULES.flatMap((rule) =>
-      [0, 1, 2, 3].map((i) => p(rule, "high", `evidence ${rule} ${i}`)),
-    );
+    const many = DIGEST_RULES.flatMap((rule) => [0, 1, 2, 3].map((i) => p(rule, "high", `evidence ${rule} ${i}`)));
     const capped = capPoints(many);
     expect(capped.length).toBe(DIGEST_MAX_POINTS);
     for (const rule of DIGEST_RULES) {
@@ -363,11 +377,7 @@ describe("caps and order", () => {
       p("original", "high", "e original high"),
       p("original", "high", "e original high"),
     ]);
-    expect(out.map((x) => `${x.rule}/${x.confidence}`)).toEqual([
-      "original/high",
-      "original/low",
-      "vector/low",
-    ]);
+    expect(out.map((x) => `${x.rule}/${x.confidence}`)).toEqual(["original/high", "original/low", "vector/low"]);
   });
 
   it("is stable — the same points in a different order give the same digest", () => {
@@ -528,7 +538,7 @@ describe("the prompt", () => {
   });
 
   it("names the confidence ladder and the no-verdict rule in the cached half", () => {
-    expect(DIGEST_POLICY).toContain("Never use high for an \"original\" point");
+    expect(DIGEST_POLICY).toContain('Never use high for an "original" point');
     expect(DIGEST_POLICY).toContain("advice, never a verdict");
     expect(DIGEST_POLICY).toContain("An empty list is a correct and common answer");
     expect(DIGEST_READING).toContain("An excerpt of one world, not the world");

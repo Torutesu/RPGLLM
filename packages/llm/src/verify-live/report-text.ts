@@ -17,7 +17,10 @@ function pad(s: string, n: number, right = false): string {
 export function table(headers: readonly string[], rows: ReadonlyArray<readonly string[]>): string {
   const widths = headers.map((h, i) => Math.max(h.length, ...rows.map((r) => (r[i] ?? "").length)));
   const line = (cells: readonly string[]): string =>
-    cells.map((c, i) => pad(c, widths[i] ?? 0, i > 0)).join("  ").trimEnd();
+    cells
+      .map((c, i) => pad(c, widths[i] ?? 0, i > 0))
+      .join("  ")
+      .trimEnd();
   return [line(headers), widths.map((w) => "-".repeat(w)).join("  "), ...rows.map(line)].join("\n");
 }
 
@@ -30,12 +33,7 @@ const MARK: Record<Answer["verdict"], string> = {
 
 /** What is printed *before* the money is spent. */
 export function estimateBanner(plan: VerifyPlan, estimate: CostEstimate): string {
-  const rows = estimate.stages.map((s) => [
-    s.stage,
-    String(s.calls),
-    usd(s.costUsd, 4),
-    `${s.usage.outputTokens} out`,
-  ]);
+  const rows = estimate.stages.map((s) => [s.stage, String(s.calls), usd(s.costUsd, 4), `${s.usage.outputTokens} out`]);
   return [
     `plan: ${plan.worlds} worlds (${plan.genres.join(", ")}), ${plan.generatorCalls} generator calls + ${plan.judgeCalls} judgements`,
     ``,

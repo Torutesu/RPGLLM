@@ -26,8 +26,30 @@ export const COL_W = STAGE.w - PAD * 2;
 
 export type ReelNode =
   | { k: "fill"; color: string }
-  | { k: "rect"; x: number; y: number; w: number; h: number; r: number; fill: string | null; stroke: string | null; sw: number; alpha: number }
-  | { k: "grad"; x: number; y: number; w: number; h: number; r: number; from: string; to: string; angle: number; alpha: number }
+  | {
+      k: "rect";
+      x: number;
+      y: number;
+      w: number;
+      h: number;
+      r: number;
+      fill: string | null;
+      stroke: string | null;
+      sw: number;
+      alpha: number;
+    }
+  | {
+      k: "grad";
+      x: number;
+      y: number;
+      w: number;
+      h: number;
+      r: number;
+      from: string;
+      to: string;
+      angle: number;
+      alpha: number;
+    }
   | { k: "glow"; x: number; y: number; r: number; color: string; alpha: number }
   | { k: "dot"; x: number; y: number; r: number; color: string; alpha: number }
   | { k: "ring"; x: number; y: number; r: number; color: string; sw: number; alpha: number }
@@ -107,7 +129,15 @@ const HEAD_LEAD = 88;
 const HEAD_REPLY = 76;
 
 /** One block of copy, wrapped once at plan time and never measured again. */
-function wrap(text: string, size: number, face: Face, bold: boolean, maxW: number, maxLines: number, lead: number): Wrapped {
+function wrap(
+  text: string,
+  size: number,
+  face: Face,
+  bold: boolean,
+  maxW: number,
+  maxLines: number,
+  lead: number,
+): Wrapped {
   return { lines: wrapText(text, size, face, bold, maxW, maxLines), size, face, bold, lead };
 }
 

@@ -38,13 +38,31 @@ const setEnv = (key: string, value: string): void => {
 
 /* ------------------------------------------------------------------ helpers ---- */
 
-interface WorldFull { id: string; slug: string; status: string }
-interface QueueRow extends WorldFull { overdue: boolean; waitingHours: number }
-interface QueueRes { worlds: QueueRow[]; overdueCount: number; appealCount: number }
+interface WorldFull {
+  id: string;
+  slug: string;
+  status: string;
+}
+interface QueueRow extends WorldFull {
+  overdue: boolean;
+  waitingHours: number;
+}
+interface QueueRes {
+  worlds: QueueRow[];
+  overdueCount: number;
+  appealCount: number;
+}
 interface Ops {
-  inReview: number; overdueReviews: number; pulledWorlds: number; appealedWorlds: number;
-  claimedWorlds: number; slaHours: number; reportsToPull: number; resubmitCooldownHours: number;
-  claimMinutes: number; appealsPerRejection: number;
+  inReview: number;
+  overdueReviews: number;
+  pulledWorlds: number;
+  appealedWorlds: number;
+  claimedWorlds: number;
+  slaHours: number;
+  reportsToPull: number;
+  resubmitCooldownHours: number;
+  claimMinutes: number;
+  appealsPerRejection: number;
 }
 
 const PREMISE = "Seven rookies, one debut slot, and a leaked group chat";
@@ -59,7 +77,8 @@ const decide = (worldId: string, decision: "approve" | "reject", reason = "") =>
 async function submittedWorld(premise: string) {
   const { token, userId } = await signup(h);
   const created = await call<{ world: WorldFull }>(h, "POST", "/v1/worlds", {
-    token, body: { premise, genre: "idol", locale: "en", visibility: "private" },
+    token,
+    body: { premise, genre: "idol", locale: "en", visibility: "private" },
   });
   expect(created.status).toBe(201);
   const record = await runJobOnce(deps, "world-build", { trigger: "test" });
@@ -67,7 +86,9 @@ async function submittedWorld(premise: string) {
   // The shelf costs gems on top of the world (gtm.md §2 exit 1); a fresh account has none left.
   await grantShelfGems(userId, 4);
   const worldId = created.data.world.id;
-  expect((await call(h, "POST", `/v1/worlds/${worldId}/publish`, { token, body: { visibility: "public" } })).status).toBe(202);
+  expect(
+    (await call(h, "POST", `/v1/worlds/${worldId}/publish`, { token, body: { visibility: "public" } })).status,
+  ).toBe(202);
   return { token, userId, worldId };
 }
 
@@ -83,7 +104,8 @@ async function reporters(worldId: string, n: number): Promise<void> {
   for (let i = 0; i < n; i += 1) {
     const who = await signup(h);
     const res = await call(h, "POST", "/v1/moderation/report", {
-      token: who.token, body: { target: "world", targetId: worldId, reason: "harassment", note: `complaint ${i}` },
+      token: who.token,
+      body: { target: "world", targetId: worldId, reason: "harassment", note: `complaint ${i}` },
     });
     expect(res.status).toBe(201);
   }
@@ -220,7 +242,8 @@ describe("what is actually in force is visible to an operator", () => {
     const appealed = await submittedWorld(`${PREMISE} appealed`);
     await decide(appealed.worldId, "reject", "Rule 1: too close to a real show.");
     const sent = await call(h, "POST", `/v1/worlds/${appealed.worldId}/appeal`, {
-      token: appealed.token, body: { message: "The names are invented and the format is a genre." },
+      token: appealed.token,
+      body: { message: "The names are invented and the format is a genre." },
     });
     expect(sent.status).toBe(200);
 

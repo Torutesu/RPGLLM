@@ -1,9 +1,27 @@
 import { expect, test } from "@playwright/test";
 import { ENERGY, PLANS, T } from "@rpgllm/shared";
 import {
-  apiSignup, badgeEnergy, dismissStatCard, energyModalValue, enterWorld, expectWalletEnergy, gotoApp,
-  loginInBrowser, me, openComposer, openEnergyModal, resetDb, ROUTES, setEnergy, submitComposer,
-  timeTravel, typeInComposer, userPostCell, wallet, watchAd, syncWallet
+  apiSignup,
+  badgeEnergy,
+  dismissStatCard,
+  energyModalValue,
+  enterWorld,
+  expectWalletEnergy,
+  gotoApp,
+  loginInBrowser,
+  me,
+  openComposer,
+  openEnergyModal,
+  resetDb,
+  ROUTES,
+  setEnergy,
+  submitComposer,
+  timeTravel,
+  typeInComposer,
+  userPostCell,
+  wallet,
+  watchAd,
+  syncWallet,
 } from "../fixtures";
 
 test.beforeEach(async ({ request }) => {
@@ -26,8 +44,7 @@ test("E2E-007: energy 0 → watch an ad → the post goes through", async ({ pag
   await openComposer(page);
   await typeInComposer(page, text);
   await submitComposer(page);
-  await expect(page.getByTestId(T.energyModal), "SCR-032 must open when energy is 0")
-    .toBeVisible({ timeout: 15_000 });
+  await expect(page.getByTestId(T.energyModal), "SCR-032 must open when energy is 0").toBeVisible({ timeout: 15_000 });
   expect((await wallet(request, account.jwt)).energy, "nothing is spent while the modal is up").toBe(0);
 
   const reward = await watchAd(page);
@@ -35,8 +52,9 @@ test("E2E-007: energy 0 → watch an ad → the post goes through", async ({ pag
   expect(reward.adRewardsToday, "first ad of the day").toBe(1);
 
   await expect(page.getByTestId(T.energyModal), "the modal closes after the reward").toBeHidden({ timeout: 15_000 });
-  await expect(userPostCell(page, text), "the pending post is sent once energy is available")
-    .toBeVisible({ timeout: 20_000 });
+  await expect(userPostCell(page, text), "the pending post is sent once energy is available").toBeVisible({
+    timeout: 20_000,
+  });
 
   await dismissStatCard(page);
   await expectWalletEnergy(request, account.jwt, 0); // +1 from the ad, −1 for the post
@@ -60,11 +78,13 @@ test("E2E-008: buying Plus grants 50 energy and hides ads", async ({ page, reque
   await expect(page.getByTestId(T.paywall), "SCR-030 paywall").toBeVisible({ timeout: 15_000 });
   await page.getByTestId(T.plan(PLANS.plus_monthly.id)).click();
   await page.getByTestId(T.paywallContinue).click();
-  await expect(page.getByTestId(T.paywallSuccess), "the test purchase must succeed")
-    .toBeVisible({ timeout: 30_000 });
+  await expect(page.getByTestId(T.paywallSuccess), "the test purchase must succeed").toBeVisible({ timeout: 30_000 });
 
   await expect
-    .poll(async () => (await wallet(request, account.jwt)).energy, { timeout: 20_000, message: "Plus tops the tank up" })
+    .poll(async () => (await wallet(request, account.jwt)).energy, {
+      timeout: 20_000,
+      message: "Plus tops the tank up",
+    })
     .toBe(ENERGY.PLUS_DAILY);
 
   const meRes = await me(request, account.jwt);
@@ -86,9 +106,7 @@ test("E2E-015: the daily refill tops a free tank back up", async ({ page, reques
   await setEnergy(request, account.jwt, 0);
 
   await syncWallet(page);
-  await expect
-    .poll(async () => (await wallet(request, account.jwt)).energy, { timeout: 15_000 })
-    .toBe(0);
+  await expect.poll(async () => (await wallet(request, account.jwt)).energy, { timeout: 15_000 }).toBe(0);
 
   await timeTravel(request, 1, account.jwt);
 
@@ -97,8 +115,7 @@ test("E2E-015: the daily refill tops a free tank back up", async ({ page, reques
   await expect
     .poll(() => energyModalValue(page), { timeout: 20_000, message: "the free daily refill restores 10" })
     .toBe(ENERGY.FREE_DAILY);
-  await expect(page.getByTestId(T.refillTimer), "the countdown resets to the next refill")
-    .toBeVisible();
+  await expect(page.getByTestId(T.refillTimer), "the countdown resets to the next refill").toBeVisible();
   await expect(page.getByTestId(T.refillTimer)).toHaveText(/\S/);
 
   expect((await wallet(request, account.jwt)).energy).toBe(ENERGY.FREE_DAILY);

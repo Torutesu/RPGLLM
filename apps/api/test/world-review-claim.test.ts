@@ -28,10 +28,26 @@ beforeEach(async () => {
 
 /* ------------------------------------------------------------------ helpers ---- */
 
-interface WorldFull { id: string; slug: string; status: string }
-interface ClaimRes { worldId: string; claimedUntil: string; claimedByYou: boolean }
-interface QueueRow extends WorldFull { claimedBy: string | null; claimedUntil: string | null }
-interface QueueRes { worlds: QueueRow[]; total: number; overdueCount: number; appealCount: number }
+interface WorldFull {
+  id: string;
+  slug: string;
+  status: string;
+}
+interface ClaimRes {
+  worldId: string;
+  claimedUntil: string;
+  claimedByYou: boolean;
+}
+interface QueueRow extends WorldFull {
+  claimedBy: string | null;
+  claimedUntil: string | null;
+}
+interface QueueRes {
+  worlds: QueueRow[];
+  total: number;
+  overdueCount: number;
+  appealCount: number;
+}
 
 const PREMISE = "Seven rookies, one debut slot, and a leaked group chat";
 const MINUTE_DAYS = 1 / (24 * 60);
@@ -51,7 +67,8 @@ const decide = (worldId: string, decision: "approve" | "reject", reason = "") =>
 async function submittedWorld(premise: string) {
   const { token, userId } = await signup(h);
   const created = await call<{ world: WorldFull }>(h, "POST", "/v1/worlds", {
-    token, body: { premise, genre: "idol", locale: "en", visibility: "private" },
+    token,
+    body: { premise, genre: "idol", locale: "en", visibility: "private" },
   });
   expect(created.status).toBe(201);
   const record = await runJobOnce(deps, "world-build", { trigger: "test" });
@@ -59,7 +76,9 @@ async function submittedWorld(premise: string) {
   // The shelf costs gems on top of the world (gtm.md §2 exit 1); a fresh account has none left.
   await grantShelfGems(userId, 4);
   const worldId = created.data.world.id;
-  expect((await call(h, "POST", `/v1/worlds/${worldId}/publish`, { token, body: { visibility: "public" } })).status).toBe(202);
+  expect(
+    (await call(h, "POST", `/v1/worlds/${worldId}/publish`, { token, body: { visibility: "public" } })).status,
+  ).toBe(202);
   return { token, userId, worldId };
 }
 
@@ -181,7 +200,11 @@ describe("a claimed world in the queue", () => {
 
   it("counts as claimed on the ops surface only while the lease is live", async () => {
     const { worldId } = await submittedWorld(PREMISE);
-    interface Ops { inReview: number; claimedWorlds: number; claimMinutes: number }
+    interface Ops {
+      inReview: number;
+      claimedWorlds: number;
+      claimMinutes: number;
+    }
     const before = await call<{ moderation: Ops }>(h, "GET", "/v1/cost/live");
     expect(before.data.moderation.claimedWorlds).toBe(0);
     expect(before.data.moderation.claimMinutes).toBe(WORLD_MODERATION.CLAIM_MINUTES);

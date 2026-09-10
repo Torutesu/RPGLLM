@@ -47,8 +47,7 @@ export interface WorldBuildOptions {
   limit?: number;
 }
 
-const localeOf = (world: World, fallback: LocaleKey): LocaleKey =>
-  (world.genLocale ?? fallback) as LocaleKey;
+const localeOf = (world: World, fallback: LocaleKey): LocaleKey => (world.genLocale ?? fallback) as LocaleKey;
 
 const genreOf = (world: World): WorldGenre => (world.genre || "fame") as WorldGenre;
 
@@ -75,10 +74,7 @@ async function sweepStuck(prisma: PrismaClient, now: Date): Promise<World[]> {
   return await prisma.world.findMany({
     where: {
       status: "generating",
-      OR: [
-        { buildStartedAt: { lt: deadline } },
-        { buildStartedAt: null, createdAt: { lt: deadline } },
-      ],
+      OR: [{ buildStartedAt: { lt: deadline } }, { buildStartedAt: null, createdAt: { lt: deadline } }],
     },
     orderBy: { createdAt: "asc" },
     take: 50,
@@ -113,7 +109,13 @@ async function settleVisibility(deps: Deps, world: World, locale: LocaleKey): Pr
       blockedReason,
     });
     if (outcome.ok) {
-      logLine({ level: "info", msg: "world.build.shared", worldId: world.id, visibility: wanted, status: outcome.world.status });
+      logLine({
+        level: "info",
+        msg: "world.build.shared",
+        worldId: world.id,
+        visibility: wanted,
+        status: outcome.world.status,
+      });
       return;
     }
     if (outcome.kind === "blocked") {
@@ -181,7 +183,13 @@ async function buildOne(
   // would be cheap to make and bad to play, so it is refused before anyone can meet it.
   const short = LOCALES.filter((l) => estimate(parsed.data.bible[l] ?? "") < WORLD_STUDIO.MIN_BIBLE_TOKENS);
   if (short.length > 0) {
-    await failWorld(prisma, world, now, locale, `bible below ${WORLD_STUDIO.MIN_BIBLE_TOKENS} tokens (${short.join(",")})`);
+    await failWorld(
+      prisma,
+      world,
+      now,
+      locale,
+      `bible below ${WORLD_STUDIO.MIN_BIBLE_TOKENS} tokens (${short.join(",")})`,
+    );
     return "failed";
   }
 

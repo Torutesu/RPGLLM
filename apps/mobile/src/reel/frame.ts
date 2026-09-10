@@ -41,7 +41,16 @@ function xform(nodes: ReelNode[], m: Xform): ReelNode[] {
   return nodes.map((n): ReelNode => {
     switch (n.k) {
       case "rect":
-        return { ...n, x: sx(n.x), y: sy(n.y), w: n.w * scale, h: n.h * scale, r: n.r * scale, sw: n.sw * scale, alpha: n.alpha * alpha };
+        return {
+          ...n,
+          x: sx(n.x),
+          y: sy(n.y),
+          w: n.w * scale,
+          h: n.h * scale,
+          r: n.r * scale,
+          sw: n.sw * scale,
+          alpha: n.alpha * alpha,
+        };
       case "grad":
         return { ...n, x: sx(n.x), y: sy(n.y), w: n.w * scale, h: n.h * scale, r: n.r * scale, alpha: n.alpha * alpha };
       case "glow":
@@ -54,7 +63,15 @@ function xform(nodes: ReelNode[], m: Xform): ReelNode[] {
       case "mark":
         return { ...n, x: sx(n.x), y: sy(n.y), size: n.size * scale, alpha: n.alpha * alpha };
       case "text":
-        return { ...n, x: sx(n.x), y: sy(n.y), w: n.w * scale, size: n.size * scale, track: n.track * scale, alpha: n.alpha * alpha };
+        return {
+          ...n,
+          x: sx(n.x),
+          y: sy(n.y),
+          w: n.w * scale,
+          size: n.size * scale,
+          track: n.track * scale,
+          alpha: n.alpha * alpha,
+        };
       default:
         return n;
     }
@@ -159,7 +176,18 @@ function chrome(plan: ReelPlan, t: number): ReelNode[] {
       alpha: a,
       track: 3.2,
     },
-    { k: "rect", x: PAD, y: 54, w: railW, h: 7, r: 4, fill: withAlpha(colors.text, 0.14), stroke: null, sw: 0, alpha: a },
+    {
+      k: "rect",
+      x: PAD,
+      y: 54,
+      w: railW,
+      h: 7,
+      r: 4,
+      fill: withAlpha(colors.text, 0.14),
+      stroke: null,
+      sw: 0,
+      alpha: a,
+    },
     {
       k: "grad",
       x: PAD,
@@ -213,8 +241,17 @@ function hero(plan: ReelPlan, t: number): ReelNode[] {
       track: 0,
     },
   ];
-  nodes.push(...textBlock(plan.setup.caption, PAD + 20, COL_W - 40, 1056 + rise, "center", colors.textDim, alpha * 0.92));
-  return xform(nodes, { tx: 0, ty: 0, scale: lerp(0.92, 1, inA) * lerp(1, 0.9, 1 - outA), ox: STAGE.w / 2, oy: 800, alpha: 1 });
+  nodes.push(
+    ...textBlock(plan.setup.caption, PAD + 20, COL_W - 40, 1056 + rise, "center", colors.textDim, alpha * 0.92),
+  );
+  return xform(nodes, {
+    tx: 0,
+    ty: 0,
+    scale: lerp(0.92, 1, inA) * lerp(1, 0.9, 1 - outA),
+    ox: STAGE.w / 2,
+    oy: 800,
+    alpha: 1,
+  });
 }
 
 /**
@@ -225,8 +262,7 @@ function hero(plan: ReelPlan, t: number): ReelNode[] {
  */
 function identityRow(plan: ReelPlan, t: number): ReelNode[] {
   const handover = plan.replies[plan.replies.length - 1]?.beat.at ?? plan.t.stat;
-  const a =
-    easeOut(clamp01((t - (plan.t.post - 120)) / 460)) * (1 - easeInOut(clamp01((t - (handover - 300)) / 460)));
+  const a = easeOut(clamp01((t - (plan.t.post - 120)) / 460)) * (1 - easeInOut(clamp01((t - (handover - 300)) / 460)));
   if (a <= 0.002) return [];
   const y = 244;
   return [
@@ -344,14 +380,16 @@ function column(plan: ReelPlan, t: number): ReelNode[] {
 
   const inP = easeOutBack(clamp01((t - plan.t.post) / 560));
   if (t >= plan.t.post - 40) {
-    nodes.push(...xform(panelNodes(plan, plan.post, top, COL_W, PAD, true, clamp01(inP * 1.6)), {
-      tx: 0,
-      ty: (1 - inP) * 120,
-      scale: lerp(0.94, 1, clamp01(inP)),
-      ox: STAGE.w / 2,
-      oy: top,
-      alpha: 1,
-    }));
+    nodes.push(
+      ...xform(panelNodes(plan, plan.post, top, COL_W, PAD, true, clamp01(inP * 1.6)), {
+        tx: 0,
+        ty: (1 - inP) * 120,
+        scale: lerp(0.94, 1, clamp01(inP)),
+        ox: STAGE.w / 2,
+        oy: top,
+        alpha: 1,
+      }),
+    );
   }
 
   let y = top + plan.post.h + 26;
@@ -365,14 +403,16 @@ function column(plan: ReelPlan, t: number): ReelNode[] {
     const e = easeOutBack(p);
     // alternating sides: two replies arriving the same way read as one block, not as a conversation
     const from = i % 2 === 0 ? 150 : -150;
-    nodes.push(...xform(panelNodes(plan, panel, y, COL_W - 56, PAD + 56, false, clamp01(p * 2)), {
-      tx: from * (1 - easeOut(p)),
-      ty: (1 - e) * 40,
-      scale: lerp(0.9, 1, e),
-      ox: STAGE.w / 2,
-      oy: y + panel.h / 2,
-      alpha: 1,
-    }));
+    nodes.push(
+      ...xform(panelNodes(plan, panel, y, COL_W - 56, PAD + 56, false, clamp01(p * 2)), {
+        tx: from * (1 - easeOut(p)),
+        ty: (1 - e) * 40,
+        scale: lerp(0.9, 1, e),
+        ox: STAGE.w / 2,
+        oy: y + panel.h / 2,
+        alpha: 1,
+      }),
+    );
     y += panel.h + 20;
   });
 
@@ -489,14 +529,16 @@ function statTiles(plan: ReelPlan, t: number): ReelNode[] {
         track: -1.6,
       },
     ];
-    nodes.push(...xform(tile, {
-      tx: 0,
-      ty: (1 - enter) * 70,
-      scale: lerp(0.9, 1, enter) * pop,
-      ox: x + w / 2,
-      oy: top + h / 2,
-      alpha: 1,
-    }));
+    nodes.push(
+      ...xform(tile, {
+        tx: 0,
+        ty: (1 - enter) * 70,
+        scale: lerp(0.9, 1, enter) * pop,
+        ox: x + w / 2,
+        oy: top + h / 2,
+        alpha: 1,
+      }),
+    );
   });
   return nodes;
 }
@@ -513,7 +555,18 @@ function headline(plan: ReelPlan, t: number): ReelNode[] {
   const height = blockHeight(plan.headline);
   const top = Math.round((STAGE.h - height) / 2) - 40;
   const nodes: ReelNode[] = [
-    { k: "rect", x: 0, y: 0, w: STAGE.w, h: STAGE.h, r: 0, fill: withAlpha(colors.bg, 0.9 * e), stroke: null, sw: 0, alpha: 1 },
+    {
+      k: "rect",
+      x: 0,
+      y: 0,
+      w: STAGE.w,
+      h: STAGE.h,
+      r: 0,
+      fill: withAlpha(colors.bg, 0.9 * e),
+      stroke: null,
+      sw: 0,
+      alpha: 1,
+    },
     {
       k: "grad",
       x: 0,
@@ -548,7 +601,14 @@ function headline(plan: ReelPlan, t: number): ReelNode[] {
             track: -2,
           },
         ],
-        { tx: 0, ty: (1 - lp) * 40, scale: lerp(1.12, 1, lp), ox: STAGE.w / 2, oy: top + lead * i + lead / 2, alpha: 1 },
+        {
+          tx: 0,
+          ty: (1 - lp) * 40,
+          scale: lerp(1.12, 1, lp),
+          ox: STAGE.w / 2,
+          oy: top + lead * i + lead / 2,
+          alpha: 1,
+        },
       ),
     );
   });
@@ -573,7 +633,18 @@ function outro(plan: ReelPlan, t: number): ReelNode[] {
   // the end card gets whatever the server left it, so it lands fast and then simply holds
   const e = easeOut(clamp01(life / 360));
   const nodes: ReelNode[] = [
-    { k: "rect", x: 0, y: 0, w: STAGE.w, h: STAGE.h, r: 0, fill: withAlpha(colors.bg, 0.92 * e), stroke: null, sw: 0, alpha: 1 },
+    {
+      k: "rect",
+      x: 0,
+      y: 0,
+      w: STAGE.w,
+      h: STAGE.h,
+      r: 0,
+      fill: withAlpha(colors.bg, 0.92 * e),
+      stroke: null,
+      sw: 0,
+      alpha: 1,
+    },
     { k: "orb", x: (STAGE.w - 200) / 2, y: 690, size: 200, handle: plan.outro.handle, ring: true, alpha: e },
     { k: "mark", x: STAGE.w / 2, y: 1010, size: 100, alpha: e },
     {

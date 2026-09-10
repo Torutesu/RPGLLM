@@ -62,7 +62,11 @@ describe("reward formula (§6.1)", () => {
 
   it("clamps to [0,1] — a dear failure is 0, not negative", () => {
     expect(
-      rewardFor({ signals: { rating: -1, regenerated: false, fallback: false }, costUsd: 0.01, championCostUsd: 0.001 }),
+      rewardFor({
+        signals: { rating: -1, regenerated: false, fallback: false },
+        costUsd: 0.01,
+        championCostUsd: 0.001,
+      }),
     ).toBe(0);
     expect(
       rewardFor({ signals: { rating: 1, regenerated: false, fallback: false }, costUsd: 0, championCostUsd: 0.002 }),
@@ -192,7 +196,7 @@ describe("allocation", () => {
       arm({ variantId: "challenger", alpha: 900, beta: 100, calls: 1000 }),
     ];
     const p = pBestByArm(list, 400);
-    expect((p.get("challenger") ?? 0)).toBeGreaterThan(0.9);
+    expect(p.get("challenger") ?? 0).toBeGreaterThan(0.9);
     expect([...p.values()].reduce((s, v) => s + v, 0)).toBeCloseTo(1, 2);
   });
 });
@@ -205,8 +209,12 @@ describe("guardrails", () => {
   });
 
   it("fires on safety flags and on fallbacks", () => {
-    expect(guardrailBreach({ calls: 1000, regenerations: 0, safetyFlags: 5, fallbacks: 0 })?.metric).toBe("safety_flag_rate");
-    expect(guardrailBreach({ calls: 1000, regenerations: 0, safetyFlags: 0, fallbacks: 100 })?.metric).toBe("fallback_rate");
+    expect(guardrailBreach({ calls: 1000, regenerations: 0, safetyFlags: 5, fallbacks: 0 })?.metric).toBe(
+      "safety_flag_rate",
+    );
+    expect(guardrailBreach({ calls: 1000, regenerations: 0, safetyFlags: 0, fallbacks: 100 })?.metric).toBe(
+      "fallback_rate",
+    );
   });
 
   it("never fires on too few calls — one bad draw is not evidence", () => {
@@ -253,7 +261,10 @@ describe("promotion", () => {
 
   it("does nothing while the champion still leads", () => {
     const d = promotionDecision({
-      arms: [arm({ variantId: "champ", isChampion: true, alpha: 900, beta: 100, calls: 900 }), arm({ variantId: "c", alpha: 10, beta: 90, calls: 900 })],
+      arms: [
+        arm({ variantId: "champ", isChampion: true, alpha: 900, beta: 100, calls: 900 }),
+        arm({ variantId: "c", alpha: 10, beta: 90, calls: 900 }),
+      ],
       gatePassed: new Set(["c"]),
     });
     expect(d.promote).toBe(false);

@@ -46,11 +46,21 @@ export const logLine = (fields: Record<string, unknown>): void => {
 
 export function logError(c: Context<AppEnv>, err: unknown): void {
   const requestId: string | undefined = c.get("requestId");
-  const e = err instanceof Error ? { name: err.name, message: err.message, stack: err.stack } : { name: "unknown", message: String(err) };
-  console.error(JSON.stringify({
-    ts: new Date().toISOString(), level: "error", msg: "http.error", requestId,
-    method: c.req.method, path: redactPath(c.req.path), error: e,
-  }));
+  const e =
+    err instanceof Error
+      ? { name: err.name, message: err.message, stack: err.stack }
+      : { name: "unknown", message: String(err) };
+  console.error(
+    JSON.stringify({
+      ts: new Date().toISOString(),
+      level: "error",
+      msg: "http.error",
+      requestId,
+      method: c.req.method,
+      path: redactPath(c.req.path),
+      error: e,
+    }),
+  );
 }
 
 /** Adds `requestId` to a JSON error envelope so a user-visible failure can be traced in the logs. */

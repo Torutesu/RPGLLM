@@ -150,10 +150,7 @@ export const G1_ABSOLUTE_CHECKS: readonly string[] = ["schemaValid", "notFallbac
  * differs per generator (G9 adds "the premise did not leak into the world"), so it is a parameter
  * with G1's list as the default: `machineScoreOf(checks)` behaves exactly as it always has.
  */
-export function machineScoreOf(
-  checks: MachineChecks,
-  absolutes: readonly string[] = G1_ABSOLUTE_CHECKS,
-): number {
+export function machineScoreOf(checks: MachineChecks, absolutes: readonly string[] = G1_ABSOLUTE_CHECKS): number {
   const values = Object.values(checks);
   if (values.length === 0) return 0;
   for (const key of absolutes) if (checks[key] === false) return 0;

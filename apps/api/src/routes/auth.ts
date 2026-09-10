@@ -60,7 +60,13 @@ export function authRoutes(): Hono<AppEnv> {
     // `assertProductionConfig()` refuses to boot production with either flag on.
     const devCodeOk = authDevCodeEnabled() && constantTimeEqual(body.value.code, DEV_EMAIL_CODE);
     if (!devCodeOk) {
-      const verdict = await consumeLoginCode(deps.prisma, email, body.value.code, deps.clock.now(), authCodeMaxAttempts());
+      const verdict = await consumeLoginCode(
+        deps.prisma,
+        email,
+        body.value.code,
+        deps.clock.now(),
+        authCodeMaxAttempts(),
+      );
       if (verdict !== "ok") return fail("UNAUTHORIZED", CODE_ERRORS[verdict], 401);
     }
 
@@ -68,9 +74,15 @@ export function authRoutes(): Hono<AppEnv> {
     // Every account is born with a public credit line (services/creator-handle.ts). It is minted
     // here rather than on first use so "a world with no author" is impossible by construction,
     // not merely unlikely — the studio is reachable before any persona exists.
-    const user = existing ?? (await createUserWithCreatorHandle(deps.prisma, {
-      email, authProvider: "email", authSubject: email, birthYear: 0, isMinor: true,
-    }));
+    const user =
+      existing ??
+      (await createUserWithCreatorHandle(deps.prisma, {
+        email,
+        authProvider: "email",
+        authSubject: email,
+        birthYear: 0,
+        isMinor: true,
+      }));
     // One wallet, created once, with its opening balances and the ledger entry that records them
     // (services/wallet.ts) — including the World Studio starter gems.
     if (!existing) await createWallet(deps.prisma, user.id, deps.clock.now());

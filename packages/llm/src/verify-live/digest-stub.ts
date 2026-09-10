@@ -1,12 +1,7 @@
 import type { GenerationMeta, GeneratorId, GenerationResult, Usage, WorldSeed } from "@rpgllm/shared";
 import { priceOf } from "../cost.js";
 import { modelForTier } from "../experiments.js";
-import {
-  g9Digest,
-  DIGEST_VARIANT_ID,
-  type DigestInput,
-  type DigestOutput,
-} from "../generators/g9/digest.js";
+import { g9Digest, DIGEST_VARIANT_ID, type DigestInput, type DigestOutput } from "../generators/g9/digest.js";
 import { worldPassages } from "../generators/g9/digest-offline.js";
 import type { ReviewDigestGateway } from "../generators/g9/digest-run.js";
 import { estimateTokens, fnv1a, pick } from "../tokens.js";
@@ -76,19 +71,22 @@ export function stubDigestPoints(input: DigestInput, opts: StubDigestOptions = {
       // Asks for certainty it cannot have: `postprocess` must cap this at medium. It does name
       // something, so it must survive as `medium` rather than being demoted to `low`.
       rule: "original",
-      concern: "The house system and the term-by-term scoring read like Hogwarts with the names changed; worth a search before this goes public.",
+      concern:
+        "The house system and the term-by-term scoring read like Hogwarts with the names changed; worth a search before this goes public.",
       evidence: en,
       confidence: "high",
     },
     {
       rule: "playable",
-      concern: "This card describes a stance rather than a person, and two other accounts could be written from the same sentence.",
+      concern:
+        "This card describes a stance rather than a person, and two other accounts could be written from the same sentence.",
       evidence: card,
       confidence: "medium",
     },
     {
       rule: "locales",
-      concern: "The Japanese here is grammatical but reads as a rendering of the English rather than as something written in Japanese.",
+      concern:
+        "The Japanese here is grammatical but reads as a rendering of the English rather than as something written in Japanese.",
       evidence: ja,
       confidence: "low",
     },

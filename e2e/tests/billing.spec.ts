@@ -10,8 +10,18 @@
 import { expect, test, type APIRequestContext } from "@playwright/test";
 import { ENERGY, PLANS, T, strings } from "@rpgllm/shared";
 import {
-  apiSignup, apiUrl, bearer, gotoApp, loginInBrowser, me, resetDb, ROUTES, signupAndEnter,
-  unwrap, wallet, type Account,
+  apiSignup,
+  apiUrl,
+  bearer,
+  gotoApp,
+  loginInBrowser,
+  me,
+  resetDb,
+  ROUTES,
+  signupAndEnter,
+  unwrap,
+  wallet,
+  type Account,
 } from "../fixtures";
 
 test.beforeEach(async ({ request }) => {
@@ -54,7 +64,10 @@ const eventId = (): string => `e2e_${Math.random().toString(36).slice(2)}${Date.
 
 /* -------------------------------------------------------------------- cases ---- */
 
-test("BILL-001: the paywall lists every offered plan with a price, and closes without an error", async ({ page, request }) => {
+test("BILL-001: the paywall lists every offered plan with a price, and closes without an error", async ({
+  page,
+  request,
+}) => {
   const account = await apiSignup(request, { locale: "en" });
   await loginInBrowser(page, account.jwt);
   // No persona needed: SCR-030 is reachable from a cold session, which is also how a deep link
@@ -147,7 +160,9 @@ test("BILL-003: restore reports the current state, free or subscribed", async ({
   expect(restored.source).toBe("local");
 });
 
-test("BILL-004: a RevenueCat purchase event grants the entitlement, and a replay changes nothing", async ({ request }) => {
+test("BILL-004: a RevenueCat purchase event grants the entitlement, and a replay changes nothing", async ({
+  request,
+}) => {
   const account = await apiSignup(request, { locale: "en" });
   const userId = await userIdOf(request, account);
 

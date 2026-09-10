@@ -10,8 +10,7 @@ import type { Tx } from "../types";
  * subscription is worth. `now` is optional so the existing call sites (routes/me, routes/wallet)
  * keep working; pass the clock's time wherever one is in hand so time-travel moves entitlements too.
  */
-export const dailyMaxFor = (sub: Subscription | null, now?: Date): number =>
-  entitlementsFor(sub, now).dailyEnergyMax;
+export const dailyMaxFor = (sub: Subscription | null, now?: Date): number => entitlementsFor(sub, now).dailyEnergyMax;
 
 export const adFreeFor = (sub: Subscription | null, now?: Date): boolean => entitlementsFor(sub, now).adFree;
 
@@ -39,7 +38,13 @@ export async function createWallet(prisma: PrismaClient, userId: string, now: Da
     const wallet = await tx.wallet.create({ data: newWalletData(userId, now) });
     if (WORLD_STUDIO.STARTER_GEMS > 0) {
       await tx.ledgerEntry.create({
-        data: { walletId: wallet.id, currency: "gems", delta: WORLD_STUDIO.STARTER_GEMS, source: "admin", ref: STARTER_GEMS_REF },
+        data: {
+          walletId: wallet.id,
+          currency: "gems",
+          delta: WORLD_STUDIO.STARTER_GEMS,
+          source: "admin",
+          ref: STARTER_GEMS_REF,
+        },
       });
     }
     return wallet;
@@ -73,14 +78,22 @@ export async function ensureWallet(
   });
   if (delta > 0) {
     await prisma.ledgerEntry.create({
-      data: { walletId: wallet.id, currency: "energy", delta, source: "daily_refill", ref: `refill:${now.toISOString().slice(0, 10)}` },
+      data: {
+        walletId: wallet.id,
+        currency: "energy",
+        delta,
+        source: "daily_refill",
+        ref: `refill:${now.toISOString().slice(0, 10)}`,
+      },
     });
   }
   return { wallet: refilled, subscription, dailyMax };
 }
 
 export class EnergyRequiredError extends Error {
-  constructor() { super("ENERGY_REQUIRED"); }
+  constructor() {
+    super("ENERGY_REQUIRED");
+  }
 }
 
 /** Decrement 1 energy + write the spend LedgerEntry in the caller's transaction. Throws when empty. */

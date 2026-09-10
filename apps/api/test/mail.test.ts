@@ -1,8 +1,6 @@
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { setMailSender, ConsoleMailSender } from "../src/auth-codes";
-import {
-  HttpMailSender, MailSendError, loginCodeMessage, mailSenderFromEnv,
-} from "../src/services/mail";
+import { HttpMailSender, MailSendError, loginCodeMessage, mailSenderFromEnv } from "../src/services/mail";
 import { call, makeHarness, resetDatabase, type Harness } from "./helpers";
 
 /**
@@ -14,7 +12,11 @@ import { call, makeHarness, resetDatabase, type Harness } from "./helpers";
  * provider that 400s, and what the route says when neither works.
  */
 
-interface Captured { url: string; headers: Record<string, string>; body: Record<string, unknown> }
+interface Captured {
+  url: string;
+  headers: Record<string, string>;
+  body: Record<string, unknown>;
+}
 
 function recorder(responses: (Response | Error)[]): { calls: Captured[]; fetchImpl: typeof fetch } {
   const calls: Captured[] = [];
@@ -64,7 +66,11 @@ describe("HttpMailSender", () => {
   it("posts what Resend expects, with the key in the header and never in the body", async () => {
     const { calls, fetchImpl } = recorder([ok()]);
     await new HttpMailSender({
-      provider: "resend", apiKey: "re_secret", from: "hi@example.com", ttlMinutes: 10, fetchImpl,
+      provider: "resend",
+      apiKey: "re_secret",
+      from: "hi@example.com",
+      ttlMinutes: 10,
+      fetchImpl,
     }).sendLoginCode("player@example.com", "424242");
 
     expect(calls).toHaveLength(1);
@@ -78,7 +84,11 @@ describe("HttpMailSender", () => {
   it("posts what Postmark expects", async () => {
     const { calls, fetchImpl } = recorder([ok()]);
     await new HttpMailSender({
-      provider: "postmark", apiKey: "pm_secret", from: "hi@example.com", ttlMinutes: 10, fetchImpl,
+      provider: "postmark",
+      apiKey: "pm_secret",
+      from: "hi@example.com",
+      ttlMinutes: 10,
+      fetchImpl,
     }).sendLoginCode("player@example.com", "424242");
     expect(calls[0]!.url).toBe("https://api.postmarkapp.com/email");
     expect(calls[0]!.headers["x-postmark-server-token"]).toBe("pm_secret");
@@ -87,8 +97,13 @@ describe("HttpMailSender", () => {
 
   it("retries a 5xx once and gives up loudly", async () => {
     const { calls, fetchImpl } = recorder([new Response("boom", { status: 503 })]);
-    const send = new HttpMailSender({ provider: "resend", apiKey: "k", from: "f@e.com", ttlMinutes: 10, fetchImpl })
-      .sendLoginCode("p@example.com", "111111");
+    const send = new HttpMailSender({
+      provider: "resend",
+      apiKey: "k",
+      from: "f@e.com",
+      ttlMinutes: 10,
+      fetchImpl,
+    }).sendLoginCode("p@example.com", "111111");
     await expect(send).rejects.toBeInstanceOf(MailSendError);
     expect(calls, "one retry, not a storm").toHaveLength(2);
   });
@@ -96,15 +111,23 @@ describe("HttpMailSender", () => {
   it("does not retry a 4xx — an unverified sender is not a transient failure", async () => {
     const { calls, fetchImpl } = recorder([new Response("bad from", { status: 422 })]);
     await expect(
-      new HttpMailSender({ provider: "resend", apiKey: "k", from: "f@e.com", ttlMinutes: 10, fetchImpl })
-        .sendLoginCode("p@example.com", "111111"),
+      new HttpMailSender({ provider: "resend", apiKey: "k", from: "f@e.com", ttlMinutes: 10, fetchImpl }).sendLoginCode(
+        "p@example.com",
+        "111111",
+      ),
     ).rejects.toBeInstanceOf(MailSendError);
     expect(calls).toHaveLength(1);
   });
 
   it("survives the provider being unreachable, and keeps the code out of the error", async () => {
     const { fetchImpl } = recorder([new Error("ECONNREFUSED")]);
-    const err = await new HttpMailSender({ provider: "resend", apiKey: "k", from: "f@e.com", ttlMinutes: 10, fetchImpl })
+    const err = await new HttpMailSender({
+      provider: "resend",
+      apiKey: "k",
+      from: "f@e.com",
+      ttlMinutes: 10,
+      fetchImpl,
+    })
       .sendLoginCode("p@example.com", "987654")
       .catch((e: unknown) => e);
     expect(err).toBeInstanceOf(MailSendError);
@@ -115,7 +138,11 @@ describe("HttpMailSender", () => {
   it("asks who the reader is, once, and only when it can", async () => {
     const { calls, fetchImpl } = recorder([ok()]);
     await new HttpMailSender({
-      provider: "resend", apiKey: "k", from: "f@e.com", ttlMinutes: 10, fetchImpl,
+      provider: "resend",
+      apiKey: "k",
+      from: "f@e.com",
+      ttlMinutes: 10,
+      fetchImpl,
       localeFor: () => Promise.resolve("ja"),
     }).sendLoginCode("p@example.com", "111111");
     expect(calls[0]!.body["subject"]).toBe("サインインコード");
@@ -124,7 +151,9 @@ describe("HttpMailSender", () => {
 
 describe("mailSenderFromEnv", () => {
   const saved = { ...process.env };
-  afterEach(() => { process.env = { ...saved }; });
+  afterEach(() => {
+    process.env = { ...saved };
+  });
 
   it("returns nothing for console, so the log-printing default stays in dev", () => {
     process.env["MAIL_PROVIDER"] = "console";
@@ -143,9 +172,15 @@ describe("mailSenderFromEnv", () => {
 
 describe("POST /v1/auth/email/start when the mail provider is down", () => {
   let h: Harness;
-  beforeAll(() => { h = makeHarness(); });
-  beforeEach(async () => { await resetDatabase(); });
-  afterEach(() => { setMailSender(new ConsoleMailSender()); });
+  beforeAll(() => {
+    h = makeHarness();
+  });
+  beforeEach(async () => {
+    await resetDatabase();
+  });
+  afterEach(() => {
+    setMailSender(new ConsoleMailSender());
+  });
 
   it("says so instead of telling somebody to watch an inbox that will stay empty", async () => {
     setMailSender({ sendLoginCode: () => Promise.reject(new MailSendError("resend", 503, "down")) });

@@ -30,8 +30,14 @@ import { envNum, isProduction, llmMode, nodeEnv } from "./env";
 import { loadEnvFile } from "./env-file";
 import { nextCronRun, parseCron, type CronExpression } from "./jobs/cron";
 import {
-  disabledJobs, jobDefinitions, jobEnabled, jobTimeoutMs, resolveJobName, runJobOnce,
-  type JobDeps, type JobDefinition,
+  disabledJobs,
+  jobDefinitions,
+  jobEnabled,
+  jobTimeoutMs,
+  resolveJobName,
+  runJobOnce,
+  type JobDeps,
+  type JobDefinition,
 } from "./jobs/registry";
 import { loadGateway } from "./llm-loader";
 import { logLine } from "./middleware/request-log";
@@ -50,12 +56,21 @@ interface Args {
 export function parseArgs(argv: readonly string[]): Args {
   const args: Args = { once: false, onceJobs: [], jobs: [] };
   for (const raw of argv) {
-    const [flag, value] = raw.includes("=") ? [raw.slice(0, raw.indexOf("=")), raw.slice(raw.indexOf("=") + 1)] : [raw, ""];
+    const [flag, value] = raw.includes("=")
+      ? [raw.slice(0, raw.indexOf("=")), raw.slice(raw.indexOf("=") + 1)]
+      : [raw, ""];
     if (flag === "--once") {
       args.once = true;
-      if (value && value !== "all") args.onceJobs = value.split(",").map((s) => s.trim()).filter(Boolean);
+      if (value && value !== "all")
+        args.onceJobs = value
+          .split(",")
+          .map((s) => s.trim())
+          .filter(Boolean);
     } else if (flag === "--jobs") {
-      args.jobs = value.split(",").map((s) => s.trim()).filter(Boolean);
+      args.jobs = value
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean);
     }
   }
   return args;
@@ -78,7 +93,10 @@ function interruptibleSleep(ms: number): { promise: Promise<void>; wake: () => v
   let wake = (): void => undefined;
   const promise = new Promise<void>((resolve) => {
     const timer = setTimeout(resolve, ms);
-    wake = () => { clearTimeout(timer); resolve(); };
+    wake = () => {
+      clearTimeout(timer);
+      resolve();
+    };
   });
   return { promise, wake };
 }
@@ -108,8 +126,15 @@ async function main(): Promise<void> {
   }
 
   logLine({
-    level: "info", msg: "worker.start", nodeEnv: nodeEnv(), production: isProduction(), envFiles: applied,
-    llm: `${gateway.mode()} (${source})`, envLlmMode: llmMode(), tickMs: tickMs(), jobTimeoutMs: jobTimeoutMs(),
+    level: "info",
+    msg: "worker.start",
+    nodeEnv: nodeEnv(),
+    production: isProduction(),
+    envFiles: applied,
+    llm: `${gateway.mode()} (${source})`,
+    envLlmMode: llmMode(),
+    tickMs: tickMs(),
+    jobTimeoutMs: jobTimeoutMs(),
     disabled: disabledJobs().join(",") || null,
     jobs: selected.map((j) => `${j.name}@${j.schedule}`),
     mode: args.once ? "once" : "schedule",
@@ -121,7 +146,9 @@ async function main(): Promise<void> {
     for (const def of selected) {
       const record = await runJobOnce(deps, def.name, { trigger: "manual" });
       if (!record.ok) failures += 1;
-      process.stdout.write(`${JSON.stringify({ job: record.job, ok: record.ok, skipped: record.skipped, processed: record.processed, detail: record.detail, error: record.error })}\n`);
+      process.stdout.write(
+        `${JSON.stringify({ job: record.job, ok: record.ok, skipped: record.skipped, processed: record.processed, detail: record.detail, error: record.error })}\n`,
+      );
     }
     await prisma.$disconnect();
     process.exit(failures === 0 ? 0 : 1);
@@ -147,7 +174,13 @@ async function main(): Promise<void> {
   const shutdown = (signal: string): void => {
     if (state.stopping) return;
     state.stopping = true;
-    logLine({ level: "info", msg: "worker.shutdown", signal, draining: state.inFlight !== null, graceMs: shutdownGraceMs() });
+    logLine({
+      level: "info",
+      msg: "worker.shutdown",
+      signal,
+      draining: state.inFlight !== null,
+      graceMs: shutdownGraceMs(),
+    });
     state.waker?.();
     // Last resort: a job that ignores the grace window must not keep the pod alive forever.
     const forced = setTimeout(() => {
@@ -156,8 +189,12 @@ async function main(): Promise<void> {
     }, shutdownGraceMs());
     forced.unref();
   };
-  process.on("SIGTERM", () => { shutdown("SIGTERM"); });
-  process.on("SIGINT", () => { shutdown("SIGINT"); });
+  process.on("SIGTERM", () => {
+    shutdown("SIGTERM");
+  });
+  process.on("SIGINT", () => {
+    shutdown("SIGINT");
+  });
 
   /** Read through a call: the flag is set from a signal handler, so it must never be narrowed. */
   const stopping = (): boolean => state.stopping;

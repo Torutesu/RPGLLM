@@ -74,7 +74,14 @@ export default function PersonaEditor() {
   return (
     <Screen wash={false}>
       <Aurora seed={handle || world?.world.slug || "persona-edit"} intensity={0.45} />
-      <ScrollView contentContainerStyle={{ padding: spacing.lg, paddingTop: spacing.xxl, paddingBottom: spacing.xxxl, gap: spacing.xl }}>
+      <ScrollView
+        contentContainerStyle={{
+          padding: spacing.lg,
+          paddingTop: spacing.xxl,
+          paddingBottom: spacing.xxxl,
+          gap: spacing.xl,
+        }}
+      >
         <View style={{ width: "100%", maxWidth: MAX_W, alignSelf: "center", gap: spacing.xl }}>
           <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
             <View />

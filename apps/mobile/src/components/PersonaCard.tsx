@@ -59,7 +59,9 @@ export function PersonaCard({ handle, displayName, selected, onPress, testID, wi
         }}
       >
         <View style={{ width: avatar, height: avatar, alignItems: "center", justifyContent: "center" }}>
-          <Animated.View style={{ position: "absolute", opacity: lift.interpolate({ inputRange: [0, 1], outputRange: [0, 0.95] }) }}>
+          <Animated.View
+            style={{ position: "absolute", opacity: lift.interpolate({ inputRange: [0, 1], outputRange: [0, 0.95] }) }}
+          >
             <SoftOrb from={id.from} to={id.to} size={Math.round(avatar * 1.6)} />
           </Animated.View>
           <View style={[FILL, { alignItems: "center", justifyContent: "center" }]}>
@@ -79,7 +81,11 @@ export function PersonaCard({ handle, displayName, selected, onPress, testID, wi
           />
         </View>
 
-        <Text numberOfLines={1} importantForAccessibility="no" style={[typo.metaStrong, { color: selected ? colors.text : colors.textDim }]}>
+        <Text
+          numberOfLines={1}
+          importantForAccessibility="no"
+          style={[typo.metaStrong, { color: selected ? colors.text : colors.textDim }]}
+        >
           {`@${handle.replace(/^@/, "")}`}
         </Text>
         <Text numberOfLines={1} importantForAccessibility="no" style={[typo.caption, { color: colors.textMuted }]}>

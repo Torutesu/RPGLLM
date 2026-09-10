@@ -77,7 +77,9 @@ export async function latestRuns(prisma: PrismaClient): Promise<Map<string, JobR
 /** Recent runs of one job, newest first — the detail view behind `GET /v1/jobs?job=`. */
 export async function recentRuns(prisma: PrismaClient, job: string, limit: number): Promise<JobRunRow[]> {
   return await prisma.jobRun.findMany({
-    where: { job }, orderBy: [{ startedAt: "desc" }, { id: "desc" }], take: limit,
+    where: { job },
+    orderBy: [{ startedAt: "desc" }, { id: "desc" }],
+    take: limit,
   });
 }
 

@@ -32,7 +32,11 @@ export function profileRoutes(): Hono<AppEnv> {
         take: POSTS,
         include: { authorCharacter: true },
       }),
-      deps.prisma.statSnapshot.findMany({ where: { personaId: persona.id }, orderBy: { createdAt: "desc" }, take: SNAPSHOTS }),
+      deps.prisma.statSnapshot.findMany({
+        where: { personaId: persona.id },
+        orderBy: { createdAt: "desc" },
+        take: SNAPSHOTS,
+      }),
       deps.prisma.relationshipState.findMany({ where: { personaId: persona.id } }),
       deps.prisma.worldCharacter.findMany({ where: { worldId: persona.worldId }, orderBy: { handle: "asc" } }),
     ]);
@@ -49,18 +53,23 @@ export function profileRoutes(): Hono<AppEnv> {
       .flatMap((r) => {
         const ch = byId.get(r.characterId);
         return ch
-          ? [{
-            characterId: ch.id,
-            handle: atHandle(ch.handle),
-            displayName: ch.displayName,
-            avatarUrl: ch.avatarUrl,
-            affinity: r.affinity,
-            isFollower: r.isFollower,
-            memoryCount: countByRelationship.get(r.id) ?? 0,
-          }]
+          ? [
+              {
+                characterId: ch.id,
+                handle: atHandle(ch.handle),
+                displayName: ch.displayName,
+                avatarUrl: ch.avatarUrl,
+                affinity: r.affinity,
+                isFollower: r.isFollower,
+                memoryCount: countByRelationship.get(r.id) ?? 0,
+              },
+            ]
           : [];
       })
-      .sort((a, b) => Number(b.isFollower) - Number(a.isFollower) || b.affinity - a.affinity || a.handle.localeCompare(b.handle));
+      .sort(
+        (a, b) =>
+          Number(b.isFollower) - Number(a.isFollower) || b.affinity - a.affinity || a.handle.localeCompare(b.handle),
+      );
 
     return ok({
       persona: toApiPersona(persona, world.slug),

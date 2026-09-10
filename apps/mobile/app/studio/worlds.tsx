@@ -70,7 +70,11 @@ export default function MyWorlds() {
 
           {status === "error" && !worlds ? (
             <View style={{ gap: spacing.md }}>
-              <Text accessibilityRole="alert" accessibilityLiveRegion="polite" style={[typo.meta, { color: colors.textMuted }]}>
+              <Text
+                accessibilityRole="alert"
+                accessibilityLiveRegion="polite"
+                style={[typo.meta, { color: colors.textMuted }]}
+              >
                 {t("loadFailed")}
               </Text>
               <Button label={t("retry")} variant="secondary" onPress={() => void load()} />

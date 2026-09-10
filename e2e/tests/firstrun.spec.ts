@@ -1,8 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import { strings, T } from "@rpgllm/shared";
-import {
-  apiSignup, enterWorld, gotoApp, loginInBrowser, resetDb, ROUTES, WORLD_SLUG, worldPresets,
-} from "../fixtures";
+import { apiSignup, enterWorld, gotoApp, loginInBrowser, resetDb, ROUTES, WORLD_SLUG, worldPresets } from "../fixtures";
 
 /**
  * Agent M — the first 90 seconds (SCR-002 → SCR-003 → SCR-004/005 → SCR-006 → SCR-010).
@@ -37,8 +35,9 @@ test("M-001: the cold open plays above a sign-in that is never blocked", async (
 
   // Slide 1 is on screen, and the deck advances on its own to slide 2.
   await expect(page.getByText(strings.en.whoToPlay, { exact: true })).toBeVisible();
-  await expect(page.getByText(strings.en.remembers, { exact: true }), "the deck auto-advances")
-    .toBeVisible({ timeout: 15_000 });
+  await expect(page.getByText(strings.en.remembers, { exact: true }), "the deck auto-advances").toBeVisible({
+    timeout: 15_000,
+  });
 
   // …and the sign-in still works while it runs.
   await cta.click();
@@ -56,8 +55,9 @@ test("M-002: the intro is remembered, and a returning visitor still lands on the
     .toBe("1");
 
   await page.reload({ waitUntil: "domcontentloaded" });
-  await expect(page.getByTestId(T.authEmailBtn), "second visit still opens on the sign-in")
-    .toBeVisible({ timeout: 15_000 });
+  await expect(page.getByTestId(T.authEmailBtn), "second visit still opens on the sign-in").toBeVisible({
+    timeout: 15_000,
+  });
   // Compact deck: only the first slide, and it does not advance any more.
   await expect(page.getByText(strings.en.remembers, { exact: true })).toHaveCount(0);
   expect(await introSeen(page)).toBe("1");
@@ -68,8 +68,7 @@ test("M-003: the sign-in speaks the chosen language", async ({ page }) => {
   await expect(page.getByTestId(T.authEmailBtn)).toBeVisible({ timeout: 15_000 });
 
   await page.getByTestId(T.localeToggle).click();
-  await expect(page.getByTestId(T.authEmailBtn), "the CTA is translated")
-    .toContainText(strings.ja.continueWithEmail);
+  await expect(page.getByTestId(T.authEmailBtn), "the CTA is translated").toContainText(strings.ja.continueWithEmail);
   await expect(page.getByText(strings.ja.tagline, { exact: true })).toBeVisible();
 });
 
@@ -94,8 +93,9 @@ test("M-004: build your own persona, then enter the world", async ({ page, reque
   await expect(page.getByText(strings.en.handleAvailable, { exact: true })).toHaveCount(0);
 
   await handle.fill("mynewname");
-  await expect(page.getByText(strings.en.handleAvailable, { exact: true }), "a free handle is confirmed")
-    .toBeVisible({ timeout: 15_000 });
+  await expect(page.getByText(strings.en.handleAvailable, { exact: true }), "a free handle is confirmed").toBeVisible({
+    timeout: 15_000,
+  });
 
   await page.getByTestId(T.personaNameInput).fill("Nova Reyes");
   await page.getByTestId(T.personaBioInput).fill("still deciding who to be");
@@ -111,8 +111,9 @@ test("M-004: build your own persona, then enter the world", async ({ page, reque
   await expect(page.getByText(strings.en.follows, { exact: false }).first()).toBeVisible();
 
   await page.getByTestId(T.enterWorld).click();
-  await expect(page.getByTestId(T.feedList), "the feed must arrive within 10s of Enter the world")
-    .toBeVisible({ timeout: 10_000 });
+  await expect(page.getByTestId(T.feedList), "the feed must arrive within 10s of Enter the world").toBeVisible({
+    timeout: 10_000,
+  });
   // The themed overlay is a beat, not a gate: it is gone the moment the feed is up.
   await expect(page.getByTestId(T.worldLoading)).toHaveCount(0);
 });

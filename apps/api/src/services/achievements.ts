@@ -13,8 +13,7 @@ import { notify, unlockText } from "./notify";
 export type MetricName = AchievementDef["metric"];
 export type Metrics = Record<MetricName, number>;
 
-export const achievementTitle = (locale: LocaleKey, key: string): string =>
-  t(locale, `ach_${key}_title` as StringKey);
+export const achievementTitle = (locale: LocaleKey, key: string): string => t(locale, `ach_${key}_title` as StringKey);
 export const achievementDescription = (locale: LocaleKey, key: string): string =>
   t(locale, `ach_${key}_desc` as StringKey);
 

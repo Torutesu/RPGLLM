@@ -1,16 +1,6 @@
 import React, { useState } from "react";
 import { Pressable, Text, View } from "react-native";
-import {
-  T,
-  colors,
-  compactNumber,
-  identityFor,
-  layout,
-  radius,
-  spacing,
-  timeAgo,
-  type Post,
-} from "@rpgllm/shared";
+import { T, colors, compactNumber, identityFor, layout, radius, spacing, timeAgo, type Post } from "@rpgllm/shared";
 import { useT } from "../i18n/useT";
 import { Avatar } from "./Avatar";
 import { Overflow } from "./Overflow"; // Agent G (S1-2)
@@ -113,9 +103,7 @@ function Action({
         <Icon name={icon} size={17} color={fg} filled={active} />
         {burst ? <Burst trigger={pops} color={activeColor ?? colors.hot} size={30} /> : null}
       </View>
-      {count === undefined ? null : (
-        <Text style={[typo.count, { color: fg }]}>{compactNumber(count)}</Text>
-      )}
+      {count === undefined ? null : <Text style={[typo.count, { color: fg }]}>{compactNumber(count)}</Text>}
     </View>
   );
   if (!onPress) {
@@ -208,8 +196,12 @@ function RateRow({ post, rate }: { post: Post; rate: RateHandlers }) {
   );
   return (
     <View style={{ flexDirection: "row", gap: spacing.sm, marginTop: spacing.md }}>
-      {chip("thumbUp", colors.positive, T.rateUp(post.id), `${t("likeThis")} — @${post.author.handle}`, () => rate.onUp(post))}
-      {chip("thumbDown", colors.negative, T.rateDown(post.id), `${t("dislikeThis")} — @${post.author.handle}`, () => rate.onDown(post))}
+      {chip("thumbUp", colors.positive, T.rateUp(post.id), `${t("likeThis")} — @${post.author.handle}`, () =>
+        rate.onUp(post),
+      )}
+      {chip("thumbDown", colors.negative, T.rateDown(post.id), `${t("dislikeThis")} — @${post.author.handle}`, () =>
+        rate.onDown(post),
+      )}
     </View>
   );
 }
@@ -321,7 +313,14 @@ export function PostCell({
         </View>
       </Pressable>
       {inline.length ? (
-        <View style={{ paddingLeft: spacing.xxl + spacing.sm, paddingRight: spacing.lg, paddingBottom: spacing.md, gap: spacing.xs }}>
+        <View
+          style={{
+            paddingLeft: spacing.xxl + spacing.sm,
+            paddingRight: spacing.lg,
+            paddingBottom: spacing.md,
+            gap: spacing.xs,
+          }}
+        >
           {inline.map((r) => (
             <ReplyCell key={r.id} post={r} onPress={onReplyPress ?? onPress} />
           ))}
@@ -332,9 +331,7 @@ export function PostCell({
               accessibilityLabel={t("showMore")}
               style={{ paddingVertical: spacing.sm, flexDirection: "row", alignItems: "center", gap: spacing.xs }}
             >
-              <Text style={[typo.metaStrong, { color: colors.accent }]}>
-                {`+${replies.length - maxReplies}`}
-              </Text>
+              <Text style={[typo.metaStrong, { color: colors.accent }]}>{`+${replies.length - maxReplies}`}</Text>
               <Icon name="chevronRight" size={13} color={colors.accent} />
             </Pressable>
           ) : null}

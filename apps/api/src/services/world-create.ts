@@ -22,7 +22,12 @@ import { tamePremise } from "../fake-world-seed";
 import type { Deps } from "../types";
 import { ensureWallet } from "./wallet";
 import {
-  GemsRequiredError, dailyWorldLimit, slugifyPremise, spendGems, uniqueSlug, worldsCreatedToday,
+  GemsRequiredError,
+  dailyWorldLimit,
+  slugifyPremise,
+  spendGems,
+  uniqueSlug,
+  worldsCreatedToday,
 } from "./world-studio";
 import { publicSubmitGems } from "./world-submit-fee";
 
@@ -39,7 +44,12 @@ export interface CreateWorldInput {
 
 export type CreateWorldOutcome =
   | { ok: true; world: World; remaining: number }
-  | { ok: false; code: "VALIDATION" | "SAFETY_BLOCKED" | "WORLD_LIMIT" | "GEMS_REQUIRED" | "INTERNAL"; message: string; status: number };
+  | {
+      ok: false;
+      code: "VALIDATION" | "SAFETY_BLOCKED" | "WORLD_LIMIT" | "GEMS_REQUIRED" | "INTERNAL";
+      message: string;
+      status: number;
+    };
 
 /** A premise is one line of prose; the world's working title is its first clause. */
 export const titleFrom = (premise: string): string => {
@@ -75,8 +85,19 @@ export async function createWorld(
   const screen = await loadDeepPremiseScreen(deps.gateway);
   const verdict = await screen(premise, locale);
   if (verdict.verdict === "block") {
-    logLine({ level: "warn", msg: "world.premise.blocked", userId: user.id, category: verdict.category ?? "unknown", layer: verdict.layer });
-    return { ok: false, code: "SAFETY_BLOCKED", message: `We can't build that one (${verdict.category ?? "policy"}).`, status: 422 };
+    logLine({
+      level: "warn",
+      msg: "world.premise.blocked",
+      userId: user.id,
+      category: verdict.category ?? "unknown",
+      layer: verdict.layer,
+    });
+    return {
+      ok: false,
+      code: "SAFETY_BLOCKED",
+      message: `We can't build that one (${verdict.category ?? "policy"}).`,
+      status: 422,
+    };
   }
 
   // 2. The daily cap, counted from `World` rows: a refunded failure still used its slot, because
@@ -85,8 +106,14 @@ export async function createWorld(
   const limit = dailyWorldLimit(subscription, now);
   const today = await worldsCreatedToday(deps.prisma, user.id, now);
   if (today >= limit) {
-    const headroom = limit < WORLD_STUDIO.DAILY_LIMIT_PLUS ? ` Plus raises it to ${WORLD_STUDIO.DAILY_LIMIT_PLUS}.` : "";
-    return { ok: false, code: "WORLD_LIMIT", message: `You've built ${limit} worlds today — that's the daily limit.${headroom}`, status: 429 };
+    const headroom =
+      limit < WORLD_STUDIO.DAILY_LIMIT_PLUS ? ` Plus raises it to ${WORLD_STUDIO.DAILY_LIMIT_PLUS}.` : "";
+    return {
+      ok: false,
+      code: "WORLD_LIMIT",
+      message: `You've built ${limit} worlds today — that's the daily limit.${headroom}`,
+      status: 429,
+    };
   }
 
   // 3. The price. Same 402 shape as running out of energy.
@@ -101,9 +128,10 @@ export async function createWorld(
    */
   const shelf = visibility === "public" ? publicSubmitGems() : 0;
   const price = WORLD_STUDIO.GEM_COST + shelf;
-  const shortOfGems = shelf > 0
-    ? `Not enough gems — a world costs ${WORLD_STUDIO.GEM_COST} and the shelf costs ${shelf}.`
-    : `Not enough gems — a world costs ${WORLD_STUDIO.GEM_COST}.`;
+  const shortOfGems =
+    shelf > 0
+      ? `Not enough gems — a world costs ${WORLD_STUDIO.GEM_COST} and the shelf costs ${shelf}.`
+      : `Not enough gems — a world costs ${WORLD_STUDIO.GEM_COST}.`;
   if (wallet.gems < price) {
     return { ok: false, code: "GEMS_REQUIRED", message: shortOfGems, status: 402 };
   }
@@ -157,7 +185,13 @@ export async function createWorld(
     return { ok: false, code: "INTERNAL", message: "Could not reserve a name for that world", status: 500 };
   }
   if (source) {
-    logLine({ level: "info", msg: "world.remix.created", worldId: created.world.id, sourceId: source.id, userId: user.id });
+    logLine({
+      level: "info",
+      msg: "world.remix.created",
+      worldId: created.world.id,
+      sourceId: source.id,
+      userId: user.id,
+    });
   }
   return { ok: true, world: created.world, remaining: created.remaining };
 }

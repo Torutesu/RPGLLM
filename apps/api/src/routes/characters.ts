@@ -19,7 +19,10 @@ export function bioFrom(card: string): string {
     .split(/(?<=[.!?。！？])\s+/)
     .map((s) => s.trim())
     .filter((s) => s.length > 0 && !/^(NG|禁止)\s*[:：]/i.test(s));
-  const text = sentences.join(" ").replace(/^(Voice|Role|口調|役割)\s*[:：]\s*/i, "").trim();
+  const text = sentences
+    .join(" ")
+    .replace(/^(Voice|Role|口調|役割)\s*[:：]\s*/i, "")
+    .trim();
   if (text.length === 0) return "";
   return text.charAt(0).toUpperCase() + text.slice(1);
 }

@@ -4,7 +4,12 @@ import { requireAuth } from "../auth";
 import { testHooksEnabled } from "../env";
 import { fail, ok, parseBody } from "../http";
 import {
-  buildExport, purgeAtFor, purgeDeletedAccounts, requireActiveAccount, resolveConsent, withinGraceWindow,
+  buildExport,
+  purgeAtFor,
+  purgeDeletedAccounts,
+  requireActiveAccount,
+  resolveConsent,
+  withinGraceWindow,
 } from "../services/account";
 import type { AppEnv } from "../types";
 

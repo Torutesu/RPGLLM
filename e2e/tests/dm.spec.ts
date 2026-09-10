@@ -1,8 +1,16 @@
 import { expect, test } from "@playwright/test";
 import { T } from "@rpgllm/shared";
 import {
-  apiSignup, dmThread, dmThreads, enterWorld, expectWalletEnergy, FIRST_FOLLOWER, loginInBrowser,
-  me, resetDb, wallet,
+  apiSignup,
+  dmThread,
+  dmThreads,
+  enterWorld,
+  expectWalletEnergy,
+  FIRST_FOLLOWER,
+  loginInBrowser,
+  me,
+  resetDb,
+  wallet,
 } from "../fixtures";
 
 test.beforeEach(async ({ request }) => {
@@ -35,8 +43,9 @@ test("E2E-006: sending a DM gets an answer from the character", async ({ page, r
   await page.getByTestId(T.dmSend).click();
 
   // typing indicator, then 1–3 reply bubbles
-  await expect(page.getByTestId(T.dmTyping), "a typing indicator must show while the answer streams")
-    .toBeVisible({ timeout: 5_000 });
+  await expect(page.getByTestId(T.dmTyping), "a typing indicator must show while the answer streams").toBeVisible({
+    timeout: 5_000,
+  });
 
   await expect
     .poll(() => bubbles.count(), { timeout: 20_000, message: "the character must answer" })
@@ -65,8 +74,7 @@ test("E2E-006: sending a DM gets an answer from the character", async ({ page, r
   const thread = threads.find((t) => t.character.handle.replace(/^@/, "") === FIRST_FOLLOWER);
   if (!thread) throw new Error(`no DM thread with @${FIRST_FOLLOWER}`);
   const detail = await dmThread(request, account.jwt, thread.id);
-  expect(detail.messages.filter((m) => m.fromCharacter).length, "stored character replies")
-    .toBeGreaterThanOrEqual(1);
+  expect(detail.messages.filter((m) => m.fromCharacter).length, "stored character replies").toBeGreaterThanOrEqual(1);
 });
 
 /* --------------------------------------------------------------- P1 ------- */

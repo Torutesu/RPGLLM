@@ -89,9 +89,18 @@ export const G9ConceptZ = z.object({
   tone: LocaleTextZ,
   platform: z.object({ name: z.string(), conceit: LocaleTextZ }),
   setting: LocaleTextZ,
-  places: z.array(z.object({ name: LocaleTextZ, note: LocaleTextZ })).min(1).max(8),
-  factions: z.array(z.object({ name: LocaleTextZ, blurb: LocaleTextZ })).min(1).max(6),
-  slang: z.array(z.object({ term: z.string(), gloss: LocaleTextZ })).min(1).max(20),
+  places: z
+    .array(z.object({ name: LocaleTextZ, note: LocaleTextZ }))
+    .min(1)
+    .max(8),
+  factions: z
+    .array(z.object({ name: LocaleTextZ, blurb: LocaleTextZ }))
+    .min(1)
+    .max(6),
+  slang: z
+    .array(z.object({ term: z.string(), gloss: LocaleTextZ }))
+    .min(1)
+    .max(20),
   cast: z.array(G9ConceptCastZ).min(1).max(12),
 });
 export type G9Concept = z.infer<typeof G9ConceptZ>;
@@ -141,7 +150,10 @@ export type G9CastEventsOutput = z.infer<typeof G9CastEventsZ>;
 /* ------------------------------------------------------------ G9e — texture ---- */
 
 export const G9TextureZ = z.object({
-  ambient: z.array(z.object({ handle: z.string(), text: z.string().max(280) })).min(1).max(40),
+  ambient: z
+    .array(z.object({ handle: z.string(), text: z.string().max(280) }))
+    .min(1)
+    .max(40),
   /** handle -> short reply lines used when a generation fails mid-game */
   fallbackReplies: z.record(z.string(), z.array(z.string()).min(1)),
   /** handle -> the post this account makes when the player arrives */

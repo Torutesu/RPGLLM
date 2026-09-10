@@ -5,18 +5,33 @@ import { call, getWallet, makeHarness, prisma, resetDatabase, signupWithPersona,
 let h: Harness;
 
 interface DigestBody {
-  digest: { id: string; headline: string; body: string; postIds: string[]; createdAt: string; seenAt: string | null } | null;
+  digest: {
+    id: string;
+    headline: string;
+    body: string;
+    postIds: string[];
+    createdAt: string;
+    seenAt: string | null;
+  } | null;
 }
 interface RunJobBody {
   ran: string[];
-  digest: { considered: number; generated: { digestId: string; postIds: string[]; dmMessageId: string | null }[]; skipped: number } | null;
+  digest: {
+    considered: number;
+    generated: { digestId: string; postIds: string[]; dmMessageId: string | null }[];
+    skipped: number;
+  } | null;
 }
 
 const runDigestJob = (personaId: string, force = true) =>
   call<RunJobBody>(h, "POST", "/v1/__test/run-job", { body: { job: "digest", personaId, force } });
 
-beforeAll(() => { h = makeHarness(); });
-beforeEach(async () => { await resetDatabase(); });
+beforeAll(() => {
+  h = makeHarness();
+});
+beforeEach(async () => {
+  await resetDatabase();
+});
 
 describe("offline world director / digest (S2-1, AIF-001)", () => {
   it("generates one digest, returns it unseen, marks it seen, and costs no energy", async () => {
@@ -66,9 +81,14 @@ describe("offline world director / digest (S2-1, AIF-001)", () => {
     expect(rows.length).toBe(postIds.length);
     for (const row of rows) expect(row.personaId).toBe(p.personaId);
 
-    const feed = await call<{ posts: { id: string }[] }>(h, "GET", `/v1/feed?personaId=${p.personaId}`, { token: p.token });
+    const feed = await call<{ posts: { id: string }[] }>(h, "GET", `/v1/feed?personaId=${p.personaId}`, {
+      token: p.token,
+    });
     const inFeed = feed.data.posts.map((x) => x.id);
-    expect(postIds.some((id) => inFeed.includes(id)), "digest posts land in the feed").toBe(true);
+    expect(
+      postIds.some((id) => inFeed.includes(id)),
+      "digest posts land in the feed",
+    ).toBe(true);
 
     const logs = await prisma.generationLog.findMany({ where: { userId: p.userId } });
     const generators = new Set(logs.map((l) => l.generator));
@@ -93,7 +113,8 @@ describe("offline world director / digest (S2-1, AIF-001)", () => {
   it("registers an Expo push token (delivery is a no-op without PUSH_ENABLED=1)", async () => {
     const p = await signupWithPersona(h);
     const res = await call<{ registered: boolean }>(h, "POST", "/v1/push/register", {
-      token: p.token, body: { token: "ExponentPushToken[xxxxxxxxxxxxxxxxxxxxxx]", platform: "ios" },
+      token: p.token,
+      body: { token: "ExponentPushToken[xxxxxxxxxxxxxxxxxxxxxx]", platform: "ios" },
     });
     expect(res.status).toBe(200);
     expect(res.data.registered).toBe(true);
@@ -101,7 +122,8 @@ describe("offline world director / digest (S2-1, AIF-001)", () => {
 
     // Re-registering the same device is idempotent.
     await call(h, "POST", "/v1/push/register", {
-      token: p.token, body: { token: "ExponentPushToken[xxxxxxxxxxxxxxxxxxxxxx]", platform: "ios" },
+      token: p.token,
+      body: { token: "ExponentPushToken[xxxxxxxxxxxxxxxxxxxxxx]", platform: "ios" },
     });
     expect(await prisma.pushToken.count()).toBe(1);
 

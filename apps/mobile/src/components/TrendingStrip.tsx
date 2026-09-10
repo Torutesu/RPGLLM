@@ -10,7 +10,8 @@ export type Topic = Trending["topics"][number];
 /** Hot enough to burn, warm enough to notice, or just a thing people said twice. */
 function toneFor(heat: number): { fg: string; bg: string; border: string; flame: boolean } {
   if (heat >= HEAT.VIRAL) return { fg: colors.hot, bg: `${colors.hot}1F`, border: `${colors.hot}66`, flame: true };
-  if (heat >= HEAT.HOT) return { fg: colors.negative, bg: `${colors.negative}1A`, border: `${colors.negative}55`, flame: true };
+  if (heat >= HEAT.HOT)
+    return { fg: colors.negative, bg: `${colors.negative}1A`, border: `${colors.negative}55`, flame: true };
   return { fg: colors.textDim, bg: colors.card, border: colors.border, flame: false };
 }
 
@@ -77,7 +78,10 @@ export function TrendingStrip({
               })}
             >
               {tone.flame ? <Icon name="flame" size={12} color={tone.fg} filled /> : null}
-              <Text numberOfLines={1} style={[typo.label, { color: active ? colors.accentHi : tone.fg, maxWidth: 160 }]}>
+              <Text
+                numberOfLines={1}
+                style={[typo.label, { color: active ? colors.accentHi : tone.fg, maxWidth: 160 }]}
+              >
                 {topic.label}
               </Text>
               <Text style={[typo.count, { color: colors.textMuted }]}>{topic.posts}</Text>

@@ -24,7 +24,11 @@ export type CreatePersonaOutcome =
  * SCR-006. Creates the persona, the full RelationshipState cast (first follower at affinity 20),
  * and the initial feed: 5 ambient posts from the pool + 1 welcome post by the first follower (G1, k=1).
  */
-export async function createPersonaWithFeed(deps: Deps, user: User, req: CreatePersonaReq): Promise<CreatePersonaOutcome> {
+export async function createPersonaWithFeed(
+  deps: Deps,
+  user: User,
+  req: CreatePersonaReq,
+): Promise<CreatePersonaOutcome> {
   const world = await deps.prisma.world.findUnique({ where: { id: req.worldId } });
   if (!world) return { ok: false, code: "NOT_FOUND", message: "World not found" };
   // AIF-003: knowing the id of somebody else's private world must not be enough to play it.
@@ -43,10 +47,14 @@ export async function createPersonaWithFeed(deps: Deps, user: User, req: CreateP
   }
   const handle = claim.handle;
 
-  const characters = await deps.prisma.worldCharacter.findMany({ where: { worldId: world.id }, orderBy: { handle: "asc" } });
-  const firstFollower = characters.find((c) => c.id === req.firstFollowerId)
-    ?? characters.find((c) => c.canBeFirstFollower)
-    ?? characters[0];
+  const characters = await deps.prisma.worldCharacter.findMany({
+    where: { worldId: world.id },
+    orderBy: { handle: "asc" },
+  });
+  const firstFollower =
+    characters.find((c) => c.id === req.firstFollowerId) ??
+    characters.find((c) => c.canBeFirstFollower) ??
+    characters[0];
   if (!firstFollower) return { ok: false, code: "NOT_FOUND", message: "World has no cast" };
 
   const persona = await deps.prisma.$transaction(async (tx) => {
@@ -146,17 +154,36 @@ async function seedInitialFeed(
     worldBible: localized(world.bible, locale),
     isMinor: user.isMinor,
     persona: {
-      handle: persona.handle, displayName: persona.displayName, bio: persona.bio, voiceNotes: persona.voiceNotes,
-      followers: persona.followers, aura: persona.aura, humor: persona.humor, level: persona.level, worldSummary: persona.worldSummary,
+      handle: persona.handle,
+      displayName: persona.displayName,
+      bio: persona.bio,
+      voiceNotes: persona.voiceNotes,
+      followers: persona.followers,
+      aura: persona.aura,
+      humor: persona.humor,
+      level: persona.level,
+      worldSummary: persona.worldSummary,
     },
     // Generators and replay fixtures key on bare handles; the DB stores them with a leading "@".
     // Without normHandle the fixture lookup misses and G1 returns the "..." placeholder.
     cast: characters.map((c) => ({
-      handle: normHandle(c.handle), displayName: c.displayName, role: roleFor(c, locale), card: localized(c.card, locale), isPressAccount: c.isPressAccount,
+      handle: normHandle(c.handle),
+      displayName: c.displayName,
+      role: roleFor(c, locale),
+      card: localized(c.card, locale),
+      isPressAccount: c.isPressAccount,
     })),
     involved: [{ handle: normHandle(firstFollower.handle), affinity: 20, summary: "", isFollower: true }],
-    recentFeed: shuffled.map((a) => ({ authorHandle: normHandle(firstFollower.handle), kind: "ambient" as const, text: a.text })),
-    post: { text: persona.bio.length > 0 ? persona.bio : persona.displayName, parentAuthorHandle: null, parentText: null },
+    recentFeed: shuffled.map((a) => ({
+      authorHandle: normHandle(firstFollower.handle),
+      kind: "ambient" as const,
+      text: a.text,
+    })),
+    post: {
+      text: persona.bio.length > 0 ? persona.bio : persona.displayName,
+      parentAuthorHandle: null,
+      parentText: null,
+    },
     k: 1,
     softened: false,
     seed: seedFrom(`welcome:${persona.id}`),
@@ -170,7 +197,7 @@ async function seedInitialFeed(
     : undefined;
   const fallbackText = seedWelcome ? localized(seedWelcome, locale) : "";
   const generated = result.output.replies[0]?.text ?? "";
-  const text = result.meta.fallback ? (fallbackText || generated || "👀") : (generated || fallbackText || "👀");
+  const text = result.meta.fallback ? fallbackText || generated || "👀" : generated || fallbackText || "👀";
 
   const welcome = await deps.prisma.post.create({
     data: {

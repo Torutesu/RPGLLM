@@ -1,8 +1,14 @@
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import type { Gateway } from "@rpgllm/llm";
 import {
-  BudgetExhaustedError, budgetStatus, dailyBudgetUsd, dayKeyOf, noteSpend, resetBudgetCache,
-  spentTodayUsd, withBudget,
+  BudgetExhaustedError,
+  budgetStatus,
+  dailyBudgetUsd,
+  dayKeyOf,
+  noteSpend,
+  resetBudgetCache,
+  spentTodayUsd,
+  withBudget,
 } from "../src/services/budget";
 import { call, makeHarness, prisma, resetDatabase, signup, type Harness } from "./helpers";
 
@@ -25,22 +31,46 @@ function withEnv(patch: Record<string, string | undefined>): () => void {
     if (v === undefined) delete process.env[k];
     else process.env[k] = v;
   }
-  return () => { for (const [k, v] of previous) { if (v === undefined) delete process.env[k]; else process.env[k] = v; } };
+  return () => {
+    for (const [k, v] of previous) {
+      if (v === undefined) delete process.env[k];
+      else process.env[k] = v;
+    }
+  };
 }
 
 let restore: (() => void) | null = null;
 
-beforeAll(() => { h = makeHarness(); });
-beforeEach(async () => { await resetDatabase(); resetBudgetCache(); });
-afterEach(() => { restore?.(); restore = null; resetBudgetCache(); });
+beforeAll(() => {
+  h = makeHarness();
+});
+beforeEach(async () => {
+  await resetDatabase();
+  resetBudgetCache();
+});
+afterEach(() => {
+  restore?.();
+  restore = null;
+  resetBudgetCache();
+});
 
 /** A generation that cost real money, dated whenever we say. */
 async function logSpend(userId: string | null, usd: number, at: Date): Promise<void> {
   await prisma.generationLog.create({
     data: {
-      userId, generator: "G1", variantId: "v1", model: "claude-sonnet-5", promptHash: "h",
-      inputTokens: 100, cacheWriteTokens: 0, cacheReadTokens: 0, outputTokens: 50,
-      costUsd: usd.toFixed(6), latencyMs: 10, stopReason: "end_turn", createdAt: at,
+      userId,
+      generator: "G1",
+      variantId: "v1",
+      model: "claude-sonnet-5",
+      promptHash: "h",
+      inputTokens: 100,
+      cacheWriteTokens: 0,
+      cacheReadTokens: 0,
+      outputTokens: 50,
+      costUsd: usd.toFixed(6),
+      latencyMs: 10,
+      stopReason: "end_turn",
+      createdAt: at,
     },
   });
 }
@@ -53,7 +83,10 @@ function fakeLiveGateway(costUsd = 0): { gateway: Gateway; calls: string[] } {
     get(_t, prop: string | symbol) {
       if (prop === "mode") return () => "live";
       if (typeof prop !== "string") return undefined;
-      return (..._args: unknown[]) => { calls.push(prop); return Promise.resolve({ output: {}, meta }); };
+      return (..._args: unknown[]) => {
+        calls.push(prop);
+        return Promise.resolve({ output: {}, meta });
+      };
     },
   };
   return { gateway: new Proxy({}, handler) as unknown as Gateway, calls };
@@ -157,7 +190,9 @@ describe("the metered gateway", () => {
     const metered = withBudget(gateway, prisma, () => now);
 
     for (const name of ["g1", "g5", "g9", "g9Screen", "gj", "batchG1", "batch"] as const) {
-      await expect((metered[name] as (...a: unknown[]) => Promise<unknown>)({}), name).rejects.toBeInstanceOf(BudgetExhaustedError);
+      await expect((metered[name] as (...a: unknown[]) => Promise<unknown>)({}), name).rejects.toBeInstanceOf(
+        BudgetExhaustedError,
+      );
     }
     expect(calls, "nothing reached the model").toEqual([]);
   });
@@ -199,7 +234,10 @@ describe("the operator's view", () => {
     resetBudgetCache();
 
     const res = await call<{ budget: { limitUsd: number; spentUsd: number; exhausted: boolean; dayKey: string } }>(
-      h, "GET", "/v1/cost/live", { headers: { "x-admin-token": "" } },
+      h,
+      "GET",
+      "/v1/cost/live",
+      { headers: { "x-admin-token": "" } },
     );
     // TEST_HOOKS=1 is the gate in this harness, so the read succeeds without a token.
     expect(res.status).toBe(200);

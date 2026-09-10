@@ -90,8 +90,10 @@ export function cjkRatio(text: string): number {
  * text says "Hogwarts". **Framing** ("based on", "in the style of", パロディ) is medium: it is a
  * legitimate thing to write and also exactly how a derivative announces itself.
  */
-const FRANCHISE = /\b(?:hogwarts|jedi|sith|pok[eé]mon|pikachu|marvel|avengers|spider-?man|batman|superman|naruto|sasuke|goku|dragon ball|sailor moon|demon slayer|jujutsu kaisen|attack on titan|luffy|hatsune miku|studio ghibli|totoro|disney|pixar|nintendo|mario|zelda|minecraft|fortnite|roblox|taylor swift|beyonc[eé]|bts|blackpink|k-?pop demon hunters)\b|(?:ハリー・?ポッター|ポケモン|ナルト|ドラゴンボール|セーラームーン|鬼滅の刃|呪術廻戦|進撃の巨人|ワンピース|初音ミク|ジブリ|ディズニー|マリオ|ゼルダ)/i;
-const HOMAGE = /\b(?:based on|inspired by|in the style of|reminiscent of|an? homage to|the same universe as|thinly veiled|serial numbers)\b|(?:をモデルに|パロディ|オマージュ|そっくり)/i;
+const FRANCHISE =
+  /\b(?:hogwarts|jedi|sith|pok[eé]mon|pikachu|marvel|avengers|spider-?man|batman|superman|naruto|sasuke|goku|dragon ball|sailor moon|demon slayer|jujutsu kaisen|attack on titan|luffy|hatsune miku|studio ghibli|totoro|disney|pixar|nintendo|mario|zelda|minecraft|fortnite|roblox|taylor swift|beyonc[eé]|bts|blackpink|k-?pop demon hunters)\b|(?:ハリー・?ポッター|ポケモン|ナルト|ドラゴンボール|セーラームーン|鬼滅の刃|呪術廻戦|進撃の巨人|ワンピース|初音ミク|ジブリ|ディズニー|マリオ|ゼルダ)/i;
+const HOMAGE =
+  /\b(?:based on|inspired by|in the style of|reminiscent of|an? homage to|the same universe as|thinly veiled|serial numbers)\b|(?:をモデルに|パロディ|オマージュ|そっくり)/i;
 /**
  * **The ambiguity guard** (`pipeline/status/build-notes.md` §6, `AMBIGUOUS_ENTITY_TERMS` in
  * `@rpgllm/llm`). Pointing entity vocabulary at 60 kB of generated prose instead of at a
@@ -113,7 +115,8 @@ const HOMAGE = /\b(?:based on|inspired by|in the style of|reminiscent of|an? hom
  * There is a regression case for both strings in `test/review-digest.test.ts`, and the mirror of
  * this list lives in `@rpgllm/llm` (`AMBIGUOUS_ENTITY_TERMS`); a term added here needs one there.
  */
-const REAL_WORLD = /\b(?:real[\s-]?life|the real)\s+(?:celebrit|person|people|politician|president|singer|actor|idol)|\b(?:based on|starring|featuring|modelled on|modeled on)\s+(?:the\s+)?real\b|[™®]|(?:実在の(?:人物|有名人|芸能人|企業)を(?:モデル|元)に)/i;
+const REAL_WORLD =
+  /\b(?:real[\s-]?life|the real)\s+(?:celebrit|person|people|politician|president|singer|actor|idol)|\b(?:based on|starring|featuring|modelled on|modeled on)\s+(?:the\s+)?real\b|[™®]|(?:実在の(?:人物|有名人|芸能人|企業)を(?:モデル|元)に)/i;
 
 /**
  * `age` — 13+ in spirit. The block gate already refused the explicit cases; what is left for a
@@ -123,10 +126,15 @@ const REAL_WORLD = /\b(?:real[\s-]?life|the real)\s+(?:celebrit|person|people|po
  */
 const SCHOOL = "student|schoolgirl|schoolboy|classmate|freshman|sophomore|pupil|高校生|中学生|生徒|同級生|後輩|先輩";
 const ROMANCE = "romance|romantic|dating|date them|kiss|seduce|flirt|crush on|sleep with|恋愛|付き合|キス|口説|告白";
-const AGE_NEAR = new RegExp(`(?:${SCHOOL})[^.。!?！？]{0,80}(?:${ROMANCE})|(?:${ROMANCE})[^.。!?！？]{0,80}(?:${SCHOOL})`, "i");
+const AGE_NEAR = new RegExp(
+  `(?:${SCHOOL})[^.。!?！？]{0,80}(?:${ROMANCE})|(?:${ROMANCE})[^.。!?！？]{0,80}(?:${SCHOOL})`,
+  "i",
+);
 const AGE_NUMERAL = /\b1[0-7][\s-]?(?:year|yr)s?[\s-]?old\b|(?:1[0-7]|十[一-七])歳/i;
-const SELF_HARM = /\b(?:self[\s-]?harm|suicid\w*|cutting herself|cutting himself|eating disorder|anorexi\w*)\b|(?:自殺|自傷|リストカット|摂食障害)/i;
-const SUBSTANCE = /\b(?:getting drunk|binge drink\w*|cocaine|meth\b|pills to|overdose)\b|(?:泥酔|覚醒剤|オーバードーズ)/i;
+const SELF_HARM =
+  /\b(?:self[\s-]?harm|suicid\w*|cutting herself|cutting himself|eating disorder|anorexi\w*)\b|(?:自殺|自傷|リストカット|摂食障害)/i;
+const SUBSTANCE =
+  /\b(?:getting drunk|binge drink\w*|cocaine|meth\b|pills to|overdose)\b|(?:泥酔|覚醒剤|オーバードーズ)/i;
 
 /**
  * `vector` — the generated bible is a system prompt for every later generator, so an instruction
@@ -134,9 +142,13 @@ const SUBSTANCE = /\b(?:getting drunk|binge drink\w*|cocaine|meth\b|pills to|ove
  * better than the person and the person still has to sign it off.
  */
 const VECTOR_TAG = /<\/?(?:system|assistant|human|instructions?)\b/i;
-const VECTOR_TEXT = /(?:ignore|disregard|forget|override)\s+(?:all\s+|any\s+|the\s+|your\s+|previous\s+|above\s+|prior\s+)*(?:instruction|prompt|rule|guideline|system)|\bsystem\s*prompt\b|\bdeveloper\s*message\b|\bjailbreak\b|\bas an AI\b|\byou are (?:an? )?(?:AI|assistant|language model)\b|(?:これまでの指示|システムプロンプト|前の指示を無視)/i;
+const VECTOR_TEXT =
+  /(?:ignore|disregard|forget|override)\s+(?:all\s+|any\s+|the\s+|your\s+|previous\s+|above\s+|prior\s+)*(?:instruction|prompt|rule|guideline|system)|\bsystem\s*prompt\b|\bdeveloper\s*message\b|\bjailbreak\b|\bas an AI\b|\byou are (?:an? )?(?:AI|assistant|language model)\b|(?:これまでの指示|システムプロンプト|前の指示を無視)/i;
 
-interface Match { index: number; length: number }
+interface Match {
+  index: number;
+  length: number;
+}
 
 const firstMatch = (re: RegExp, text: string): Match | null => {
   const m = re.exec(text);
@@ -173,68 +185,82 @@ export function extractPoints(world: DigestWorld, characters: readonly DigestCha
   /* ---- 1. original ---- */
   const franchise = scan(FRANCHISE, prose);
   if (franchise) {
-    points.push(point(
-      "original",
-      `A named franchise appears verbatim in the ${franchise.label}. Rule 1 is about serial numbers filed off an existing property — this one is not even filed.`,
-      around(franchise.text, franchise.at.index, franchise.at.length),
-      "high",
-    ));
+    points.push(
+      point(
+        "original",
+        `A named franchise appears verbatim in the ${franchise.label}. Rule 1 is about serial numbers filed off an existing property — this one is not even filed.`,
+        around(franchise.text, franchise.at.index, franchise.at.length),
+        "high",
+      ),
+    );
   }
   const real = scan(REAL_WORLD, prose);
   if (real) {
-    points.push(point(
-      "original",
-      `The ${real.label} points at the real world — a real person, a real company, or a trademark symbol.`,
-      around(real.text, real.at.index, real.at.length),
-      "high",
-    ));
+    points.push(
+      point(
+        "original",
+        `The ${real.label} points at the real world — a real person, a real company, or a trademark symbol.`,
+        around(real.text, real.at.index, real.at.length),
+        "high",
+      ),
+    );
   }
   const homage = scan(HOMAGE, prose);
   if (homage) {
-    points.push(point(
-      "original",
-      `The ${homage.label} says out loud that it is derived from something. Read what it is derived from before rule 1.`,
-      around(homage.text, homage.at.index, homage.at.length),
-      "medium",
-    ));
+    points.push(
+      point(
+        "original",
+        `The ${homage.label} says out loud that it is derived from something. Read what it is derived from before rule 1.`,
+        around(homage.text, homage.at.index, homage.at.length),
+        "medium",
+      ),
+    );
   }
 
   /* ---- 2. age ---- */
   const near = scan(AGE_NEAR, prose);
   if (near) {
-    points.push(point(
-      "age",
-      `School vocabulary and romance vocabulary sit in one sentence in the ${near.label}. Most of the genre does this innocently; rule 2 is about whether the *premise* is the romance.`,
-      around(near.text, near.at.index, near.at.length),
-      "medium",
-    ));
+    points.push(
+      point(
+        "age",
+        `School vocabulary and romance vocabulary sit in one sentence in the ${near.label}. Most of the genre does this innocently; rule 2 is about whether the *premise* is the romance.`,
+        around(near.text, near.at.index, near.at.length),
+        "medium",
+      ),
+    );
   }
   const numeral = scan(AGE_NUMERAL, prose);
   if (numeral) {
-    points.push(point(
-      "age",
-      `An age under 18 is stated in the ${numeral.label}. Worth knowing which character it belongs to and who they are written opposite.`,
-      around(numeral.text, numeral.at.index, numeral.at.length),
-      "medium",
-    ));
+    points.push(
+      point(
+        "age",
+        `An age under 18 is stated in the ${numeral.label}. Worth knowing which character it belongs to and who they are written opposite.`,
+        around(numeral.text, numeral.at.index, numeral.at.length),
+        "medium",
+      ),
+    );
   }
   const harm = scan(SELF_HARM, prose);
   if (harm) {
-    points.push(point(
-      "age",
-      `Self-harm appears as subject matter in the ${harm.label}. The gate blocks instructions; rule 2 is about it being something a player participates in.`,
-      around(harm.text, harm.at.index, harm.at.length),
-      "medium",
-    ));
+    points.push(
+      point(
+        "age",
+        `Self-harm appears as subject matter in the ${harm.label}. The gate blocks instructions; rule 2 is about it being something a player participates in.`,
+        around(harm.text, harm.at.index, harm.at.length),
+        "medium",
+      ),
+    );
   }
   const substance = scan(SUBSTANCE, prose);
   if (substance) {
-    points.push(point(
-      "age",
-      `Substance use appears in the ${substance.label}.`,
-      around(substance.text, substance.at.index, substance.at.length),
-      "low",
-    ));
+    points.push(
+      point(
+        "age",
+        `Substance use appears in the ${substance.label}.`,
+        around(substance.text, substance.at.index, substance.at.length),
+        "low",
+      ),
+    );
   }
 
   /* ---- 3. playable ---- */
@@ -246,21 +272,25 @@ export function extractPoints(world: DigestWorld, characters: readonly DigestCha
   /* ---- 5. vector ---- */
   const tag = scan(VECTOR_TAG, prose);
   if (tag) {
-    points.push(point(
-      "vector",
-      `A role tag is embedded in the ${tag.label}. The bible is the cached prompt prefix every later generator reads, so a tag in it is aimed at the model.`,
-      around(tag.text, tag.at.index, tag.at.length),
-      "high",
-    ));
+    points.push(
+      point(
+        "vector",
+        `A role tag is embedded in the ${tag.label}. The bible is the cached prompt prefix every later generator reads, so a tag in it is aimed at the model.`,
+        around(tag.text, tag.at.index, tag.at.length),
+        "high",
+      ),
+    );
   }
   const vector = scan(VECTOR_TEXT, prose);
   if (vector) {
-    points.push(point(
-      "vector",
-      `The ${vector.label} contains text addressed to a model rather than to a character.`,
-      around(vector.text, vector.at.index, vector.at.length),
-      "high",
-    ));
+    points.push(
+      point(
+        "vector",
+        `The ${vector.label} contains text addressed to a model rather than to a character.`,
+        around(vector.text, vector.at.index, vector.at.length),
+        "high",
+      ),
+    );
   }
 
   return points.slice(0, MAX_POINTS);
@@ -280,46 +310,56 @@ function playablePoints(
   const names = new Set(characters.map((ch) => ch.displayName.trim().toLowerCase()));
   const roles = new Set(characters.map((ch) => roleFor(ch, "en").trim().toLowerCase()).filter(Boolean));
   if (characters.length < 8) {
-    out.push(point(
-      "playable",
-      `The cast is ${characters.length}, not eight. Rule 3 asks for eight distinguishable characters.`,
-      characters.map((ch) => `@${ch.handle}`).join(", ") || "(no cast rows)",
-      "high",
-    ));
+    out.push(
+      point(
+        "playable",
+        `The cast is ${characters.length}, not eight. Rule 3 asks for eight distinguishable characters.`,
+        characters.map((ch) => `@${ch.handle}`).join(", ") || "(no cast rows)",
+        "high",
+      ),
+    );
   } else if (names.size < characters.length) {
-    out.push(point(
-      "playable",
-      `${characters.length} cast members share ${names.size} distinct display names.`,
-      characters.map((ch) => ch.displayName).join(", "),
-      "high",
-    ));
+    out.push(
+      point(
+        "playable",
+        `${characters.length} cast members share ${names.size} distinct display names.`,
+        characters.map((ch) => ch.displayName).join(", "),
+        "high",
+      ),
+    );
   }
   if (characters.length >= 4 && roles.size <= 2) {
-    out.push(point(
-      "playable",
-      `${characters.length} characters between ${roles.size} distinct roles — check they are people rather than one person repeated.`,
-      [...roles].join(", ") || "(no roles)",
-      "medium",
-    ));
+    out.push(
+      point(
+        "playable",
+        `${characters.length} characters between ${roles.size} distinct roles — check they are people rather than one person repeated.`,
+        [...roles].join(", ") || "(no roles)",
+        "medium",
+      ),
+    );
   }
   const thin = characters.filter((ch) => localized(ch.card, "en").trim().length < 80);
   if (thin.length > 0) {
-    out.push(point(
-      "playable",
-      `${thin.length} cast card${thin.length === 1 ? "" : "s"} under 80 characters — there may not be enough there to play against.`,
-      thin.map((ch) => `@${ch.handle}: ${localized(ch.card, "en").trim()}`).join(" | "),
-      "medium",
-    ));
+    out.push(
+      point(
+        "playable",
+        `${thin.length} cast card${thin.length === 1 ? "" : "s"} under 80 characters — there may not be enough there to play against.`,
+        thin.map((ch) => `@${ch.handle}: ${localized(ch.card, "en").trim()}`).join(" | "),
+        "medium",
+      ),
+    );
   }
   for (const locale of LOCALES) {
     const text = bible[locale];
     if (text.trim().length > 0 && text.trim().length < 1200) {
-      out.push(point(
-        "playable",
-        `The ${locale.toUpperCase()} bible is ${text.trim().length} characters. Short bibles read as thin worlds.`,
-        `${localized(world.title, locale)} — ${trim(text)}`,
-        "low",
-      ));
+      out.push(
+        point(
+          "playable",
+          `The ${locale.toUpperCase()} bible is ${text.trim().length} characters. Short bibles read as thin worlds.`,
+          `${localized(world.title, locale)} — ${trim(text)}`,
+          "low",
+        ),
+      );
     }
   }
   return out;
@@ -334,47 +374,52 @@ function playablePoints(
  * It is the operational half of 世界は言語を超える — a world on the shelf whose JA is machine
  * flattened means a Japanese player is playing a worse game than an English one, on the same shelf.
  */
-function localePoints(
-  characters: readonly DigestCharacter[],
-  bible: Record<LocaleKey, string>,
-): ReviewPoint[] {
+function localePoints(characters: readonly DigestCharacter[], bible: Record<LocaleKey, string>): ReviewPoint[] {
   const out: ReviewPoint[] = [];
   const ja = bible.ja.trim();
   const en = bible.en.trim();
   if (ja.length > 0 && en.length > 0 && ja === en) {
-    out.push(point(
-      "locales",
-      "The JA and EN bibles are identical text. One of the two locales was never written.",
-      ja,
-      "high",
-    ));
+    out.push(
+      point(
+        "locales",
+        "The JA and EN bibles are identical text. One of the two locales was never written.",
+        ja,
+        "high",
+      ),
+    );
   } else if (ja.length > 200 && cjkRatio(ja) < 0.15) {
-    out.push(point(
-      "locales",
-      `The JA bible is ${Math.round(cjkRatio(ja) * 100)}% kana or kanji — it is Latin script sitting in the Japanese slot.`,
-      ja,
-      "high",
-    ));
+    out.push(
+      point(
+        "locales",
+        `The JA bible is ${Math.round(cjkRatio(ja) * 100)}% kana or kanji — it is Latin script sitting in the Japanese slot.`,
+        ja,
+        "high",
+      ),
+    );
   }
   if (en.length > 200 && cjkRatio(en) > 0.5) {
-    out.push(point(
-      "locales",
-      `The EN bible is ${Math.round(cjkRatio(en) * 100)}% kana or kanji — the two locales may be swapped.`,
-      en,
-      "high",
-    ));
+    out.push(
+      point(
+        "locales",
+        `The EN bible is ${Math.round(cjkRatio(en) * 100)}% kana or kanji — the two locales may be swapped.`,
+        en,
+        "high",
+      ),
+    );
   }
   const flat = characters.filter((ch) => {
     const card = localized(ch.card, "ja").trim();
     return card.length > 40 && cjkRatio(card) < 0.15;
   });
   if (flat.length > 0) {
-    out.push(point(
-      "locales",
-      `${flat.length} of ${characters.length} JA cast cards are not written in Japanese.`,
-      flat.map((ch) => `@${ch.handle}: ${localized(ch.card, "ja").trim()}`).join(" | "),
-      flat.length > characters.length / 2 ? "high" : "medium",
-    ));
+    out.push(
+      point(
+        "locales",
+        `${flat.length} of ${characters.length} JA cast cards are not written in Japanese.`,
+        flat.map((ch) => `@${ch.handle}: ${localized(ch.card, "ja").trim()}`).join(" | "),
+        flat.length > characters.length / 2 ? "high" : "medium",
+      ),
+    );
   }
   return out;
 }

@@ -19,7 +19,9 @@ export function adminModerationRoutes(): Hono<AppEnv> {
 
   app.use("*", async (c, next) => {
     const header = c.req.header("authorization") ?? "";
-    const presented = header.toLowerCase().startsWith("bearer ") ? header.slice(7).trim() : c.req.header("x-admin-token");
+    const presented = header.toLowerCase().startsWith("bearer ")
+      ? header.slice(7).trim()
+      : c.req.header("x-admin-token");
     if (!testHooksEnabled() && !adminTokenMatches(presented)) return fail("UNAUTHORIZED", "Admin only", 401);
     await next();
   });

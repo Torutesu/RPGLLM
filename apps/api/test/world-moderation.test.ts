@@ -30,12 +30,30 @@ beforeEach(async () => {
 /* ------------------------------------------------------------------ helpers ---- */
 
 interface WorldFull {
-  id: string; slug: string; status: string; visibility: string; premise: string; isPreset: boolean;
-  isMine: boolean; playCount: number; createdAt: string; reason: string | null; pulled: boolean;
+  id: string;
+  slug: string;
+  status: string;
+  visibility: string;
+  premise: string;
+  isPreset: boolean;
+  isMine: boolean;
+  playCount: number;
+  createdAt: string;
+  reason: string | null;
+  pulled: boolean;
 }
-interface PublicRes { worlds: WorldFull[]; nextCursor: string | null }
-interface MineRes { worlds: WorldFull[]; remainingToday: number }
-interface PublishRes { world: WorldFull; needsReview: boolean }
+interface PublicRes {
+  worlds: WorldFull[];
+  nextCursor: string | null;
+}
+interface MineRes {
+  worlds: WorldFull[];
+  remainingToday: number;
+}
+interface PublishRes {
+  world: WorldFull;
+  needsReview: boolean;
+}
 interface QueueRow extends WorldFull {
   bibleExcerpt: string;
   cast: { handle: string }[];
@@ -44,7 +62,12 @@ interface QueueRow extends WorldFull {
   overdue: boolean;
   reports: { reason: string; note: string; createdAt: string }[];
 }
-interface QueueRes { worlds: QueueRow[]; overdueCount: number; total: number; nextCursor: string | null }
+interface QueueRes {
+  worlds: QueueRow[];
+  overdueCount: number;
+  total: number;
+  nextCursor: string | null;
+}
 
 const PREMISE = "Seven rookies, one debut slot, and a leaked group chat";
 
@@ -57,14 +80,17 @@ const buildOnce = async (): Promise<void> => {
 async function shelvedWorld(premise = PREMISE) {
   const { token, userId } = await signup(h);
   const created = await call<{ world: WorldFull }>(h, "POST", "/v1/worlds", {
-    token, body: { premise, genre: "idol", locale: "en", visibility: "private" },
+    token,
+    body: { premise, genre: "idol", locale: "en", visibility: "private" },
   });
   expect(created.status).toBe(201);
   await buildOnce();
   // The shelf costs gems on top of the world (gtm.md §2 exit 1); a fresh account has none left.
   await grantShelfGems(userId, 4);
   const id = created.data.world.id;
-  expect((await call(h, "POST", `/v1/worlds/${id}/publish`, { token, body: { visibility: "public" } })).status).toBe(202);
+  expect((await call(h, "POST", `/v1/worlds/${id}/publish`, { token, body: { visibility: "public" } })).status).toBe(
+    202,
+  );
   const approved = await call<PublishRes>(h, "POST", `/v1/admin/worlds/${id}/review`, {
     body: { decision: "approve", reason: "" },
   });
@@ -76,7 +102,8 @@ async function shelvedWorld(premise = PREMISE) {
 async function submittedWorld(premise: string) {
   const { token, userId } = await signup(h);
   const created = await call<{ world: WorldFull }>(h, "POST", "/v1/worlds", {
-    token, body: { premise, genre: "idol", locale: "en", visibility: "private" },
+    token,
+    body: { premise, genre: "idol", locale: "en", visibility: "private" },
   });
   await buildOnce();
   // The shelf costs gems on top of the world (gtm.md §2 exit 1); a fresh account has none left.
@@ -88,7 +115,8 @@ async function submittedWorld(premise: string) {
 
 const reportWorld = async (token: string, worldId: string, note = "this is not okay") =>
   await call<{ id: string; status: string }>(h, "POST", "/v1/moderation/report", {
-    token, body: { target: "world", targetId: worldId, reason: "harassment", note },
+    token,
+    body: { target: "world", targetId: worldId, reason: "harassment", note },
   });
 
 /** `n` different accounts, each reporting the world once. Returns their tokens. */
@@ -151,8 +179,9 @@ describe("reports have consequences", () => {
     await reportWorld(second.token, worldId, "second person");
 
     // Three open reports, two people: still on the shelf.
-    expect(await prisma.report.count({ where: { target: "world", targetId: worldId, status: "open" } }))
-      .toBeGreaterThanOrEqual(WORLD_MODERATION.REPORTS_TO_PULL);
+    expect(
+      await prisma.report.count({ where: { target: "world", targetId: worldId, status: "open" } }),
+    ).toBeGreaterThanOrEqual(WORLD_MODERATION.REPORTS_TO_PULL);
     expect((await worldRow(worldId)).status).toBe("published");
 
     const third = await signup(h);
@@ -165,15 +194,24 @@ describe("reports have consequences", () => {
 
     // Somebody is mid-game in it before anything happens.
     const detail = await call<{ characters: { id: string; canBeFirstFollower: boolean }[] }>(
-      h, "GET", `/v1/worlds/${worldId}`, { token },
+      h,
+      "GET",
+      `/v1/worlds/${worldId}`,
+      { token },
     );
     const firstFollowerId = detail.data.characters.find((ch) => ch.canBeFirstFollower)?.id ?? null;
     const player = await signup(h);
     const persona = await call<{ persona: { id: string } }>(h, "POST", "/v1/personas", {
       token: player.token,
       body: {
-        worldId, handle: "midgame1", displayName: "Mid", bio: "", avatarUrl: null, voiceNotes: "",
-        firstFollowerId, idempotencyKey: "idem-midgame-1",
+        worldId,
+        handle: "midgame1",
+        displayName: "Mid",
+        bio: "",
+        avatarUrl: null,
+        voiceNotes: "",
+        firstFollowerId,
+        idempotencyKey: "idem-midgame-1",
       },
     });
     expect(persona.status).toBe(201);
@@ -202,18 +240,31 @@ describe("reports have consequences", () => {
   it("leaves a pulled world playable by its creator and by anyone mid-game, and gone from Explore", async () => {
     const { token, worldId } = await shelvedWorld();
     const detail = await call<{ characters: { id: string; canBeFirstFollower: boolean }[] }>(
-      h, "GET", `/v1/worlds/${worldId}`, { token },
+      h,
+      "GET",
+      `/v1/worlds/${worldId}`,
+      { token },
     );
     const firstFollowerId = detail.data.characters.find((ch) => ch.canBeFirstFollower)?.id ?? null;
 
     const player = await signup(h);
-    expect((await call(h, "POST", "/v1/personas", {
-      token: player.token,
-      body: {
-        worldId, handle: "stayer1", displayName: "Stayer", bio: "", avatarUrl: null, voiceNotes: "",
-        firstFollowerId, idempotencyKey: "idem-stayer-1",
-      },
-    })).status).toBe(201);
+    expect(
+      (
+        await call(h, "POST", "/v1/personas", {
+          token: player.token,
+          body: {
+            worldId,
+            handle: "stayer1",
+            displayName: "Stayer",
+            bio: "",
+            avatarUrl: null,
+            voiceNotes: "",
+            firstFollowerId,
+            idempotencyKey: "idem-stayer-1",
+          },
+        })
+      ).status,
+    ).toBe(201);
 
     await reporters(worldId, WORLD_MODERATION.REPORTS_TO_PULL);
 
@@ -244,14 +295,16 @@ describe("reports have consequences", () => {
     expect(after.status).toBe("published");
     expect(after.pulledAt).toBeNull();
     // The reports are still filed — a brigade cannot take it down, but it is still on the record.
-    expect(await prisma.report.count({ where: { target: "world", targetId: preset.id, status: "open" } }))
-      .toBe(WORLD_MODERATION.REPORTS_TO_PULL + 1);
+    expect(await prisma.report.count({ where: { target: "world", targetId: preset.id, status: "open" } })).toBe(
+      WORLD_MODERATION.REPORTS_TO_PULL + 1,
+    );
   });
 
   it("does not pull a world that was never on the shelf, and tells a stranger nothing about it", async () => {
     const { token } = await signup(h);
     const created = await call<{ world: WorldFull }>(h, "POST", "/v1/worlds", {
-      token, body: { premise: `${PREMISE} in private`, genre: "idol", locale: "en", visibility: "private" },
+      token,
+      body: { premise: `${PREMISE} in private`, genre: "idol", locale: "en", visibility: "private" },
     });
     await buildOnce();
     const worldId = created.data.world.id;
@@ -288,8 +341,9 @@ describe("reviewing a pulled world", () => {
     expect(after.pulledAt).toBeNull();
     // Or the queue never empties, and the next single report re-pulls what a person just cleared.
     expect(await prisma.report.count({ where: { target: "world", targetId: worldId, status: "open" } })).toBe(0);
-    expect(await prisma.report.count({ where: { target: "world", targetId: worldId, status: "dismissed" } }))
-      .toBe(WORLD_MODERATION.REPORTS_TO_PULL);
+    expect(await prisma.report.count({ where: { target: "world", targetId: worldId, status: "dismissed" } })).toBe(
+      WORLD_MODERATION.REPORTS_TO_PULL,
+    );
 
     const reader = await signup(h);
     expect(await shelfIds(reader.token)).toContain(worldId);
@@ -310,8 +364,9 @@ describe("reviewing a pulled world", () => {
     expect(decision.data.world.status).toBe("rejected");
 
     expect(await prisma.report.count({ where: { target: "world", targetId: worldId, status: "open" } })).toBe(0);
-    expect(await prisma.report.count({ where: { target: "world", targetId: worldId, status: "actioned" } }))
-      .toBe(WORLD_MODERATION.REPORTS_TO_PULL);
+    expect(await prisma.report.count({ where: { target: "world", targetId: worldId, status: "actioned" } })).toBe(
+      WORLD_MODERATION.REPORTS_TO_PULL,
+    );
     // Rejecting is not deleting either: the creator keeps it.
     expect((await call(h, "GET", `/v1/worlds/${worldId}`, { token })).status).toBe(200);
     expect((await worldRow(worldId)).visibility).toBe("private");
@@ -338,7 +393,10 @@ describe("resubmitting a rejected world", () => {
     expect((await call(h, "GET", `/v1/worlds/${worldId}`, { token })).status).toBe(200);
 
     h.clock.offsetDays(WORLD_MODERATION.RESUBMIT_COOLDOWN_HOURS / 24);
-    const now = await call<PublishRes>(h, "POST", `/v1/worlds/${worldId}/publish`, { token, body: { visibility: "public" } });
+    const now = await call<PublishRes>(h, "POST", `/v1/worlds/${worldId}/publish`, {
+      token,
+      body: { visibility: "public" },
+    });
     expect(now.status).toBe(202);
     expect(now.data.world.status).toBe("review");
     // A resubmission is a fresh wait, and it is not a takedown.
@@ -355,7 +413,9 @@ describe("GET /v1/admin/worlds/review", () => {
     const old = await submittedWorld(`${PREMISE} the long wait`);
     await prisma.world.update({
       where: { id: old.worldId },
-      data: { reviewRequestedAt: new Date(h.clock.now().getTime() - (WORLD_MODERATION.REVIEW_SLA_HOURS + 6) * 3600_000) },
+      data: {
+        reviewRequestedAt: new Date(h.clock.now().getTime() - (WORLD_MODERATION.REVIEW_SLA_HOURS + 6) * 3600_000),
+      },
     });
     // (b) submitted a moment ago
     const fresh = await submittedWorld(`${PREMISE} just arrived`);
@@ -393,7 +453,9 @@ describe("GET /v1/admin/worlds/review", () => {
     const a = await submittedWorld(`${PREMISE} page one`);
     await prisma.world.update({
       where: { id: a.worldId },
-      data: { reviewRequestedAt: new Date(h.clock.now().getTime() - (WORLD_MODERATION.REVIEW_SLA_HOURS + 1) * 3600_000) },
+      data: {
+        reviewRequestedAt: new Date(h.clock.now().getTime() - (WORLD_MODERATION.REVIEW_SLA_HOURS + 1) * 3600_000),
+      },
     });
     const b = await submittedWorld(`${PREMISE} page two`);
 
@@ -416,7 +478,13 @@ describe("the backlog is visible without anyone remembering to look", () => {
     const { worldId } = await shelvedWorld();
     await reporters(worldId, WORLD_MODERATION.REPORTS_TO_PULL);
 
-    interface Ops { inReview: number; overdueReviews: number; pulledWorlds: number; openWorldReports: number; slaHours: number }
+    interface Ops {
+      inReview: number;
+      overdueReviews: number;
+      pulledWorlds: number;
+      openWorldReports: number;
+      slaHours: number;
+    }
     const summary = await call<{ moderation: Ops }>(h, "GET", "/v1/cost/summary");
     expect(summary.status).toBe(200);
     expect(summary.data.moderation.inReview).toBe(1);
@@ -428,7 +496,9 @@ describe("the backlog is visible without anyone remembering to look", () => {
     // Once it has sat there past the SLA, the probe payload says so too.
     await prisma.world.update({
       where: { id: worldId },
-      data: { reviewRequestedAt: new Date(h.clock.now().getTime() - (WORLD_MODERATION.REVIEW_SLA_HOURS + 2) * 3600_000) },
+      data: {
+        reviewRequestedAt: new Date(h.clock.now().getTime() - (WORLD_MODERATION.REVIEW_SLA_HOURS + 2) * 3600_000),
+      },
     });
     const live = await call<{ moderation: Ops }>(h, "GET", "/v1/cost/live");
     expect(live.data.moderation.overdueReviews).toBe(1);

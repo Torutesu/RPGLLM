@@ -59,13 +59,22 @@ export default function AchievementsScreen() {
   return (
     <Screen>
       <HeaderBar title={t("achievements")} onBack={() => resetToFeed()} right={<StreakChip />} />
-      <ScrollView testID={T.achievementsList} contentContainerStyle={{ padding: spacing.lg, gap: spacing.lg, paddingBottom: spacing.xxxl }}>
+      <ScrollView
+        testID={T.achievementsList}
+        contentContainerStyle={{ padding: spacing.lg, gap: spacing.lg, paddingBottom: spacing.xxxl }}
+      >
         <View
           accessibilityRole="summary"
           accessibilityLabel={`${unlocked} / ${total} ${t("unlocked")}`}
           style={{
-            flexDirection: "row", alignItems: "center", gap: spacing.md, padding: spacing.lg,
-            borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card,
+            flexDirection: "row",
+            alignItems: "center",
+            gap: spacing.md,
+            padding: spacing.lg,
+            borderRadius: radius.lg,
+            borderWidth: 1,
+            borderColor: colors.border,
+            backgroundColor: colors.card,
           }}
         >
           <Icon name="trophy" size={26} color={colors.energy} filled />
@@ -73,8 +82,12 @@ export default function AchievementsScreen() {
             <Text importantForAccessibility="no" style={[typo.number, { color: colors.text }]}>
               {`${unlocked} / ${total}`}
             </Text>
-            <View style={{ height: 5, borderRadius: radius.pill, backgroundColor: colors.bgElevated, overflow: "hidden" }}>
-              <View style={{ width: `${pct}%`, height: 5, borderRadius: radius.pill, backgroundColor: colors.energy }} />
+            <View
+              style={{ height: 5, borderRadius: radius.pill, backgroundColor: colors.bgElevated, overflow: "hidden" }}
+            >
+              <View
+                style={{ width: `${pct}%`, height: 5, borderRadius: radius.pill, backgroundColor: colors.energy }}
+              />
             </View>
           </View>
         </View>

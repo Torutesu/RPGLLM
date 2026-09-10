@@ -1,15 +1,6 @@
 import React from "react";
 import { View } from "react-native";
-import Svg, {
-  Circle,
-  Defs,
-  Ellipse,
-  G,
-  LinearGradient,
-  Path,
-  Rect,
-  Stop,
-} from "react-native-svg";
+import Svg, { Circle, Defs, Ellipse, G, LinearGradient, Path, Rect, Stop } from "react-native-svg";
 import { T, colors, hashString, identityFor, radius, spacing, type MediaKind } from "@rpgllm/shared";
 import { seeded, seededIn, seededOf } from "../lib/derive";
 
@@ -109,7 +100,19 @@ function Art({ uid, seed, from, to, height }: { uid: string; seed: string; from:
   );
 }
 
-function Chart({ uid, seed, from, to, height }: { uid: string; seed: string; from: string; to: string; height: number }) {
+function Chart({
+  uid,
+  seed,
+  from,
+  to,
+  height,
+}: {
+  uid: string;
+  seed: string;
+  from: string;
+  to: string;
+  height: number;
+}) {
   const bars = 12;
   const rising = seeded(seed, 5) > 0.32;
   const pad = 18;
@@ -153,7 +156,15 @@ function Chart({ uid, seed, from, to, height }: { uid: string; seed: string; fro
       <Circle cx={pad + w * (bars - 1) + w / 2} cy={y(values[bars - 1]!)} r={4.5} fill={tone} />
       {/* The axis line and a caption bar — deliberately wordless, so it needs no translation. */}
       <Rect x={pad} y={floor + 6} width={VW - pad * 2} height={1} fill={colors.border} />
-      <Rect x={pad} y={12} width={seededIn(seed, 6, 60, 130)} height={7} rx={3.5} fill={colors.textMuted} opacity={0.5} />
+      <Rect
+        x={pad}
+        y={12}
+        width={seededIn(seed, 6, 60, 130)}
+        height={7}
+        rx={3.5}
+        fill={colors.textMuted}
+        opacity={0.5}
+      />
     </>
   );
 }
@@ -180,8 +191,24 @@ function Leak({ seed, from, height }: { seed: string; from: string; height: numb
       <Rect x={0} y={0} width={VW} height={headerH} fill={colors.bgElevated} />
       <Rect x={0} y={headerH} width={VW} height={1} fill={colors.border} />
       <Circle cx={pad + 8} cy={headerH / 2} r={8} fill={from} opacity={0.9} />
-      <Rect x={pad + 22} y={headerH / 2 - 7} width={seededIn(seed, 7, 56, 104)} height={5} rx={2.5} fill={colors.textDim} opacity={0.8} />
-      <Rect x={pad + 22} y={headerH / 2 + 2} width={seededIn(seed, 8, 30, 62)} height={4} rx={2} fill={colors.textMuted} opacity={0.6} />
+      <Rect
+        x={pad + 22}
+        y={headerH / 2 - 7}
+        width={seededIn(seed, 7, 56, 104)}
+        height={5}
+        rx={2.5}
+        fill={colors.textDim}
+        opacity={0.8}
+      />
+      <Rect
+        x={pad + 22}
+        y={headerH / 2 + 2}
+        width={seededIn(seed, 8, 30, 62)}
+        height={4}
+        rx={2}
+        fill={colors.textMuted}
+        opacity={0.6}
+      />
       {/* The "…" a screenshot of a thread always has in the corner. */}
       {[0, 1, 2].map((i) => (
         <Circle key={i} cx={VW - pad - 14 + i * 6} cy={headerH / 2} r={1.6} fill={colors.textMuted} />
@@ -261,7 +288,9 @@ export function PostMedia({ postId, handle, kind, seed, compact = false }: PostM
     >
       <Svg width="100%" height="100%" viewBox={`0 0 ${VW} ${height}`} preserveAspectRatio="xMidYMid slice">
         {kind === "art" ? <Art uid={uid} seed={seed} from={identity.from} to={identity.to} height={height} /> : null}
-        {kind === "chart" ? <Chart uid={uid} seed={seed} from={identity.from} to={identity.to} height={height} /> : null}
+        {kind === "chart" ? (
+          <Chart uid={uid} seed={seed} from={identity.from} to={identity.to} height={height} />
+        ) : null}
         {kind === "leak" ? <Leak seed={seed} from={identity.from} height={height} /> : null}
       </Svg>
     </View>

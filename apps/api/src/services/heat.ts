@@ -54,9 +54,9 @@ export function statImpactPoints(impact: HeatInput["statImpact"]): number {
 export function heatFor(input: HeatInput): number {
   const base = (100 * Math.log(1 + engagementOf(input.metrics))) / SATURATION;
   const scored =
-    base * recencyFactor(input.createdAt, input.now)
-    + (input.kind === "news" ? NEWS_BONUS : 0)
-    + statImpactPoints(input.statImpact ?? null);
+    base * recencyFactor(input.createdAt, input.now) +
+    (input.kind === "news" ? NEWS_BONUS : 0) +
+    statImpactPoints(input.statImpact ?? null);
   return clamp(Math.round(scored), 0, HEAT.MAX);
 }
 

@@ -40,9 +40,7 @@ export function Overflow({
       accessibilityRole="button"
       accessibilityLabel={t(labelKey)}
       hitSlop={spacing.md}
-      onPress={() =>
-        router.push({ pathname: "/report", params: { target, targetId, ...(handle ? { handle } : {}) } })
-      }
+      onPress={() => router.push({ pathname: "/report", params: { target, targetId, ...(handle ? { handle } : {}) } })}
       style={({ pressed }) => ({
         paddingHorizontal: spacing.sm,
         paddingVertical: spacing.xs,

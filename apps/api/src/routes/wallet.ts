@@ -17,7 +17,13 @@ export function walletRoutes(): Hono<AppEnv> {
     const deps = c.get("deps");
     const user = c.get("user");
     const { wallet, subscription, dailyMax } = await ensureWallet(deps.prisma, deps.clock, user.id);
-    return ok(toApiWallet(wallet, { dailyMax, adsEnabled: !adFreeFor(subscription, deps.clock.now()), adPersonalized: !user.isMinor }));
+    return ok(
+      toApiWallet(wallet, {
+        dailyMax,
+        adsEnabled: !adFreeFor(subscription, deps.clock.now()),
+        adPersonalized: !user.isMinor,
+      }),
+    );
   });
 
   /** SCR-032. With ADS_MODE=test only the mock SSV token is accepted. Daily cap → 429 AD_LIMIT. */
@@ -37,7 +43,10 @@ export function walletRoutes(): Hono<AppEnv> {
     if (adsMode() === "test") {
       if (!constantTimeEqual(body.value.adToken, TEST_AD_TOKEN)) return fail("VALIDATION", "Invalid ad token", 400);
     } else {
-      const verdict = await verifyAdMobSSV(body.value.adToken, { expectedUserId: user.id, nowMs: deps.clock.now().getTime() });
+      const verdict = await verifyAdMobSSV(body.value.adToken, {
+        expectedUserId: user.id,
+        nowMs: deps.clock.now().getTime(),
+      });
       if (!verdict.ok) return fail("VALIDATION", `Ad reward could not be verified (${verdict.reason})`, 400);
       transactionId = verdict.transactionId ?? null;
     }
@@ -62,7 +71,13 @@ export function walletRoutes(): Hono<AppEnv> {
           data: { energy: { increment: ENERGY.AD_REWARD }, adRewardsToday: { increment: 1 } },
         });
         await tx.ledgerEntry.create({
-          data: { walletId: wallet.id, currency: "energy", delta: ENERGY.AD_REWARD, source: "ad_reward", ref: `ad:${w.adRewardsToday}` },
+          data: {
+            walletId: wallet.id,
+            currency: "energy",
+            delta: ENERGY.AD_REWARD,
+            source: "ad_reward",
+            ref: `ad:${w.adRewardsToday}`,
+          },
         });
         return w;
       });
@@ -88,8 +103,12 @@ export function walletRoutes(): Hono<AppEnv> {
         where: { id: wallet.id },
         data: { coffee: { decrement: 1 }, energy: { increment: ENERGY.COFFEE_ENERGY } },
       });
-      await tx.ledgerEntry.create({ data: { walletId: wallet.id, currency: "coffee", delta: -1, source: "spend", ref: "coffee" } });
-      await tx.ledgerEntry.create({ data: { walletId: wallet.id, currency: "energy", delta: ENERGY.COFFEE_ENERGY, source: "admin", ref: "coffee" } });
+      await tx.ledgerEntry.create({
+        data: { walletId: wallet.id, currency: "coffee", delta: -1, source: "spend", ref: "coffee" },
+      });
+      await tx.ledgerEntry.create({
+        data: { walletId: wallet.id, currency: "energy", delta: ENERGY.COFFEE_ENERGY, source: "admin", ref: "coffee" },
+      });
       return w;
     });
     return ok({ energy: updated.energy, coffee: updated.coffee });

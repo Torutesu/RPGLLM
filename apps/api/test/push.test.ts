@@ -51,9 +51,10 @@ interface Sent {
 }
 
 /** A stand-in for the Expo push service that records every call and replies as Expo does. */
-function fakeExpo(
-  reply: (url: string, body: unknown) => unknown = () => null,
-): { fetchImpl: typeof fetch; calls: Sent[] } {
+function fakeExpo(reply: (url: string, body: unknown) => unknown = () => null): {
+  fetchImpl: typeof fetch;
+  calls: Sent[];
+} {
   const calls: Sent[] = [];
   const fetchImpl: typeof fetch = async (input, init) => {
     const url = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
@@ -118,10 +119,14 @@ describe("Expo transport", () => {
     });
 
     const tokens = await tokensForUser(prisma, userId);
-    const res = await sendPush(tokens.map((t) => t.token), { title: "t", body: "b" }, {
-      prisma,
-      fetchImpl: expo.fetchImpl,
-    });
+    const res = await sendPush(
+      tokens.map((t) => t.token),
+      { title: "t", body: "b" },
+      {
+        prisma,
+        fetchImpl: expo.fetchImpl,
+      },
+    );
 
     expect(res.pruned).toBe(1);
     const left = await tokensForUser(prisma, userId);
@@ -138,10 +143,14 @@ describe("Expo transport", () => {
       return { data: { "receipt-0": { status: "error", details: { error: "DeviceNotRegistered" } } } };
     });
 
-    const res = await sendPush(["ExponentPushToken[zombie]"], { title: "t", body: "b" }, {
-      prisma,
-      fetchImpl: expo.fetchImpl,
-    });
+    const res = await sendPush(
+      ["ExponentPushToken[zombie]"],
+      { title: "t", body: "b" },
+      {
+        prisma,
+        fetchImpl: expo.fetchImpl,
+      },
+    );
 
     expect(expo.calls.some((c) => c.url === PUSH_RECEIPTS_ENDPOINT)).toBe(true);
     expect(res.pruned).toBe(1);
@@ -186,18 +195,28 @@ describe("send policy", () => {
     const expo = fakeExpo((url, body) => (url === PUSH_ENDPOINT ? okTickets(body) : { data: {} }));
 
     // 16:00Z = 01:00 in Tokyo — the middle of the night for this user
-    const night = await notifyUser(prisma, userId, { title: "t", body: "b" }, {
-      now: new Date("2026-09-04T16:00:00.000Z"),
-      fetchImpl: expo.fetchImpl,
-    });
+    const night = await notifyUser(
+      prisma,
+      userId,
+      { title: "t", body: "b" },
+      {
+        now: new Date("2026-09-04T16:00:00.000Z"),
+        fetchImpl: expo.fetchImpl,
+      },
+    );
     expect(night.reason).toBe("quiet_hours");
     expect(expo.calls).toHaveLength(0);
 
     // 04:00Z = 13:00 in Tokyo — fine
-    const day = await notifyUser(prisma, userId, { title: "t", body: "b" }, {
-      now: new Date("2026-09-04T04:00:00.000Z"),
-      fetchImpl: expo.fetchImpl,
-    });
+    const day = await notifyUser(
+      prisma,
+      userId,
+      { title: "t", body: "b" },
+      {
+        now: new Date("2026-09-04T04:00:00.000Z"),
+        fetchImpl: expo.fetchImpl,
+      },
+    );
     expect(day.sent).toBe(1);
   });
 
@@ -208,7 +227,8 @@ describe("send policy", () => {
     await addToken(userId, "ExponentPushToken[cap]");
     const expo = fakeExpo((url, body) => (url === PUSH_ENDPOINT ? okTickets(body) : { data: {} }));
 
-    const at = (iso: string) => notifyUser(prisma, userId, { title: "t", body: "b" }, { now: new Date(iso), fetchImpl: expo.fetchImpl });
+    const at = (iso: string) =>
+      notifyUser(prisma, userId, { title: "t", body: "b" }, { now: new Date(iso), fetchImpl: expo.fetchImpl });
 
     expect((await at("2026-09-04T10:00:00Z")).sent).toBe(1);
     expect((await at("2026-09-04T12:00:00Z")).sent).toBe(1);
@@ -289,7 +309,9 @@ describe("POST /v1/push/register", () => {
     const b = await signup(h);
     const token = "ExponentPushToken[shared-device]";
 
-    expect((await call(h, "POST", "/v1/push/register", { token: a.token, body: { token, platform: "ios" } })).status).toBe(200);
+    expect(
+      (await call(h, "POST", "/v1/push/register", { token: a.token, body: { token, platform: "ios" } })).status,
+    ).toBe(200);
     expect((await tokensForUser(prisma, a.userId)).map((t) => t.token)).toEqual([token]);
 
     await call(h, "POST", "/v1/push/register", { token: b.token, body: { token, platform: "ios" } });
@@ -298,7 +320,9 @@ describe("POST /v1/push/register", () => {
   });
 
   it("rejects an unauthenticated registration", async () => {
-    const res = await call(h, "POST", "/v1/push/register", { body: { token: "ExponentPushToken[x]", platform: "ios" } });
+    const res = await call(h, "POST", "/v1/push/register", {
+      body: { token: "ExponentPushToken[x]", platform: "ios" },
+    });
     expect(res.status).toBe(401);
   });
 });

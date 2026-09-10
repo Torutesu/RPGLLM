@@ -29,11 +29,7 @@ function RankCard({ rank, worldTitle }: { rank: Trending["yourRank"]; worldTitle
   const { t } = useT();
   return (
     <View style={{ paddingHorizontal: spacing.lg, paddingTop: spacing.lg }}>
-      <Card
-        tone="elevated"
-        glowColor={rank.trending ? `${colors.hot}66` : undefined}
-        style={{ overflow: "hidden" }}
-      >
+      <Card tone="elevated" glowColor={rank.trending ? `${colors.hot}66` : undefined} style={{ overflow: "hidden" }}>
         <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
           <View style={{ flex: 1, gap: spacing.xxs }}>
             <Text style={[typo.micro, { color: colors.textMuted }]}>{t("yourRank").toUpperCase()}</Text>
@@ -113,15 +109,21 @@ function TopicCard({
           backgroundColor: colors.card,
         })}
       >
-        <View style={{ flexDirection: "row", alignItems: "center", paddingHorizontal: spacing.lg, paddingVertical: spacing.md, gap: spacing.md }}>
+        <View
+          style={{
+            flexDirection: "row",
+            alignItems: "center",
+            paddingHorizontal: spacing.lg,
+            paddingVertical: spacing.md,
+            gap: spacing.md,
+          }}
+        >
           <Text style={[typo.number, { color: colors.textMuted, width: 26 }]}>{index + 1}</Text>
           <View style={{ flex: 1, gap: spacing.xxs }}>
             <Text numberOfLines={1} style={[typo.h2, { color: colors.text }]}>
               {topic.label}
             </Text>
-            <Text style={[typo.meta, { color: colors.textMuted }]}>
-              {`${topic.posts} ${t("posts")}`}
-            </Text>
+            <Text style={[typo.meta, { color: colors.textMuted }]}>{`${topic.posts} ${t("posts")}`}</Text>
           </View>
           {topic.heat >= HEAT.HOT ? <Icon name="flame" size={18} color={tone} filled /> : null}
           <Icon name="chevronRight" size={16} color={colors.textMuted} />
@@ -166,16 +168,12 @@ function RisingRail({ rising }: { rising: Trending["risingCharacters"] }) {
             </Text>
             <View style={{ flexDirection: "row", alignItems: "center", gap: 2 }}>
               <Icon name={up ? "sparkle" : flat ? "clock" : "flame"} size={11} color={tone} />
-              <Text style={[typo.count, { color: tone }]}>
-                {flat ? `${r.affinity}` : `${up ? "+" : ""}${r.delta}`}
-              </Text>
+              <Text style={[typo.count, { color: tone }]}>{flat ? `${r.affinity}` : `${up ? "+" : ""}${r.delta}`}</Text>
             </View>
           </Pressable>
         );
       })}
-      {rising.length === 0 ? (
-        <Text style={[typo.meta, { color: colors.textMuted }]}>{t("wakingUp")}</Text>
-      ) : null}
+      {rising.length === 0 ? <Text style={[typo.meta, { color: colors.textMuted }]}>{t("wakingUp")}</Text> : null}
     </ScrollView>
   );
 }
@@ -312,7 +310,9 @@ export default function ExploreScreen() {
         {community && community.fresh.length > 0 ? (
           <>
             <SectionHeader title={t("freshWorlds")} />
-            <Text style={[typo.meta, { color: colors.textMuted, paddingHorizontal: spacing.lg, paddingBottom: spacing.sm }]}>
+            <Text
+              style={[typo.meta, { color: colors.textMuted, paddingHorizontal: spacing.lg, paddingBottom: spacing.sm }]}
+            >
               {t("freshWorldsHint")}
             </Text>
             <ScrollView
@@ -358,9 +358,7 @@ export default function ExploreScreen() {
               onAction={() => router.push("/studio")}
             />
           ) : null}
-          {community === null ? (
-            <StudioPromoCard compact onPress={() => router.push("/studio")} />
-          ) : null}
+          {community === null ? <StudioPromoCard compact onPress={() => router.push("/studio")} /> : null}
         </View>
         {community !== null && community.worlds.length > 0 ? (
           <View style={{ paddingHorizontal: spacing.lg, paddingTop: spacing.md }}>

@@ -2,8 +2,19 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import {
-  LOCALES, T, WORLD_MODERATION, WORLD_STUDIO, colors, compactNumber, font, glow, layout, radius, spacing,
-  type Locale, type WorldGenre,
+  LOCALES,
+  T,
+  WORLD_MODERATION,
+  WORLD_STUDIO,
+  colors,
+  compactNumber,
+  font,
+  glow,
+  layout,
+  radius,
+  spacing,
+  type Locale,
+  type WorldGenre,
 } from "@rpgllm/shared";
 import { api, ApiError, type WorldVisibility } from "../../src/api/client";
 import { Button, HeaderBar, Screen } from "../../src/components/ui";
@@ -11,7 +22,14 @@ import { Aurora } from "../../src/components/Brand";
 import { ShelfPrice } from "../../src/components/ShelfPrice";
 import { WorldCover } from "../../src/components/WorldCard";
 import { useActions, useAppState, useT } from "../../src/state/store";
-import { GENRES, GENRE_LABEL, GENRE_TINT, VISIBILITIES, VISIBILITY_HINT, VISIBILITY_LABEL } from "../../src/studio/labels";
+import {
+  GENRES,
+  GENRE_LABEL,
+  GENRE_TINT,
+  VISIBILITIES,
+  VISIBILITY_HINT,
+  VISIBILITY_LABEL,
+} from "../../src/studio/labels";
 import { rememberShelfFee } from "../../src/studio/shelf-fee";
 import { FadeSlideIn, Gradient, Icon, PressScale, typo } from "../../src/ui";
 
@@ -52,7 +70,10 @@ function RotatingExample({ examples, index }: { examples: readonly string[]; ind
       style={{ position: "absolute", left: spacing.lg, right: spacing.lg, top: spacing.lg }}
     >
       <FadeSlideIn key={`${index}-${text}`} distance={8}>
-        <Text numberOfLines={3} style={[typo.body, { color: colors.textMuted, fontSize: font.lg, lineHeight: font.lg * 1.4 }]}>
+        <Text
+          numberOfLines={3}
+          style={[typo.body, { color: colors.textMuted, fontSize: font.lg, lineHeight: font.lg * 1.4 }]}
+        >
           {text}
         </Text>
       </FadeSlideIn>
@@ -179,7 +200,15 @@ function RemixSource({ title, slug, by }: { title: string; slug: string; by: str
         borderColor: `${colors.accent}55`,
       }}
     >
-      <View style={{ width: 56, height: 56, borderRadius: radius.md, overflow: "hidden", backgroundColor: colors.bgElevated }}>
+      <View
+        style={{
+          width: 56,
+          height: 56,
+          borderRadius: radius.md,
+          overflow: "hidden",
+          backgroundColor: colors.bgElevated,
+        }}
+      >
         <WorldCover slug={slug} height={56} />
       </View>
       <View style={{ flex: 1, gap: 2 }}>
@@ -200,7 +229,12 @@ function RemixSource({ title, slug, by }: { title: string; slug: string; by: str
 }
 
 export default function StudioCreate() {
-  const params = useLocalSearchParams<{ remixOf?: string; remixTitle?: string; remixSlug?: string; remixBy?: string }>();
+  const params = useLocalSearchParams<{
+    remixOf?: string;
+    remixTitle?: string;
+    remixSlug?: string;
+    remixBy?: string;
+  }>();
   const remixOf = params.remixOf ?? "";
   const remixing = remixOf.length > 0;
   const { me, worlds, locale } = useAppState();
@@ -305,12 +339,13 @@ export default function StudioCreate() {
     return () => clearInterval(id);
   }, [rotating]);
 
-  const errorText = error
-    ?? (capped ? t("studioLimitReached") : null)
-    ?? (poor ? t("studioNotEnoughGems") : null)
-    ?? (poorForShelf ? t("studioNotEnoughForPublic") : null)
-    ?? (tooShort ? t("studioPremiseTooShort") : null)
-    ?? (tooLong ? t("studioPremiseTooLong") : null);
+  const errorText =
+    error ??
+    (capped ? t("studioLimitReached") : null) ??
+    (poor ? t("studioNotEnoughGems") : null) ??
+    (poorForShelf ? t("studioNotEnoughForPublic") : null) ??
+    (tooShort ? t("studioPremiseTooShort") : null) ??
+    (tooLong ? t("studioPremiseTooLong") : null);
 
   const onCreate = async () => {
     if (!validLength || busy) return;
@@ -333,14 +368,21 @@ export default function StudioCreate() {
       const err = e instanceof ApiError ? e : null;
       const code = err?.code;
       setError(
-        code === "GEMS_REQUIRED" ? t("studioNotEnoughGems")
-          : code === "WORLD_LIMIT" ? t("studioLimitReached")
-          : code === "SAFETY_BLOCKED" ? t("studioPremiseBlocked")
-          : code === "RATE_LIMITED" ? t("rateLimited")
-          : err?.status === 422 ? t("studioPremiseBlocked")
-          : err?.status === 402 ? t("studioNotEnoughGems")
-          : err?.status === 429 ? t("studioLimitReached")
-          : t("loadFailed"),
+        code === "GEMS_REQUIRED"
+          ? t("studioNotEnoughGems")
+          : code === "WORLD_LIMIT"
+            ? t("studioLimitReached")
+            : code === "SAFETY_BLOCKED"
+              ? t("studioPremiseBlocked")
+              : code === "RATE_LIMITED"
+                ? t("rateLimited")
+                : err?.status === 422
+                  ? t("studioPremiseBlocked")
+                  : err?.status === 402
+                    ? t("studioNotEnoughGems")
+                    : err?.status === 429
+                      ? t("studioLimitReached")
+                      : t("loadFailed"),
       );
       // Either 429 changes what the allowance chip should say — ask the server rather than guess.
       if (err?.status === 429) void loadRemaining();
@@ -369,9 +411,7 @@ export default function StudioCreate() {
             <Text accessibilityRole="header" style={[typo.title, { color: colors.text }]}>
               {remixing ? t("remix") : t("studioPitch")}
             </Text>
-            {remixing ? (
-              <Text style={[typo.meta, { color: colors.textDim }]}>{t("remixHint")}</Text>
-            ) : null}
+            {remixing ? <Text style={[typo.meta, { color: colors.textDim }]}>{t("remixHint")}</Text> : null}
           </View>
 
           {/* What you are building on, named — so the premise field is answered against something. */}
@@ -443,53 +483,56 @@ export default function StudioCreate() {
 
           {/* ------------------------------------------------------------------ genre ---- */}
           {remixing ? null : (
-          <View style={{ gap: spacing.md }}>
-            <Label text={t("studioGenreLabel")} />
-            <View accessibilityRole="radiogroup" style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
-              {GENRES.map((g) => (
-                <GenreChip key={g} genre={g} selected={g === genre} onPress={() => setGenre(g)} />
-              ))}
+            <View style={{ gap: spacing.md }}>
+              <Label text={t("studioGenreLabel")} />
+              <View accessibilityRole="radiogroup" style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
+                {GENRES.map((g) => (
+                  <GenreChip key={g} genre={g} selected={g === genre} onPress={() => setGenre(g)} />
+                ))}
+              </View>
             </View>
-          </View>
           )}
 
           {/* --------------------------------------------------------------- language ---- */}
           {remixing ? null : (
-          <View style={{ gap: spacing.md }}>
-            <Label text={t("studioLocaleLabel")} />
-            <View accessibilityRole="radiogroup" style={{ flexDirection: "row", gap: spacing.sm }}>
-              {LOCALES.map((l) => {
-                const selected = l === worldLocale;
-                return (
-                  <Pressable
-                    key={l}
-                    testID={T.studioLocale(l)}
-                    onPress={() => {
-                      localeTouched.current = true;
-                      setWorldLocale(l);
-                    }}
-                    accessibilityRole="radio"
-                    accessibilityState={{ selected }}
-                    accessibilityLabel={`${t("language")} ${l.toUpperCase()}`}
-                    style={{
-                      minWidth: 64,
-                      minHeight: 40,
-                      alignItems: "center",
-                      justifyContent: "center",
-                      borderRadius: radius.md,
-                      backgroundColor: selected ? colors.cardHi : "transparent",
-                      borderWidth: 1,
-                      borderColor: selected ? colors.accent : colors.border,
-                    }}
-                  >
-                    <Text importantForAccessibility="no" style={[typo.label, { color: selected ? colors.text : colors.textDim }]}>
-                      {l.toUpperCase()}
-                    </Text>
-                  </Pressable>
-                );
-              })}
+            <View style={{ gap: spacing.md }}>
+              <Label text={t("studioLocaleLabel")} />
+              <View accessibilityRole="radiogroup" style={{ flexDirection: "row", gap: spacing.sm }}>
+                {LOCALES.map((l) => {
+                  const selected = l === worldLocale;
+                  return (
+                    <Pressable
+                      key={l}
+                      testID={T.studioLocale(l)}
+                      onPress={() => {
+                        localeTouched.current = true;
+                        setWorldLocale(l);
+                      }}
+                      accessibilityRole="radio"
+                      accessibilityState={{ selected }}
+                      accessibilityLabel={`${t("language")} ${l.toUpperCase()}`}
+                      style={{
+                        minWidth: 64,
+                        minHeight: 40,
+                        alignItems: "center",
+                        justifyContent: "center",
+                        borderRadius: radius.md,
+                        backgroundColor: selected ? colors.cardHi : "transparent",
+                        borderWidth: 1,
+                        borderColor: selected ? colors.accent : colors.border,
+                      }}
+                    >
+                      <Text
+                        importantForAccessibility="no"
+                        style={[typo.label, { color: selected ? colors.text : colors.textDim }]}
+                      >
+                        {l.toUpperCase()}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
             </View>
-          </View>
           )}
 
           {/* ------------------------------------------------------------- visibility ---- */}
@@ -536,7 +579,11 @@ export default function StudioCreate() {
                 style={{ flexDirection: "row", alignItems: "center", gap: spacing.sm, flexShrink: 1 }}
               >
                 <Icon name="gem" size={16} color={colors.gem} filled />
-                <Text numberOfLines={1} importantForAccessibility="no" style={[typo.metaStrong, { color: colors.text }]}>
+                <Text
+                  numberOfLines={1}
+                  importantForAccessibility="no"
+                  style={[typo.metaStrong, { color: colors.text }]}
+                >
                   {t("studioCost")}
                 </Text>
               </View>

@@ -90,9 +90,7 @@ export function replyCandidates(input: G1Input): string[] {
   const known = knownHandles(input);
   const involved = input.involved.map((r) => r.handle).filter((h) => known.has(h));
   const press = pressHandle(input);
-  const rest = input.cast
-    .filter((c) => !c.isPressAccount && !involved.includes(c.handle))
-    .map((c) => c.handle);
+  const rest = input.cast.filter((c) => !c.isPressAccount && !involved.includes(c.handle)).map((c) => c.handle);
   const ordered = [...involved, ...rest];
   return press !== null && input.includeNews ? [...ordered, press] : ordered;
 }
@@ -115,9 +113,7 @@ const g1Spec: GeneratorSpec<G1Input, G1Output> = {
   /** Deterministic canned replies, zero deltas. The API refunds energy when this is used. */
   fallback(input: G1Input): G1Output {
     const seed = worldSeed(input.worldSlug);
-    const candidates = replyCandidates(input).filter(
-      (h) => !input.cast.find((c) => c.handle === h)?.isPressAccount,
-    );
+    const candidates = replyCandidates(input).filter((h) => !input.cast.find((c) => c.handle === h)?.isPressAccount);
     const chosen = candidates.slice(0, Math.max(1, Math.min(input.k, candidates.length)));
     const replies = chosen.map((handle, i) => {
       const lines = seed?.fallbackReplies[handle]?.[input.locale] ?? [];

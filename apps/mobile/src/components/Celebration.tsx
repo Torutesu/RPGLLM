@@ -41,10 +41,13 @@ export function Celebration() {
   if (!visible || !celebration) return null;
 
   const kind = celebration.kind;
-  const title =
-    kind === "level" ? t("levelUp") : kind === "milestone" ? t("milestone") : t("newAchievement");
+  const title = kind === "level" ? t("levelUp") : kind === "milestone" ? t("milestone") : t("newAchievement");
   const headline =
-    kind === "achievement" ? celebration.title : kind === "level" ? `${t("level")} ${celebration.value}` : compactNumber(celebration.value);
+    kind === "achievement"
+      ? celebration.title
+      : kind === "level"
+        ? `${t("level")} ${celebration.value}`
+        : compactNumber(celebration.value);
   const subtitle =
     kind === "milestone" ? `${t("youReached")} ${compactNumber(celebration.value)} ${t("followers")}` : t("keepGoing");
   const palette = kind === "level" ? gradients.win : kind === "milestone" ? gradients.brand : gradients.gold;
@@ -53,9 +56,21 @@ export function Celebration() {
     // box-none: only the card itself takes touches, so a stray tap never blocks the screen below.
     <View
       pointerEvents="box-none"
-      style={{ position: "absolute", left: 0, right: 0, top: 0, bottom: 0, alignItems: "center", justifyContent: "center", padding: spacing.xl }}
+      style={{
+        position: "absolute",
+        left: 0,
+        right: 0,
+        top: 0,
+        bottom: 0,
+        alignItems: "center",
+        justifyContent: "center",
+        padding: spacing.xl,
+      }}
     >
-      <View pointerEvents="none" style={{ position: "absolute", left: 0, right: 0, top: 0, bottom: 0, backgroundColor: colors.overlay }} />
+      <View
+        pointerEvents="none"
+        style={{ position: "absolute", left: 0, right: 0, top: 0, bottom: 0, backgroundColor: colors.overlay }}
+      />
       <FadeSlideIn distance={18}>
         <Pressable
           testID={T.celebration}
@@ -63,10 +78,29 @@ export function Celebration() {
           accessibilityRole="button"
           accessibilityLabel={`${title}. ${headline}. ${subtitle}`}
           accessibilityLiveRegion="polite"
-          style={{ width: "100%", maxWidth: 360, borderRadius: radius.xl, overflow: "hidden", borderWidth: 1, borderColor: colors.borderHi }}
+          style={{
+            width: "100%",
+            maxWidth: 360,
+            borderRadius: radius.xl,
+            overflow: "hidden",
+            borderWidth: 1,
+            borderColor: colors.borderHi,
+          }}
         >
-          <Gradient colors={palette} angle={150} pointerEvents="none" style={{ position: "absolute", left: 0, right: 0, top: 0, bottom: 0, opacity: 0.24 }} />
-          <View style={{ padding: spacing.xl, gap: spacing.md, alignItems: "center", backgroundColor: "rgba(20,20,31,0.86)" }}>
+          <Gradient
+            colors={palette}
+            angle={150}
+            pointerEvents="none"
+            style={{ position: "absolute", left: 0, right: 0, top: 0, bottom: 0, opacity: 0.24 }}
+          />
+          <View
+            style={{
+              padding: spacing.xl,
+              gap: spacing.md,
+              alignItems: "center",
+              backgroundColor: "rgba(20,20,31,0.86)",
+            }}
+          >
             <View style={{ alignItems: "center", justifyContent: "center", height: 72 }}>
               <Burst trigger={burst} color={kind === "level" ? colors.positive : colors.hot} size={64} />
               <Pulse scaleTo={1.08}>
@@ -75,7 +109,12 @@ export function Celebration() {
                     {celebration.icon}
                   </Text>
                 ) : (
-                  <Icon name={kind === "level" ? "sparkle" : "crown"} size={44} color={kind === "level" ? colors.positive : colors.energy} filled />
+                  <Icon
+                    name={kind === "level" ? "sparkle" : "crown"}
+                    size={44}
+                    color={kind === "level" ? colors.positive : colors.energy}
+                    filled
+                  />
                 )}
               </Pulse>
             </View>
@@ -85,7 +124,12 @@ export function Celebration() {
             </Text>
 
             {kind === "achievement" ? (
-              <Text testID={T.celebrationTitle} importantForAccessibility="no" numberOfLines={2} style={[typo.title, { color: colors.text, textAlign: "center" }]}>
+              <Text
+                testID={T.celebrationTitle}
+                importantForAccessibility="no"
+                numberOfLines={2}
+                style={[typo.title, { color: colors.text, textAlign: "center" }]}
+              >
                 {headline}
               </Text>
             ) : (
@@ -102,7 +146,13 @@ export function Celebration() {
               {subtitle}
             </Text>
 
-            <Button testID={T.celebrationClose} label={t("close")} onPress={dismissCelebration} variant="secondary" compact />
+            <Button
+              testID={T.celebrationClose}
+              label={t("close")}
+              onPress={dismissCelebration}
+              variant="secondary"
+              compact
+            />
           </View>
         </Pressable>
       </FadeSlideIn>
@@ -132,10 +182,14 @@ export function AchievementUnlockBadge({ icon, title, onClose }: { icon: string;
         backgroundColor: colors.cardHi,
       }}
     >
-      <Text importantForAccessibility="no" style={{ fontSize: font.xl }}>{icon}</Text>
+      <Text importantForAccessibility="no" style={{ fontSize: font.xl }}>
+        {icon}
+      </Text>
       <View style={{ flex: 1 }}>
         <Text style={[typo.micro, { color: colors.energy }]}>{t("newAchievement").toUpperCase()}</Text>
-        <Text numberOfLines={1} style={[typo.label, { color: colors.text }]}>{title}</Text>
+        <Text numberOfLines={1} style={[typo.label, { color: colors.text }]}>
+          {title}
+        </Text>
       </View>
       <Button testID={T.achievementUnlockClose} label={t("close")} onPress={onClose} variant="ghost" compact />
     </View>
@@ -165,8 +219,7 @@ export function EngagementOverlay() {
 
   const today = new Date().toISOString().slice(0, 10);
   const onFeed = pathname === "/feed" || pathname === "/(tabs)/feed";
-  const showStreak =
-    onFeed && !statCardOpen && streak !== null && streak.days >= 2 && streakShownFor !== today;
+  const showStreak = onFeed && !statCardOpen && streak !== null && streak.days >= 2 && streakShownFor !== today;
 
   return (
     <>

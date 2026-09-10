@@ -159,7 +159,8 @@ describe("the measurements", () => {
       second.roleLocalized = first.roleLocalized === undefined ? undefined : { ...first.roleLocalized };
       second.role = first.role;
       const firstLines = cloned.fallbackReplies[first.handle];
-      if (firstLines !== undefined) cloned.fallbackReplies[second.handle] = JSON.parse(JSON.stringify(firstLines)) as typeof firstLines;
+      if (firstLines !== undefined)
+        cloned.fallbackReplies[second.handle] = JSON.parse(JSON.stringify(firstLines)) as typeof firstLines;
     }
     const cloneScore = castDistinctnessOf(cloned, "en");
 
@@ -246,7 +247,10 @@ describe("the stub world", () => {
 
 /* ------------------------------------------------------------------ the run ---- */
 
-async function stubRun(over: Parameters<typeof createStubLiveGateway>[0] = {}, plan = planRun(SMALL)): Promise<VerifyReport> {
+async function stubRun(
+  over: Parameters<typeof createStubLiveGateway>[0] = {},
+  plan = planRun(SMALL),
+): Promise<VerifyReport> {
   const collector = createCollector();
   const gateway = createStubLiveGateway({ ...over, onGeneration: collector.onGeneration });
   return runVerification({
@@ -264,11 +268,7 @@ describe("a whole run, against the stub", () => {
     const report = await stubRun();
 
     expect(report.mode).toBe("stub");
-    expect(report.answers.map((a) => a.id)).toEqual([
-      "ja-native",
-      "distinct-worlds",
-      "distinct-cast",
-    ]);
+    expect(report.answers.map((a) => a.id)).toEqual(["ja-native", "distinct-worlds", "distinct-cast"]);
     expect(report.gate.cases).toBe(4);
     expect(report.evidence.calls).toBe(4 * 14 + 4);
     expect(report.evidence.models).not.toContain("replay");
@@ -419,9 +419,39 @@ describe("the report a person reads", () => {
       variantId: "G9@v1",
       evidence: { live: true, calls: 0, replayCalls: 0, models: [], reasons: [] },
       judgeSource: "absent",
-      gate: { generator: "G9", variantId: "G9@v1", cases: 0, passed: 0, meanScore: 0, costUsd: 0, generatorCostUsd: 0, judgeCostUsd: 0, results: [] },
-      spend: { stages: [], usage: { inputTokens: 0, cacheWriteTokens: 0, cacheReadTokens: 0, outputTokens: 0 }, totalUsd: 0, generatorUsd: 0, judgeUsd: 0, worlds: 0, usdPerWorld: 0, cacheHitRate: 0, estimateUsd: null, estimatePerWorldUsd: null },
-      distinctness: { pairs: [], meanBibleLineOverlapLive: null, meanBibleLineOverlapBlueprint: null, meanCastCardOverlapLive: null, meanCastCardOverlapBlueprint: null, crossGenreLive: null, crossGenreBlueprint: null, failing: [] },
+      gate: {
+        generator: "G9",
+        variantId: "G9@v1",
+        cases: 0,
+        passed: 0,
+        meanScore: 0,
+        costUsd: 0,
+        generatorCostUsd: 0,
+        judgeCostUsd: 0,
+        results: [],
+      },
+      spend: {
+        stages: [],
+        usage: { inputTokens: 0, cacheWriteTokens: 0, cacheReadTokens: 0, outputTokens: 0 },
+        totalUsd: 0,
+        generatorUsd: 0,
+        judgeUsd: 0,
+        worlds: 0,
+        usdPerWorld: 0,
+        cacheHitRate: 0,
+        estimateUsd: null,
+        estimatePerWorldUsd: null,
+      },
+      distinctness: {
+        pairs: [],
+        meanBibleLineOverlapLive: null,
+        meanBibleLineOverlapBlueprint: null,
+        meanCastCardOverlapLive: null,
+        meanCastCardOverlapBlueprint: null,
+        crossGenreLive: null,
+        crossGenreBlueprint: null,
+        failing: [],
+      },
       cast: [],
       japanese: {
         rows: [],

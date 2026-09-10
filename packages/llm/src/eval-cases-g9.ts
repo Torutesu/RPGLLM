@@ -54,10 +54,7 @@ const GENRE_PREMISES: Readonly<Record<WorldGenre, readonly [string, string]>> = 
     "an adventurers' guild where your reputation is a public ledger",
     "魔法が有料になった街で、一銭も払わない魔術師が名を上げる",
   ],
-  mystery: [
-    "a murder mystery in a seaside town after a storm",
-    "嵐で足止めされた旅館で、宿泊客の一人が消える",
-  ],
+  mystery: ["a murder mystery in a seaside town after a storm", "嵐で足止めされた旅館で、宿泊客の一人が消える"],
   slice_of_life: [
     "a bakery on a shopping street where everyone knows everyone",
     "商店街の定食屋を継いだけれど、常連が全員うるさい",
@@ -84,8 +81,7 @@ export const HARD_G9_CASES: readonly HardG9Case[] = [
     label: "hard:echo-bait",
     genre: "mystery",
     locale: "en",
-    premise:
-      "a fishing village where the lighthouse keeper knows everyone's business and says none of it out loud",
+    premise: "a fishing village where the lighthouse keeper knows everyone's business and says none of it out loud",
   },
   {
     label: "hard:at-the-limit",

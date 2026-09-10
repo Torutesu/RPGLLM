@@ -1,9 +1,32 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Animated, PanResponder, Pressable, Text, View, type ViewStyle } from "react-native";
-import { colors, compactNumber, font, gradients, identityFor, identityPalette, layout, radius, spacing, tList } from "@rpgllm/shared";
+import {
+  colors,
+  compactNumber,
+  font,
+  gradients,
+  identityFor,
+  identityPalette,
+  layout,
+  radius,
+  spacing,
+  tList,
+} from "@rpgllm/shared";
 import type { StringKey } from "@rpgllm/shared";
 import { useT } from "../state/store";
-import { AnimatedNumber, Avatar, FadeSlideIn, Gradient, Icon, duration, ease, timing, typo, useAnimatedValue, useReduceMotion } from "../ui";
+import {
+  AnimatedNumber,
+  Avatar,
+  FadeSlideIn,
+  Gradient,
+  Icon,
+  duration,
+  ease,
+  timing,
+  typo,
+  useAnimatedValue,
+  useReduceMotion,
+} from "../ui";
 import { Round, SoftOrb } from "./Brand";
 
 /**
@@ -91,7 +114,12 @@ function MorphArt({ active }: { active: boolean }) {
             <Round
               key={i}
               size={22}
-              style={{ position: "absolute", left: 122 + Math.cos(angle) * 106 - 11, top: 122 + Math.sin(angle) * 106 - 11, opacity: 0.9 }}
+              style={{
+                position: "absolute",
+                left: 122 + Math.cos(angle) * 106 - 11,
+                top: 122 + Math.sin(angle) * 106 - 11,
+                opacity: 0.9,
+              }}
             >
               <Gradient colors={[pair[0], pair[1]]} angle={135} style={{ flex: 1 }} />
             </Round>
@@ -103,7 +131,12 @@ function MorphArt({ active }: { active: boolean }) {
         <View style={{ position: "absolute", opacity: 0.7 }}>
           <SoftOrb from={identityFor(a).from} to={identityFor(a).to} size={230} />
         </View>
-        <Animated.View style={{ position: "absolute", opacity: reduce ? 1 : cross.interpolate({ inputRange: [0, 1], outputRange: [1, 0] }) }}>
+        <Animated.View
+          style={{
+            position: "absolute",
+            opacity: reduce ? 1 : cross.interpolate({ inputRange: [0, 1], outputRange: [1, 0] }),
+          }}
+        >
           <Avatar handle={a} size={128} />
         </Animated.View>
         <Animated.View
@@ -115,7 +148,16 @@ function MorphArt({ active }: { active: boolean }) {
         >
           <Avatar handle={b} size={128} />
         </Animated.View>
-        <View style={{ position: "absolute", width: 138, height: 138, borderRadius: radius.pill, borderWidth: 2, borderColor: "rgba(255,255,255,0.2)" }} />
+        <View
+          style={{
+            position: "absolute",
+            width: 138,
+            height: 138,
+            borderRadius: radius.pill,
+            borderWidth: 2,
+            borderColor: "rgba(255,255,255,0.2)",
+          }}
+        />
       </View>
     </View>
   );
@@ -146,7 +188,9 @@ function MemoryArt({ active }: { active: boolean }) {
   const pair = identityPalette[6] ?? identityPalette[0]!;
   const bubble = (i: number, mine: boolean, widths: number[]): React.ReactNode => {
     if (shown <= i) return <View key={i} style={{ height: 0 }} />;
-    const body = widths.map((w, k) => <Bar key={k} w={w} tone={mine ? "rgba(255,255,255,0.75)" : "rgba(255,255,255,0.32)"} />);
+    const body = widths.map((w, k) => (
+      <Bar key={k} w={w} tone={mine ? "rgba(255,255,255,0.75)" : "rgba(255,255,255,0.32)"} />
+    ));
     const shape: ViewStyle = {
       maxWidth: 208,
       borderRadius: radius.lg,
@@ -178,7 +222,15 @@ function MemoryArt({ active }: { active: boolean }) {
       {bubble(0, false, [148, 92])}
       {bubble(1, true, [116])}
       {bubble(2, false, [170, 128, 80])}
-      <View style={{ alignSelf: "flex-end", opacity: shown >= 3 ? 1 : 0, flexDirection: "row", alignItems: "center", gap: spacing.xs }}>
+      <View
+        style={{
+          alignSelf: "flex-end",
+          opacity: shown >= 3 ? 1 : 0,
+          flexDirection: "row",
+          alignItems: "center",
+          gap: spacing.xs,
+        }}
+      >
         <Icon name="check" size={11} color={colors.textMuted} />
         <Text style={[typo.micro, { color: colors.textMuted }]}>{t("seen")}</Text>
       </View>
@@ -215,7 +267,16 @@ function DramaArt({ active }: { active: boolean }) {
 
   return (
     <View style={{ flex: 1, justifyContent: "center", paddingHorizontal: spacing.xl }}>
-      <View style={{ backgroundColor: colors.card, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border, padding: spacing.lg, gap: spacing.md }}>
+      <View
+        style={{
+          backgroundColor: colors.card,
+          borderRadius: radius.lg,
+          borderWidth: 1,
+          borderColor: colors.border,
+          padding: spacing.lg,
+          gap: spacing.md,
+        }}
+      >
         <View style={{ flexDirection: "row", alignItems: "center", gap: spacing.md }}>
           <Avatar handle="thescoop" size={layout.avatarMd - 8} badge="flame" />
           <View style={{ gap: spacing.xs, flex: 1 }}>
@@ -228,7 +289,11 @@ function DramaArt({ active }: { active: boolean }) {
           <Bar w={168} tone="rgba(255,255,255,0.24)" />
         </View>
         <View style={{ flexDirection: "row", alignItems: "center", gap: spacing.sm }}>
-          <AnimatedNumber value={count} format={compactNumber} style={[typo.display, { color: colors.text, fontSize: font.xxl }]} />
+          <AnimatedNumber
+            value={count}
+            format={compactNumber}
+            style={[typo.display, { color: colors.text, fontSize: font.xxl }]}
+          />
           <View style={{ flexDirection: "row", alignItems: "center", gap: 2 }}>
             <Icon name="chevronRight" size={13} color={colors.negative} />
             <Text style={[typo.metaStrong, { color: colors.negative }]}>{compactNumber(END - START)}</Text>
@@ -361,7 +426,15 @@ export function IntroSlides({ height, compact = false, onSeen, style }: IntroSli
       </Animated.View>
 
       {compact ? null : (
-        <View style={{ flexDirection: "row", gap: spacing.sm, paddingHorizontal: spacing.xl, paddingTop: spacing.md, alignItems: "center" }}>
+        <View
+          style={{
+            flexDirection: "row",
+            gap: spacing.sm,
+            paddingHorizontal: spacing.xl,
+            paddingTop: spacing.md,
+            alignItems: "center",
+          }}
+        >
           {SLIDES.map((s, i) => (
             <Pressable
               key={s.key}
@@ -374,7 +447,9 @@ export function IntroSlides({ height, compact = false, onSeen, style }: IntroSli
               accessibilityState={{ selected: i === index }}
               style={{ flex: 1, paddingVertical: spacing.sm }}
             >
-              <View style={{ height: 3, borderRadius: radius.pill, backgroundColor: colors.borderHi, overflow: "hidden" }}>
+              <View
+                style={{ height: 3, borderRadius: radius.pill, backgroundColor: colors.borderHi, overflow: "hidden" }}
+              >
                 {i === index ? (
                   <Animated.View
                     style={{

@@ -102,9 +102,7 @@ export default function SettingsScreen() {
    * value rather than given a misleading label of its own.
    */
   const renewsAt = subscription?.active && subscription.renewsAt ? subscription.renewsAt.slice(0, 10) : null;
-  const planLabel = subscription?.active
-    ? `${subscription.plan}${renewsAt ? ` · ${renewsAt}` : ""}`
-    : t("freePlan");
+  const planLabel = subscription?.active ? `${subscription.plan}${renewsAt ? ` · ${renewsAt}` : ""}` : t("freePlan");
 
   const back = useCallback(() => {
     if (router.canGoBack()) router.back();
@@ -184,15 +182,37 @@ export default function SettingsScreen() {
             variant="secondary"
             onPress={() => pushOnce("/creator/rename")}
           />
-          <Button testID={T.settingsExport} label={t("exportData")} variant="secondary" onPress={() => void onExport()} loading={busy === "export"} />
+          <Button
+            testID={T.settingsExport}
+            label={t("exportData")}
+            variant="secondary"
+            onPress={() => void onExport()}
+            loading={busy === "export"}
+          />
           <Button testID={T.settingsSignOut} label={t("signOut")} variant="ghost" onPress={() => void onSignOut()} />
-          <Button testID={T.settingsDelete} label={t("deleteAccount")} variant="ghost" onPress={() => router.push("/delete-account")} />
+          <Button
+            testID={T.settingsDelete}
+            label={t("deleteAccount")}
+            variant="ghost"
+            onPress={() => router.push("/delete-account")}
+          />
         </Section>
 
         <Section title={t("subscription")}>
           <Row label={t("subscription")} value={planLabel} />
-          <Button testID={T.settingsManageSub} label={t("manageSubscription")} variant="secondary" onPress={onManageSub} />
-          <Button testID={T.settingsRestore} label={t("restorePurchases")} variant="ghost" onPress={() => void onRestore()} loading={busy === "restore"} />
+          <Button
+            testID={T.settingsManageSub}
+            label={t("manageSubscription")}
+            variant="secondary"
+            onPress={onManageSub}
+          />
+          <Button
+            testID={T.settingsRestore}
+            label={t("restorePurchases")}
+            variant="ghost"
+            onPress={() => void onRestore()}
+            loading={busy === "restore"}
+          />
         </Section>
 
         <Section title={t("privacy")}>
@@ -213,7 +233,13 @@ export default function SettingsScreen() {
             }}
           >
             <Text style={{ color: colors.text, fontSize: font.md, flexShrink: 1 }}>{t("personalizedAds")}</Text>
-            <Text style={{ color: analyticsConsent ? colors.positive : colors.textMuted, fontSize: font.md, fontWeight: "700" }}>
+            <Text
+              style={{
+                color: analyticsConsent ? colors.positive : colors.textMuted,
+                fontSize: font.md,
+                fontWeight: "700",
+              }}
+            >
               {analyticsConsent ? t("on") : t("off")}
             </Text>
           </Pressable>
@@ -228,7 +254,12 @@ export default function SettingsScreen() {
             accessibilityRole="button"
             accessibilityLabel={t("blockedCharacters")}
             onPress={() => router.push("/settings/blocked")}
-            style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingVertical: spacing.xs }}
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              justifyContent: "space-between",
+              paddingVertical: spacing.xs,
+            }}
           >
             <Text style={{ color: colors.text, fontSize: font.md }}>{t("blockedCharacters")}</Text>
             <Text style={{ color: colors.textMuted, fontSize: font.md }}>{`${blocked.length} ›`}</Text>
@@ -241,7 +272,12 @@ export default function SettingsScreen() {
             accessibilityRole="button"
             accessibilityLabel={t("language")}
             onPress={() => setLocale(nextLocale)}
-            style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingVertical: spacing.xs }}
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              justifyContent: "space-between",
+              paddingVertical: spacing.xs,
+            }}
           >
             <Text style={{ color: colors.text, fontSize: font.md }}>{t("language")}</Text>
             <Text style={{ color: colors.accent, fontSize: font.md, fontWeight: "700" }}>
@@ -257,7 +293,9 @@ export default function SettingsScreen() {
           <LinkRow testID="settings-support" label={t("support")} url={LEGAL.support} />
         </Section>
 
-        {notice ? <Text style={{ color: colors.positive, fontSize: font.sm, marginTop: spacing.lg }}>{notice}</Text> : null}
+        {notice ? (
+          <Text style={{ color: colors.positive, fontSize: font.sm, marginTop: spacing.lg }}>{notice}</Text>
+        ) : null}
         {error ? <Text style={{ color: colors.danger, fontSize: font.sm, marginTop: spacing.lg }}>{error}</Text> : null}
       </ScrollView>
     </Screen>

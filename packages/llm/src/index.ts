@@ -211,7 +211,17 @@ export {
   type BatchEntryStatus,
 } from "./modes/batch.js";
 export { buildRequest, refusalFallbacksEnabled, REFUSAL_FALLBACK_BETA, type LiveRequest } from "./modes/live.js";
-export { replayG1, replayG2, replayG4, replayG5, replayG7, replayG8, replayG10, replayGJ, isNegative } from "./modes/replay.js";
+export {
+  replayG1,
+  replayG2,
+  replayG4,
+  replayG5,
+  replayG7,
+  replayG8,
+  replayG10,
+  replayGJ,
+  isNegative,
+} from "./modes/replay.js";
 export { worldFixture, characterFixture, allFixtures } from "./fixtures/index.js";
 export { GeneratorFailure } from "./errors.js";
 
@@ -259,19 +269,10 @@ export {
   type MachineChecks,
 } from "./eval.js";
 
-export {
-  buildG1Case,
-  frozenEvalCases,
-  HARD_CASES,
-  type EvalCaseSpec,
-} from "./eval-cases.js";
+export { buildG1Case, frozenEvalCases, HARD_CASES, type EvalCaseSpec } from "./eval-cases.js";
 
 /* G9 in the gate (§6.2): the studio's machine checks, its judge brief and its frozen case set. */
-export {
-  blendedScore,
-  G1_ABSOLUTE_CHECKS,
-  JUDGE_UNAVAILABLE,
-} from "./eval-core.js";
+export { blendedScore, G1_ABSOLUTE_CHECKS, JUDGE_UNAVAILABLE } from "./eval-core.js";
 export {
   cjkRatio,
   distinctnessOf,
@@ -289,12 +290,7 @@ export {
   type G9Distinctness,
   type G9Metrics,
 } from "./eval-g9.js";
-export {
-  buildG9Case,
-  frozenEvalCasesG9,
-  HARD_G9_CASES,
-  type G9EvalCaseSpec,
-} from "./eval-cases-g9.js";
+export { buildG9Case, frozenEvalCasesG9, HARD_G9_CASES, type G9EvalCaseSpec } from "./eval-cases-g9.js";
 
 export {
   runAmbientRefillBatched,

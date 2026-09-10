@@ -118,8 +118,12 @@ export interface ModerationMetrics {
   thresholds: { reportsToPull: number; reviewSlaHours: number; resubmitCooldownHours: number; claimMinutes: number };
   queue: { waiting: number; overdue: number; appeals: number; pulled: number; oldestWaitingHours: number };
   decisions: {
-    last7d: number; approved: number; rejected: number; approvalRate: number;
-    medianLatencyHours: number | null; p90LatencyHours: number | null;
+    last7d: number;
+    approved: number;
+    rejected: number;
+    approvalRate: number;
+    medianLatencyHours: number | null;
+    p90LatencyHours: number | null;
   };
   reports: { open: number; last7d: number; perThousandPlays: number; pullsLast7d: number; pullsReapproved: number };
   economics: {
@@ -174,15 +178,33 @@ export async function moderationMetrics(prisma: PrismaClient, now: Date): Promis
   const since = new Date(now.getTime() - METRICS_WINDOW_DAYS * DAY_MS);
 
   const [
-    ops, decided, reportsLast7d, reportsAllTime, plays, pulls, reviewedNotes,
-    trustedCreators, submissions, sampledAway, sampledAwayAllTime, queuedWithDigest, shelfLedger,
+    ops,
+    decided,
+    reportsLast7d,
+    reportsAllTime,
+    plays,
+    pulls,
+    reviewedNotes,
+    trustedCreators,
+    submissions,
+    sampledAway,
+    sampledAwayAllTime,
+    queuedWithDigest,
+    shelfLedger,
   ] = await Promise.all([
     // The queue, from the same function the ops surface and the scheduled sweep read.
     worldModerationOps(prisma, now),
     prisma.world.findMany({
       // `reviewedBy` is the human: the pre-publish gate refuses worlds without writing one.
       where: { reviewedAt: { gte: since }, reviewedBy: { not: null } },
-      select: { id: true, status: true, rejectedReason: true, reviewedAt: true, reviewRequestedAt: true, generationId: true },
+      select: {
+        id: true,
+        status: true,
+        rejectedReason: true,
+        reviewedAt: true,
+        reviewRequestedAt: true,
+        generationId: true,
+      },
     }),
     prisma.report.count({ where: { target: "world", createdAt: { gte: since } } }),
     prisma.report.count({ where: { target: "world" } }),
@@ -220,9 +242,9 @@ export async function moderationMetrics(prisma: PrismaClient, now: Date): Promis
   const rejected = decided.filter(isRejected).length;
   const approved = decided.length - rejected;
   const latencies = decided
-    .flatMap((w) => (w.reviewedAt && w.reviewRequestedAt
-      ? [(w.reviewedAt.getTime() - w.reviewRequestedAt.getTime()) / HOUR_MS]
-      : []))
+    .flatMap((w) =>
+      w.reviewedAt && w.reviewRequestedAt ? [(w.reviewedAt.getTime() - w.reviewRequestedAt.getTime()) / HOUR_MS] : [],
+    )
     .filter((h) => h >= 0)
     .sort((a, b) => a - b);
   const med = median(latencies);
@@ -237,7 +259,8 @@ export async function moderationMetrics(prisma: PrismaClient, now: Date): Promis
     approvalsAfter.set(note.target, list);
   }
   const pullsReapproved = pulls.filter((pull) =>
-    (approvalsAfter.get(pull.target ?? "") ?? []).some((at) => at >= pull.createdAt.getTime())).length;
+    (approvalsAfter.get(pull.target ?? "") ?? []).some((at) => at >= pull.createdAt.getTime()),
+  ).length;
 
   /**
    * Reports per thousand plays is **lifetime over lifetime**, and has to be: a play leaves no row
@@ -250,9 +273,10 @@ export async function moderationMetrics(prisma: PrismaClient, now: Date): Promis
 
   /* ---- economics ---- */
   const generationIds = decided.flatMap((w) => (w.generationId ? [w.generationId] : []));
-  const cost = generationIds.length > 0
-    ? await prisma.generationLog.aggregate({ _sum: { costUsd: true }, where: { id: { in: generationIds } } })
-    : null;
+  const cost =
+    generationIds.length > 0
+      ? await prisma.generationLog.aggregate({ _sum: { costUsd: true }, where: { id: { in: generationIds } } })
+      : null;
 
   /* ---- what the queue costs, and what was not spent on it ---- */
   const perWorld = reviewMinutesPerWorld();

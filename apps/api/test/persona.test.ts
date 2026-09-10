@@ -1,16 +1,34 @@
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { ENERGY, PACING } from "@rpgllm/shared";
-import { call, getWallet, makeHarness, prisma, resetDatabase, signup, signupWithPersona, type Harness } from "./helpers";
+import {
+  call,
+  getWallet,
+  makeHarness,
+  prisma,
+  resetDatabase,
+  signup,
+  signupWithPersona,
+  type Harness,
+} from "./helpers";
 
 let h: Harness;
 
-beforeAll(() => { h = makeHarness(); });
-beforeEach(async () => { await resetDatabase(); });
+beforeAll(() => {
+  h = makeHarness();
+});
+beforeEach(async () => {
+  await resetDatabase();
+});
 
 describe("persona creation seeds the feed (E2E-002)", () => {
   it("creates relationships for the whole cast and a 6-item starting feed", async () => {
     const fx = await signupWithPersona(h);
-    const feed = await call<{ posts: { kind: string; author: { handle: string } }[] }>(h, "GET", `/v1/feed?personaId=${fx.personaId}`, { token: fx.token });
+    const feed = await call<{ posts: { kind: string; author: { handle: string } }[] }>(
+      h,
+      "GET",
+      `/v1/feed?personaId=${fx.personaId}`,
+      { token: fx.token },
+    );
 
     expect(feed.status).toBe(200);
     const ambient = feed.data.posts.filter((p) => p.kind === "ambient");
@@ -34,11 +52,22 @@ describe("persona creation seeds the feed (E2E-002)", () => {
     const { token } = await signup(h);
     const worlds = await call<{ id: string; slug: string }[]>(h, "GET", "/v1/worlds", { token });
     const world = worlds.data[0]!;
-    const detail = await call<{ characters: { id: string; canBeFirstFollower: boolean }[] }>(h, "GET", `/v1/worlds/${world.id}`, { token });
+    const detail = await call<{ characters: { id: string; canBeFirstFollower: boolean }[] }>(
+      h,
+      "GET",
+      `/v1/worlds/${world.id}`,
+      { token },
+    );
     const first = detail.data.characters.find((ch) => ch.canBeFirstFollower)!;
     const body = {
-      worldId: world.id, handle: "taytay19", displayName: "Tay", bio: "", avatarUrl: null,
-      voiceNotes: "", firstFollowerId: first.id, idempotencyKey: "same-key",
+      worldId: world.id,
+      handle: "taytay19",
+      displayName: "Tay",
+      bio: "",
+      avatarUrl: null,
+      voiceNotes: "",
+      firstFollowerId: first.id,
+      idempotencyKey: "same-key",
     };
     const a = await call<{ persona: { id: string } }>(h, "POST", "/v1/personas", { token, body });
     const b = await call<{ persona: { id: string } }>(h, "POST", "/v1/personas", { token, body });
@@ -48,7 +77,12 @@ describe("persona creation seeds the feed (E2E-002)", () => {
 
   it("reports a handle this player already holds as unavailable", async () => {
     const fx = await signupWithPersona(h, { handle: "taytay19" });
-    const check = await call<{ available: boolean }>(h, "GET", `/v1/personas/check?worldId=${fx.worldId}&handle=taytay19`, { token: fx.token });
+    const check = await call<{ available: boolean }>(
+      h,
+      "GET",
+      `/v1/personas/check?worldId=${fx.worldId}&handle=taytay19`,
+      { token: fx.token },
+    );
     expect(check.data.available).toBe(false);
   });
 });
@@ -70,8 +104,14 @@ describe("persona handles are per player, not per world", () => {
     call<{ persona: { id: string; handle: string } }>(h, "POST", "/v1/personas", {
       token,
       body: {
-        worldId, handle, displayName: "Rina", bio: "", avatarUrl: null,
-        voiceNotes: "", firstFollowerId, idempotencyKey: key,
+        worldId,
+        handle,
+        displayName: "Rina",
+        bio: "",
+        avatarUrl: null,
+        voiceNotes: "",
+        firstFollowerId,
+        idempotencyKey: key,
       },
     });
 
@@ -81,7 +121,10 @@ describe("persona handles are per player, not per world", () => {
 
     // The second player is *offered* the name, not refused it.
     const check = await call<{ available: boolean }>(
-      h, "GET", `/v1/personas/check?worldId=${first.worldId}&handle=rina`, { token: second.token },
+      h,
+      "GET",
+      `/v1/personas/check?worldId=${first.worldId}&handle=rina`,
+      { token: second.token },
     );
     expect(check.data.available).toBe(true);
 
@@ -112,7 +155,10 @@ describe("persona handles are per player, not per world", () => {
     const castHandle = "hivequeenbea";
 
     const check = await call<{ available: boolean }>(
-      h, "GET", `/v1/personas/check?worldId=${fx.worldId}&handle=HiveQueenBea`, { token: fx.token },
+      h,
+      "GET",
+      `/v1/personas/check?worldId=${fx.worldId}&handle=HiveQueenBea`,
+      { token: fx.token },
     );
     expect(check.data.available, "case and the stored leading @ must not smuggle it past").toBe(false);
 
@@ -135,7 +181,12 @@ describe("persona handles are per player, not per world", () => {
 
   it("uses the ja locale for ambient text and the welcome post", async () => {
     const fx = await signupWithPersona(h, { locale: "ja" });
-    const feed = await call<{ posts: { kind: string; text: string }[] }>(h, "GET", `/v1/feed?personaId=${fx.personaId}`, { token: fx.token });
+    const feed = await call<{ posts: { kind: string; text: string }[] }>(
+      h,
+      "GET",
+      `/v1/feed?personaId=${fx.personaId}`,
+      { token: fx.token },
+    );
     const texts = feed.data.posts.map((p) => p.text).join(" ");
     expect(/[ぁ-んァ-ヶ一-龠]/.test(texts)).toBe(true);
   });

@@ -84,8 +84,7 @@ export const dmText = (locale: LocaleKey, displayName: string): string =>
 
 export const milestoneText = (locale: LocaleKey, followers: number): string =>
   `${t(locale, "youReached")} ${compactNumber(followers)} ${t(locale, "followers")}`;
-export const unlockText = (locale: LocaleKey, title: string): string =>
-  `${t(locale, "newAchievement")} — ${title}`;
+export const unlockText = (locale: LocaleKey, title: string): string => `${t(locale, "newAchievement")} — ${title}`;
 export const eventText = (locale: LocaleKey, title: string): string => `${t(locale, "milestone")} — ${title}`;
 export const digestText = (locale: LocaleKey, headline: string): string =>
   `${t(locale, "whileYouWereAway")} — ${headline}`;

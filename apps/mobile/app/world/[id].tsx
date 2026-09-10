@@ -77,7 +77,11 @@ export default function WorldPage() {
 
           {phase === "error" && !world ? (
             <View style={{ gap: spacing.md, paddingTop: spacing.xxl }}>
-              <Text accessibilityRole="alert" accessibilityLiveRegion="polite" style={[typo.h2, { color: colors.text }]}>
+              <Text
+                accessibilityRole="alert"
+                accessibilityLiveRegion="polite"
+                style={[typo.h2, { color: colors.text }]}
+              >
                 {t("loadFailed")}
               </Text>
               <Button label={t("retry")} variant="secondary" onPress={() => void reload()} />
@@ -114,9 +118,7 @@ export default function WorldPage() {
                         handle={world.creatorHandle}
                         testID={T.worldCredit}
                         onPress={
-                          from && from === world.creatorHandle && router.canGoBack()
-                            ? () => router.back()
-                            : undefined
+                          from && from === world.creatorHandle && router.canGoBack() ? () => router.back() : undefined
                         }
                       />
                     ) : null}

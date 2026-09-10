@@ -18,10 +18,48 @@ import { cjkRatio, roleOf } from "../eval-g9.js";
 const CJK_ONLY = /[\u3040-\u30ff\u3400-\u4dbf\u4e00-\u9fff]/u;
 
 const EN_STOP = new Set([
-  "about", "after", "again", "against", "their", "there", "these", "those", "which", "while",
-  "would", "could", "should", "every", "never", "always", "still", "where", "when", "with",
-  "your", "yours", "into", "onto", "from", "that", "this", "they", "them", "then", "than",
-  "have", "been", "will", "what", "who", "whom", "does", "done", "here", "some", "much",
+  "about",
+  "after",
+  "again",
+  "against",
+  "their",
+  "there",
+  "these",
+  "those",
+  "which",
+  "while",
+  "would",
+  "could",
+  "should",
+  "every",
+  "never",
+  "always",
+  "still",
+  "where",
+  "when",
+  "with",
+  "your",
+  "yours",
+  "into",
+  "onto",
+  "from",
+  "that",
+  "this",
+  "they",
+  "them",
+  "then",
+  "than",
+  "have",
+  "been",
+  "will",
+  "what",
+  "who",
+  "whom",
+  "does",
+  "done",
+  "here",
+  "some",
+  "much",
 ]);
 
 /** Content words (Latin) or character bigrams (CJK) — one comparable bag either way. */
@@ -89,9 +127,7 @@ export interface CastDistinctness {
 function speechOf(world: WorldSeed, handle: string, locale: Locale): string {
   const lines = world.fallbackReplies[handle]?.[locale] ?? [];
   const welcome = world.welcomePosts[handle]?.[locale] ?? "";
-  const ambient = (world.ambientPool[locale] ?? [])
-    .filter((a) => a.handle === handle)
-    .map((a) => a.text);
+  const ambient = (world.ambientPool[locale] ?? []).filter((a) => a.handle === handle).map((a) => a.text);
   return [...lines, welcome, ...ambient].join("\n");
 }
 

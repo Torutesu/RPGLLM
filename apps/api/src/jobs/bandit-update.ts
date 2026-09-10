@@ -20,14 +20,24 @@ export async function runBanditUpdate(deps: JobDeps): Promise<JobOutcome> {
   const promoted = promotions.filter((p) => p.promoted).length;
   const arms = await refreshAllocatorSnapshot(deps.prisma, now);
   logLine({
-    level: "info", msg: "job.bandit", calls: update.calls, armsFolded: update.arms,
-    generators: update.generators.length, disabled: guardrails.disabled.length, promoted, arms,
+    level: "info",
+    msg: "job.bandit",
+    calls: update.calls,
+    armsFolded: update.arms,
+    generators: update.generators.length,
+    disabled: guardrails.disabled.length,
+    promoted,
+    arms,
   });
   return {
     processed: update.calls,
     detail: {
-      calls: update.calls, armsFolded: update.arms, generators: update.generators.length,
-      disabled: guardrails.disabled.length, promoted, arms,
+      calls: update.calls,
+      armsFolded: update.arms,
+      generators: update.generators.length,
+      disabled: guardrails.disabled.length,
+      promoted,
+      arms,
     },
   };
 }

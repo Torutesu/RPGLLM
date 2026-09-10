@@ -26,14 +26,21 @@ export function meRoutes(): Hono<AppEnv> {
     });
     return ok({
       user: {
-        id: user.id, locale: user.locale, isMinor: user.isMinor,
+        id: user.id,
+        locale: user.locale,
+        isMinor: user.isMinor,
         birthYear: user.birthYear > 0 ? user.birthYear : null,
-        email: user.email, analyticsConsent: user.analyticsConsent,
+        email: user.email,
+        analyticsConsent: user.analyticsConsent,
         // 勝ち筋 A ②: the name this account's worlds are credited to. The client needs it to know
         // whether a creator page is its own, and to show what the rename would be changing.
         creatorHandle: user.creatorHandle,
       },
-      wallet: toApiWallet(wallet, { dailyMax, adsEnabled: !adFreeFor(subscription, deps.clock.now()), adPersonalized: !user.isMinor }),
+      wallet: toApiWallet(wallet, {
+        dailyMax,
+        adsEnabled: !adFreeFor(subscription, deps.clock.now()),
+        adPersonalized: !user.isMinor,
+      }),
       subscription: toApiSubscription(subscription),
       persona: persona ? toApiPersona(persona, persona.world.slug) : null,
       // Additive: `MeResZ` strips it on the client, which reads `GET /v1/streak` instead.
@@ -69,7 +76,11 @@ export function meRoutes(): Hono<AppEnv> {
         return fail("HANDLE_TAKEN", "That name is taken", 409);
       case "too_soon": {
         const days = Math.max(1, Math.ceil((outcome.availableAt.getTime() - deps.clock.now().getTime()) / 86_400_000));
-        return fail("RATE_LIMITED", `You can change your creator name again in ${days} ${days === 1 ? "day" : "days"}.`, 429);
+        return fail(
+          "RATE_LIMITED",
+          `You can change your creator name again in ${days} ${days === 1 ? "day" : "days"}.`,
+          429,
+        );
       }
     }
   });

@@ -75,7 +75,8 @@ export function paintPoster(seedKey: string): Uint8ClampedArray {
   const seed = hashString(seedKey);
   const rnd = seeded(seed);
   const id = identityFor(seedKey);
-  const alt = identityPalette[(id.index + 4) % identityPalette.length] ?? (identityPalette[0] as readonly [string, string]);
+  const alt =
+    identityPalette[(id.index + 4) % identityPalette.length] ?? (identityPalette[0] as readonly [string, string]);
 
   // Drawn in the client's order, and the client's `rnd` order matters: bands are pulled before
   // sparks before the horizon, so the sequence has to be consumed in exactly that order.

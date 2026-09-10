@@ -340,15 +340,17 @@ export async function notifyUser(
   }
   const now = opts.now ?? new Date();
   const locale =
-    opts.locale ??
-    (await prisma.user.findUnique({ where: { id: userId }, select: { locale: true } }))?.locale ??
-    "en";
+    opts.locale ?? (await prisma.user.findUnique({ where: { id: userId }, select: { locale: true } }))?.locale ?? "en";
   const decision = shouldSend(userId, locale, now, opts);
   if (!decision.send) return nothing(decision.reason);
 
   const tokens = await tokensForUser(prisma, userId);
   if (tokens.length === 0) return nothing("no_tokens");
-  return await sendPush(tokens.map((t) => t.token), message, { prisma, ...(opts.fetchImpl ? { fetchImpl: opts.fetchImpl } : {}) });
+  return await sendPush(
+    tokens.map((t) => t.token),
+    message,
+    { prisma, ...(opts.fetchImpl ? { fetchImpl: opts.fetchImpl } : {}) },
+  );
 }
 
 /* --------------------------------------------------------- notification bridge ---- */

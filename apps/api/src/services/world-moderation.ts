@@ -37,7 +37,7 @@ export const waitingSince = (world: Pick<World, "reviewRequestedAt" | "createdAt
 
 /** How long a world has been waiting for a reviewer, in hours (one decimal — this is a queue, not a stopwatch). */
 export const waitingHours = (world: Pick<World, "reviewRequestedAt" | "createdAt">, now: Date): number =>
-  Math.round(Math.max(0, now.getTime() - waitingSince(world).getTime()) / HOUR_MS * 10) / 10;
+  Math.round((Math.max(0, now.getTime() - waitingSince(world).getTime()) / HOUR_MS) * 10) / 10;
 
 export const isOverdue = (world: Pick<World, "reviewRequestedAt" | "createdAt">, now: Date): boolean =>
   waitingHours(world, now) > worldModerationConfig().reviewSlaHours;
@@ -75,7 +75,9 @@ export interface PullOutcome {
  * cannot deadlock against the build job or the review decision, which never lock a `World` row.
  */
 export async function pullWorldIfBrigaded(tx: Tx, worldId: string, now: Date): Promise<PullOutcome> {
-  const locked = await tx.$queryRaw<{ id: string; status: string; visibility: string; isPreset: boolean; createdBy: string | null }[]>`
+  const locked = await tx.$queryRaw<
+    { id: string; status: string; visibility: string; isPreset: boolean; createdBy: string | null }[]
+  >`
     SELECT "id", "status"::text AS "status", "visibility"::text AS "visibility", "isPreset", "createdBy"
       FROM "World" WHERE "id" = ${worldId} FOR UPDATE`;
   const world = locked[0];
@@ -140,7 +142,12 @@ export async function tellCreatorPulled(tx: Tx, world: World): Promise<boolean> 
  * them (the complaint was upheld). Either way they stop being open, so the count starts again from
  * zero and the same three reporters cannot pull the world twice for the same reason.
  */
-export function resolveWorldReports(tx: Tx, worldId: string, now: Date, approved: boolean): Promise<Prisma.BatchPayload> {
+export function resolveWorldReports(
+  tx: Tx,
+  worldId: string,
+  now: Date,
+  approved: boolean,
+): Promise<Prisma.BatchPayload> {
   return tx.report.updateMany({
     where: { target: "world", targetId: worldId, status: "open" },
     data: { status: approved ? "dismissed" : "actioned", reviewedAt: now },
@@ -211,28 +218,29 @@ export interface WorldModerationOps {
 export async function worldModerationOps(prisma: PrismaClient, now: Date): Promise<WorldModerationOps> {
   const config = worldModerationConfig();
   const overdueBefore = new Date(now.getTime() - config.reviewSlaHours * HOUR_MS);
-  const [inReview, overdueReviews, pulledWorlds, appealedWorlds, claimedWorlds, openWorldReports, oldest] = await Promise.all([
-    prisma.world.count({ where: { status: "review" } }),
-    prisma.world.count({
-      where: {
-        status: "review",
-        OR: [
-          { reviewRequestedAt: { lt: overdueBefore } },
-          { reviewRequestedAt: null, createdAt: { lt: overdueBefore } },
-        ],
-      },
-    }),
-    prisma.world.count({ where: { status: "review", pulledAt: { not: null } } }),
-    prisma.world.count({ where: { status: "review", appealedAt: { not: null } } }),
-    // A lapsed lease is not a claim: `claimedUntil` in the past is an unclaimed world.
-    prisma.world.count({ where: { status: "review", claimedUntil: { gt: now } } }),
-    prisma.report.count({ where: { target: "world", status: "open" } }),
-    prisma.world.findFirst({
-      where: { status: "review" },
-      orderBy: [{ reviewRequestedAt: "asc" }, { createdAt: "asc" }],
-      select: { reviewRequestedAt: true, createdAt: true },
-    }),
-  ]);
+  const [inReview, overdueReviews, pulledWorlds, appealedWorlds, claimedWorlds, openWorldReports, oldest] =
+    await Promise.all([
+      prisma.world.count({ where: { status: "review" } }),
+      prisma.world.count({
+        where: {
+          status: "review",
+          OR: [
+            { reviewRequestedAt: { lt: overdueBefore } },
+            { reviewRequestedAt: null, createdAt: { lt: overdueBefore } },
+          ],
+        },
+      }),
+      prisma.world.count({ where: { status: "review", pulledAt: { not: null } } }),
+      prisma.world.count({ where: { status: "review", appealedAt: { not: null } } }),
+      // A lapsed lease is not a claim: `claimedUntil` in the past is an unclaimed world.
+      prisma.world.count({ where: { status: "review", claimedUntil: { gt: now } } }),
+      prisma.report.count({ where: { target: "world", status: "open" } }),
+      prisma.world.findFirst({
+        where: { status: "review" },
+        orderBy: [{ reviewRequestedAt: "asc" }, { createdAt: "asc" }],
+        select: { reviewRequestedAt: true, createdAt: true },
+      }),
+    ]);
   return {
     inReview,
     overdueReviews,
@@ -287,7 +295,11 @@ export const REVIEW_QUEUE_MAX_LIMIT = 100;
 /** How many complaints one queue card carries. A reviewer reads the first few, not the hundredth. */
 export const REPORTS_PER_WORLD = 20;
 
-export interface QueueComplaint { reason: string; note: string; createdAt: string }
+export interface QueueComplaint {
+  reason: string;
+  note: string;
+  createdAt: string;
+}
 
 export interface QueueEntry {
   world: World;
@@ -320,7 +332,9 @@ export interface ReviewQueue {
   nextOffset: number | null;
 }
 
-interface QueueRow extends World { reporters: number }
+interface QueueRow extends World {
+  reporters: number;
+}
 
 /**
  * The queue, worst thing first — for the reviewer who is asking.
@@ -365,26 +379,31 @@ export async function reviewQueue(
 
   const page = rows.slice(0, limit);
   const ids = page.map((w) => w.id);
-  const complaints = ids.length === 0
-    ? []
-    : await prisma.report.findMany({
-      where: { target: "world", targetId: { in: ids }, status: "open" },
-      orderBy: { createdAt: "desc" },
-      select: { targetId: true, reason: true, note: true, createdAt: true },
-      take: REPORTS_PER_WORLD * ids.length,
-    });
+  const complaints =
+    ids.length === 0
+      ? []
+      : await prisma.report.findMany({
+          where: { target: "world", targetId: { in: ids }, status: "open" },
+          orderBy: { createdAt: "desc" },
+          select: { targetId: true, reason: true, note: true, createdAt: true },
+          take: REPORTS_PER_WORLD * ids.length,
+        });
 
   const byWorld = new Map<string, QueueComplaint[]>();
   for (const c of complaints) {
     const list = byWorld.get(c.targetId) ?? [];
-    if (list.length < REPORTS_PER_WORLD) list.push({ reason: c.reason, note: c.note, createdAt: c.createdAt.toISOString() });
+    if (list.length < REPORTS_PER_WORLD)
+      list.push({ reason: c.reason, note: c.note, createdAt: c.createdAt.toISOString() });
     byWorld.set(c.targetId, list);
   }
 
   const [total, ops, trust] = await Promise.all([
     prisma.world.count({ where: { status: "review" } }),
     worldModerationOps(prisma, now),
-    trustFor(prisma, page.flatMap((w) => (w.createdBy ? [w.createdBy] : []))),
+    trustFor(
+      prisma,
+      page.flatMap((w) => (w.createdBy ? [w.createdBy] : [])),
+    ),
   ]);
 
   return {

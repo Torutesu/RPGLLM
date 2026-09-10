@@ -43,8 +43,12 @@ describe("cron", () => {
   });
 
   it("computes the next run strictly after the given instant", () => {
-    expect(nextCronRun(parseCron("0 * * * *"), at("2026-09-04T10:00:00Z"))?.toISOString()).toBe("2026-09-04T11:00:00.000Z");
-    expect(nextCronRun(parseCron("0 3 * * *"), at("2026-09-04T10:00:00Z"))?.toISOString()).toBe("2026-09-05T03:00:00.000Z");
+    expect(nextCronRun(parseCron("0 * * * *"), at("2026-09-04T10:00:00Z"))?.toISOString()).toBe(
+      "2026-09-04T11:00:00.000Z",
+    );
+    expect(nextCronRun(parseCron("0 3 * * *"), at("2026-09-04T10:00:00Z"))?.toISOString()).toBe(
+      "2026-09-05T03:00:00.000Z",
+    );
     // every job in the shared table has a next run
     for (const job of JOBS) expect(nextRunAtFor(job.schedule, at("2026-09-04T10:00:00Z"))).toBeInstanceOf(Date);
   });
@@ -149,8 +153,17 @@ describe("a failing job", () => {
 
 interface JobsRes {
   jobs: {
-    name: string; schedule: string; enabled: boolean;
-    lastRun: { job: string; ok: boolean; processed: number; startedAt: string; finishedAt: string | null; error: string | null } | null;
+    name: string;
+    schedule: string;
+    enabled: boolean;
+    lastRun: {
+      job: string;
+      ok: boolean;
+      processed: number;
+      startedAt: string;
+      finishedAt: string | null;
+      error: string | null;
+    } | null;
     nextRunAt: string | null;
   }[];
 }
@@ -168,7 +181,10 @@ describe("GET /v1/jobs and POST /v1/jobs/run", () => {
 
   it("runs one job on demand and then reports it as the last run", async () => {
     const ran = await call<{ runs: { job: string; ok: boolean; processed: number; skipped: boolean }[] }>(
-      h, "POST", "/v1/jobs/run", { body: { job: "purge-login-codes" } },
+      h,
+      "POST",
+      "/v1/jobs/run",
+      { body: { job: "purge-login-codes" } },
     );
     expect(ran.status).toBe(200);
     expect(ran.data.runs[0]?.job).toBe("purge-login-codes");
@@ -193,13 +209,16 @@ describe("GET /v1/jobs and POST /v1/jobs/run", () => {
     h.clock.offsetDays(1);
 
     const ambient = await call<{ runs: { job: string; ok: boolean; detail: Record<string, number> }[] }>(
-      h, "POST", "/v1/jobs/run", { body: { job: "ambient-refill" } },
+      h,
+      "POST",
+      "/v1/jobs/run",
+      { body: { job: "ambient-refill" } },
     );
     expect(ambient.data.runs[0]?.ok).toBe(true);
 
-    const digest = await call<{ runs: { job: string; ok: boolean; processed: number }[] }>(
-      h, "POST", "/v1/jobs/run", { body: { job: "offline-director", personaId: p.personaId } },
-    );
+    const digest = await call<{ runs: { job: string; ok: boolean; processed: number }[] }>(h, "POST", "/v1/jobs/run", {
+      body: { job: "offline-director", personaId: p.personaId },
+    });
     expect(digest.data.runs[0]?.ok).toBe(true);
     expect(digest.data.runs[0]?.processed, "one digest for the away player").toBe(1);
     expect(await prisma.digest.count({ where: { personaId: p.personaId } })).toBe(1);
@@ -219,7 +238,6 @@ describe("GET /v1/jobs and POST /v1/jobs/run", () => {
   });
 });
 
-
 describe("the Expo receipt second pass", () => {
   const HOUR = 3_600_000;
   const now = new Date("2026-09-04T12:00:00.000Z");
@@ -231,9 +249,13 @@ describe("the Expo receipt second pass", () => {
 
   /** One receipt map, shaped the way Expo answers `getReceipts`. */
   const receiptsFetch = (body: Record<string, unknown>): typeof fetch =>
-    ((): Promise<Response> => Promise.resolve(new Response(JSON.stringify({ data: body }), {
-      status: 200, headers: { "content-type": "application/json" },
-    }))) as unknown as typeof fetch;
+    ((): Promise<Response> =>
+      Promise.resolve(
+        new Response(JSON.stringify({ data: body }), {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        }),
+      )) as unknown as typeof fetch;
 
   async function tokenFor(userId: string, token: string): Promise<void> {
     await prisma.pushToken.create({ data: { userId, token, platform: "ios" } });
@@ -243,10 +265,14 @@ describe("the Expo receipt second pass", () => {
     const p = await signupWithPersona(h);
     await tokenFor(p.userId, "ExponentPushToken[dead]");
     await tokenFor(p.userId, "ExponentPushToken[alive]");
-    await recordPushTickets(prisma, [
-      { ticketId: "ticket-dead", token: "ExponentPushToken[dead]" },
-      { ticketId: "ticket-alive", token: "ExponentPushToken[alive]" },
-    ], new Date(now.getTime() - HOUR));
+    await recordPushTickets(
+      prisma,
+      [
+        { ticketId: "ticket-dead", token: "ExponentPushToken[dead]" },
+        { ticketId: "ticket-alive", token: "ExponentPushToken[alive]" },
+      ],
+      new Date(now.getTime() - HOUR),
+    );
 
     process.env.PUSH_ENABLED = "1";
     const result = await sweepPushReceipts(prisma, now, {
@@ -278,10 +304,13 @@ describe("the Expo receipt second pass", () => {
   it("forgets tickets past Expo's retention, and does nothing at all while push is off", async () => {
     const p = await signupWithPersona(h);
     await tokenFor(p.userId, "ExponentPushToken[old]");
-    await recordPushTickets(prisma, [{ ticketId: "ticket-old", token: "ExponentPushToken[old]" }],
-      new Date(now.getTime() - 48 * HOUR));
+    await recordPushTickets(
+      prisma,
+      [{ ticketId: "ticket-old", token: "ExponentPushToken[old]" }],
+      new Date(now.getTime() - 48 * HOUR),
+    );
 
-    const result = await sweepPushReceipts(prisma, now);   // PUSH_ENABLED unset: no network at all
+    const result = await sweepPushReceipts(prisma, now); // PUSH_ENABLED unset: no network at all
     expect(result.dropped).toBe(1);
     expect(result.checked).toBe(0);
     expect(await prisma.pushToken.count({ where: { userId: p.userId } })).toBe(1);

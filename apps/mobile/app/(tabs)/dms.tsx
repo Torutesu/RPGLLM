@@ -85,7 +85,9 @@ export default function DMInbox() {
             >
               <Avatar handle={th.character.handle} size={44} />
               <View style={{ flex: 1 }}>
-                <Text style={{ color: colors.text, fontSize: font.md, fontWeight: "700" }}>{`@${th.character.handle}`}</Text>
+                <Text
+                  style={{ color: colors.text, fontSize: font.md, fontWeight: "700" }}
+                >{`@${th.character.handle}`}</Text>
                 <Text numberOfLines={1} style={{ color: colors.textMuted, fontSize: font.sm }}>
                   {th.lastMessage ?? ""}
                 </Text>
@@ -119,7 +121,9 @@ export default function DMInbox() {
             zIndex: 25,
           }}
         >
-          <Text style={{ color: colors.textMuted, fontSize: font.sm, marginBottom: spacing.md }}>{t("newMessage")}</Text>
+          <Text style={{ color: colors.textMuted, fontSize: font.sm, marginBottom: spacing.md }}>
+            {t("newMessage")}
+          </Text>
           <ScrollView>
             {(data?.followers ?? []).map((c) => (
               <Pressable
@@ -137,7 +141,11 @@ export default function DMInbox() {
               </Pressable>
             ))}
           </ScrollView>
-          <Pressable accessibilityRole="button" onPress={() => setPicker(false)} style={{ alignSelf: "center", padding: spacing.md }}>
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => setPicker(false)}
+            style={{ alignSelf: "center", padding: spacing.md }}
+          >
             <Text style={{ color: colors.textMuted, fontSize: font.sm }}>{t("cancel")}</Text>
           </Pressable>
         </View>

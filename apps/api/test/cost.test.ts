@@ -70,14 +70,28 @@ async function seedLogs(h: Harness): Promise<Seeded> {
   const b = await signup(h);
 
   const sonnet = (over: Partial<SeedRow>): SeedRow => ({
-    generator: "G1", variantId: "g1-sonnet-v1", model: "claude-sonnet-5",
-    inputTokens: 100, cacheWriteTokens: 0, cacheReadTokens: 400, outputTokens: 50,
-    costUsd: "0.001000", latencyMs: 100, ttftMs: 50, stopReason: "end_turn",
-    createdAt: noonB, userId: a.userId, ...over,
+    generator: "G1",
+    variantId: "g1-sonnet-v1",
+    model: "claude-sonnet-5",
+    inputTokens: 100,
+    cacheWriteTokens: 0,
+    cacheReadTokens: 400,
+    outputTokens: 50,
+    costUsd: "0.001000",
+    latencyMs: 100,
+    ttftMs: 50,
+    stopReason: "end_turn",
+    createdAt: noonB,
+    userId: a.userId,
+    ...over,
   });
   const haiku = (over: Partial<SeedRow>): SeedRow => ({
-    ...sonnet({}), variantId: "g1-haiku-v1", model: "claude-haiku-4-5", costUsd: "0.002000",
-    userId: b.userId, ...over,
+    ...sonnet({}),
+    variantId: "g1-haiku-v1",
+    model: "claude-haiku-4-5",
+    costUsd: "0.002000",
+    userId: b.userId,
+    ...over,
   });
 
   const rows: SeedRow[] = [
@@ -88,10 +102,19 @@ async function seedLogs(h: Harness): Promise<Seeded> {
     haiku({ latencyMs: 500, ttftMs: 80 }),
     haiku({ latencyMs: 600, ttftMs: 90 }),
     {
-      generator: "G5", variantId: "g5-opus-v1", model: "claude-opus-5",
-      inputTokens: 200, cacheWriteTokens: 100, cacheReadTokens: 0, outputTokens: 100,
-      costUsd: "0.010000", latencyMs: 1000, ttftMs: null, stopReason: "error",
-      createdAt: noonB, userId: b.userId,
+      generator: "G5",
+      variantId: "g5-opus-v1",
+      model: "claude-opus-5",
+      inputTokens: 200,
+      cacheWriteTokens: 100,
+      cacheReadTokens: 0,
+      outputTokens: 100,
+      costUsd: "0.010000",
+      latencyMs: 1000,
+      ttftMs: null,
+      stopReason: "error",
+      createdAt: noonB,
+      userId: b.userId,
     },
   ];
 
@@ -99,11 +122,19 @@ async function seedLogs(h: Harness): Promise<Seeded> {
   for (const r of rows) {
     const created = await prisma.generationLog.create({
       data: {
-        userId: r.userId, generator: r.generator, variantId: r.variantId, model: r.model,
+        userId: r.userId,
+        generator: r.generator,
+        variantId: r.variantId,
+        model: r.model,
         promptHash: `hash-${logIds.length}`,
-        inputTokens: r.inputTokens, cacheWriteTokens: r.cacheWriteTokens,
-        cacheReadTokens: r.cacheReadTokens, outputTokens: r.outputTokens,
-        costUsd: r.costUsd, ttftMs: r.ttftMs, latencyMs: r.latencyMs, stopReason: r.stopReason,
+        inputTokens: r.inputTokens,
+        cacheWriteTokens: r.cacheWriteTokens,
+        cacheReadTokens: r.cacheReadTokens,
+        outputTokens: r.outputTokens,
+        costUsd: r.costUsd,
+        ttftMs: r.ttftMs,
+        latencyMs: r.latencyMs,
+        stopReason: r.stopReason,
         escalatedFrom: r.escalateFromIndex === undefined ? null : (logIds[r.escalateFromIndex] ?? null),
         createdAt: r.createdAt,
       },
@@ -115,9 +146,19 @@ async function seedLogs(h: Harness): Promise<Seeded> {
   // Out of every window we query: proves the range filter is real, not decorative.
   await prisma.generationLog.create({
     data: {
-      userId: a.userId, generator: "G1", variantId: "g1-sonnet-v1", model: "claude-sonnet-5",
-      promptHash: "hash-ancient", inputTokens: 9_000, cacheWriteTokens: 9_000, cacheReadTokens: 9_000,
-      outputTokens: 9_000, costUsd: "9.000000", ttftMs: 99_000, latencyMs: 99_000, stopReason: "end_turn",
+      userId: a.userId,
+      generator: "G1",
+      variantId: "g1-sonnet-v1",
+      model: "claude-sonnet-5",
+      promptHash: "hash-ancient",
+      inputTokens: 9_000,
+      cacheWriteTokens: 9_000,
+      cacheReadTokens: 9_000,
+      outputTokens: 9_000,
+      costUsd: "9.000000",
+      ttftMs: 99_000,
+      latencyMs: 99_000,
+      stopReason: "end_turn",
       createdAt: new Date(now.getTime() - 30 * DAY_MS),
     },
   });
@@ -132,21 +173,61 @@ async function seedLogs(h: Harness): Promise<Seeded> {
   });
 
   // 6 energy-spending actions inside the window + 1 outside it.
-  const walletA = await prisma.wallet.upsert({ where: { userId: a.userId }, create: { userId: a.userId, dailyRefillAt: now }, update: {} });
-  const walletB = await prisma.wallet.upsert({ where: { userId: b.userId }, create: { userId: b.userId, dailyRefillAt: now }, update: {} });
+  const walletA = await prisma.wallet.upsert({
+    where: { userId: a.userId },
+    create: { userId: a.userId, dailyRefillAt: now },
+    update: {},
+  });
+  const walletB = await prisma.wallet.upsert({
+    where: { userId: b.userId },
+    create: { userId: b.userId, dailyRefillAt: now },
+    update: {},
+  });
   await prisma.ledgerEntry.createMany({
     data: [
-      ...[0, 1, 2].map((i) => ({ walletId: walletA.id, currency: "energy" as const, delta: -1, source: "spend" as const, ref: `post:a${i}`, createdAt: noonB })),
-      ...[0, 1, 2].map((i) => ({ walletId: walletB.id, currency: "energy" as const, delta: -1, source: "spend" as const, ref: `post:b${i}`, createdAt: noonB })),
+      ...[0, 1, 2].map((i) => ({
+        walletId: walletA.id,
+        currency: "energy" as const,
+        delta: -1,
+        source: "spend" as const,
+        ref: `post:a${i}`,
+        createdAt: noonB,
+      })),
+      ...[0, 1, 2].map((i) => ({
+        walletId: walletB.id,
+        currency: "energy" as const,
+        delta: -1,
+        source: "spend" as const,
+        ref: `post:b${i}`,
+        createdAt: noonB,
+      })),
       // a refund is NOT a spend, so it must not change the action count
-      { walletId: walletB.id, currency: "energy" as const, delta: 1, source: "admin" as const, ref: "refund:post:b2", createdAt: noonB },
+      {
+        walletId: walletB.id,
+        currency: "energy" as const,
+        delta: 1,
+        source: "admin" as const,
+        ref: "refund:post:b2",
+        createdAt: noonB,
+      },
       // and an old action belongs to an older window
-      { walletId: walletA.id, currency: "energy" as const, delta: -1, source: "spend" as const, ref: "post:old", createdAt: new Date(now.getTime() - 30 * DAY_MS) },
+      {
+        walletId: walletA.id,
+        currency: "energy" as const,
+        delta: -1,
+        source: "spend" as const,
+        ref: "post:old",
+        createdAt: new Date(now.getTime() - 30 * DAY_MS),
+      },
     ],
   });
 
   return {
-    userA: a.userId, userB: b.userId, dayA: isoDay(dayAStart), dayB: isoDay(dayBStart), logIds,
+    userA: a.userId,
+    userB: b.userId,
+    dayA: isoDay(dayAStart),
+    dayB: isoDay(dayBStart),
+    logIds,
     window: { since: dayAStart, until: new Date(dayBStart.getTime() + DAY_MS - 1) },
   };
 }
@@ -218,12 +299,19 @@ describe("S3-5 cost aggregation", () => {
   });
 
   it("breaks down by generator, variant and model", () => {
-    expect(report.byGenerator.map((r) => [r.key, r.calls])).toEqual([["G1", 6], ["G5", 1]]);
+    expect(report.byGenerator.map((r) => [r.key, r.calls])).toEqual([
+      ["G1", 6],
+      ["G5", 1],
+    ]);
     expect(report.byVariant.map((r) => [r.key, r.calls])).toEqual([
-      ["g1-haiku-v1", 2], ["g1-sonnet-v1", 4], ["g5-opus-v1", 1],
+      ["g1-haiku-v1", 2],
+      ["g1-sonnet-v1", 4],
+      ["g5-opus-v1", 1],
     ]);
     expect(report.byModel.map((r) => [r.key, r.calls])).toEqual([
-      ["claude-haiku-4-5", 2], ["claude-opus-5", 1], ["claude-sonnet-5", 4],
+      ["claude-haiku-4-5", 2],
+      ["claude-opus-5", 1],
+      ["claude-sonnet-5", 4],
     ]);
     expect(rowFor(report.byGenerator, "G5")!.fallbacks).toBe(1);
     expect(rowFor(report.byGenerator, "G1")!.fallbacks).toBe(0);
@@ -282,7 +370,10 @@ describe("S3-5 cost aggregation", () => {
 
   it("stays silent on an empty window", async () => {
     const now = h.clock.now();
-    const empty = await costReport(h.prisma, { since: new Date(now.getTime() - 400 * DAY_MS), until: new Date(now.getTime() - 399 * DAY_MS) });
+    const empty = await costReport(h.prisma, {
+      since: new Date(now.getTime() - 400 * DAY_MS),
+      until: new Date(now.getTime() - 399 * DAY_MS),
+    });
     expect(empty.totals.calls).toBe(0);
     expect(empty.perAction.usdPerAction).toBe(0);
     expect(empty.cacheHitRate).toBe(0);
@@ -333,9 +424,12 @@ describe("S3-5 GET /v1/cost", () => {
   });
 
   it("answers the live probe", async () => {
-    const res = await call<{ cacheHitRate: number; fallbackRate: number; p95LatencyMs: number; alarms: Record<string, boolean> }>(
-      h, "GET", "/v1/cost/live",
-    );
+    const res = await call<{
+      cacheHitRate: number;
+      fallbackRate: number;
+      p95LatencyMs: number;
+      alarms: Record<string, boolean>;
+    }>(h, "GET", "/v1/cost/live");
     expect(res.status).toBe(200);
     expect(res.data).toHaveProperty("usdPerAction");
     expect(res.data).toHaveProperty("cacheHitRate");
@@ -354,10 +448,14 @@ describe("S3-5 GET /v1/cost", () => {
 
     const wrong = await h.app.request("/v1/cost/summary?days=7", { headers: { "x-admin-token": "nope" } });
     expect(wrong.status).toBe(404);
-    const wrongLength = await h.app.request("/v1/cost/summary?days=7", { headers: { "x-admin-token": "cost-dashboard-admin-token-extra" } });
+    const wrongLength = await h.app.request("/v1/cost/summary?days=7", {
+      headers: { "x-admin-token": "cost-dashboard-admin-token-extra" },
+    });
     expect(wrongLength.status).toBe(404);
 
-    const right = await h.app.request("/v1/cost/summary?days=7", { headers: { "x-admin-token": "cost-dashboard-admin-token" } });
+    const right = await h.app.request("/v1/cost/summary?days=7", {
+      headers: { "x-admin-token": "cost-dashboard-admin-token" },
+    });
     expect(right.status).toBe(200);
     const live = await h.app.request("/v1/cost/live", { headers: { "x-admin-token": "cost-dashboard-admin-token" } });
     expect(live.status).toBe(200);

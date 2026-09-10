@@ -69,7 +69,10 @@ export default function InviteScreen() {
 
   return (
     <Screen>
-      <HeaderBar title={t("inviteFriends")} onBack={() => (router.canGoBack() ? router.back() : router.replace("/feed"))} />
+      <HeaderBar
+        title={t("inviteFriends")}
+        onBack={() => (router.canGoBack() ? router.back() : router.replace("/feed"))}
+      />
       <ScrollView contentContainerStyle={{ padding: spacing.lg, gap: spacing.xl }}>
         <Text style={{ color: colors.textMuted, fontSize: font.sm }}>{t("inviteExplainer")}</Text>
 

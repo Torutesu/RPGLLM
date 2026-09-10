@@ -1,7 +1,17 @@
 import React, { useId, useMemo } from "react";
 import { Pressable, Text, View } from "react-native";
 import Svg, { Circle, Defs, Ellipse, G, LinearGradient, Path, Rect, Stop } from "react-native-svg";
-import { colors, elevation, font, hashString, identityFor, identityPalette, layout, radius, spacing } from "@rpgllm/shared";
+import {
+  colors,
+  elevation,
+  font,
+  hashString,
+  identityFor,
+  identityPalette,
+  layout,
+  radius,
+  spacing,
+} from "@rpgllm/shared";
 import type { Character, WorldSummary } from "../api/types";
 import { Avatar, Icon, PressScale, typo } from "../ui";
 import { FILL } from "./Brand";
@@ -108,7 +118,13 @@ export function WorldCover({ slug, height }: { slug: string; height: number }) {
         {art.sparks.map((s, i) => (
           <Circle key={i} cx={s.cx} cy={s.cy} r={s.r} fill="#FFFFFF" opacity={s.o} />
         ))}
-        <Ellipse cx={COVER_W / 2} cy={COVER_H + art.lift} rx={COVER_W * 0.88} ry={art.lift + 36} fill={`url(#${glow})`} />
+        <Ellipse
+          cx={COVER_W / 2}
+          cy={COVER_H + art.lift}
+          rx={COVER_W * 0.88}
+          ry={art.lift + 36}
+          fill={`url(#${glow})`}
+        />
         <Path
           d={`M0 ${art.horizon} Q ${COVER_W / 2} ${art.horizon - art.lift} ${COVER_W} ${art.horizon}`}
           stroke="#FFFFFF"
@@ -147,11 +163,16 @@ function CastStrip({ cast }: { cast: readonly Character[] }) {
       importantForAccessibility="no-hide-descendants"
     >
       {shown.map((c, i) => (
-        <View key={c.id} style={{ marginLeft: i === 0 ? 0 : -11, borderRadius: radius.pill, borderWidth: 2, borderColor: colors.card }}>
+        <View
+          key={c.id}
+          style={{ marginLeft: i === 0 ? 0 : -11, borderRadius: radius.pill, borderWidth: 2, borderColor: colors.card }}
+        >
           <Avatar handle={c.handle} size={layout.avatarSm} />
         </View>
       ))}
-      {rest > 0 ? <Text style={[typo.count, { color: colors.textMuted, marginLeft: spacing.sm }]}>{`+${rest}`}</Text> : null}
+      {rest > 0 ? (
+        <Text style={[typo.count, { color: colors.textMuted, marginLeft: spacing.sm }]}>{`+${rest}`}</Text>
+      ) : null}
     </View>
   );
 }
@@ -209,7 +230,9 @@ export function WorldCard({ world, cast = [], onPress, testID }: WorldCardProps)
               <Text numberOfLines={2} importantForAccessibility="no" style={[typo.meta, { color: colors.textDim }]}>
                 {world.scenario}
               </Text>
-              <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: spacing.md }}>
+              <View
+                style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: spacing.md }}
+              >
                 <Difficulty level={world.difficulty} />
                 <CastStrip cast={cast} />
               </View>

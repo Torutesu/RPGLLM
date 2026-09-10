@@ -1,8 +1,14 @@
 import { Hono } from "hono";
 import { Prisma, type World } from "@prisma/client";
 import {
-  AppealWorldReqZ, CreateWorldReqZ, PublishWorldReqZ, RemixWorldReqZ, WORLD_GENRES, WORLD_STUDIO,
-  type Locale, type WorldGenre,
+  AppealWorldReqZ,
+  CreateWorldReqZ,
+  PublishWorldReqZ,
+  RemixWorldReqZ,
+  WORLD_GENRES,
+  WORLD_STUDIO,
+  type Locale,
+  type WorldGenre,
 } from "@rpgllm/shared";
 import { requireAuth } from "../auth";
 import { worldBuildOnCreate } from "../env";
@@ -15,8 +21,17 @@ import { localized, roleFor, type LocaleKey } from "../services/locale";
 import { toApiCharacter, toApiWorld } from "../services/serialize";
 import { getWorldSeed } from "../services/world-seeds";
 import {
-  buildProgress, canPlay, canStillPlay, castCounts, creatorHandles, dailyWorldLimit, decorate,
-  pickerWhere, remixParents, toApiWorldFull, worldsCreatedToday,
+  buildProgress,
+  canPlay,
+  canStillPlay,
+  castCounts,
+  creatorHandles,
+  dailyWorldLimit,
+  decorate,
+  pickerWhere,
+  remixParents,
+  toApiWorldFull,
+  worldsCreatedToday,
 } from "../services/world-studio";
 import { createWorld, type CreateWorldInput } from "../services/world-create";
 import { freshWorlds } from "../services/world-fresh";
@@ -103,10 +118,13 @@ export function worldRoutes(): Hono<AppEnv> {
     if (!outcome.ok) return fail(outcome.code, outcome.message, outcome.status);
 
     kickBuilder(deps);
-    return ok({
-      world: await oneFull(deps, outcome.world, user.locale as LocaleKey, user.id),
-      charged: createdRes(WORLD_STUDIO.GEM_COST, outcome.remaining),
-    }, 201);
+    return ok(
+      {
+        world: await oneFull(deps, outcome.world, user.locale as LocaleKey, user.id),
+        charged: createdRes(WORLD_STUDIO.GEM_COST, outcome.remaining),
+      },
+      201,
+    );
   });
 
   /**
@@ -149,10 +167,13 @@ export function worldRoutes(): Hono<AppEnv> {
     if (!outcome.ok) return fail(outcome.code, outcome.message, outcome.status);
 
     kickBuilder(deps);
-    return ok({
-      world: await oneFull(deps, outcome.world, user.locale as LocaleKey, user.id),
-      charged: createdRes(WORLD_STUDIO.GEM_COST, outcome.remaining),
-    }, 201);
+    return ok(
+      {
+        world: await oneFull(deps, outcome.world, user.locale as LocaleKey, user.id),
+        charged: createdRes(WORLD_STUDIO.GEM_COST, outcome.remaining),
+      },
+      201,
+    );
   });
 
   /** SCR-049 — the studio shelf, and what is left of today's allowance. */
@@ -224,9 +245,11 @@ export function worldRoutes(): Hono<AppEnv> {
            AND ${freshIds.length === 0 ? Prisma.sql`TRUE` : Prisma.sql`w."id" NOT IN (${Prisma.join(freshIds)})`}
       )
       SELECT * FROM ranked
-       WHERE ${cursor === null
-        ? Prisma.sql`TRUE`
-        : Prisma.sql`(score < ${cursor.score} OR (score = ${cursor.score} AND id < ${cursor.id}))`}
+       WHERE ${
+         cursor === null
+           ? Prisma.sql`TRUE`
+           : Prisma.sql`(score < ${cursor.score} OR (score = ${cursor.score} AND id < ${cursor.id}))`
+       }
        ORDER BY score DESC, id DESC
        LIMIT ${limit + 1}`;
 
@@ -249,7 +272,10 @@ export function worldRoutes(): Hono<AppEnv> {
     const world = await findWorld(deps, c.req.param("id"));
     if (!world || world.createdBy !== user.id) return notFound("World");
 
-    const characters = await deps.prisma.worldCharacter.findMany({ where: { worldId: world.id }, orderBy: { handle: "asc" } });
+    const characters = await deps.prisma.worldCharacter.findMany({
+      where: { worldId: world.id },
+      orderBy: { handle: "asc" },
+    });
     const seed = await getWorldSeed(world.slug, deps.prisma);
     return ok({
       world: await oneFull(deps, world, locale, user.id),
@@ -368,7 +394,10 @@ export function worldRoutes(): Hono<AppEnv> {
     // Someone else's unpublished world does not exist as far as this caller is concerned — with one
     // exception: a world reports pulled off the shelf stays open to whoever was already playing it.
     if (!(await canStillPlay(deps.prisma, world, user.id))) return notFound("World");
-    const characters = await deps.prisma.worldCharacter.findMany({ where: { worldId: world.id }, orderBy: { handle: "asc" } });
+    const characters = await deps.prisma.worldCharacter.findMany({
+      where: { worldId: world.id },
+      orderBy: { handle: "asc" },
+    });
     const seed = await getWorldSeed(world.slug, deps.prisma);
     // A world someone made is presented as *someone's* work, on the page a recipient of a share
     // link lands on — a credit that only exists inside the creator's own screen is not authorship.
@@ -406,10 +435,12 @@ export function worldRoutes(): Hono<AppEnv> {
   return app;
 }
 
-interface PublicCursor { score: number; id: string }
+interface PublicCursor {
+  score: number;
+  id: string;
+}
 
-const encodeCursor = (score: number, id: string): string =>
-  Buffer.from(`${score}:${id}`, "utf8").toString("base64url");
+const encodeCursor = (score: number, id: string): string => Buffer.from(`${score}:${id}`, "utf8").toString("base64url");
 
 function decodeCursor(raw: string | undefined): PublicCursor | null {
   if (!raw) return null;
