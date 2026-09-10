@@ -1,0 +1,7 @@
+# Revisions to skip in `git blame` — mechanical reformats, no behaviour.
+#
+# Configure once per clone:
+#   git config blame.ignoreRevsFile .git-blame-ignore-revs
+#
+# Format the tree, once, and make the check mean something
+a3693f8b789480c9aad379b34508699568ea4aa8
