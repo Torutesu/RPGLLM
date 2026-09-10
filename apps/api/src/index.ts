@@ -1,5 +1,6 @@
 import { serve } from "@hono/node-server";
 import { PrismaClient } from "@prisma/client";
+import { PRODUCT } from "@rpgllm/shared";
 import { createApp } from "./app";
 import { setMailSender } from "./auth-codes";
 import { createClock } from "./clock";
@@ -93,6 +94,8 @@ async function main(): Promise<void> {
     devLoginCode: authDevCodeEnabled(), rateLimit: rateLimitEnabled(), banditArms: arms,
     cors: corsAllowAll() ? "*" : corsOrigins().join(","), port: p,
     dailyBudgetUsd: dailyBudgetUsd() ?? "unlimited",
+    // Visible on every boot until somebody names the product (packages/shared → PRODUCT).
+    product: PRODUCT.isPlaceholder ? `${PRODUCT.name} (placeholder)` : PRODUCT.name,
   });
 
   const server = serve({ fetch: app.fetch, port: p }, () => console.log(`api listening on :${p}`));

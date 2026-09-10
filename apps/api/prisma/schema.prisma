@@ -918,3 +918,16 @@ model AdRedemption {
 
   @@index([userId, createdAt])
 }
+
+/// レート制限のトークンバケット(`RATE_LIMIT_STORE=shared`)。
+/// プロセス内 Map は 1 インスタンスでのみ正しく、2 台目からは実効 N 倍になる —— 一番効くのが
+/// 認証バジェット(5/分)なので、スケールアウトが黙ってセキュリティ変更になっていた。
+/// 補充・判定・減算は 1 本の `INSERT … ON CONFLICT DO UPDATE` の中で行う(行ロック下で再評価
+/// されるので、最後の 1 トークンを奪い合う 2 リクエストが両方通ることがない)。
+model RateLimitBucket {
+  key       String   @id
+  tokens    Float
+  updatedAt DateTime
+
+  @@index([updatedAt])
+}

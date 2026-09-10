@@ -71,6 +71,7 @@ when any of these is wrong. `.env.example` is development-only and is not read w
 | `MAIL_PROVIDER` | `resend` or `postmark` | `console` prints the sign-in code to the log — nobody can sign in, and every credential is in the log pipeline |
 | `MAIL_API_KEY` / `MAIL_FROM` | the provider key / a verified sender | the provider refuses every send without them |
 | `LLM_DAILY_BUDGET_USD` | a positive number, or `unlimited` | the day's ceiling. No cap is allowed; *not deciding* is not |
+| `RATE_LIMIT_STORE` | `shared` (or `memory` for a single instance) | in-process buckets are N× the budget behind N replicas, and the budget that matters is five auth attempts a minute |
 
 Optional, with safe defaults:
 
@@ -109,8 +110,13 @@ Optional, with safe defaults:
 - **Logs**: one JSON line per request (`msg:"http"`, `requestId`, `method`, `path`, `status`,
   `durationMs`, `userId`). `authorization`/`cookie` headers and `?token=`/`?code=` values are
   redacted. Every JSON error body carries the same `requestId`.
-- **Rate limits** are in-process. Behind N instances the effective budget is N× — move the buckets
-  to Redis before scaling out (TODO in `apps/api/src/middleware/rate-limit.ts`).
+- **Rate limits.** `RATE_LIMIT_STORE=shared` puts the token buckets in Postgres
+  (`middleware/rate-limit-shared.ts`), so N replicas share one budget. The refill, the test and
+  the decrement happen inside a single `INSERT … ON CONFLICT DO UPDATE`, which re-evaluates under
+  the conflicting row's lock: two requests racing for the last token cannot both win. It **fails
+  open** on a database error (`msg:"ratelimit.store.failed"` — alert on it), because a limiter
+  that 500s has turned a defence into an outage, and the rows are swept by `purge-login-codes`.
+  `memory` keeps the old in-process buckets, which are correct for exactly one instance.
 - **Login codes** live in the `LoginCode` table (`apps/api/src/services/login-codes.ts`): salted
   sha256 only, 10-minute TTL, ≤5 attempts, single use, one active code per address. They survive a
   restart and work across instances, so the API scales out. Expired and consumed rows are swept by

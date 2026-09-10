@@ -1,3 +1,5 @@
+import { PRODUCT } from "@rpgllm/shared";
+
 /** Env access. Read lazily (not captured at import time) so tests can flip flags before creating the app. */
 export const envStr = (key: string, fallback: string): string => {
   const v = process.env[key];
@@ -39,14 +41,14 @@ export const modelForTier = (tier: "light" | "mid" | "high"): string =>
  * routes otherwise derive their own origin from the request, which is what makes them work in dev
  * and under Playwright with no configuration at all.
  *
- * `PUBLIC_APP_NAME` is `og:site_name` — the word a stranger sees above the link preview. There is
- * no name in `packages/shared` to read it from because **the product does not have one yet**
- * (`app.json` says "status-clone"), and the share card is the first surface where that is a
- * stranger's problem rather than ours. See `pipeline/status/gap-analysis.md`.
+ * `PUBLIC_APP_NAME` is `og:site_name` — the word a stranger sees above the link preview. It
+ * defaults to `PRODUCT.name` in `packages/shared`, which is still a **placeholder**: the product
+ * has not been named. That constant is the one place to change it, and a test holds `app.json` to
+ * the same string so the two cannot drift apart again.
  */
 export const publicAppUrl = (): string => envStr("PUBLIC_APP_URL", "").replace(/\/+$/, "") || "https://rpgllm.example";
 export const publicApiUrl = (): string => envStr("PUBLIC_API_URL", "").replace(/\/+$/, "");
-export const publicAppName = (): string => envStr("PUBLIC_APP_NAME", "RPGLLM");
+export const publicAppName = (): string => envStr("PUBLIC_APP_NAME", PRODUCT.name);
 
 /** ---------- Agent F: environment posture ---------- */
 
@@ -82,6 +84,14 @@ export const rateLimitEnabled = (): boolean => {
   if (v === "0") return false;
   return !testHooksEnabled();
 };
+/**
+ * Where the buckets live: `memory` (one process) or `shared` (Postgres, safe behind N replicas).
+ * Production must say which — see `config-guard.ts`. Default stays `memory` so dev and the test
+ * harnesses do not pay a database round trip per request.
+ */
+export const rateLimitStore = (): "memory" | "shared" =>
+  envStr("RATE_LIMIT_STORE", "memory").trim().toLowerCase() === "shared" ? "shared" : "memory";
+
 export const rateLimitAuthPerMin = (): number => envNum("RATE_LIMIT_AUTH_PER_MIN", 5);
 export const rateLimitWritePerMin = (): number => envNum("RATE_LIMIT_WRITE_PER_MIN", 20);
 export const rateLimitAdPerMin = (): number => envNum("RATE_LIMIT_AD_PER_MIN", 10);

@@ -26,6 +26,7 @@ export interface ConfigEnv {
   MAIL_API_KEY?: string | undefined;
   MAIL_FROM?: string | undefined;
   LLM_DAILY_BUDGET_USD?: string | undefined;
+  RATE_LIMIT_STORE?: string | undefined;
   [key: string]: string | undefined;
 }
 
@@ -89,6 +90,19 @@ export function productionConfigProblems(env: ConfigEnv): string[] {
   // The one path where an unauthenticated request grants entitlements.
   if (env.BILLING_MODE === "revenuecat" && (env.REVENUECAT_WEBHOOK_SECRET ?? "") === "") {
     problems.push("BILLING_MODE=revenuecat without REVENUECAT_WEBHOOK_SECRET — a forged webhook could grant subscriptions");
+  }
+
+  /*
+   * Where the rate-limit buckets live. In-process is correct for exactly one instance, so this is
+   * not a wrong answer — it is an answer that stops being true the day somebody adds a replica,
+   * silently, in the one budget that guards accounts. Saying `memory` out loud is allowed;
+   * defaulting into it in production is not.
+   */
+  const store = (env.RATE_LIMIT_STORE ?? "").trim().toLowerCase();
+  if (store === "") {
+    problems.push('RATE_LIMIT_STORE is not set — "shared" survives more than one instance, "memory" says you have exactly one');
+  } else if (store !== "memory" && store !== "shared") {
+    problems.push(`RATE_LIMIT_STORE="${env.RATE_LIMIT_STORE ?? ""}" is neither "memory" nor "shared"`);
   }
 
   /*

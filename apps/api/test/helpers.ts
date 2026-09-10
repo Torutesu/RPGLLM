@@ -18,6 +18,8 @@ const TRUNCATE_ALL = [
   "Rating", "ExperimentAssignment", "LedgerEntry", "Purchase", "Subscription", "Wallet",
   "MemoryEntry", "RelationshipState", "StatSnapshot", "Event", "DMMessage", "DMThread",
   "Post", "Persona", "GenerationLog", "User", "AmbientPost", "WorldCharacter", "World",
+  // No foreign key to anything, so `CASCADE` from `User` does not reach it.
+  "RateLimitBucket",
 ];
 
 export interface Harness {

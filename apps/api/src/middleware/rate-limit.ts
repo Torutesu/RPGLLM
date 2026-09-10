@@ -11,8 +11,19 @@
  * `/__test/*` is exempt, and the whole limiter is off while `TEST_HOOKS=1` so the vitest and
  * Playwright suites never flake on it (`RATE_LIMIT_ENABLED=0|1` overrides either way).
  *
- * TODO(P1): a single process only. Behind more than one instance this becomes N× the budget;
- * move the buckets to Redis (or an edge limiter) when the API is scaled out.
+ * **Where the buckets live** (`RATE_LIMIT_STORE`). In-process by default, which is exactly right
+ * for one instance and exactly wrong for two: behind N replicas an in-process budget is N× the
+ * intended one, and the budget that matters most — five auth attempts a minute — is the one
+ * standing between an attacker and an account.
+ *
+ * `shared` moves them to Postgres, which this service already depends on, so a distributed limiter
+ * needs no new infrastructure. The token-bucket arithmetic runs **inside one `INSERT … ON CONFLICT
+ * DO UPDATE`**, where it re-reads the row under the update's own lock: two requests racing for the
+ * last token cannot both win, which a read-then-write in application code would allow. The cost is
+ * one indexed upsert per request per key, next to the several queries a request already makes.
+ *
+ * Redis would be faster. It would also be a second datastore to run, back up and fail over, and
+ * "the rate limiter is down" must never be a reason the product is down.
  */
 import type { Context, MiddlewareHandler } from "hono";
 import { verifySession } from "../auth";
@@ -25,6 +36,16 @@ import type { AppEnv } from "../types";
 
 export interface Bucket { tokens: number; last: number }
 export type RateLimitStore = Map<string, Bucket>;
+
+/**
+ * What the middleware talks to. Async because one of the two implementations is a database — and
+ * the in-process one answering synchronously behind the same interface costs nothing.
+ */
+export interface RateLimiter {
+  take(key: string, perMin: number, nowMs: number): Decision | Promise<Decision>;
+  /** for the boot log and `GET /v1/health`: which of the two is in force */
+  kind(): "memory" | "shared";
+}
 
 const WINDOW_MS = 60_000;
 const MAX_TRACKED_KEYS = 20_000;
@@ -152,7 +173,14 @@ async function subjectOf(c: Context<AppEnv>): Promise<string | null> {
   return await verifySession(header.slice(7).trim());
 }
 
-export function rateLimit(store: RateLimitStore, now: () => number): MiddlewareHandler<AppEnv> {
+/** The historical in-process limiter: one `Map`, no I/O, correct for exactly one instance. */
+export class MemoryLimiter implements RateLimiter {
+  constructor(private readonly store: RateLimitStore = new Map()) {}
+  take(key: string, perMin: number, nowMs: number): Decision { return take(this.store, key, perMin, nowMs); }
+  kind(): "memory" { return "memory"; }
+}
+
+export function rateLimit(limiter: RateLimiter, now: () => number): MiddlewareHandler<AppEnv> {
   return async (c, next) => {
     const kind = budgetFor(c.req.method, c.req.path);
     if (kind === "exempt" || !rateLimitEnabled()) return await next();
@@ -173,7 +201,12 @@ export function rateLimit(store: RateLimitStore, now: () => number): MiddlewareH
 
     let worst = 0;
     for (const key of keys) {
-      const d = take(store, key, perMin, nowMs);
+      /*
+       * Every key is consumed even after one of them has already denied: the budgets are separate
+       * (an IP and an email, say), and skipping the rest would let a flood from one address spend
+       * nothing against the other's bucket and reset the moment the first one refills.
+       */
+      const d = await limiter.take(key, perMin, nowMs);
       if (!d.allowed) worst = Math.max(worst, d.retryAfterSec);
     }
     if (worst > 0) return rateLimitedResponse(worst);

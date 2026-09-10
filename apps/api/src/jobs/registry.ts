@@ -18,6 +18,7 @@ import { JOBS } from "@rpgllm/shared";
 import type { Clock } from "../clock";
 import { envNum, envStr } from "../env";
 import { logLine } from "../middleware/request-log";
+import { pruneRateLimitBuckets } from "../middleware/rate-limit-shared";
 import { purgeDeletedAccounts } from "../services/account";
 import { purgeLoginCodes } from "../services/login-codes";
 import { runAmbientRefill, runAmbientRefillBatchedJob } from "./ambient-refill";
@@ -74,6 +75,8 @@ const runRetentionDays = (): number => envNum("JOB_RUN_RETENTION_DAYS", 14);
 export const batchTierEnabled = (): boolean => envStr("JOBS_BATCH", "1") !== "0";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
+/** A shared rate-limit bucket older than this has refilled to capacity and carries no information. */
+const RATE_LIMIT_BUCKET_TTL_MS = 60 * 60 * 1000;
 
 const RUNNERS: Record<ScheduledJobName, (deps: JobDeps, opts: JobOptions) => Promise<JobOutcome>> = {
   "offline-director": async (deps, opts) => {
@@ -110,7 +113,13 @@ const RUNNERS: Record<ScheduledJobName, (deps: JobDeps, opts: JobOptions) => Pro
     const now = deps.clock.now();
     const codes = await purgeLoginCodes(deps.prisma, now);
     const runs = await pruneRuns(deps.prisma, new Date(now.getTime() - runRetentionDays() * DAY_MS));
-    return { processed: codes, detail: { codes, runs } };
+    /*
+     * Shared rate-limit buckets. A bucket refills to capacity in a minute, so anything untouched
+     * for an hour is indistinguishable from a row that never existed — dropping it loses nothing
+     * and is the only thing stopping the table growing by one row per (IP × budget) forever.
+     */
+    const buckets = await pruneRateLimitBuckets(deps.prisma, new Date(now.getTime() - RATE_LIMIT_BUCKET_TTL_MS));
+    return { processed: codes, detail: { codes, runs, buckets } };
   },
   /**
    * The second pass over Expo delivery receipts. Receipts arrive minutes after a send, so the read

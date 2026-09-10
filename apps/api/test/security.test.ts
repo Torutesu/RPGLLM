@@ -142,7 +142,7 @@ describe("S0-2 production config guard", () => {
     ADMIN_TOKEN: "y".repeat(32), PUBLIC_APP_URL: "https://app.example.com",
     REVENUECAT_WEBHOOK_SECRET: "z".repeat(32),
     MAIL_PROVIDER: "resend", MAIL_API_KEY: "re_xxx", MAIL_FROM: "hello@example.com",
-    LLM_DAILY_BUDGET_USD: "250",
+    LLM_DAILY_BUDGET_USD: "250", RATE_LIMIT_STORE: "shared",
   };
 
   it("accepts a hardened production env", () => {
@@ -182,12 +182,19 @@ describe("S0-2 production config guard", () => {
       [{ LLM_DAILY_BUDGET_USD: undefined }, /LLM_DAILY_BUDGET_USD is not set/],
       [{ LLM_DAILY_BUDGET_USD: "0" }, /neither a positive number nor/],
       [{ LLM_DAILY_BUDGET_USD: "lots" }, /neither a positive number nor/],
+      [{ RATE_LIMIT_STORE: undefined }, /RATE_LIMIT_STORE is not set/],
+      [{ RATE_LIMIT_STORE: "redis" }, /neither "memory" nor "shared"/],
     ];
     for (const [patch, matcher] of cases) {
       const env = { ...prod, ...patch };
       expect(productionConfigProblems(env).join("\n"), JSON.stringify(patch)).toMatch(matcher);
       expect(() => { assertProductionConfig(env); }, JSON.stringify(patch)).toThrow(/insecure configuration/);
     }
+  });
+
+  /** One instance is a legitimate deployment; not having thought about it is not. */
+  it("accepts an explicitly single-instance limiter", () => {
+    expect(productionConfigProblems({ ...prod, RATE_LIMIT_STORE: "memory" })).toEqual([]);
   });
 
   /** Saying "no ceiling" out loud is allowed; leaving the question unanswered is not. */

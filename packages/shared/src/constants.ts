@@ -311,3 +311,22 @@ export const WORLD_PREMISE_BLOCKED = [
   "sexual_minor", "sexual_explicit", "real_person", "hate", "self_harm", "violence_graphic",
   "illegal", "prompt_injection",
 ] as const;
+
+/**
+ * What the product is called — the one place the name lives.
+ *
+ * It is a **placeholder**. `app.json` said "status-clone" and the share card's `og:site_name`
+ * said "RPGLLM", and those two strings are the first thing a stranger reads: one on a store
+ * listing, one above a link preview in somebody else's feed. Neither is a name.
+ *
+ * Two consumers cannot import this (a store config is JSON, and Expo evaluates `app.json` in Node
+ * where this package is raw TypeScript), so the guarantee is enforced instead of assumed:
+ * `apps/api/test/product-name.test.ts` fails when `apps/mobile/app.json` and this constant
+ * disagree, and names the file to change. Renaming the product is therefore one edit here plus
+ * whatever that test then tells you.
+ */
+export const PRODUCT = {
+  name: "RPGLLM",
+  /** flip to false when the name is chosen — the boot log says so while this is true */
+  isPlaceholder: true,
+} as const;

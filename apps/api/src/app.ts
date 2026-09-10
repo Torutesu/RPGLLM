@@ -1,8 +1,9 @@
 import { Hono } from "hono";
 import { cors } from "hono/cors";
-import { corsAllowAll, corsOrigins, testHooksEnabled } from "./env";
+import { corsAllowAll, corsOrigins, rateLimitStore, testHooksEnabled } from "./env";
 import { fail } from "./http";
-import { rateLimit, type RateLimitStore } from "./middleware/rate-limit";
+import { MemoryLimiter, rateLimit, type RateLimiter } from "./middleware/rate-limit";
+import { SharedLimiter } from "./middleware/rate-limit-shared";
 import { logError, requestLog } from "./middleware/request-log";
 import { accountRoutes } from "./routes/account";
 import { adminModerationRoutes } from "./routes/admin-moderation";
@@ -54,8 +55,12 @@ export function createApp(deps: Deps): Hono<AppEnv> {
     softenedThreads: new Map(),
     personaIdempotency: new Map(),
   };
-  /** Rate-limit buckets live for the lifetime of one app instance (see middleware/rate-limit.ts). */
-  const buckets: RateLimitStore = new Map();
+  /**
+   * The rate limiter. In-process buckets live for the lifetime of this app instance, which is the
+   * right answer for one instance and N× the intended budget for N — so a deployment that scales
+   * out sets `RATE_LIMIT_STORE=shared` and the buckets move into Postgres.
+   */
+  const limiter: RateLimiter = rateLimitStore() === "shared" ? new SharedLimiter(deps.prisma) : new MemoryLimiter();
   // Agent P: the base client `services/notify.ts` pushes with (never a transaction handle).
   setPushClient(deps.prisma);
 
@@ -80,7 +85,7 @@ export function createApp(deps: Deps): Hono<AppEnv> {
     c.set("state", state);
     await next();
   });
-  app.use("*", rateLimit(buckets, () => deps.clock.now().getTime()));
+  app.use("*", rateLimit(limiter, () => deps.clock.now().getTime()));
 
   const v1 = new Hono<AppEnv>();
   v1.route("/auth", authRoutes());
