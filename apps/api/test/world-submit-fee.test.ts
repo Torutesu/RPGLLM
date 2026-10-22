@@ -259,7 +259,7 @@ describe("only the review a creator asked for is billed to them", () => {
 
 /* ------------------------------------------------------------------ the knob ---- */
 
-describe(`${WORLD_MODERATION_ENV.PUBLIC_SUBMIT_GEMS}`, () => {
+describe(WORLD_MODERATION_ENV.PUBLIC_SUBMIT_GEMS, () => {
   it("changes the price, and zero is a policy rather than a typo", async () => {
     process.env[WORLD_MODERATION_ENV.PUBLIC_SUBMIT_GEMS] = "10";
     const dear = await builtWorld(PREMISE, 1);

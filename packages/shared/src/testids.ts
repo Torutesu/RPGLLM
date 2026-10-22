@@ -254,4 +254,7 @@ export const T = {
   // The server-rendered share page — the only screen in this product that is not React.
   shareOpen: "share-open",
   sharePoster: "share-poster",
+  // 12th pass: the controls a person needs when a device is gone or the pushes are unwanted.
+  settingsSignOutAll: "settings-sign-out-all",
+  settingsPushToggle: "settings-push-toggle",
 } as const;

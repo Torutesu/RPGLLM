@@ -27,7 +27,18 @@ export function accountRoutes(): Hono<AppEnv> {
     const deps = c.get("deps");
     const user = c.get("user");
     const deletedAt = deps.clock.now();
-    await deps.prisma.user.update({ where: { id: user.id }, data: { deletedAt } });
+    /*
+     * Deleting also revokes every session. "Delete my account" is the button somebody presses
+     * when a phone is gone, and `requireAuth` lets a soft-deleted account through to exactly one
+     * route — `/account/restore`. Without this, the person holding the stolen token could simply
+     * **undo the deletion**. Signing in again (an emailed code, i.e. proof the address is yours)
+     * is the right price for cancelling a deletion, and the client already signs out locally
+     * right after calling this.
+     */
+    await deps.prisma.user.update({
+      where: { id: user.id },
+      data: { deletedAt, tokenVersion: { increment: 1 } },
+    });
     return ok({ deletedAt: deletedAt.toISOString(), purgeAt: purgeAtFor(deletedAt).toISOString() });
   });
 

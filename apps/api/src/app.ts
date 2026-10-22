@@ -2,6 +2,8 @@ import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { corsAllowAll, corsOrigins, rateLimitStore, testHooksEnabled } from "./env";
 import { fail } from "./http";
+import { bodyLimit } from "./middleware/body-limit";
+import { securityHeaders } from "./middleware/security-headers";
 import { MemoryLimiter, rateLimit, type RateLimiter } from "./middleware/rate-limit";
 import { SharedLimiter } from "./middleware/rate-limit-shared";
 import { logError, requestLog } from "./middleware/request-log";
@@ -66,6 +68,10 @@ export function createApp(deps: Deps): Hono<AppEnv> {
 
   const app = new Hono<AppEnv>();
   app.use("*", requestLog);
+  // Before anything reads a body, and before anything renders: both of these are cheap and both
+  // of them are about what happens when the caller is not the client we wrote.
+  app.use("*", securityHeaders());
+  app.use("*", bodyLimit());
   /**
    * CORS allow-list (S0-5). This API is cookie-less but bearer-authenticated, so `*` was not a
    * catastrophe on its own — it did however let any origin read authenticated JSON from a browser

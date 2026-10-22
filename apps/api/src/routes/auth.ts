@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import type { Context } from "hono";
-import { AgeGateReqZ, AGE, AuthEmailStartReqZ, AuthEmailVerifyReqZ, DEV_EMAIL_CODE } from "@rpgllm/shared";
+import { AgeGateReqZ, AGE, AuthEmailStartReqZ, AuthEmailVerifyReqZ, DEV_EMAIL_CODE, SignOutReqZ } from "@rpgllm/shared";
 import { requireAuth, signSession } from "../auth";
 import { constantTimeEqual, mailSender, normalizeEmail, type VerifyResult } from "../auth-codes";
 import { authCodeMaxAttempts, authCodeTtlMs, authDevCodeEnabled } from "../env";
@@ -86,11 +86,44 @@ export function authRoutes(): Hono<AppEnv> {
     // One wallet, created once, with its opening balances and the ledger entry that records them
     // (services/wallet.ts) — including the World Studio starter gems.
     if (!existing) await createWallet(deps.prisma, user.id, deps.clock.now());
-    return ok({ jwt: await signSession(user.id), isNew: !existing, needsAgeGate: user.birthYear === 0 });
+    return ok({
+      jwt: await signSession(user.id, user.tokenVersion),
+      isNew: !existing,
+      needsAgeGate: user.birthYear === 0,
+    });
   };
 
   app.post("/email/verify", verify);
   app.post("/email", verify);
+
+  /**
+   * Sign out.
+   *
+   * `{allDevices: true}` moves the account's session generation, which invalidates **every** token
+   * ever issued for it — the one in this browser, the one on the phone that was left on a train,
+   * and the copy somebody took out of `localStorage`. That is the whole point: before this
+   * existed, "sign out" could only ever mean "this client forgets its token", and a 30-day
+   * session could not be taken back by anyone, including us.
+   *
+   * Without the flag it is a no-op on the server by design. The client drops its own token, which
+   * is what signing out of one device means, and bumping the generation for that would log out
+   * every other device the person is quietly still using.
+   */
+  app.post("/sign-out", requireAuth, async (c) => {
+    const body = await parseBody(c.req, SignOutReqZ);
+    if (!body.ok) return body.res;
+    const deps = c.get("deps");
+    const user = c.get("user");
+    if (!body.value.allDevices) return ok({ revoked: false });
+
+    const updated = await deps.prisma.user.update({
+      where: { id: user.id },
+      data: { tokenVersion: { increment: 1 } },
+      select: { tokenVersion: true },
+    });
+    logLine({ level: "info", msg: "auth.sessions.revoked", userId: user.id, generation: updated.tokenVersion });
+    return ok({ revoked: true });
+  });
 
   app.post("/age-gate", requireAuth, async (c) => {
     const body = await parseBody(c.req, AgeGateReqZ);

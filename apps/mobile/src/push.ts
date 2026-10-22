@@ -155,6 +155,36 @@ export async function registerForPush(): Promise<PushOutcome> {
   }
 }
 
+/**
+ * The settings toggle, both ways.
+ *
+ * Turning it **off** goes to the account (`/push/unregister`), not to this device: somebody who
+ * stops wanting notifications stops wanting them on the tablet too, and the row stays so turning
+ * them back on is one tap rather than a trip through the OS dialog.
+ *
+ * Turning it **on** has to clear this module's one-shot guard. `registerForPush` refuses a second
+ * run in the same session (`reason: "already"`), which is right for the automatic callers and
+ * exactly wrong here: the person just asked for it, after having asked for the opposite.
+ *
+ * It also unlocks the permission prompt — the prompt is normally held back until the app has
+ * delivered something worth being notified about, and a deliberate tap on a switch labelled
+ * "Push notifications" is a better reason than any heuristic we have.
+ *
+ * Returns what is actually true afterwards, which can be `false` when the OS permission was
+ * withdrawn: that is the one state this screen cannot change, and must not claim to have.
+ */
+export async function setPushEnabled(on: boolean): Promise<boolean> {
+  if (!on) {
+    await api.unregisterPush();
+    registered = false;
+    return false;
+  }
+  markValueDelivered();
+  registered = false;
+  const outcome = await registerForPush();
+  return outcome.registered;
+}
+
 /** Fire-and-forget helper for screens that just want it attempted. */
 export function ensurePushRegistered(): void {
   void registerForPush();

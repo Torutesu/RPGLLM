@@ -76,7 +76,9 @@ const CJK = /[\u3040-\u30ff\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff\uff66-\uff9f]
 
 /** Share of non-space characters that are kana or kanji. The whole of the `locales` rule. */
 export function cjkRatio(text: string): number {
-  const chars = [...text.replace(/\s/g, "")];
+  // `Array.from` iterates code points, which is what a CJK ratio wants — and unlike a spread
+  // the linter can tell that is deliberate rather than an accidental `.split("")`.
+  const chars = Array.from(text.replace(/\s/g, ""));
   if (chars.length === 0) return 0;
   return chars.filter((ch) => CJK.test(ch)).length / chars.length;
 }

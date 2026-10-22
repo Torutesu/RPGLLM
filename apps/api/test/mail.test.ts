@@ -132,7 +132,8 @@ describe("HttpMailSender", () => {
       .catch((e: unknown) => e);
     expect(err).toBeInstanceOf(MailSendError);
     // The error is logged and may reach a tracker; the credential must not ride along.
-    expect(JSON.stringify({ msg: String(err), ...(err as MailSendError) })).not.toContain("987654");
+    // Own properties *and* the message and stack — everything a tracker would serialise.
+    expect(JSON.stringify(err, Object.getOwnPropertyNames(err))).not.toContain("987654");
   });
 
   it("asks who the reader is, once, and only when it can", async () => {

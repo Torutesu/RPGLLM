@@ -7,21 +7,50 @@ import type { AppEnv } from "./types";
 
 const ALG = "HS256";
 
-export async function signSession(userId: string): Promise<string> {
-  return await new SignJWT({ sub: userId })
+/**
+ * Sign a session for `userId`, stamped with the account's current session generation.
+ *
+ * The generation (`v`) is what makes a 30-day token revocable. Without it `verifySession` can only
+ * ever answer "this signature is ours", and a token that leaks — a lost phone, a shared computer,
+ * a copied `localStorage` — stays good for a month with nothing anybody can do about it. The
+ * client's "Sign out" dropped the local copy and nothing else, so the button was honest only on
+ * the device pressing it.
+ */
+export async function signSession(userId: string, tokenVersion = 0): Promise<string> {
+  return await new SignJWT({ sub: userId, v: tokenVersion })
     .setProtectedHeader({ alg: ALG })
     .setIssuedAt()
     .setExpirationTime("30d")
     .sign(jwtSecret());
 }
 
-export async function verifySession(token: string): Promise<string | null> {
+export interface SessionClaims {
+  userId: string;
+  /** the generation this token was issued under; absent in tokens signed before this existed */
+  tokenVersion: number;
+}
+
+export async function verifySessionClaims(token: string): Promise<SessionClaims | null> {
   try {
     const { payload } = await jwtVerify(token, jwtSecret(), { algorithms: [ALG] });
-    return typeof payload.sub === "string" ? payload.sub : null;
+    if (typeof payload.sub !== "string") return null;
+    /*
+     * A token issued before this field existed has no `v`. Treating it as generation 0 keeps
+     * every session alive across the deploy that adds the column (which also defaults to 0) —
+     * and the first "sign out everywhere" moves the account to 1, after which those old tokens
+     * are refused like any other. Rejecting them outright would have logged out every user on
+     * deploy day to close a hole nobody was in.
+     */
+    const v = payload["v"];
+    return { userId: payload.sub, tokenVersion: typeof v === "number" ? v : 0 };
   } catch {
     return null;
   }
+}
+
+/** The user id alone — for the rate limiter, which keys buckets before `requireAuth` runs. */
+export async function verifySession(token: string): Promise<string | null> {
+  return (await verifySessionClaims(token))?.userId ?? null;
 }
 
 /** birthYear 0 means "age gate not answered yet". */
@@ -49,11 +78,13 @@ export const requireAuth: MiddlewareHandler<AppEnv> = async (c, next) => {
   const queryToken = allowsQueryToken(c.req.method, c.req.path) ? (c.req.query("token") ?? "") : "";
   const token = bearer || queryToken;
   if (!token) return unauthorized();
-  const userId = await verifySession(token);
-  if (!userId) return unauthorized();
+  const claims = await verifySessionClaims(token);
+  if (!claims) return unauthorized();
   const deps = c.get("deps");
-  const user = await deps.prisma.user.findUnique({ where: { id: userId } });
+  const user = await deps.prisma.user.findUnique({ where: { id: claims.userId } });
   if (!user) return unauthorized();
+  // Revoked: the account's session generation has moved past the one this token was signed with.
+  if (user.tokenVersion !== claims.tokenVersion) return unauthorized();
   if (isBlockedAge(user.birthYear, deps.clock.now())) return fail("UNAUTHORIZED", "Account is not eligible", 401);
   // S1-1 (Agent G): a soft-deleted account keeps its row through the 30-day grace window but loses
   // every door except `POST /v1/account/restore`, which is how the user cancels the deletion.

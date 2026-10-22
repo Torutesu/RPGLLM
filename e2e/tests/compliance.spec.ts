@@ -6,6 +6,7 @@
 import { expect, test, type APIRequestContext, type Locator, type Page } from "@playwright/test";
 import { REPORT_REASONS, T, strings } from "@rpgllm/shared";
 import {
+  apiEmailAuth,
   apiUrl,
   bearer,
   gotoApp,
@@ -224,11 +225,36 @@ test("S1-1: the account can be deleted in-app and the session stops working", as
     timeout: 15_000,
   });
 
-  // the old token is refused (410 ACCOUNT_DELETED)
+  /*
+   * The old token is dead — **401, not 410**. Deleting an account now revokes every session
+   * (`User.tokenVersion`), because `requireAuth` lets a soft-deleted account reach exactly one
+   * route, `/account/restore`, and this is the button somebody presses when a phone is gone:
+   * without revocation the person holding the token could undo the deletion.
+   */
   const refused = await request.get(apiUrl("/v1/account/export"), {
     headers: bearer(account.jwt),
     failOnStatusCode: false,
   });
-  expect(refused.status()).toBe(410);
-  expect((JSON.parse(await refused.text()) as { error: { code: string } }).error.code).toBe("ACCOUNT_DELETED");
+  expect(refused.status(), "the session that asked for the deletion goes with it").toBe(401);
+
+  /*
+   * And the pending-deletion state is still legible to whoever can prove the address is theirs —
+   * which is the only way back in, and the price of cancelling a deletion. This half of the case
+   * is what the old 410 assertion was really protecting, so it is asserted here rather than lost.
+   */
+  // Signing in, and nothing else: a returning account already answered the age gate, and every
+  // route but `/account/restore` is 410 while a deletion is pending — including that one.
+  const liveJwt = await apiEmailAuth(request, account.email);
+  const asOwner = await request.get(apiUrl("/v1/account/export"), {
+    headers: bearer(liveJwt),
+    failOnStatusCode: false,
+  });
+  expect(asOwner.status()).toBe(410);
+  expect((JSON.parse(await asOwner.text()) as { error: { code: string } }).error.code).toBe("ACCOUNT_DELETED");
+
+  const restore = await request.post(apiUrl("/v1/account/restore"), {
+    headers: bearer(liveJwt),
+    failOnStatusCode: false,
+  });
+  expect(restore.status(), "the one door that stays open, for the owner only").toBe(200);
 });

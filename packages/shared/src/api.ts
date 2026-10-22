@@ -35,6 +35,13 @@ export const AuthProviderZ = z.enum(["email", "apple", "google"]);
 export const AuthEmailStartReqZ = z.object({ email: z.string().email() });
 export const AuthEmailVerifyReqZ = z.object({ email: z.string().email(), code: z.string().length(6) });
 export const AuthResZ = z.object({ jwt: z.string(), isNew: z.boolean(), needsAgeGate: z.boolean() });
+/**
+ * Signing out. `allDevices` moves the account's session generation and invalidates every token
+ * ever issued for it; without it the server does nothing and the client simply forgets its own.
+ */
+export const SignOutReqZ = z.object({ allDevices: z.boolean().default(false) });
+export const SignOutResZ = z.object({ revoked: z.boolean() });
+
 export const AgeGateReqZ = z.object({ birthYear: z.number().int().min(1900).max(2100), locale: LocaleZ });
 export const AgeGateResZ = z.object({ isMinor: z.boolean() });
 
@@ -382,6 +389,22 @@ export const BlockedListResZ = z.object({
 export const PushPlatformZ = z.enum(["ios", "android", "web"]);
 export const RegisterPushReqZ = z.object({ token: z.string().min(8), platform: PushPlatformZ });
 export const RegisterPushResZ = z.object({ registered: z.boolean() });
+
+/**
+ * Turning push off.
+ *
+ * There was a `/register` and nothing else: a product that sends "while you were away" had no
+ * in-app way to stop it, which leaves the OS setting as the only exit and no way at all to
+ * withdraw the consent that registering implied. `token` silences this device; `allDevices`
+ * silences the account.
+ */
+export const UnregisterPushReqZ = z.object({
+  token: z.string().min(8).optional(),
+  allDevices: z.boolean().default(false),
+});
+export const UnregisterPushResZ = z.object({ disabled: z.number().int() });
+/** What the settings toggle renders from: is this account receiving pushes at all? */
+export const PushStatusResZ = z.object({ enabled: z.boolean(), devices: z.number().int() });
 
 /** S2-1 Offline World Director — "While you were away". */
 export const DigestResZ = z.object({

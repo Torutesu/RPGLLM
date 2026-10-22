@@ -19,7 +19,7 @@
     "@prisma/client": "6.19.3",
     "@rpgllm/llm": "workspace:*",
     "@rpgllm/shared": "workspace:*",
-    "hono": "^4.13.5",
+    "hono": "^4.13.13",
     "jose": "^6.1.0",
     "zod": "^4.5.4"
   },

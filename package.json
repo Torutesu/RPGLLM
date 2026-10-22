@@ -10,7 +10,8 @@
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "format": "prettier --write .",
-    "format:check": "prettier --check ."
+    "format:check": "prettier --check .",
+    "audit:server": "node scripts/audit-server.mjs"
   },
   "devDependencies": {
     "typescript": "^5.9.3"

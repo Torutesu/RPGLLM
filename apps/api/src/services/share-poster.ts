@@ -223,7 +223,7 @@ const CRC_TABLE = (() => {
 
 function crc32(buf: Buffer): number {
   let c = -1;
-  for (let i = 0; i < buf.length; i += 1) c = (CRC_TABLE[(c ^ (buf[i] as number)) & 0xff] as number) ^ (c >>> 8);
+  for (const byte of buf) c = (CRC_TABLE[(c ^ byte) & 0xff] as number) ^ (c >>> 8);
   return (c ^ -1) >>> 0;
 }
 

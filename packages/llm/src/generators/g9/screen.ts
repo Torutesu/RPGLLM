@@ -1005,8 +1005,7 @@ function mentionsRomance(latin: string, ja: string): boolean {
  * bypassable by switching it. The parameter is kept because apps/api logs the pair and because
  * the signature has to stay stable for the API's own tests.
  */
-export function screenPremise(premise: string, locale: Locale): PremiseScreenResult {
-  void locale;
+export function screenPremise(premise: string, _locale: Locale): PremiseScreenResult {
   const raw = premise ?? "";
   const latin = latinHaystack(raw);
   const ja = jaHaystack(raw);

@@ -260,7 +260,8 @@ export function nameWords(base: G9Input): { en: string; ja: string; second: stri
 
 /** Everything a template may reference, for one locale of one world. */
 export function contextFor(concept: G9Concept, pack: GenrePack, locale: Locale, self?: G9ConceptCast): FillContext {
-  const w = pack.words[locale];
+  // Typed here rather than cast at each use: every value in a word pack is a word.
+  const w: Record<string, string> = pack.words[locale];
   const press = concept.cast.find((c) => c.isPressAccount) ?? concept.cast[0];
   const others = concept.cast.filter((c) => c.handle !== self?.handle && !c.isPressAccount);
   const other = others[pick(Math.max(others.length, 1), concept.title.en, self?.handle ?? "world")];

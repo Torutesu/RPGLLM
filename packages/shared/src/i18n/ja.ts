@@ -345,4 +345,10 @@ export const ja: Strings = {
   mailCodeExpiry: "分で期限切れになり、使えるのは一度だけです。",
   mailCodeExpiryLead: "あと",
   mailCodeIgnore: "心当たりがなければ、このメールは無視して大丈夫です。コードが無ければ誰もサインインできません。",
+  signOutEverywhere: "すべての端末からサインアウト",
+  signOutEverywhereHint: "手元にない端末も含めて、全セッションを終了します。ここでも入り直しになります。",
+  signedOutEverywhere: "全セッションを終了しました",
+  pushEnabled: "プッシュ通知",
+  pushEnabledHint: "離れている間に起きたこと。",
+  pushOff: "このアカウントではオフ",
 };

@@ -357,5 +357,12 @@ export const en = {
   mailCodeExpiry: "minutes, and it can only be used once.",
   mailCodeExpiryLead: "It expires in",
   mailCodeIgnore: "If you didn't ask for this, you can ignore this email — nobody can sign in without the code.",
+  /** Settings: the two controls this product was missing — see pipeline/status/plan-12.md */
+  signOutEverywhere: "Sign out of all devices",
+  signOutEverywhereHint: "Ends every session, including any you can't reach. You'll sign in again here.",
+  signedOutEverywhere: "All sessions ended",
+  pushEnabled: "Push notifications",
+  pushEnabledHint: "What you missed while you were away.",
+  pushOff: "Off on this account",
 } as const;
 export type Strings = { [K in keyof typeof en]: (typeof en)[K] extends readonly string[] ? readonly string[] : string };
