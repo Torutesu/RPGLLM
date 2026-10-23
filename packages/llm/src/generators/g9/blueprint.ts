@@ -260,8 +260,7 @@ export function nameWords(base: G9Input): { en: string; ja: string; second: stri
 
 /** Everything a template may reference, for one locale of one world. */
 export function contextFor(concept: G9Concept, pack: GenrePack, locale: Locale, self?: G9ConceptCast): FillContext {
-  // Typed here rather than cast at each use: every value in a word pack is a word.
-  const w: Record<string, string> = pack.words[locale];
+  const w = pack.words[locale];
   const press = concept.cast.find((c) => c.isPressAccount) ?? concept.cast[0];
   const others = concept.cast.filter((c) => c.handle !== self?.handle && !c.isPressAccount);
   const other = others[pick(Math.max(others.length, 1), concept.title.en, self?.handle ?? "world")];
@@ -275,7 +274,10 @@ export function contextFor(concept: G9Concept, pack: GenrePack, locale: Locale, 
   };
   // Sentence-initial aliases: `{Crowd}` for "{crowd}" so a template can start a sentence with a
   // noun that is lowercase in the middle of one. English only — Japanese has no letter case.
-  for (const [key, value] of Object.entries(w)) {
+  // `Object.entries` cannot infer the value type of an interface with no index signature, and an
+  // untyped entry makes every use below `any`. A word pack is words; saying so once here beats
+  // widening `w` itself, which would make `w.room` and `w.crowd` possibly-undefined downstream.
+  for (const [key, value] of Object.entries(w) as [string, string][]) {
     ctx[key.charAt(0).toUpperCase() + key.slice(1)] =
       value.length === 0 ? value : value.charAt(0).toUpperCase() + value.slice(1);
   }
