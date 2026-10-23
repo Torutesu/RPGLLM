@@ -274,7 +274,10 @@ export function contextFor(concept: G9Concept, pack: GenrePack, locale: Locale, 
   };
   // Sentence-initial aliases: `{Crowd}` for "{crowd}" so a template can start a sentence with a
   // noun that is lowercase in the middle of one. English only — Japanese has no letter case.
-  for (const [key, value] of Object.entries(w)) {
+  // `Object.entries` cannot infer the value type of an interface with no index signature, and an
+  // untyped entry makes every use below `any`. A word pack is words; saying so once here beats
+  // widening `w` itself, which would make `w.room` and `w.crowd` possibly-undefined downstream.
+  for (const [key, value] of Object.entries(w) as [string, string][]) {
     ctx[key.charAt(0).toUpperCase() + key.slice(1)] =
       value.length === 0 ? value : value.charAt(0).toUpperCase() + value.slice(1);
   }

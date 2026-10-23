@@ -1,4 +1,5 @@
 import { defineConfig, devices, type PlaywrightTestConfig } from "@playwright/test";
+import { existsSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -35,6 +36,28 @@ export const TEST_DATABASE_URL = process.env.E2E_DATABASE_URL ?? `${DB_BASE}/rpg
 /** Ads flag baked into the web export we serve. E2E-007/016 need it; E2E-012 turns it off at runtime. */
 const ADS_MODE = process.env.EXPO_PUBLIC_ADS_MODE ?? "test";
 
+/**
+ * Which Chromium to launch.
+ *
+ * This sandbox ships one at `/opt/pw-browsers` and forbids `playwright install`, so that path is
+ * the default here. It is **this machine's** path, though, and hard-coding it meant every
+ * browser-backed case on a GitHub runner died with "executable doesn't exist" — 67 of them, in a
+ * job that had therefore never actually run.
+ *
+ * So: an explicit `PW_CHROMIUM_PATH` wins, the sandbox's browser is used when it is really there,
+ * and otherwise this says nothing and lets Playwright launch the browser it installed itself.
+ * Being silent is the right failure mode — a wrong path is a worse answer than no answer.
+ */
+function chromiumPath(): string | undefined {
+  const explicit = process.env.PW_CHROMIUM_PATH;
+  if (explicit) return explicit;
+  return existsSync(SANDBOX_CHROMIUM) ? SANDBOX_CHROMIUM : undefined;
+}
+
+const SANDBOX_CHROMIUM = "/opt/pw-browsers/chromium";
+/** `undefined` entries are dropped by Playwright, so this is "use your own" when unresolved. */
+const launchOptions = { executablePath: chromiumPath() };
+
 const desktop = { ...devices["Desktop Chrome"], viewport: { width: 1280, height: 800 } } as const;
 
 /**
@@ -52,7 +75,7 @@ if (process.env.E2E_PROD_WEB_URL) {
     grep: /E2E-012/,
     use: {
       // Chromium preinstalled in this environment (Playwright build revision may differ; never run `playwright install`)
-      launchOptions: { executablePath: process.env.PW_CHROMIUM_PATH ?? "/opt/pw-browsers/chromium" },
+      launchOptions,
       ...desktop,
       baseURL: process.env.E2E_PROD_WEB_URL,
     },
@@ -77,7 +100,7 @@ export default defineConfig({
   outputDir: "test-results",
   use: {
     // Chromium preinstalled in this environment (build revision differs from Playwright 1.62; never run `playwright install`)
-    launchOptions: { executablePath: process.env.PW_CHROMIUM_PATH ?? "/opt/pw-browsers/chromium" },
+    launchOptions,
     baseURL: WEB_URL,
     trace: "on-first-retry",
     screenshot: "only-on-failure",

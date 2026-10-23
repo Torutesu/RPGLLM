@@ -131,7 +131,7 @@ let emailSeq = 0;
 export async function signup(
   h: Harness,
   opts: { birthYear?: number; locale?: "en" | "ja"; email?: string } = {},
-): Promise<{ token: string; userId: string; ageGateStatus: number }> {
+): Promise<{ token: string; userId: string; email: string; ageGateStatus: number }> {
   const email = opts.email ?? `user${++emailSeq}.${Date.now()}@example.com`;
   const auth = await call<{ jwt: string; isNew: boolean; needsAgeGate: boolean }>(h, "POST", "/v1/auth/email/verify", {
     body: { email, code: DEV_EMAIL_CODE },
@@ -142,7 +142,9 @@ export async function signup(
     body: { birthYear: opts.birthYear ?? 1995, locale: opts.locale ?? "en" },
   });
   const user = await prisma.user.findUniqueOrThrow({ where: { email } });
-  return { token, userId: user.id, ageGateStatus: gate.status };
+  // `email` comes back so a case can sign the same account in again — which is what every
+  // revocation test needs, and the only way to get a token for a session that was taken away.
+  return { token, userId: user.id, email, ageGateStatus: gate.status };
 }
 
 export interface PersonaFixture {

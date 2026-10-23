@@ -17,9 +17,27 @@ beforeEach(async () => {
 const deleteAccount = (token: string) =>
   call<{ deletedAt: string; purgeAt: string }>(h, "POST", "/v1/account/delete", { token, body: { confirm: "DELETE" } });
 
+/**
+ * A note on the extra sign-in in these cases (12th pass).
+ *
+ * Deleting an account now revokes every session (`User.tokenVersion`), because `requireAuth` lets
+ * a soft-deleted account through to exactly one route — `/account/restore` — and "delete my
+ * account" is the button somebody presses when a phone is gone. Without revocation, the person
+ * holding the stolen token could undo the deletion.
+ *
+ * So the token used *before* the deletion is dead afterwards, and these cases sign in again to
+ * get a live one. Nothing they asserted is weakened: the 410 + `ACCOUNT_DELETED` body, the one
+ * open door, the grace window and the purge are all still pinned — and each case now also proves
+ * the pre-deletion token stopped working, which is the property the change was made for. The
+ * shipped client already signed out locally right after deleting (`app/delete-account.tsx`), so
+ * this is the flow a real user has always walked.
+ */
 describe("S1-1 account deletion (App Store 5.1.1(v))", () => {
+  /** A fresh session for an account whose deletion is pending — i.e. proof the address is yours. */
+  const signBackIn = async (email: string): Promise<string> => (await signup(h, { email })).token;
+
   it("soft-deletes the user and revokes access to the account routes", async () => {
-    const { token, userId } = await signup(h);
+    const { token, userId, email } = await signup(h);
 
     const res = await deleteAccount(token);
     expect(res.status).toBe(200);
@@ -27,27 +45,34 @@ describe("S1-1 account deletion (App Store 5.1.1(v))", () => {
     expect(row.deletedAt).not.toBeNull();
     expect(Date.parse(res.data.purgeAt) - Date.parse(res.data.deletedAt)).toBe(DELETION_GRACE_DAYS * DAY_MS);
 
-    const after = await call(h, "GET", "/v1/account/export", { token });
+    // The session that asked for the deletion is gone with it.
+    expect((await call(h, "GET", "/v1/account/export", { token })).status).toBe(401);
+
+    const live = await signBackIn(email);
+    const after = await call(h, "GET", "/v1/account/export", { token: live });
     expect(after.status).toBe(410);
     expect(after.error?.code).toBe("ACCOUNT_DELETED");
 
-    const moderation = await call(h, "GET", "/v1/moderation/blocked", { token });
+    const moderation = await call(h, "GET", "/v1/moderation/blocked", { token: live });
     expect(moderation.status).toBe(410);
   });
 
   it("locks a soft-deleted user out of the rest of the API but leaves /account/restore reachable", async () => {
     const fx = await signupWithPersona(h);
+    const email = (await prisma.user.findUniqueOrThrow({ where: { id: fx.userId } })).email as string;
     await deleteAccount(fx.token);
+    expect((await call(h, "GET", "/v1/me", { token: fx.token })).status, "the old session is revoked").toBe(401);
 
+    const token = await signBackIn(email);
     for (const path of ["/v1/me", `/v1/feed?personaId=${fx.personaId}`, "/v1/wallet"]) {
-      const res = await call(h, "GET", path, { token: fx.token });
+      const res = await call(h, "GET", path, { token });
       expect(res.status, `${path} must be 410 for a deleted account`).toBe(410);
       expect(res.error?.code).toBe("ACCOUNT_DELETED");
     }
-    const restored = await call<{ restored: boolean }>(h, "POST", "/v1/account/restore", { token: fx.token });
+    const restored = await call<{ restored: boolean }>(h, "POST", "/v1/account/restore", { token });
     expect(restored.status, "restore is the one door that stays open").toBe(200);
     expect(restored.data.restored).toBe(true);
-    expect((await call(h, "GET", "/v1/me", { token: fx.token })).status).toBe(200);
+    expect((await call(h, "GET", "/v1/me", { token })).status).toBe(200);
   });
 
   it("rejects a body that does not spell DELETE", async () => {
@@ -58,8 +83,9 @@ describe("S1-1 account deletion (App Store 5.1.1(v))", () => {
   });
 
   it("restores the account inside the grace window", async () => {
-    const { token, userId } = await signup(h);
-    await deleteAccount(token);
+    const { token: deleting, userId, email } = await signup(h);
+    await deleteAccount(deleting);
+    const token = await signBackIn(email);
 
     const restored = await call<{ restored: boolean }>(h, "POST", "/v1/account/restore", { token });
     expect(restored.status).toBe(200);
@@ -71,8 +97,9 @@ describe("S1-1 account deletion (App Store 5.1.1(v))", () => {
   });
 
   it("refuses to restore once the grace window has passed", async () => {
-    const { token, userId } = await signup(h);
-    await deleteAccount(token);
+    const { token: deleting, userId, email } = await signup(h);
+    await deleteAccount(deleting);
+    const token = await signBackIn(email);
     await prisma.user.update({
       where: { id: userId },
       data: { deletedAt: new Date(Date.now() - (DELETION_GRACE_DAYS + 1) * DAY_MS) },

@@ -70,6 +70,30 @@ export function refusalFallbacksEnabled(tier: ModelTier): boolean {
 
 export const REFUSAL_FALLBACK_BETA = "server-side-fallback-2026-07-01";
 
+/**
+ * How long one interactive call may take before it is abandoned.
+ *
+ * The SDK's default is ten minutes, which is the right order for a batch job and the wrong one
+ * for a person watching their post. Worse, the energy was already spent: a hung upstream held a
+ * request, a database connection and one of the player's ten daily actions for as long as it felt
+ * like, and the player's natural response — pull to refresh, post again — spends another.
+ *
+ * The ceilings are per tier because the tiers do different work: the light tier is a ~250-token
+ * classifier in front of a gate, the mid tier writes a handful of replies, and the high tier is
+ * a world. Crossing one raises the ordinary `GeneratorFailure("error")`, which the gateway already
+ * turns into a retry and then the deterministic fallback — with the energy refunded.
+ */
+export const TIER_TIMEOUT_MS: Record<ModelTier, number> = {
+  light: 20_000,
+  mid: 45_000,
+  high: 180_000,
+};
+
+export function timeoutMsFor(tier: ModelTier): number {
+  const override = Number(process.env[`LLM_TIMEOUT_MS_${tier.toUpperCase()}`] ?? "");
+  return Number.isFinite(override) && override > 0 ? override : TIER_TIMEOUT_MS[tier];
+}
+
 export interface LiveResult<T> {
   output: T;
   usage: Usage;
@@ -132,20 +156,33 @@ export async function runLive<T>(args: BuildRequestArgs & { schema: z.ZodType<T>
   const req = buildRequest(args);
 
   let res: RawResponse;
+  // Abandoning the call does not un-bill it — the tokens are spent either way — but it does give
+  // the player an answer, and the gateway's fallback path refunds the energy.
+  const timeout = AbortSignal.timeout(timeoutMsFor(args.tier));
   try {
     if (refusalFallbacksEnabled(args.tier)) {
-      res = (await client().beta.messages.create({
-        ...(req as unknown as Anthropic.Beta.Messages.MessageCreateParamsNonStreaming),
-        betas: [REFUSAL_FALLBACK_BETA],
-        fallbacks: "default",
-      })) as unknown as RawResponse;
-    } else {
-      res = (await client().messages.create(
-        req as unknown as Anthropic.Messages.MessageCreateParamsNonStreaming,
+      res = (await client().beta.messages.create(
+        {
+          ...(req as unknown as Anthropic.Beta.Messages.MessageCreateParamsNonStreaming),
+          betas: [REFUSAL_FALLBACK_BETA],
+          fallbacks: "default",
+        },
+        { signal: timeout },
       )) as unknown as RawResponse;
+    } else {
+      res = (await client().messages.create(req as unknown as Anthropic.Messages.MessageCreateParamsNonStreaming, {
+        signal: timeout,
+      })) as unknown as RawResponse;
     }
   } catch (cause) {
-    throw new GeneratorFailure("error", `anthropic request failed: ${String(cause)}`, { cause });
+    const timedOut = timeout.aborted;
+    throw new GeneratorFailure(
+      "error",
+      timedOut
+        ? `anthropic request timed out after ${timeoutMsFor(args.tier)}ms`
+        : `anthropic request failed: ${String(cause)}`,
+      { cause },
+    );
   }
 
   // Always check stop_reason before reading content.

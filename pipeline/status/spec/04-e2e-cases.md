@@ -286,3 +286,25 @@
 - screens: [/s/w/:id]
 - steps: Given ビルド直後の非公開ワールド / When 共有URLと画像URLを取得する / Then どちらも404で、404の本文も HTML かつ `noindex`（クローラは渡されたものを何でも描画する）
 - priority: P0
+
+## E2E-047: すべてのレスポンスが、ブラウザが自衛するためのヘッダを持つ
+- screens: [/s/w/:id]
+- steps: Given API が起動している / When 任意の JSON と共有ページを取得する / Then `nosniff`・`Referrer-Policy`・`X-Frame-Options: DENY`・CSP が付いている。共有ページ（この製品で唯一の HTML）は `frame-ancestors 'none'` と「script を一切持たない」CSP
+- priority: P0
+- note: ヘッダは `next()` の後に付けるので、ハンドラ単体テストでは通ってフレームワーク越しに消える種類の失敗をする。だから HTTP 越しに見る
+
+## E2E-048: 誰も送らないはずのボディは、解釈される前に拒否される
+- screens: []
+- steps: Given 認証済みの利用者 / When 200,000 文字の投稿を送る / Then **413**（400 ではない。理由がサイズであることを運用者に伝えるため）
+- priority: P0
+
+## E2E-049: 全端末サインアウトが、手元にないセッションを殺す
+- screens: [SCR-034]
+- steps: Given 同じセッションを持つ別クライアント / When `POST /v1/auth/sign-out {allDevices:true}` / Then そのトークンは即座に 401（30日有効なトークンを取り消せるのはこれだけ）
+- priority: P0
+
+## E2E-050: 必要な操作が、人が探す場所にある
+- screens: [SCR-034]
+- steps: Given 設定画面 / When 開く / Then 「すべての端末からサインアウト」と「プッシュ通知」トグルが見えており、1 台も登録していないアカウントではトグルは off と表示する
+- priority: P1
+- note: API だけ作ってボタンが無い機能は、利用者にとっては存在しない

@@ -44,6 +44,9 @@ import {
   RedeemReferralResZ,
   ProfileResZ,
   RegisterPushResZ,
+  PushStatusResZ,
+  UnregisterPushResZ,
+  SignOutResZ,
   // Feed & discovery (Agent K): SCR-046 trending / explore, SCR-047 character profile.
   TrendingResZ,
   CharacterProfileResZ,
@@ -489,6 +492,24 @@ export const api = {
   /** S2-2 — Expo push token. */
   registerPush: (token: string, platform: "ios" | "android" | "web") =>
     request("/push/register", { method: "POST", body: { token, platform }, schema: RegisterPushResZ }),
+
+  /** Whether this account is receiving pushes at all — what the settings toggle renders from. */
+  pushStatus: () => request("/push/status", { method: "GET", schema: PushStatusResZ }),
+
+  /** Turning them off. No argument means every device: the switch in Settings is per account. */
+  unregisterPush: (token?: string) =>
+    request("/push/unregister", {
+      method: "POST",
+      body: token ? { token } : { allDevices: true },
+      schema: UnregisterPushResZ,
+    }),
+
+  /**
+   * Signing out everywhere. This is the only control that does anything about a token somebody
+   * else has — the ordinary sign-out just forgets the local copy.
+   */
+  signOutAllDevices: () =>
+    request("/auth/sign-out", { method: "POST", body: { allDevices: true }, schema: SignOutResZ }),
 };
 
 /** Response types for the S2 screens, inferred from the shared contracts. */

@@ -7,6 +7,8 @@ import { IS_WEB } from "../src/env";
 import { useActions, useAppState, useT } from "../src/state/store";
 import { Button, HeaderBar, Screen } from "../src/components/ui";
 import { pushOnce } from "../src/nav";
+import { api } from "../src/api/client";
+import { setPushEnabled } from "../src/push";
 
 const STORE_SUBSCRIPTIONS: Record<string, string> = {
   ios: "https://apps.apple.com/account/subscriptions",
@@ -83,7 +85,9 @@ export default function SettingsScreen() {
   const { setLocale, signOut, setConsent, exportMyData, restorePurchases, loadBlocked } = useActions();
   const { t } = useT();
 
-  const [busy, setBusy] = useState<"export" | "restore" | "consent" | null>(null);
+  const [busy, setBusy] = useState<"export" | "restore" | "consent" | "push" | "signOutAll" | null>(null);
+  /** `null` until `/push/status` answers — the toggle renders a dash rather than guessing. */
+  const [pushOn, setPushOn] = useState<boolean | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -91,6 +95,23 @@ export default function SettingsScreen() {
   useEffect(() => {
     void loadBlocked();
   }, [loadBlocked, me?.persona?.id]);
+
+  // The push toggle reflects the *account*, not this device's OS permission: a person who turned
+  // notifications off from another phone must see them off here too.
+  useEffect(() => {
+    let alive = true;
+    void api
+      .pushStatus()
+      .then((res) => {
+        if (alive) setPushOn(res.enabled);
+      })
+      .catch(() => {
+        if (alive) setPushOn(false);
+      });
+    return () => {
+      alive = false;
+    };
+  }, [me?.user.id]);
 
   const isMinor = me?.user.isMinor ?? true;
   const creatorHandle = me?.user.creatorHandle ?? "";
@@ -108,6 +129,54 @@ export default function SettingsScreen() {
     if (router.canGoBack()) router.back();
     else router.replace("/feed");
   }, []);
+
+  /**
+   * Ending every session. The ordinary sign-out forgets the local token and nothing else, so this
+   * is the only control that does anything about a copy somebody else has — a phone left behind,
+   * a shared computer. It signs this device out too, because a control that quietly spared the
+   * device pressing it would not be what it says on the label.
+   */
+  const onSignOutAll = async () => {
+    setError(null);
+    setNotice(null);
+    setBusy("signOutAll");
+    try {
+      await api.signOutAllDevices();
+      setNotice(t("signedOutEverywhere"));
+      await signOut();
+    } catch {
+      setError(t("loadFailed"));
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const onTogglePush = async () => {
+    setError(null);
+    setNotice(null);
+    setBusy("push");
+    try {
+      if (pushOn) {
+        await setPushEnabled(false);
+        setPushOn(false);
+      } else {
+        /*
+         * Turning them back on re-registers this device. `registerPush` flips `enabled` back on
+         * for the row it already has, so this is one tap rather than a round trip through the OS
+         * permission dialog — unless the OS permission itself was withdrawn, which is the one
+         * state this screen cannot change and does not pretend to.
+         */
+        const granted = await setPushEnabled(true);
+        setPushOn(granted);
+        // `false` here means the OS permission is gone, which this screen cannot grant.
+        if (!granted) setError(t("loadFailed"));
+      }
+    } catch {
+      setError(t("loadFailed"));
+    } finally {
+      setBusy(null);
+    }
+  };
 
   const onExport = async () => {
     setError(null);
@@ -191,6 +260,14 @@ export default function SettingsScreen() {
           />
           <Button testID={T.settingsSignOut} label={t("signOut")} variant="ghost" onPress={() => void onSignOut()} />
           <Button
+            testID={T.settingsSignOutAll}
+            label={t("signOutEverywhere")}
+            variant="ghost"
+            disabled={busy === "signOutAll"}
+            onPress={() => void onSignOutAll()}
+          />
+          <Text style={{ color: colors.textMuted, fontSize: font.xs }}>{t("signOutEverywhereHint")}</Text>
+          <Button
             testID={T.settingsDelete}
             label={t("deleteAccount")}
             variant="ghost"
@@ -213,6 +290,38 @@ export default function SettingsScreen() {
             onPress={() => void onRestore()}
             loading={busy === "restore"}
           />
+        </Section>
+
+        <Section title={t("notifications")}>
+          <Pressable
+            testID={T.settingsPushToggle}
+            accessibilityRole="switch"
+            accessibilityState={{ checked: pushOn === true, disabled: busy === "push" }}
+            accessibilityLabel={t("pushEnabled")}
+            disabled={busy === "push"}
+            onPress={() => void onTogglePush()}
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              justifyContent: "space-between",
+              gap: spacing.md,
+              paddingVertical: spacing.xs,
+            }}
+          >
+            <Text style={{ color: colors.text, fontSize: font.md, flexShrink: 1 }}>{t("pushEnabled")}</Text>
+            <Text
+              style={{
+                color: pushOn ? colors.positive : colors.textMuted,
+                fontSize: font.md,
+                fontWeight: "700",
+              }}
+            >
+              {pushOn === null ? "—" : pushOn ? t("on") : t("off")}
+            </Text>
+          </Pressable>
+          <Text style={{ color: colors.textMuted, fontSize: font.xs }}>
+            {pushOn === false ? t("pushOff") : t("pushEnabledHint")}
+          </Text>
         </Section>
 
         <Section title={t("privacy")}>

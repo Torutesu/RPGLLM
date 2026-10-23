@@ -68,6 +68,7 @@ when any of these is wrong. `.env.example` is development-only and is not read w
 | `PUBLIC_APP_URL` | the web app's origin | invites and every share card's "Open it" are built from it; unset, they point at the placeholder host `rpgllm.example` |
 | `ADMIN_TOKEN` **or** `ADMIN_TOKENS` | a secret / `name:secret` pairs | with neither, no reviewer can reach the moderation queue and no world ever reaches Explore |
 | `REVENUECAT_WEBHOOK_SECRET` | the shared secret | required when `BILLING_MODE=revenuecat`: the webhook is the one unauthenticated request that grants entitlements |
+| `MAX_BODY_BYTES` | leave at `65536` unless something legitimately sends more | zod validates *after* the body is buffered; without a ceiling a 100 MB POST is 100 MB of heap before anything rejects it |
 | `MAIL_PROVIDER` | `resend` or `postmark` | `console` prints the sign-in code to the log — nobody can sign in, and every credential is in the log pipeline |
 | `MAIL_API_KEY` / `MAIL_FROM` | the provider key / a verified sender | the provider refuses every send without them |
 | `LLM_DAILY_BUDGET_USD` | a positive number, or `unlimited` | the day's ceiling. No cap is allowed; *not deciding* is not |
@@ -139,6 +140,34 @@ Optional, with safe defaults:
   `GenerationLog`, the same rows the invoice is reconciled against. `GET /v1/cost/live` reports
   `budget: { limitUsd, spentUsd, remainingUsd, exhausted }`; a day that trips logs
   `msg:"llm.budget.exhausted"` **once**, so alert on that line.
+- **Sessions can be taken back.** A session JWT lasts 30 days, and until the 12th pass nothing
+  could revoke one: the client's "Sign out" dropped its own copy and a leaked token kept working
+  for a month. `User.tokenVersion` is the generation a token was signed under; `requireAuth`
+  compares, and `POST /v1/auth/sign-out {"allDevices":true}` increments it — every token for that
+  account dies at once (`msg:"auth.sessions.revoked"`). Deleting an account increments it too,
+  because `requireAuth` lets a soft-deleted account reach `/account/restore` and the stolen token
+  must not be able to undo the deletion. Tokens issued before the column existed carry no
+  generation and read as 0, so the deploy that adds it signs nobody out.
+- **Security headers** are on every response (`middleware/security-headers.ts`): `nosniff`,
+  `Referrer-Policy`, `X-Frame-Options: DENY`, a `Permissions-Policy` that grants nothing, and a
+  CSP. `/s/*` — the only HTML this service serves — gets `default-src 'none'` plus its own image
+  and inline style, and `frame-ancestors 'none'`, because a page that is mostly a large "Open it"
+  button is a clickjacking target. HSTS is sent **only** when `NODE_ENV=production`; on localhost
+  it would pin a developer's browser to HTTPS for a year against a service that does not speak it.
+- **Request bodies** are capped at `MAX_BODY_BYTES` (64 KB) by `middleware/body-limit.ts`, which
+  trusts a declared `content-length` at or under the limit (the HTTP parser frames by it) and
+  counts a streamed body as it arrives. `/billing/webhook` is exempt: it carries its own HMAC.
+- **LLM calls time out** per tier (`TIER_TIMEOUT_MS`, overridable with `LLM_TIMEOUT_MS_LIGHT`
+  / `_MID` / `_HIGH`). The SDK's own default is ten minutes, which would hold a request *and* one
+  of the player's ten daily actions while they watch a spinner. A timeout is an ordinary
+  generator failure: retry, then the deterministic fallback, with the energy refunded.
+- **Turning push off** is `POST /v1/push/unregister` (`{token}` for one device, `{allDevices:true}`
+  for the account) and `GET /v1/push/status` is what the settings toggle renders from. The row is
+  kept and `enabled` flipped, so turning them back on does not need a second trip through the OS
+  permission dialog.
+- **Dependency advisories**: `pnpm audit:server` (CI) fails only on high/critical advisories in
+  **the API's runtime tree** — the workspace has plenty in vitest, eslint and the Expo CLI, and a
+  gate that fails on those is one somebody disables. Read the full `pnpm audit` anyway.
 - **Who reviewed this.** `ADMIN_TOKENS=rina:secret1,koji:secret2` gives every reviewer a revocable
   credential, and the name written to `World.reviewedBy` (and held by a review claim) comes from
   the secret that matched — the `x-reviewer` header is ignored. With the shared `ADMIN_TOKEN` there

@@ -87,6 +87,7 @@ beforeEach(() => {
   process.env.LLM_REPLAY_LATENCY_MS = "0";
   delete process.env.LLM_MODE;
   delete process.env.LLM_REFUSAL_FALLBACKS;
+  delete process.env.LLM_TIMEOUT_MS_MID;
 });
 afterEach(() => {
   process.env = { ...savedEnv };
@@ -150,6 +151,55 @@ describe("runLive — the answer", () => {
     const { client } = stubClient([g1Answer(patch)]);
     __setClient(client);
     await expect(runG1()).rejects.toMatchObject({ kind: "invalid_json" });
+  });
+
+  /**
+   * The ceiling. The SDK's own default is ten minutes, which is the right order for a batch job
+   * and the wrong one for somebody watching their post — and the energy was already spent, so a
+   * hung upstream holds the request *and* one of the player's ten daily actions until it feels
+   * like answering.
+   */
+  it("gives up on a call that never comes back", async () => {
+    process.env.LLM_TIMEOUT_MS_MID = "60";
+    // A client that honours the signal and otherwise waits forever — a stalled upstream.
+    const client = {
+      messages: {
+        create: (_body: unknown, opts: { signal?: AbortSignal }) =>
+          new Promise((_resolve, reject) => {
+            opts.signal?.addEventListener("abort", () => {
+              reject(new Error("aborted"));
+            });
+          }),
+      },
+    } as unknown as Anthropic;
+    __setClient(client);
+
+    const started = Date.now();
+    const err = await runG1().catch((e: unknown) => e);
+    expect(err).toMatchObject({ kind: "error" });
+    expect(String((err as Error).message)).toContain("timed out");
+    // Not "eventually": the point is that the player gets an answer while they are still there.
+    expect(Date.now() - started).toBeLessThan(5_000);
+  });
+
+  it("falls back for the player when the call times out", async () => {
+    process.env.LLM_TIMEOUT_MS_MID = "60";
+    const client = {
+      messages: {
+        create: (_body: unknown, opts: { signal?: AbortSignal }) =>
+          new Promise((_resolve, reject) => {
+            opts.signal?.addEventListener("abort", () => {
+              reject(new Error("aborted"));
+            });
+          }),
+      },
+    } as unknown as Anthropic;
+    __setClient(client);
+
+    const res = await createGateway({ mode: "live" }).g1(g1Input("popstar-era", "en", 1));
+    // The same shape as any other outage: characters still reply, and the energy comes back.
+    expect(res.meta.fallback).toBe(true);
+    expect(res.output.replies.length).toBeGreaterThan(0);
   });
 
   it("wraps a transport failure rather than letting the SDK's error escape", async () => {
