@@ -125,17 +125,19 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter api exec prisma generate
 
-      # The dev sandbox ships a preinstalled Chromium at /opt/pw-browsers and FORBIDS
-      # `playwright install`; CI has no such browser, so it is downloaded here and ONLY here
-      # (guarded by `env.CI == 'true'`, which is never set in the sandbox).
-      # playwright.config.ts defaults `launchOptions.executablePath` to /opt/pw-browsers/chromium,
-      # so CI must also export PW_CHROMIUM_PATH — the next step does that.
-      - name: install chromium (CI only)
-        if: ${{ env.CI == 'true' }}
+      # The dev sandbox ships a preinstalled Chromium at /opt/pw-browsers and forbids
+      # `playwright install`; a GitHub runner has no such browser, so it is downloaded here.
+      #
+      # These two steps used to carry `if: ${{ env.CI == 'true' }}`, which **never fired**: the
+      # `env` context in an expression sees only the workflow's own `env:` blocks, not the
+      # runner's CI=true shell variable. So no browser was installed, PW_CHROMIUM_PATH stayed
+      # unset, and every browser-backed case failed on a path that only exists in the sandbox —
+      # which is why this job had never actually run. A workflow file only ever runs in CI; the
+      # guard was protecting nothing and hiding everything.
+      - name: install chromium
         run: pnpm --filter e2e exec playwright install --with-deps chromium
 
-      - name: resolve the CI chromium path
-        if: ${{ env.CI == 'true' }}
+      - name: resolve the chromium path
         run: echo "PW_CHROMIUM_PATH=$(pnpm --filter e2e exec node -e "console.log(require('@playwright/test').chromium.executablePath())")" >> "$GITHUB_ENV"
 
       - run: pnpm e2e
